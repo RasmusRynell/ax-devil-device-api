@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ax-devil-device-api"
+version = "0.1.0"
+description = "Python library for interacting with Axis device APIs"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+authors = [
+    {name = "Rasmus Rynell", email = "Rynell.Rasmus@gmail.com"},
+]
+dependencies = [
+    "requests>=2.25.0",
+    "click>=8.0.0",  # Required for CLIs
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/ax-devil-device-api"
+Repository = "https://github.com/yourusername/ax-devil-device-api.git"
+
+[project.scripts]
+ax-devil-device-api-mqtt-client = "ax_devil_device_api.examples.mqtt_client_cli:cli"
+ax-devil-device-api-device = "ax_devil_device_api.examples.device_cli:cli"
+ax-devil-device-api-network = "ax_devil_device_api.examples.network_cli:cli"
+ax-devil-device-api-geocoordinates = "ax_devil_device_api.examples.geocoordinates_cli:cli"
+ax-devil-device-api-analytics-mqtt = "ax_devil_device_api.examples.analytics_mqtt_cli:cli"
+ax-devil-device-api-media = "ax_devil_device_api.examples.media_cli:cli"
