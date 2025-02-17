@@ -92,10 +92,8 @@ class CameraConfig:
 
         if self.protocol == Protocol.HTTPS and not self.ssl.verify:
             import warnings
-            warnings.warn(
-                "HTTPS being used with SSL verification disabled. "
-                "This is insecure and should only be used in development."
-            )
+            import urllib3
+            warnings.filterwarnings('ignore', category=urllib3.exceptions.InsecureRequestWarning)
 
     @classmethod
     def http(cls, host: str, username: str, password: str, port: Optional[int] = None) -> 'CameraConfig':

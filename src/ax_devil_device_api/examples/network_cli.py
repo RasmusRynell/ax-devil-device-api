@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""CLI for managing network operations."""
+
 import click
 from .cli_core import (
     create_client, handle_result, handle_error, get_client_args,
@@ -15,7 +17,6 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
     When using HTTPS (default), the camera must have a valid SSL certificate. For cameras with
     self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
     """
-    # Store common parameters in the context
     ctx.ensure_object(dict)
     ctx.obj.update({
         'camera_ip': camera_ip,
@@ -36,6 +37,17 @@ def network_info(ctx, interface):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.network.get_network_info(interface)
+            
+            if result.success:
+                click.echo(f"Interface {interface} information:")
+                for key, value in result.data.__dict__.items():
+                    click.echo(f"  {key}: {value}")
+                return 0
+                
             return handle_result(ctx, result)
     except Exception as e:
-        return handle_error(ctx, e) 
+        return handle_error(ctx, e)
+
+
+if __name__ == '__main__':
+    cli() 

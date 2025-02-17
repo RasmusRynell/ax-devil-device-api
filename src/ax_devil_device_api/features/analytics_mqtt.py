@@ -11,6 +11,7 @@ from .base import AxisFeatureClient
 from ..core.types import FeatureResponse, TransportResponse
 from ..core.endpoints import CameraEndpoint
 from ..utils.errors import FeatureError
+from urllib.parse import quote
 
 T = TypeVar('T')
 
@@ -173,7 +174,7 @@ class AnalyticsMqttClient(AxisFeatureClient[PublisherConfig]):
             self.DATA_SOURCES_ENDPOINT,
             headers=self.JSON_HEADERS
         )
-        
+
         parsed = self._parse_json_response(response, list)
         if not parsed.success:
             return FeatureResponse.create_error(parsed.error)
@@ -260,15 +261,21 @@ class AnalyticsMqttClient(AxisFeatureClient[PublisherConfig]):
                 "Publisher ID is required"
             ))
             
+        # URL encode the publisher ID to handle special characters, including '/'
+        encoded_id = quote(publisher_id, safe='')
+
         endpoint = CameraEndpoint(
             self.REMOVE_PUBLISHER_ENDPOINT.method,
-            self.REMOVE_PUBLISHER_ENDPOINT.path.format(id=publisher_id)
+            self.REMOVE_PUBLISHER_ENDPOINT.path.format(id=encoded_id)
         )
-        
-        response = self.request(endpoint)
+
+        response = self.request(
+            endpoint, 
+            headers=self.JSON_HEADERS
+        )
         if not response.is_transport_success:
             return FeatureResponse.from_transport(response)
-            
+
         if not (200 <= response.raw_response.status_code < 300):
             return FeatureResponse.create_error(FeatureError(
                 "request_failed",

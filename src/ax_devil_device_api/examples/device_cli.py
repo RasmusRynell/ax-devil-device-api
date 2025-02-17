@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""CLI for managing device operations."""
+
 import click
 from .cli_core import (
     create_client, handle_result, handle_error, get_client_args,
@@ -15,7 +17,6 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
     When using HTTPS (default), the camera must have a valid SSL certificate. For cameras with
     self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
     """
-    # Store common parameters in the context
     ctx.ensure_object(dict)
     ctx.obj.update({
         'camera_ip': camera_ip,
@@ -35,6 +36,14 @@ def get_info(ctx):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.get_info()
+            
+            if result.success:
+                info = result.data
+                click.echo("Device Information:")
+                for key, value in info.__dict__.items():
+                    click.echo(f"{key}: {value}")
+                return 0
+                
             return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
@@ -47,6 +56,11 @@ def check_health(ctx):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.check_health()
+            
+            if result.success:
+                click.echo(click.style("Device is healthy!", fg="green"))
+                return 0
+                
             return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
@@ -66,10 +80,16 @@ def restart(ctx, force):
             result = client.device.restart()
 
             if result.success:
-                click.echo(
-                    "Camera restart initiated. The device will be unavailable for a few minutes.")
+                click.echo(click.style(
+                    "Camera restart initiated. The device will be unavailable for a few minutes.",
+                    fg="yellow"
+                ))
                 return 0
+                
             return handle_result(ctx, result)
-
     except Exception as e:
         return handle_error(ctx, e)
+
+
+if __name__ == '__main__':
+    cli()

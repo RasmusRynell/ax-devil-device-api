@@ -64,17 +64,17 @@ def show_debug_info(ctx, error=None):
                 "type": error.__class__.__name__,
                 "code": getattr(error, 'code', None),
                 "message": str(error),
-                "details": getattr(error, 'details', None)
+                "details": ""
             }
         }
-        click.secho("\nDebug Information:", fg='blue', err=True)
 
-        # Remove and print debug info without (unprintable) details
-        info_without_details = debug_info.copy()
-        print(info_without_details["error"]["details"])
-        info_without_details["error"].pop("details", None)
-        click.echo(json.dumps(info_without_details,
-                   indent=2, sort_keys=True), err=True)
+    if hasattr(error, 'details') and error.details and 'response' in error.details:
+        debug_info['error']['details'] = json.loads(error.details['response'])
+    else:
+        debug_info['error']['details'] = error.details if error.details else ""
+    click.secho("\nDebug Information:", fg='blue', err=True)
+    click.echo(json.dumps(debug_info,
+                indent=2, sort_keys=True), err=True)
 
     # Show traceback if available
     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -145,6 +145,12 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
     if hasattr(error, 'details') and error.details and 'original_error' in error.details:
         original_error = error.details['original_error']
         message += f"\n---\n{error_messages.get(original_error.code, f'{original_error.code}: {original_error.message}')}"
+
+    if hasattr(error, 'details') and error.details and 'response' in error.details:
+        json_response = json.loads(error.details['response'])
+        if 'error' in json_response and 'message' in json_response['error']:
+            message += f"\n---\n{json_response['error']['message']}"
+            
     return message, color
 
 

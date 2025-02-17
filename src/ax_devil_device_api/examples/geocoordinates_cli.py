@@ -42,11 +42,12 @@ def get_location(ctx):
             result = client.geocoordinates.get_location()
             
             if result.success:
-                click.echo(f"Latitude: {result.data.latitude}")
-                click.echo(f"Longitude: {result.data.longitude}")
+                click.echo("Location Coordinates:")
+                click.echo(f"  Latitude: {result.data.latitude}°")
+                click.echo(f"  Longitude: {result.data.longitude}°")
                 return 0
                 
-            return handle_error(ctx, result.error)
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -65,10 +66,13 @@ def set_location(ctx, latitude, longitude):
             result = client.geocoordinates.set_location(latitude, longitude)
             
             if result.success:
-                click.echo("Location coordinates updated successfully")
+                click.echo(click.style("Location coordinates updated successfully!", fg="green"))
+                click.echo("\nNew Location:")
+                click.echo(f"  Latitude: {latitude}°")
+                click.echo(f"  Longitude: {longitude}°")
                 return 0
                 
-            return handle_error(ctx, result.error)
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -86,17 +90,18 @@ def get_orientation(ctx):
             result = client.geocoordinates.get_orientation()
             
             if result.success:
+                click.echo("Camera Orientation:")
                 if result.data.heading is not None:
-                    click.echo(f"Heading: {result.data.heading}°")
+                    click.echo(f"  Heading: {result.data.heading}°")
                 if result.data.tilt is not None:
-                    click.echo(f"Tilt: {result.data.tilt}°")
+                    click.echo(f"  Tilt: {result.data.tilt}°")
                 if result.data.roll is not None:
-                    click.echo(f"Roll: {result.data.roll}°")
+                    click.echo(f"  Roll: {result.data.roll}°")
                 if result.data.installation_height is not None:
-                    click.echo(f"Installation Height: {result.data.installation_height}m")
+                    click.echo(f"  Installation Height: {result.data.installation_height}m")
                 return 0
                 
-            return handle_error(ctx, result.error)
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -113,7 +118,7 @@ def set_orientation(ctx, heading, tilt, roll, height):
     The camera will validate the provided values.
     """
     if not any(x is not None for x in (heading, tilt, roll, height)):
-        click.echo("Error: At least one orientation parameter must be specified", err=True)
+        click.echo(click.style("Error: At least one orientation parameter must be specified", fg="red"), err=True)
         return 1
         
     try:
@@ -127,10 +132,20 @@ def set_orientation(ctx, heading, tilt, roll, height):
             result = client.geocoordinates.set_orientation(orientation)
             
             if result.success:
-                click.echo("Orientation coordinates updated successfully")
+                click.echo(click.style("Orientation coordinates updated successfully!", fg="green"))
+                click.echo("\nUpdated Parameters:")
+                if heading is not None:
+                    click.echo(f"  Heading: {heading}°")
+                if tilt is not None:
+                    click.echo(f"  Tilt: {tilt}°")
+                if roll is not None:
+                    click.echo(f"  Roll: {roll}°")
+                if height is not None:
+                    click.echo(f"  Installation Height: {height}m")
+                click.echo(click.style("\nNote: Changes will take effect after applying settings", fg="yellow"))
                 return 0
                 
-            return handle_error(ctx, result.error)
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -143,10 +158,10 @@ def apply_orientation(ctx):
             result = client.geocoordinates.apply_settings()
             
             if result.success:
-                click.echo("Settings applied successfully")
+                click.echo(click.style("Orientation settings applied successfully!", fg="green"))
                 return 0
                 
-            return handle_error(ctx, result.error)
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 

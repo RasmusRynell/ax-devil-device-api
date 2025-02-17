@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI interface for MQTT client operations."""
+"""CLI for managing MQTT client operations."""
 
 import click
 from .cli_core import (
@@ -7,7 +7,7 @@ from .cli_core import (
     common_options
 )
 from ..features.mqtt_client import BrokerConfig, MqttStatus
-from ..core.types import FeatureResponse
+
 
 @click.group()
 @common_options
@@ -29,6 +29,7 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
         'debug': debug
     })
 
+
 @cli.command('activate')
 @click.pass_context
 def activate(ctx):
@@ -36,9 +37,15 @@ def activate(ctx):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.mqtt_client.activate()
+            
+            if result.success:
+                click.echo(click.style("MQTT client activated successfully!", fg="green"))
+                return 0
+                
             return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
+
 
 @cli.command('deactivate')
 @click.pass_context
@@ -47,9 +54,15 @@ def deactivate(ctx):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.mqtt_client.deactivate()
+            
+            if result.success:
+                click.echo(click.style("MQTT client deactivated successfully!", fg="yellow"))
+                return 0
+                
             return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
+
 
 @cli.command('configure')
 @click.option('--broker-host', required=True, help='Broker hostname or IP address')
@@ -74,9 +87,22 @@ def configure(ctx, broker_host, broker_port, broker_username, broker_password,
             )
             
             result = client.mqtt_client.configure(config)
+            
+            if result.success:
+                click.echo(click.style("MQTT broker configuration updated successfully!", fg="green"))
+                click.echo("\nBroker Configuration:")
+                click.echo(f"  Host: {broker_host}")
+                click.echo(f"  Port: {broker_port}")
+                click.echo(f"  TLS Enabled: {use_tls}")
+                click.echo(f"  Keep Alive: {keep_alive}s")
+                if broker_username:
+                    click.echo("  Authentication: Enabled")
+                return 0
+                
             return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
+
 
 @cli.command('status')
 @click.pass_context
@@ -87,11 +113,26 @@ def status(ctx):
             result = client.mqtt_client.get_status()
             
             if result.success:
-                data = result.data.to_dict()
-                return handle_result(ctx, FeatureResponse.ok(data))
+                status = result.data
+                click.echo("MQTT Client Status:")
+                click.echo(f"  State: {click.style(status.state, fg='green' if status.state == 'CONNECTED' else 'yellow')}")
+                click.echo(f"  Status: {click.style(status.status, fg='green' if status.status == 'CONNECTED' else 'yellow')}")
+                click.echo(f"  Host: {status.config.host}")
+                click.echo(f"  Port: {status.config.port}")
+                click.echo(f"  TLS Enabled: {status.config.use_tls}")
+                click.echo(f"  Keep Alive: {status.config.keep_alive_interval}s")
+                click.echo(f"  Client ID: {status.config.client_id}")
+                click.echo(f"  Clean Session: {status.config.clean_session}")
+                click.echo(f"  Auto Reconnect: {status.config.auto_reconnect}")
+                click.echo(f"  Device Topic Prefix: {status.config.device_topic_prefix}")
+                click.echo(f"  Error: {status.error}")
+                click.echo(f"  Connected To: {status.connected_to}")
+                return 0
+                
             return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
+
 
 if __name__ == '__main__':
     cli() 
