@@ -4,8 +4,7 @@ A Python library for interacting with Axis device APIs. Provides a type-safe int
 
 ## Important Disclaimer
 
-This project is an independent, community-driven implementation and is **not** affiliated with or endorsed by Axis Communications AB. For official APIs and development resources, please refer to:
-- [Axis Developer Community](https://www.axis.com/en-us/developer)
+This project is an independent, community-driven implementation and is **not** affiliated with or endorsed by Axis Communications AB. For official APIs and development resources, please refer to [Axis Developer Community](https://www.axis.com/en-us/developer).
 
 ## Features
 
