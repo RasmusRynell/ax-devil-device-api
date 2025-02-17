@@ -42,12 +42,11 @@ if device_info.success:
 
 ```bash
 # Get device information
-ax-devil-device-api-device info --host 192.168.1.10 --username admin --password secret
+ax-devil-device-api-device --camera-ip 192.168.1.10 --username admin --password secret info
 
 # Capture media
-ax-devil-device-api-media capture --host 192.168.1.10 --username admin --password secret --output image.jpg
+ax-devil-device-api-media --camera-ip 192.168.1.10 --username admin --password secret --output image.jpg capture
 ```
-
 
 
 ## License
