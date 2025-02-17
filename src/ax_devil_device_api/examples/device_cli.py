@@ -33,9 +33,9 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
 def get_info(ctx):
     """Get device information including model, firmware, and capabilities."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.device.get_info()
-        return handle_result(ctx, result)
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.device.get_info()
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -45,9 +45,9 @@ def get_info(ctx):
 def check_health(ctx):
     """Check if the camera is responsive and healthy."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.device.check_health()
-        return handle_result(ctx, result)
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.device.check_health()
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -62,14 +62,14 @@ def restart(ctx, force):
             click.echo('Restart cancelled.')
             return 0
 
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.device.restart()
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.device.restart()
 
-        if result.success:
-            click.echo(
-                "Camera restart initiated. The device will be unavailable for a few minutes.")
-            return 0
-        return handle_result(ctx, result)
+            if result.success:
+                click.echo(
+                    "Camera restart initiated. The device will be unavailable for a few minutes.")
+                return 0
+            return handle_result(ctx, result)
 
     except Exception as e:
         return handle_error(ctx, e)

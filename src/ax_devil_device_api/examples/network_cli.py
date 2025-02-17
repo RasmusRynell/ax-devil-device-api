@@ -34,16 +34,8 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
 def network_info(ctx, interface):
     """Get network interface information."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.network.get_network_info(interface)
-        
-        # If HTTPS fails, try HTTP fallback
-        if not result.success and result.error.code == "ssl_error":
-            click.echo("HTTPS connection failed, trying HTTP fallback...", err=True)
-            ctx.obj['protocol'] = 'http'
-            client = create_client(**get_client_args(ctx.obj))
+        with create_client(**get_client_args(ctx.obj)) as client:
             result = client.network.get_network_info(interface)
-            
-        return handle_result(ctx, result)
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e) 

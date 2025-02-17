@@ -5,6 +5,14 @@
 ### Layer 1: Communications Layer
 - **Core Components:**
   - `CameraClient`: Centralized client managing device communication and session handling
+    - Advanced connection pooling via requests.Session
+    - Persistent connection management
+    - Automatic SSL/TLS session reuse
+    - Cookie persistence across requests
+    - Configurable pool sizes and timeouts
+    - Session lifecycle management
+    - Thread-safe request handling
+    - Support for temporary sessions
   - `Response[T]`: Type-safe response wrapper with comprehensive error handling
   - `TransportResponse`: Low-level HTTP response encapsulation
   - `CameraEndpoint`: Structured API endpoint definitions
@@ -68,6 +76,16 @@
     - Analytics event handling
 
 ### Layer 3: Interface Layer
+- **Main Client Interface:**
+  - Context manager support for proper resource cleanup
+  - Session management controls
+    - Persistent session handling
+    - Temporary session creation
+    - Session state clearing
+  - Lazy-loaded feature clients
+  - Thread-safe operations
+  - Resource cleanup guarantees
+
 - **CLI Framework:**
   - **Core Components:**
     - Common CLI utilities (`cli_core.py`)

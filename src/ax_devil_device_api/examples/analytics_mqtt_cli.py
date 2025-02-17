@@ -33,9 +33,9 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
 def list_sources(ctx):
     """List available analytics data sources."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.analytics_mqtt.get_data_sources()
-        return handle_result(ctx, result)
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.analytics_mqtt.get_data_sources()
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -44,9 +44,9 @@ def list_sources(ctx):
 def list_publishers(ctx):
     """List configured publishers."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.analytics_mqtt.list_publishers()
-        return handle_result(ctx, result)
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.analytics_mqtt.list_publishers()
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -74,30 +74,30 @@ def create_publisher(ctx, id, source, topic, qos, retain, use_topic_prefix, forc
                 click.echo('Operation cancelled.')
                 return 0
 
-        client = create_client(**get_client_args(ctx.obj))
-        config = PublisherConfig(
-            id=id,
-            data_source_key=source,
-            mqtt_topic=topic,
-            qos=qos,
-            retain=retain,
-            use_topic_prefix=use_topic_prefix
-        )
-        result = client.analytics_mqtt.create_publisher(config)
-        
-        if result.success:
-            click.echo(click.style("Publisher created successfully!", fg="green"))
-            publisher = result.data
-            click.echo("\nPublisher details:")
-            click.echo(f"  ID: {publisher.id}")
-            click.echo(f"  Data Source: {publisher.data_source_key}")
-            click.echo(f"  Topic: {publisher.mqtt_topic}")
-            click.echo(f"  QoS: {publisher.qos}")
-            click.echo(f"  Retain: {publisher.retain}")
-            click.echo(f"  Use Topic Prefix: {publisher.use_topic_prefix}")
-            return 0
+        with create_client(**get_client_args(ctx.obj)) as client:
+            config = PublisherConfig(
+                id=id,
+                data_source_key=source,
+                mqtt_topic=topic,
+                qos=qos,
+                retain=retain,
+                use_topic_prefix=use_topic_prefix
+            )
+            result = client.analytics_mqtt.create_publisher(config)
             
-        return handle_result(ctx, result)
+            if result.success:
+                click.echo(click.style("Publisher created successfully!", fg="green"))
+                publisher = result.data
+                click.echo("\nPublisher details:")
+                click.echo(f"  ID: {publisher.id}")
+                click.echo(f"  Data Source: {publisher.data_source_key}")
+                click.echo(f"  Topic: {publisher.mqtt_topic}")
+                click.echo(f"  QoS: {publisher.qos}")
+                click.echo(f"  Retain: {publisher.retain}")
+                click.echo(f"  Use Topic Prefix: {publisher.use_topic_prefix}")
+                return 0
+                
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -118,14 +118,14 @@ def remove_publisher(ctx, id, force):
                 click.echo('Operation cancelled.')
                 return 0
 
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.analytics_mqtt.remove_publisher(id)
-        
-        if result.success:
-            click.echo(click.style(f"Publisher '{id}' removed successfully!", fg="green"))
-            return 0
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.analytics_mqtt.remove_publisher(id)
             
-        return handle_result(ctx, result)
+            if result.success:
+                click.echo(click.style(f"Publisher '{id}' removed successfully!", fg="green"))
+                return 0
+                
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 

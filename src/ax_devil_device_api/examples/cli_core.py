@@ -19,7 +19,15 @@ class OperationCancelled(Exception):
 
 
 def create_client(camera_ip, username, password, port, protocol='https', no_verify_ssl=False) -> Client:
-    """Create and return a Client instance."""
+    """Create and return a Client instance within a context manager.
+    
+    Returns:
+        A context manager that yields a Client instance.
+        
+    Example:
+        with create_client(...) as client:
+            result = client.device.get_info()
+    """
     if protocol == 'https':
         config = CameraConfig.https(
             host=camera_ip,
@@ -39,7 +47,7 @@ def create_client(camera_ip, username, password, port, protocol='https', no_veri
             port=port
         )
 
-    return Client(config)
+    return Client(config).__enter__()  # Return context manager
 
 
 def show_debug_info(ctx, error=None):

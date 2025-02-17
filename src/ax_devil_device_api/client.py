@@ -1,6 +1,8 @@
 """Main client interface for the ax-devil-device-api package."""
 
-from typing import Optional
+from typing import Optional, ContextManager
+from contextlib import contextmanager
+import warnings
 from ax_devil_device_api.core.client import CameraClient
 from ax_devil_device_api.core.config import CameraConfig
 from ax_devil_device_api.features.device import DeviceClient
@@ -17,22 +19,50 @@ class Client:
     It provides access to all features through a unified interface and
     handles lazy loading of feature clients.
     
+    The client maintains a persistent HTTP session for optimal performance
+    and resource usage. The session handles connection pooling, cookie
+    persistence, and SSL session reuse automatically.
+    
+    Warning:
+        Always use the client as a context manager or explicitly call close()
+        when done. While the session will eventually be cleaned up by Python's
+        garbage collector, not closing it properly may temporarily:
+        - Leave connections open on the device
+        - Hold network resources longer than necessary
+        - Impact connection pooling for other operations
+    
     Example:
         ```python
         from ax_devil_device_api import Client, CameraConfig
         
         # Create a client
         config = CameraConfig.https("camera.local", "user", "pass")
-        client = Client(config)
         
-        # Access features
-        info = client.device.get_info()
+        # Using as context manager (recommended)
+        with Client(config) as client:
+            info = client.device.get_info()
+            
+            # Use a fresh session for sensitive operations
+            with client.new_session():
+                client.device.restart()
+        
+        # Or manually managing the client (not recommended)
+        client = Client(config)
+        try:
+            info = client.device.get_info()
+            
+            # Clear session if needed
+            client.clear_session()
+            client.device.restart()
+        finally:
+            client.close()
         ```
     """
     
     def __init__(self, config: CameraConfig) -> None:
         """Initialize with camera configuration."""
         self._core = CameraClient(config)
+        self._closed = False
         
         # Lazy-loaded feature clients
         self._device: Optional[DeviceClient] = None
@@ -41,6 +71,71 @@ class Client:
         self._geocoordinates: Optional[GeoCoordinatesClient] = None
         self._mqtt_client: Optional[MqttClient] = None
         self._analytics_mqtt: Optional[AnalyticsMqttClient] = None
+    
+    def __del__(self):
+        """Attempt to clean up if user forgets to close.
+        
+        Note: This is a safety net, not a guarantee. Always use
+        context manager or explicit close() for proper cleanup.
+        """
+        if not self._closed:
+            warnings.warn(
+                "Client was not properly closed. Please use 'with' statement or call close()",
+                ResourceWarning,
+                stacklevel=2
+            )
+            try:
+                self.close()
+            except:
+                # Suppress errors during interpreter shutdown
+                pass
+    
+    def __enter__(self) -> 'Client':
+        """Enter context manager."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager and cleanup resources."""
+        self.close()
+    
+    def close(self) -> None:
+        """Close the client and cleanup resources.
+        
+        This method should be called when the client is no longer needed
+        to ensure proper cleanup of network resources. It's recommended
+        to use the client as a context manager instead of calling this
+        directly.
+        """
+        if not self._closed and hasattr(self, '_core'):
+            self._core._session.close()
+            self._closed = True
+    
+    @contextmanager
+    def new_session(self) -> ContextManager['Client']:
+        """Create a temporary new session.
+        
+        This is useful for operations that need a clean session state,
+        such as sensitive operations or when you want to ensure no
+        previous session state affects the requests.
+        
+        Example:
+            ```python
+            with client.new_session():
+                # These operations will use a fresh session
+                client.device.restart()
+            # Back to the original session
+            ```
+        """
+        with self._core.new_session():
+            yield self
+    
+    def clear_session(self) -> None:
+        """Clear and reset the current session.
+        
+        This is useful when you want to clear any stored cookies
+        or connection state without creating a new session.
+        """
+        self._core.clear_session()
     
     @property
     def device(self) -> DeviceClient:

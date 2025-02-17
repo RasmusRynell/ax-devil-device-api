@@ -38,22 +38,15 @@ def location():
 def get_location(ctx):
     """Get current location coordinates."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.geocoordinates.get_location()
-        
-        # If HTTPS fails, try HTTP fallback
-        if not result.success and result.error.code == "ssl_error":
-            click.echo("HTTPS connection failed, trying HTTP fallback...", err=True)
-            ctx.obj['protocol'] = 'http'
-            client = create_client(**get_client_args(ctx.obj))
+        with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.get_location()
             
-        if result.success:
-            click.echo(f"Latitude: {result.data.latitude}")
-            click.echo(f"Longitude: {result.data.longitude}")
-            return 0
-            
-        return handle_error(ctx, result.error)
+            if result.success:
+                click.echo(f"Latitude: {result.data.latitude}")
+                click.echo(f"Longitude: {result.data.longitude}")
+                return 0
+                
+            return handle_error(ctx, result.error)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -68,21 +61,14 @@ def set_location(ctx, latitude, longitude):
     The camera will validate the provided coordinates.
     """
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.geocoordinates.set_location(latitude, longitude)
-        
-        # If HTTPS fails, try HTTP fallback
-        if not result.success and result.error.code == "ssl_error":
-            click.echo("HTTPS connection failed, trying HTTP fallback...", err=True)
-            ctx.obj['protocol'] = 'http'
-            client = create_client(**get_client_args(ctx.obj))
+        with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.set_location(latitude, longitude)
             
-        if result.success:
-            click.echo("Location coordinates updated successfully")
-            return 0
-            
-        return handle_error(ctx, result.error)
+            if result.success:
+                click.echo("Location coordinates updated successfully")
+                return 0
+                
+            return handle_error(ctx, result.error)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -96,28 +82,21 @@ def orientation():
 def get_orientation(ctx):
     """Get current orientation coordinates."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.geocoordinates.get_orientation()
-        
-        # If HTTPS fails, try HTTP fallback
-        if not result.success and result.error.code == "ssl_error":
-            click.echo("HTTPS connection failed, trying HTTP fallback...", err=True)
-            ctx.obj['protocol'] = 'http'
-            client = create_client(**get_client_args(ctx.obj))
+        with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.get_orientation()
             
-        if result.success:
-            if result.data.heading is not None:
-                click.echo(f"Heading: {result.data.heading}°")
-            if result.data.tilt is not None:
-                click.echo(f"Tilt: {result.data.tilt}°")
-            if result.data.roll is not None:
-                click.echo(f"Roll: {result.data.roll}°")
-            if result.data.installation_height is not None:
-                click.echo(f"Installation Height: {result.data.installation_height}m")
-            return 0
-            
-        return handle_error(ctx, result.error)
+            if result.success:
+                if result.data.heading is not None:
+                    click.echo(f"Heading: {result.data.heading}°")
+                if result.data.tilt is not None:
+                    click.echo(f"Tilt: {result.data.tilt}°")
+                if result.data.roll is not None:
+                    click.echo(f"Roll: {result.data.roll}°")
+                if result.data.installation_height is not None:
+                    click.echo(f"Installation Height: {result.data.installation_height}m")
+                return 0
+                
+            return handle_error(ctx, result.error)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -138,27 +117,20 @@ def set_orientation(ctx, heading, tilt, roll, height):
         return 1
         
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        orientation = GeoCoordinatesOrientation(
-            heading=heading,
-            tilt=tilt,
-            roll=roll,
-            installation_height=height
-        )
-        result = client.geocoordinates.set_orientation(orientation)
-        
-        # If HTTPS fails, try HTTP fallback
-        if not result.success and result.error.code == "ssl_error":
-            click.echo("HTTPS connection failed, trying HTTP fallback...", err=True)
-            ctx.obj['protocol'] = 'http'
-            client = create_client(**get_client_args(ctx.obj))
+        with create_client(**get_client_args(ctx.obj)) as client:
+            orientation = GeoCoordinatesOrientation(
+                heading=heading,
+                tilt=tilt,
+                roll=roll,
+                installation_height=height
+            )
             result = client.geocoordinates.set_orientation(orientation)
             
-        if result.success:
-            click.echo("Orientation coordinates updated successfully")
-            return 0
-            
-        return handle_error(ctx, result.error)
+            if result.success:
+                click.echo("Orientation coordinates updated successfully")
+                return 0
+                
+            return handle_error(ctx, result.error)
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -167,21 +139,14 @@ def set_orientation(ctx, heading, tilt, roll, height):
 def apply_orientation(ctx):
     """Apply pending orientation coordinate settings."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        result = client.geocoordinates.apply_settings()
-        
-        # If HTTPS fails, try HTTP fallback
-        if not result.success and result.error.code == "ssl_error":
-            click.echo("HTTPS connection failed, trying HTTP fallback...", err=True)
-            ctx.obj['protocol'] = 'http'
-            client = create_client(**get_client_args(ctx.obj))
+        with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.apply_settings()
             
-        if result.success:
-            click.echo("Settings applied successfully")
-            return 0
-            
-        return handle_error(ctx, result.error)
+            if result.success:
+                click.echo("Settings applied successfully")
+                return 0
+                
+            return handle_error(ctx, result.error)
     except Exception as e:
         return handle_error(ctx, e)
 

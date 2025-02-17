@@ -38,18 +38,18 @@ def pytest_collection_modifyitems(config, items):
             if "restart" in item.keywords:
                 item.add_marker(skip_restart)
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def protocol(request):
     """Get the protocol to use for tests."""
     return request.config.getoption("--protocol")
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def client(protocol):
-    """Create a client instance."""
+    """Create a client instance that persists for the entire test session."""
     camera_ip = os.getenv("AXIS_TARGET_ADDR")
     camera_user = os.getenv("AXIS_TARGET_USER")
     camera_pass = os.getenv("AXIS_TARGET_PASS")
-    
+
     if not all([camera_ip, camera_user, camera_pass]):
         pytest.skip("Required environment variables not set")
     
@@ -65,9 +65,13 @@ def client(protocol):
             username=camera_user,
             password=camera_pass,
             verify_ssl=False
-    )
+        )
     
-    return Client(config)
+    client = Client(config)
+    try:
+        yield client
+    finally:
+        client.close()
 
 @pytest.fixture(autouse=True)
 def auto_health_check(request, client):

@@ -15,6 +15,8 @@ This project is an independent, community-driven implementation and is **not** a
 - Media streaming and snapshot capabilities
 - MQTT protocol support
 - Geolocation and analytics features
+- Proper resource management with context managers
+- Automatic connection pooling and cleanup
 
 ## Installation
 
@@ -27,15 +29,27 @@ pip install ax-devil-device-api
 ```python
 from ax_devil_device_api import Client, CameraConfig
 
-# Initialize client
+# Initialize client (recommended way using context manager)
 config = CameraConfig.https("192.168.1.10", "admin", "password")
-client = Client(config)
+with Client(config) as client:
+    # Get device information
+    device_info = client.device.get_info()
+    if device_info.success:
+        print(f"Model: {device_info.data.model}")
+        print(f"Serial: {device_info.data.serial}")
+        
+    # Use a fresh session for sensitive operations
+    with client.new_session():
+        client.device.restart()
 
-# Get device information
-device_info = client.device.get_info()
-if device_info.success:
-    print(f"Model: {device_info.data.model}")
-    print(f"Serial: {device_info.data.serial}")
+# Alternative: Manual resource management (not recommended)
+client = Client(config)
+try:
+    device_info = client.device.get_info()
+    if device_info.success:
+        print(f"Model: {device_info.data.model}")
+finally:
+    client.close()  # Always close the client when done
 ```
 
 ## CLI Usage
@@ -48,6 +62,24 @@ ax-devil-device-api-device --camera-ip 192.168.1.10 --username admin --password 
 ax-devil-device-api-media --camera-ip 192.168.1.10 --username admin --password secret --output image.jpg capture
 ```
 
+## Resource Management
+
+The library uses context managers to ensure proper cleanup of network resources:
+- Automatic connection pooling
+- Proper session cleanup
+- Resource release on errors
+- Support for temporary sessions
+
+Example with temporary session:
+```python
+with Client(config) as client:
+    # Regular operations use pooled connections
+    info = client.device.get_info()
+    
+    # Use a fresh session for sensitive operations
+    with client.new_session():
+        client.device.restart()
+```
 
 ## License
 

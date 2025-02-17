@@ -39,8 +39,6 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
 def snapshot(ctx, resolution, compression, camera, rotation, output):
     """Capture JPEG snapshot from camera."""
     try:
-        client = create_client(**get_client_args(ctx.obj))
-        
         # Create config only if any parameters are specified
         config = None
         if any(x is not None for x in (resolution, compression, camera, rotation)):
@@ -51,24 +49,18 @@ def snapshot(ctx, resolution, compression, camera, rotation, output):
                 rotation=rotation
             )
         
-        result = client.media.get_snapshot(config)
-        
-        # If HTTPS fails, try HTTP fallback
-        if not result.success and result.error.code == "ssl_error":
-            click.echo("HTTPS connection failed, trying HTTP fallback...", err=True)
-            ctx.obj['protocol'] = 'http'
-            client = create_client(**get_client_args(ctx.obj))
+        with create_client(**get_client_args(ctx.obj)) as client:
             result = client.media.get_snapshot(config)
             
-        if result.success:
-            try:
-                with open(output, 'wb') as f:
-                    f.write(result.data)
-                click.echo(f"Snapshot saved to {output}")
-                return 0
-            except IOError as e:
-                return handle_error(ctx, f"Failed to save snapshot: {e}")
-                
-        return handle_result(ctx, result)
+            if result.success:
+                try:
+                    with open(output, 'wb') as f:
+                        f.write(result.data)
+                    click.echo(f"Snapshot saved to {output}")
+                    return 0
+                except IOError as e:
+                    return handle_error(ctx, f"Failed to save snapshot: {e}")
+                    
+            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
