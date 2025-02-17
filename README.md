@@ -17,13 +17,16 @@ This project is an independent, community-driven implementation and is **not** a
 - Proper resource management with context managers
 - Automatic connection pooling and cleanup
 
-## Installation
+
+## Quick Start
+
+### Installation
 
 ```bash
 pip install ax-devil-device-api
 ```
 
-## Quick Start
+### Example Usage
 
 ```python
 from ax_devil_device_api import Client, CameraConfig
@@ -51,7 +54,7 @@ finally:
     client.close()  # Always close the client when done
 ```
 
-## CLI Usage
+### CLI Usage
 
 ```bash
 # Get device information
@@ -59,25 +62,6 @@ ax-devil-device-api-device --camera-ip 192.168.1.10 --username admin --password 
 
 # Capture media
 ax-devil-device-api-media --camera-ip 192.168.1.10 --username admin --password secret --output image.jpg capture
-```
-
-## Resource Management
-
-The library uses context managers to ensure proper cleanup of network resources:
-- Automatic connection pooling
-- Proper session cleanup
-- Resource release on errors
-- Support for temporary sessions
-
-Example with temporary session:
-```python
-with Client(config) as client:
-    # Regular operations use pooled connections
-    info = client.device.get_info()
-    
-    # Use a fresh session for sensitive operations
-    with client.new_session():
-        client.device.restart()
 ```
 
 ## License
