@@ -1,16 +1,51 @@
 from typing import Callable, TypeVar, Any
 import requests
 import hashlib
+import ssl
+import socket
 from requests.exceptions import SSLError, ConnectionError
+from urllib.parse import urlparse
+from requests.adapters import HTTPAdapter
+from urllib3.poolmanager import PoolManager
+from urllib3.util.ssl_ import create_urllib3_context
 from .config import Protocol, CameraConfig
 from .types import TransportResponse
 from ..utils.errors import SecurityError, NetworkError
 
 T = TypeVar('T')
 
+class AxisSSLAdapter(HTTPAdapter):
+    """Custom SSL Adapter that verifies cert chain but not hostname."""
+    
+    def __init__(self, ca_cert_path: str = None):
+        self.ca_cert_path = ca_cert_path
+        super().__init__()
+
+    def init_poolmanager(self, connections, maxsize, block=False):
+        context = create_urllib3_context()
+        context.load_verify_locations(cafile=self.ca_cert_path)
+        context.check_hostname = False
+        self.poolmanager = PoolManager(
+            num_pools=connections,
+            maxsize=maxsize,
+            block=block,
+            ssl_context=context,
+            assert_hostname=False  # Disable hostname verification at the urllib3 level
+        )
+
 def get_cert_fingerprint(cert_der: bytes) -> str:
     """Calculate SHA256 fingerprint of certificate."""
     return f"SHA256:{hashlib.sha256(cert_der).hexdigest()}"
+
+def fetch_server_cert(host: str, port: int, timeout: float = 5.0) -> bytes:
+    """
+    Securely fetch the server certificate using a dedicated SSL connection.
+    A timeout is set to avoid indefinite blocking.
+    """
+    context = ssl.create_default_context()
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        with context.wrap_socket(sock, server_hostname=host) as ssock:
+            return ssock.getpeercert(binary_form=True)
 
 class ProtocolHandler:
     """Handles protocol-specific connection logic."""
@@ -19,73 +54,72 @@ class ProtocolHandler:
         """Initialize with camera configuration."""
         self.config = config
 
-    def execute_request(self, request_func: Callable[..., requests.Response]) -> TransportResponse:
-        """Execute a request with appropriate protocol handling."""
+    def get_ssl_kwargs(self) -> dict:
+        """Build SSL-related kwargs for requests."""
+        ssl_kwargs = {}
 
-        try:
-            # Configure SSL verification
-            if self.config.protocol.is_secure and self.config.ssl:
-                ssl_kwargs = {}
-                
-                # Basic verification
-                if self.config.ssl.verify:
-                    ssl_kwargs["verify"] = True
-                    if self.config.ssl.ca_cert_path:
-                        ssl_kwargs["verify"] = self.config.ssl.ca_cert_path
-                else:
-                    ssl_kwargs["verify"] = False
-                
-                # Client certificate
-                if self.config.ssl.client_cert_path:
-                    if self.config.ssl.client_key_path:
-                        ssl_kwargs["cert"] = (self.config.ssl.client_cert_path, 
-                                        self.config.ssl.client_key_path)
-                    else:
-                        ssl_kwargs["cert"] = self.config.ssl.client_cert_path
-                
-                # Certificate pinning
-                if self.config.ssl.expected_fingerprint:
-                    response = requests.get(f"{self.config.get_base_url()}/", 
-                                         verify=False, 
-                                         cert=ssl_kwargs.get("cert"))
-                    if response.raw.connection.sock:
-                        cert = response.raw.connection.sock.getpeercert(binary_form=True)
-                        actual = get_cert_fingerprint(cert)
-                        if actual != self.config.ssl.expected_fingerprint:
-                            return TransportResponse.from_error(SecurityError(
-                                "cert_fingerprint_mismatch",
-                                f"Certificate fingerprint mismatch. Expected: {self.config.ssl.expected_fingerprint}, Got: {actual}"
-                            ))
-                
-                response = request_func(**ssl_kwargs)
+        if self.config.ssl.verify:
+            if self.config.ssl.ca_cert_path:
+                # When using a custom CA cert, we need to verify against it
+                ssl_kwargs["verify"] = self.config.ssl.ca_cert_path
+                # Create a session with our custom adapter
+                session = requests.Session()
+                session.mount('https://', AxisSSLAdapter(self.config.ssl.ca_cert_path))
+                ssl_kwargs["session"] = session
             else:
-                response = request_func()
-            
+                ssl_kwargs["verify"] = True
+        else:
+            ssl_kwargs["verify"] = False
+
+        if self.config.ssl.client_cert_path:
+            ssl_kwargs["cert"] = (
+                (self.config.ssl.client_cert_path, self.config.ssl.client_key_path)
+                if self.config.ssl.client_key_path else self.config.ssl.client_cert_path
+            )
+
+        return ssl_kwargs
+
+    def execute_request(self, request_func: Callable[..., requests.Response]) -> TransportResponse:
+        """
+        Execute a request with appropriate protocol handling, including
+        SSL configuration and certificate pinning.
+        """
+        try:
+            ssl_kwargs = self.get_ssl_kwargs() if self.config.protocol.is_secure and self.config.ssl else {}
+            session = ssl_kwargs.pop("session", None)
+
+            # Certificate Pinning: Securely fetch the certificate and verify its fingerprint.
+            if self.config.ssl:
+                if self.config.ssl.expected_fingerprint:
+                    parsed_url = urlparse(self.config.get_base_url())
+                    port = parsed_url.port or (443 if parsed_url.scheme == "https" else 80)
+                    cert = fetch_server_cert(parsed_url.hostname, port)
+                    actual = get_cert_fingerprint(cert)
+                    if actual != self.config.ssl.expected_fingerprint:
+                        return TransportResponse.from_error(SecurityError(
+                            "cert_fingerprint_mismatch",
+                            f"Certificate fingerprint mismatch. Expected: {self.config.ssl.expected_fingerprint}, Got: {actual}"
+                        ))
+
+            if session:
+                # If we have a custom session (for SSL verification), use it
+                def session_request(**kwargs):
+                    return session.request(
+                        kwargs.pop("method"),
+                        kwargs.pop("url"),
+                        **kwargs
+                    )
+                response = request_func(session_request, **ssl_kwargs)
+            else:
+                # Otherwise use the normal request function
+                response = request_func(**ssl_kwargs)
+
             return TransportResponse.from_response(response)
-            
+
         except SSLError as e:
-            if self.config.protocol == Protocol.HTTPS:
-                if "CERTIFICATE_VERIFY_FAILED" in str(e):
-                    return TransportResponse.from_error(SecurityError(
-                        "ssl_verification_failed",
-                        "SSL certificate verification failed"
-                    ))
-                return TransportResponse.from_error(SecurityError(
-                    "ssl_error",
-                    str(e)
-                ))
-            return TransportResponse.from_error(SecurityError(
-                "protocol_error",
-                f"SSL error with non-HTTPS protocol: {str(e)}"
-            ))
+            error_code = "ssl_verification_failed" if "CERTIFICATE_VERIFY_FAILED" in str(e) else "ssl_error"
+            return TransportResponse.from_error(SecurityError(error_code, str(e)))
 
         except ConnectionError as e:
-            if "Connection refused" in str(e):
-                return TransportResponse.from_error(NetworkError(
-                    "connection_refused",
-                    "Connection refused by remote host"
-                ))
-            return TransportResponse.from_error(NetworkError(
-                "connection_error",
-                str(e)
-            ))
+            error_code = "connection_refused" if "Connection refused" in str(e) else "connection_error"
+            return TransportResponse.from_error(NetworkError(error_code, str(e)))

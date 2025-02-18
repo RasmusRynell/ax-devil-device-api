@@ -18,7 +18,7 @@ class OperationCancelled(Exception):
     pass
 
 
-def create_client(camera_ip, username, password, port, protocol='https', no_verify_ssl=False) -> Client:
+def create_client(camera_ip, username, password, port, protocol='https', no_verify_ssl=False, ca_cert=None) -> Client:
     """Create and return a Client instance within a context manager.
     
     Returns:
@@ -34,7 +34,8 @@ def create_client(camera_ip, username, password, port, protocol='https', no_veri
             username=username,
             password=password,
             port=port,
-            verify_ssl=not no_verify_ssl
+            verify_ssl=not no_verify_ssl,
+            ca_cert=ca_cert
         )
     else:
         if not click.confirm('Warning: Using HTTP is insecure. Continue?', default=False):
@@ -71,10 +72,16 @@ def show_debug_info(ctx, error=None):
     if hasattr(error, 'details') and error.details and 'response' in error.details:
         debug_info['error']['details'] = json.loads(error.details['response'])
     else:
-        debug_info['error']['details'] = error.details if error.details else ""
+        if hasattr(error, 'details') and error.details:
+            debug_info['error']['details'] = error.details
+        else:
+            debug_info['error']['details'] = ""
     click.secho("\nDebug Information:", fg='blue', err=True)
-    click.echo(json.dumps(debug_info,
+    try:
+        click.echo(json.dumps(debug_info,
                 indent=2, sort_keys=True), err=True)
+    except Exception as e:
+        click.echo(f"Error: {e}, {debug_info}", err=True)
 
     # Show traceback if available
     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -92,11 +99,16 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
         # Security Errors
         "ssl_verification_failed": (
             "Cannot establish secure connection to camera.\n"
-            "The camera appears to be using a self-signed certificate.\n\n"
+            "The camera uses a built-in device identity certificate that needs to be verified.\n\n"
             "Available options:\n"
-            "1. Use HTTP instead:     --protocol http\n"
-            "2. Skip verification:    --no-verify-ssl\n"
-            "3. Install a valid certificate on the camera"
+            "1. Use HTTP instead:     --protocol http (not secure, development only)\n"
+            "2. Skip verification:    --no-verify-ssl (not secure, development only)\n"
+            "3. Use certificate chain: --ca-cert <cert_chain.pem> (recommended, secure)\n"
+            "   To get the certificate chain:\n"
+            "   echo -n | openssl s_client -connect <HOST>:443 -showcerts | \\\n"
+            "   awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/{ print $0 }' > cert_chain.pem\n\n"
+            "Note: Option 3 is recommended as it maintains security while verifying\n"
+            "      the camera's genuine Axis device identity certificate."
         ),
         # Network Errors
         "connection_refused": (
@@ -185,7 +197,7 @@ def get_client_args(ctx_obj: dict) -> dict:
     """Extract client-specific arguments from context object."""
     return {k: v for k, v in ctx_obj.items()
             if k in ['camera_ip', 'username', 'password', 'port',
-                     'protocol', 'no_verify_ssl']}
+                     'protocol', 'no_verify_ssl', 'ca_cert']}
 
 
 def common_options(f):
@@ -201,6 +213,8 @@ def common_options(f):
                      default='https', help='Connection protocol (default: https)')(f)
     f = click.option('--no-verify-ssl', is_flag=True,
                      help='Disable SSL certificate verification for HTTPS (use with self-signed certificates)')(f)
+    f = click.option('--ca-cert', type=click.Path(exists=True, dir_okay=False),
+                     help='Path to CA certificate file for SSL verification')(f)
     f = click.option('--debug', is_flag=True,
                      help='Show detailed debug information for troubleshooting')(f)
     return f

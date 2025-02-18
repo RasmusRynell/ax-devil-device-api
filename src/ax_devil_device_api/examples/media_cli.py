@@ -12,12 +12,13 @@ from ..features.media import MediaConfig
 @click.group()
 @common_options
 @click.pass_context
-def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug):
+def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
     """Manage media operations for an Axis camera.
     
     Provides functionality for capturing snapshots and configuring media parameters.
     When using HTTPS (default), the camera must have a valid SSL certificate. For cameras with
     self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
+    You can also provide a custom CA certificate using --ca-cert.
     """
     ctx.ensure_object(dict)
     ctx.obj.update({
@@ -27,6 +28,7 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, debug
         'port': port,
         'protocol': protocol,
         'no_verify_ssl': no_verify_ssl,
+        'ca_cert': ca_cert,
         'debug': debug
     })
 

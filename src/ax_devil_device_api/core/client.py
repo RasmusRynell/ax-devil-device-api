@@ -110,21 +110,25 @@ class CameraClient:
         headers = {}
         headers.update(kwargs.pop("headers", {}))
 
-        def make_request(auth: AuthBase, **extra_kwargs) -> requests.Response:
-            return self._session.request(
-                endpoint.method,
-                url,
-                headers=headers,
-                timeout=self.config.timeout,
-                auth=auth,
+        def make_request(auth: AuthBase, request_func=None, **extra_kwargs) -> requests.Response:
+            request_args = {
+                "method": endpoint.method,
+                "url": url,
+                "headers": headers,
+                "timeout": self.config.timeout,
+                "auth": auth,
                 **kwargs,
                 **extra_kwargs
-            )
+            }
+            
+            if request_func:
+                return request_func(**request_args)
+            return self._session.request(**request_args)
 
         try:
             # First wrap with protocol handling (SSL, etc)
-            wrapped_request = lambda **extra_kwargs: self.auth.authenticate_request(
-                lambda auth: make_request(auth, **extra_kwargs)
+            wrapped_request = lambda request_func=None, **extra_kwargs: self.auth.authenticate_request(
+                lambda auth: make_request(auth, request_func, **extra_kwargs)
             )
 
             return self.protocol.execute_request(wrapped_request)
