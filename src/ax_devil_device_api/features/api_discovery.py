@@ -208,12 +208,12 @@ class DiscoveredAPI:
     @property
     def rest_api_url(self) -> str:
         """Get the base URL for REST API endpoints."""
-        return self._urls.get('rest_api', '')
+        return self._urls.get('rest_api') or 'No REST API available'
     
     @property
     def rest_ui_url(self) -> str:
         """Get the URL for the Swagger UI."""
-        return self._urls.get('rest_ui', '')
+        return self._urls.get('rest_ui') or 'No REST UI available'
 
 
 @dataclass
