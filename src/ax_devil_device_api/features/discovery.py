@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, List
 from .base import AxisFeatureClient
 from ..core.types import TransportResponse, FeatureResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 @dataclass
@@ -62,7 +62,7 @@ class DiscoveryClient(AxisFeatureClient[APICollection]):
     API interactions as we implement more features.
     """
     
-    DISCOVER_ENDPOINT = CameraEndpoint("GET", "/config/discover")
+    DISCOVER_ENDPOINT = DeviceEndpoint("GET", "/config/discover")
     
     def discover(self) -> FeatureResponse[APICollection]:
         """Get information about available APIs.

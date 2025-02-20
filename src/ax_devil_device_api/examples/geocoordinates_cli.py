@@ -92,7 +92,7 @@ def get_orientation(ctx):
             result = client.geocoordinates.get_orientation()
             
             if result.success:
-                click.echo("Camera Orientation:")
+                click.echo("Device Orientation:")
                 if result.data.heading is not None:
                     click.echo(f"  Heading: {result.data.heading}°")
                 if result.data.tilt is not None:
@@ -108,9 +108,9 @@ def get_orientation(ctx):
         return handle_error(ctx, e)
 
 @orientation.command('set')
-@click.option('--heading', type=float, help='Camera heading in degrees')
-@click.option('--tilt', type=float, help='Camera tilt angle in degrees')
-@click.option('--roll', type=float, help='Camera roll angle in degrees')
+@click.option('--heading', type=float, help='Device heading in degrees')
+@click.option('--tilt', type=float, help='Device tilt angle in degrees')
+@click.option('--roll', type=float, help='Device roll angle in degrees')
 @click.option('--height', type=float, help='Installation height in meters')
 @click.pass_context
 def set_orientation(ctx, heading, tilt, roll, height):

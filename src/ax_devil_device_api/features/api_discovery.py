@@ -3,7 +3,7 @@ from typing import Optional, Dict, List
 
 from .base import AxisFeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 
@@ -75,7 +75,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            CameraEndpoint("GET", doc_url),
+            DeviceEndpoint("GET", doc_url),
             headers={"Accept": "text/markdown"}
         )
         
@@ -109,7 +109,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            CameraEndpoint("GET", model_url),
+            DeviceEndpoint("GET", model_url),
             headers={"Accept": "application/json"}
         )
         
@@ -149,7 +149,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            CameraEndpoint("GET", doc_url),
+            DeviceEndpoint("GET", doc_url),
             headers={"Accept": "text/html"}
         )
         
@@ -183,7 +183,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            CameraEndpoint("GET", openapi_url),
+            DeviceEndpoint("GET", openapi_url),
             headers={"Accept": "application/json"}
         )
         
@@ -280,7 +280,7 @@ class DiscoveryClient(AxisFeatureClient[DiscoveredAPICollection]):
     API documentation and resources.
     """
     
-    DISCOVER_ENDPOINT = CameraEndpoint("GET", "/config/discover")
+    DISCOVER_ENDPOINT = DeviceEndpoint("GET", "/config/discover")
     
     def discover(self) -> FeatureResponse[DiscoveredAPICollection]:
         """Get information about available APIs.

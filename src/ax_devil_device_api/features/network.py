@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, List
 from .base import AxisFeatureClient
 from ..core.types import TransportResponse, FeatureResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 @dataclass
@@ -58,8 +58,8 @@ class NetworkClient(AxisFeatureClient):
     """Client for network configuration operations."""
     
     # Endpoint definitions
-    PARAMS_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/param.cgi")
-    NETWORK_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/network_status.cgi")
+    PARAMS_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/param.cgi")
+    NETWORK_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/network_status.cgi")
     
     def _parse_param_response(self, response: TransportResponse) -> FeatureResponse[Dict[str, str]]:
         """Parse raw parameter response into dictionary."""

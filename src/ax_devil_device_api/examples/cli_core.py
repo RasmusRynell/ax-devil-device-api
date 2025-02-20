@@ -113,13 +113,13 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
         # Network Errors
         "connection_refused": (
             "Cannot reach device. Please check:\n"
-            "1. Camera IP address is correct\n"
-            "2. Camera is powered on and connected to network\n"
+            "1. Device IP address is correct\n"
+            "2. Device is powered on and connected to network\n"
             "3. No firewall is blocking the connection"
         ),
         "request_timeout": (
             "Request timed out. Please check:\n"
-            "1. Camera is responsive\n"
+            "1. Device is responsive\n"
             "2. Network connection is stable"
         ),
         # Feature Errors
@@ -136,7 +136,7 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
             "Please check permissions and try again."
         ),
         "health_check_failed": (
-            "Camera health check failed.\n"
+            "Device health check failed.\n"
             "The device is not responding correctly."
         ),
     }
@@ -203,7 +203,7 @@ def get_client_args(ctx_obj: dict) -> dict:
 def common_options(f):
     """Common CLI options decorator."""
     f = click.option('--device-ip', default=lambda: os.getenv('AXIS_TARGET_ADDR'),
-                     required=False, help='Camera IP address or hostname')(f)
+                     required=False, help='Device IP address or hostname')(f)
     f = click.option('--username', default=lambda: os.getenv('AXIS_TARGET_USER'),
                      required=False, help='Username for authentication')(f)
     f = click.option('--password', default=lambda: os.getenv('AXIS_TARGET_PASS'),

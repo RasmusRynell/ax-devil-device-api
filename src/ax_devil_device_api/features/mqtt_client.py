@@ -5,7 +5,7 @@ import json
 from typing import Dict, Any, Optional, ClassVar, Tuple, Union
 from .base import FeatureClient
 from ..core.types import FeatureResponse, TransportResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 @dataclass
@@ -163,7 +163,7 @@ class MqttClient(FeatureClient):
     """Client for managing MQTT operations."""
     
     API_VERSION: ClassVar[str] = "1.0"
-    MQTT_ENDPOINT = CameraEndpoint("POST", "/axis-cgi/mqtt/client.cgi")
+    MQTT_ENDPOINT = DeviceEndpoint("POST", "/axis-cgi/mqtt/client.cgi")
 
     def get_feature_name(self) -> str:
         """Get feature identifier."""

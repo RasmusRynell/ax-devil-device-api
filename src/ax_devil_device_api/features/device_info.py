@@ -2,15 +2,15 @@ from dataclasses import dataclass
 from typing import Dict, List
 from .base import AxisFeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 @dataclass
 class DeviceInfo:
-    """Camera device information.
+    """Device device information.
     
     Attributes:
-        model: Camera model name (e.g., "AXIS Q1656")
+        model: Device model name (e.g., "AXIS Q1656")
         product_type: Type of device (e.g., "Box Camera")
         product_number: Short product number (e.g., "Q1656")
         serial_number: Unique serial number
@@ -73,8 +73,8 @@ class DeviceInfoClient(AxisFeatureClient[DeviceInfo]):
     """Client for basic device operations."""
     
     # Endpoint definitions
-    PARAMS_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/param.cgi")
-    RESTART_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/restart.cgi")
+    PARAMS_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/param.cgi")
+    RESTART_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/restart.cgi")
     
     def get_info(self) -> FeatureResponse[DeviceInfo]:
         """Get basic device information."""

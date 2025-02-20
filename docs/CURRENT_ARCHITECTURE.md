@@ -15,7 +15,7 @@
     - Support for temporary sessions
   - `Response[T]`: Type-safe response wrapper with comprehensive error handling
   - `TransportResponse`: Low-level HTTP response encapsulation
-  - `CameraEndpoint`: Structured API endpoint definitions
+  - `DeviceEndpoint`: Structured API endpoint definitions
   - `AuthHandler`: Unified authentication handling with method auto-detection
   - `ProtocolHandler`: Protocol-specific connection logic and SSL/TLS handling
   - `DeviceConfig`: Comprehensive configuration management

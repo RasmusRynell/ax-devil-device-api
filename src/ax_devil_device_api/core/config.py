@@ -47,7 +47,7 @@ class SSLConfig:
 
 @dataclass
 class DeviceConfig:
-    """Camera connection configuration.
+    """Device connection configuration.
 
     Common usage:
         # For HTTPS devices with CA-signed certificate:
@@ -118,7 +118,7 @@ class DeviceConfig:
         """Create configuration for HTTPS device.
         
         Args:
-            host: Camera hostname or IP
+            host: Device hostname or IP
             username: Authentication username
             password: Authentication password
             verify_ssl: Whether to verify SSL certificates

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict
 from .base import AxisFeatureClient
 from ..core.types import TransportResponse, FeatureResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 @dataclass
@@ -59,7 +59,7 @@ class MediaClient(AxisFeatureClient):
     """
     
     # Endpoint definitions
-    SNAPSHOT_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/jpg/image.cgi")
+    SNAPSHOT_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/jpg/image.cgi")
     
     def get_snapshot(self, config: Optional[MediaConfig] = None) -> FeatureResponse[bytes]:
         """Capture a JPEG snapshot from the camera.

@@ -8,7 +8,7 @@ from .config import DeviceConfig
 from .auth import AuthHandler
 from .protocol import ProtocolHandler
 from .types import TransportResponse
-from .endpoints import CameraEndpoint
+from .endpoints import DeviceEndpoint
 from ..utils.errors import NetworkError, AuthenticationError
 
 
@@ -19,7 +19,7 @@ class FeatureClient(ABC):
         """Initialize with device client instance."""
         self.device = device_client
 
-    def request(self, endpoint: CameraEndpoint, **kwargs) -> TransportResponse:
+    def request(self, endpoint: DeviceEndpoint, **kwargs) -> TransportResponse:
         """Make a request to the device API."""
         return self.device.request(endpoint, **kwargs)
 
@@ -101,7 +101,7 @@ class DeviceClient:
         self._session.close()
         self._session = self._create_session()
 
-    def request(self, endpoint: CameraEndpoint, **kwargs) -> TransportResponse:
+    def request(self, endpoint: DeviceEndpoint, **kwargs) -> TransportResponse:
         """Make a request to the device API using the session."""
         url = self.config.get_base_url()
         url = endpoint.build_url(url, kwargs.get("params"))

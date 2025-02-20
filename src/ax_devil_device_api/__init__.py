@@ -1,5 +1,5 @@
 """
-ax-devil-device-api: Axis Camera Device Management API
+ax-devil-device-api: Axis Device Management API
 
 A comprehensive Python library that provides a unified interface for Axis network devices,
 focusing on device-level operations and configuration management. The library emphasizes:

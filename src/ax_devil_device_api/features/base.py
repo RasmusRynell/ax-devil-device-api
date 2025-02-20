@@ -3,7 +3,7 @@
 from typing import Dict, TypeVar, Generic
 from ..core.client import FeatureClient
 from ..core.types import TransportResponse, FeatureResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 T = TypeVar('T')

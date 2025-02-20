@@ -5,7 +5,7 @@ from typing import Optional, Dict, Tuple, TypeVar, Protocol, cast, Union
 import xml.etree.ElementTree as ET
 from .base import FeatureClient
 from ..core.types import TransportResponse, FeatureResponse
-from ..core.endpoints import CameraEndpoint
+from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 class XMLParseable(Protocol):
@@ -74,7 +74,7 @@ def parse_iso6709_coordinate(coord_str: str) -> float:
 
 @dataclass
 class GeoCoordinatesLocation:
-    """Camera location information."""
+    """Device location information."""
     latitude: float
     longitude: float
     is_valid: bool = False
@@ -112,7 +112,7 @@ class GeoCoordinatesLocation:
 
 @dataclass
 class GeoCoordinatesOrientation:
-    """Camera orientation information."""
+    """Device orientation information."""
     heading: Optional[float] = None
     tilt: Optional[float] = None
     roll: Optional[float] = None
@@ -153,9 +153,9 @@ class GeoCoordinatesOrientation:
 class GeoCoordinatesClient(FeatureClient):
     """Client for device geocoordinates and orientation features."""
     
-    LOCATION_GET_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/geolocation/get.cgi")
-    LOCATION_SET_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/geolocation/set.cgi")
-    ORIENTATION_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/geoorientation/geoorientation.cgi")
+    LOCATION_GET_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geolocation/get.cgi")
+    LOCATION_SET_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geolocation/set.cgi")
+    ORIENTATION_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geoorientation/geoorientation.cgi")
     
     def _handle_response(self, response: TransportResponse, parser: type[T]) -> FeatureResponse[T]:
         """Handle common response processing pattern."""

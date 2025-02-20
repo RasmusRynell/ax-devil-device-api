@@ -47,13 +47,13 @@ class TestDeviceInfoFeature:
         for attempt in range(max_down_attempts):
             try:
                 health = client.device.check_health()
-                if not health.success:  # Camera is down!
+                if not health.success:  # Device is down!
                     break
             except:  # Network errors also indicate device is down
                 break
             time.sleep(5)
         else:
-            pytest.fail("Camera did not go down after restart command")
+            pytest.fail("Device did not go down after restart command")
             
         # Now wait for device to come back (max 60 seconds)
         max_up_attempts = 12
@@ -66,8 +66,8 @@ class TestDeviceInfoFeature:
                 pass
             time.sleep(5)
         else:
-            pytest.fail(f"Camera did not come back online after {max_up_attempts * 5} seconds")
+            pytest.fail(f"Device did not come back online after {max_up_attempts * 5} seconds")
         
         # Verify device is fully healthy
         final_health = client.device.check_health()
-        assert final_health.success, "Camera is not healthy after restart" 
+        assert final_health.success, "Device is not healthy after restart" 

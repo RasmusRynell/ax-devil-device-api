@@ -83,7 +83,7 @@ def restart(ctx, force):
 
             if result.success:
                 click.echo(click.style(
-                    "Camera restart initiated. The device will be unavailable for a few minutes.",
+                    "Device restart initiated. The device will be unavailable for a few minutes.",
                     fg="yellow"
                 ))
                 return 0
