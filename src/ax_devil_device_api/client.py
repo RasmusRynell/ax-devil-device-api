@@ -11,6 +11,7 @@ from ax_devil_device_api.features.media import MediaClient
 from ax_devil_device_api.features.geocoordinates import GeoCoordinatesClient
 from ax_devil_device_api.features.mqtt_client import MqttClient
 from ax_devil_device_api.features.analytics_mqtt import AnalyticsMqttClient
+from ax_devil_device_api.features.api_discovery import DiscoveryClient
 
 class Client:
     """Main client interface for Axis cameras.
@@ -71,6 +72,7 @@ class Client:
         self._geocoordinates: Optional[GeoCoordinatesClient] = None
         self._mqtt_client: Optional[MqttClient] = None
         self._analytics_mqtt: Optional[AnalyticsMqttClient] = None
+        self._discovery: Optional[DiscoveryClient] = None
     
     def __del__(self):
         """Attempt to clean up if user forgets to close.
@@ -178,3 +180,10 @@ class Client:
         if not self._analytics_mqtt:
             self._analytics_mqtt = AnalyticsMqttClient(self._core)
         return self._analytics_mqtt
+
+    @property
+    def discovery(self) -> DiscoveryClient:
+        """Access API discovery operations."""
+        if not self._discovery:
+            self._discovery = DiscoveryClient(self._core)
+        return self._discovery
