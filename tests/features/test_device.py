@@ -3,7 +3,7 @@
 import time
 import pytest
 
-class TestDeviceFeature:
+class TestDeviceInfoFeature:
     """Test suite for device feature."""
     
     def test_get_info(self, client):

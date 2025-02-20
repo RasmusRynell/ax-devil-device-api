@@ -39,7 +39,7 @@
   - Comprehensive validation mechanisms
   
 - **Implemented Features:**
-  - `DeviceClient`: Core device management and configuration
+  - `DeviceInfoClient`: Core device management and configuration
     - Device information retrieval
     - Health monitoring
     - System restart capabilities

@@ -69,7 +69,7 @@ class DeviceInfo:
             analytics_support=analytics_support
         )
 
-class DeviceClient(AxisFeatureClient[DeviceInfo]):
+class DeviceInfoClient(AxisFeatureClient[DeviceInfo]):
     """Client for basic device operations."""
     
     # Endpoint definitions

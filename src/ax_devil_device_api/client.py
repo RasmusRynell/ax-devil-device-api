@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import warnings
 from ax_devil_device_api.core.client import CameraClient
 from ax_devil_device_api.core.config import CameraConfig
-from ax_devil_device_api.features.device import DeviceClient
+from ax_devil_device_api.features.device_info import DeviceInfoClient
 from ax_devil_device_api.features.network import NetworkClient
 from ax_devil_device_api.features.media import MediaClient
 from ax_devil_device_api.features.geocoordinates import GeoCoordinatesClient
@@ -66,7 +66,7 @@ class Client:
         self._closed = False
         
         # Lazy-loaded feature clients
-        self._device: Optional[DeviceClient] = None
+        self._device: Optional[DeviceInfoClient] = None
         self._network: Optional[NetworkClient] = None
         self._media: Optional[MediaClient] = None
         self._geocoordinates: Optional[GeoCoordinatesClient] = None
@@ -140,10 +140,10 @@ class Client:
         self._core.clear_session()
     
     @property
-    def device(self) -> DeviceClient:
+    def device(self) -> DeviceInfoClient:
         """Access device operations."""
         if not self._device:
-            self._device = DeviceClient(self._core)
+            self._device = DeviceInfoClient(self._core)
         return self._device
     
     @property

@@ -25,7 +25,7 @@ Documentation = "https://github.com/rasmusrynell/ax-devil-device-api#readme"
 
 [project.scripts]
 ax-devil-device-api-mqtt-client = "ax_devil_device_api.examples.mqtt_client_cli:cli"
-ax-devil-device-api-device = "ax_devil_device_api.examples.device_cli:cli"
+ax-devil-device-api-device-info = "ax_devil_device_api.examples.device_info_cli:cli"
 ax-devil-device-api-network = "ax_devil_device_api.examples.network_cli:cli"
 ax-devil-device-api-geocoordinates = "ax_devil_device_api.examples.geocoordinates_cli:cli"
 ax-devil-device-api-analytics-mqtt = "ax_devil_device_api.examples.analytics_mqtt_cli:cli"
