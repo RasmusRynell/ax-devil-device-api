@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, List
 
-from .base import AxisFeatureClient
+from .base import FeatureClient
 from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
@@ -273,7 +273,7 @@ class DiscoveredAPICollection:
         return list(self.apis.get(name, {}).values())
 
 
-class DiscoveryClient(AxisFeatureClient[DiscoveredAPICollection]):
+class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
     """Client for API discovery operations.
     
     Provides access to the device's API discovery endpoint and helps manage

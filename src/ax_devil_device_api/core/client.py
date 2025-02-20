@@ -12,7 +12,7 @@ from .endpoints import DeviceEndpoint
 from ..utils.errors import NetworkError, AuthenticationError
 
 
-class FeatureClient(ABC):
+class FeatureClientABC(ABC):
     """Abstract base class for all feature clients."""
 
     def __init__(self, device_client: 'DeviceClient') -> None:

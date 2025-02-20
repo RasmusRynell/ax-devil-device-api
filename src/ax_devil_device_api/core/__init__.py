@@ -1,4 +1,4 @@
-from .client import DeviceClient, FeatureClient
+from .client import DeviceClient, FeatureClientABC
 from .config import DeviceConfig
 
-__all__ = ['DeviceClient', 'DeviceConfig', 'FeatureClient']
+__all__ = ['DeviceClient', 'DeviceConfig', 'FeatureClientABC']

@@ -6,18 +6,6 @@ A Python library for interacting with Axis device APIs. Provides a type-safe int
 
 This project is an independent, community-driven implementation and is **not** affiliated with or endorsed by Axis Communications AB. For official APIs and development resources, please refer to [Axis Developer Community](https://www.axis.com/en-us/developer).
 
-## Features
-
-- Type-safe API with comprehensive error handling
-- Device management and configuration
-- Network and connectivity management
-- Media streaming and snapshot capabilities
-- MQTT protocol support
-- Geolocation and analytics features
-- Proper resource management with context managers
-- Automatic connection pooling and cleanup
-
-
 ## Quick Start
 
 ### Installation

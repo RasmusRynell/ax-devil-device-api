@@ -1,4 +1,4 @@
-# ax-devil-device-api: Axis Device Development Utilities
+# ax-devil-device-api: Axis Development Utilities - Device API
 
 ## Current Overall Architecture
 
@@ -31,7 +31,7 @@
 
 ### Layer 2: Feature Modules
 - **Base Architecture:**
-  - `AxisFeatureClient`: Base class providing common feature functionality
+  - `FeatureClient`: Base class providing common feature functionality
   - `FeatureResponse`: Standardized response handling for features
   - Strong typing and validation patterns
   - Modular error handling system

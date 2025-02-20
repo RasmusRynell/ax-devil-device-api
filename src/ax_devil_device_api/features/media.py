@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Dict
-from .base import AxisFeatureClient
+from .base import FeatureClient
 from ..core.types import TransportResponse, FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
@@ -49,7 +49,7 @@ class MediaConfig:
             params["rotation"] = str(self.rotation)
         return params
 
-class MediaClient(AxisFeatureClient):
+class MediaClient(FeatureClient):
     """Client for camera media operations.
     
     Provides functionality for:

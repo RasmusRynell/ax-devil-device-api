@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, List
-from .base import AxisFeatureClient
+from .base import FeatureClient
 from ..core.types import TransportResponse, FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
@@ -54,7 +54,7 @@ class NetworkInfo:
             duplex_mode=get_param("Duplex", None)
         )
 
-class NetworkClient(AxisFeatureClient):
+class NetworkClient(FeatureClient):
     """Client for network configuration operations."""
     
     # Endpoint definitions

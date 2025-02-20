@@ -1,15 +1,15 @@
 """Base classes for feature modules."""
 
 from typing import Dict, TypeVar, Generic
-from ..core.client import FeatureClient
+from ..core.client import FeatureClientABC
 from ..core.types import TransportResponse, FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
 T = TypeVar('T')
 
-class AxisFeatureClient(FeatureClient, Generic[T]):
-    """Base class for Axis device feature clients.
+class FeatureClient(FeatureClientABC, Generic[T]):
+    """Base class for device feature clients.
     
     Provides common functionality used across feature modules:
     - Parameter parsing

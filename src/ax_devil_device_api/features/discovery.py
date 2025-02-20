@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, List
-from .base import AxisFeatureClient
+from .base import FeatureClient
 from ..core.types import TransportResponse, FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
@@ -52,7 +52,7 @@ class DiscoveredAPICollection:
         # Store raw data for future parsing when we implement more features
         return cls(groups=groups, raw_data=data)
 
-class DiscoveryClient(AxisFeatureClient[APICollection]):
+class DiscoveryClient(FeatureClient[APICollection]):
     """Client for API discovery operations.
     
     Currently focused on the core discovery endpoint, which provides

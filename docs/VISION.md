@@ -1,4 +1,4 @@
-# ax-devil-device-api: Axis Device Development Utilities
+# ax-devil-device-api: Axis Development Utilities - Device API
 
 ## Vision Statement
 ax-devil-device-api is a Python library for working with Axis device APIs. It focuses on making device interactions reliable and predictable through type safety and error handling. The goal is to provide an interface that makes sense for real-world device management.

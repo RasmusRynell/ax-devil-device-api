@@ -46,9 +46,9 @@ def protocol(request):
 @pytest.fixture(scope="session")
 def client(protocol):
     """Create a client instance that persists for the entire test session."""
-    device_ip = os.getenv("AXIS_TARGET_ADDR")
-    device_user = os.getenv("AXIS_TARGET_USER")
-    device_pass = os.getenv("AXIS_TARGET_PASS")
+    device_ip = os.getenv("AX_DEVIL_TARGET_ADDR")
+    device_user = os.getenv("AX_DEVIL_TARGET_USER")
+    device_pass = os.getenv("AX_DEVIL_TARGET_PASS")
 
     if not all([device_ip, device_user, device_pass]):
         pytest.skip("Required environment variables not set")

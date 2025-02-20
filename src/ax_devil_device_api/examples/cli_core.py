@@ -7,7 +7,7 @@ import sys
 from typing import Dict, Any, Optional
 from ax_devil_device_api import Client, DeviceConfig
 from ax_devil_device_api.core.config import Protocol
-from ax_devil_device_api.utils.errors import SecurityError, NetworkError, FeatureError, AxisError
+from ax_devil_device_api.utils.errors import SecurityError, NetworkError, FeatureError, BaseError
 from ax_devil_device_api.core.types import FeatureResponse
 from typing import Union
 from datetime import datetime
@@ -92,7 +92,7 @@ def show_debug_info(ctx, error=None):
         click.echo(formatted_tb, err=True)
 
 
-def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
+def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
     """Format error message and determine color based on error type."""
     # Map error codes to user-friendly messages
     error_messages = {
@@ -108,7 +108,7 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
             "   echo -n | openssl s_client -connect <HOST>:443 -showcerts | \\\n"
             "   awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/{ print $0 }' > cert_chain.pem\n\n"
             "Note: Option 3 is recommended as it maintains security while verifying\n"
-            "      the device's genuine Axis device identity certificate."
+            "      the device's genuine device identity certificate."
         ),
         # Network Errors
         "connection_refused": (
@@ -202,11 +202,11 @@ def get_client_args(ctx_obj: dict) -> dict:
 
 def common_options(f):
     """Common CLI options decorator."""
-    f = click.option('--device-ip', default=lambda: os.getenv('AXIS_TARGET_ADDR'),
+    f = click.option('--device-ip', default=lambda: os.getenv('AX_DEVIL_TARGET_ADDR'),
                      required=False, help='Device IP address or hostname')(f)
-    f = click.option('--username', default=lambda: os.getenv('AXIS_TARGET_USER'),
+    f = click.option('--username', default=lambda: os.getenv('AX_DEVIL_TARGET_USER'),
                      required=False, help='Username for authentication')(f)
-    f = click.option('--password', default=lambda: os.getenv('AXIS_TARGET_PASS'),
+    f = click.option('--password', default=lambda: os.getenv('AX_DEVIL_TARGET_PASS'),
                      required=False, help='Password for authentication')(f)
     f = click.option('--port', type=int, required=False, help='Port number')(f)
     f = click.option('--protocol', type=click.Choice(['http', 'https']),

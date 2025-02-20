@@ -1,7 +1,7 @@
 from typing import TypeVar, Generic, Optional, Any, Dict, Union
 from dataclasses import dataclass, field
 from requests import Response as RequestsResponse
-from ..utils.errors import AxisError, FeatureError
+from ..utils.errors import BaseError, FeatureError
 
 T = TypeVar('T')
 
@@ -23,7 +23,7 @@ class TransportResponse:
     """
     
     raw_response: Optional[RequestsResponse] = None
-    error: Optional[AxisError] = None
+    error: Optional[BaseError] = None
 
     def __post_init__(self):
         """Validate response state."""
@@ -41,7 +41,7 @@ class TransportResponse:
         return cls(raw_response=response)
 
     @classmethod
-    def from_error(cls, error: AxisError) -> 'TransportResponse':
+    def from_error(cls, error: BaseError) -> 'TransportResponse':
         """Create a response from an error."""
         return cls(error=error)
 
@@ -57,7 +57,7 @@ class FeatureResponse(Generic[T]):
     """
     
     _data: Optional[T] = None
-    _error: Optional[AxisError] = None
+    _error: Optional[BaseError] = None
 
     def __post_init__(self):
         """Validate response state."""
@@ -75,7 +75,7 @@ class FeatureResponse(Generic[T]):
         return self._data
 
     @property
-    def error(self) -> Optional[AxisError]:
+    def error(self) -> Optional[BaseError]:
         """Access the error."""
         return self._error
 
@@ -85,7 +85,7 @@ class FeatureResponse(Generic[T]):
         return cls(_data=data)
 
     @classmethod
-    def create_error(cls, error: AxisError) -> 'FeatureResponse[T]':
+    def create_error(cls, error: BaseError) -> 'FeatureResponse[T]':
         """Create an error response."""
         return cls(_error=error)
 

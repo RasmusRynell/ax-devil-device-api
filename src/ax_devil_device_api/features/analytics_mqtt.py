@@ -7,7 +7,7 @@ handling data normalization and error abstraction.
 
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, ClassVar, Generic, TypeVar
-from .base import AxisFeatureClient
+from .base import FeatureClient
 from ..core.types import FeatureResponse, TransportResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
@@ -99,7 +99,7 @@ class PublisherConfig:
             use_topic_prefix=data.get("use_topic_prefix", False)
         )
 
-class AnalyticsMqttClient(AxisFeatureClient[PublisherConfig]):
+class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
     """Client for analytics MQTT operations.
     
     Provides functionality for:

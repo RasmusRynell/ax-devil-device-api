@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any
 
-class AxisError(Exception):
+class BaseError(Exception):
     """Base exception for all ax-devil-device-api errors."""
     def __init__(self, code: str, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(f"{code}: {message}")
@@ -8,20 +8,20 @@ class AxisError(Exception):
         self.message = message
         self.details = details or {}
 
-class AuthenticationError(AxisError):
+class AuthenticationError(BaseError):
     """Authentication related errors."""
     pass
 
-class ConfigurationError(AxisError):
+class ConfigurationError(BaseError):
     """Configuration related errors."""
     pass
 
-class NetworkError(AxisError):
+class NetworkError(BaseError):
     """Network communication errors."""
     def __init__(self, code: str, message: str = None):
         super().__init__(code, message)
 
-class SecurityError(AxisError):
+class SecurityError(BaseError):
     """Security-related errors like SSL/TLS issues."""
     def __init__(self, code: str, message: str = None, details: Optional[Dict[str, Any]] = None):
         if message is None:
@@ -33,6 +33,6 @@ class SecurityError(AxisError):
             }.get(code, "Security error")
         super().__init__(code, message, details)
 
-class FeatureError(AxisError):
+class FeatureError(BaseError):
     """Feature-specific errors."""
     pass

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List
-from .base import AxisFeatureClient
+from .base import FeatureClient
 from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
@@ -69,7 +69,7 @@ class DeviceInfo:
             analytics_support=analytics_support
         )
 
-class DeviceInfoClient(AxisFeatureClient[DeviceInfo]):
+class DeviceInfoClient(FeatureClient[DeviceInfo]):
     """Client for basic device operations."""
     
     # Endpoint definitions
