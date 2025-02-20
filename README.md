@@ -29,10 +29,10 @@ pip install ax-devil-device-api
 ### Example Usage
 
 ```python
-from ax_devil_device_api import Client, CameraConfig
+from ax_devil_device_api import Client, DeviceConfig
 
 # Initialize client (recommended way using context manager)
-config = CameraConfig.https("192.168.1.10", "admin", "password")
+config = DeviceConfig.https("192.168.1.10", "admin", "password")
 with Client(config) as client:
     # Get device information
     device_info = client.device.get_info()
@@ -58,10 +58,10 @@ finally:
 
 ```bash
 # Get device information
-ax-devil-device-api-device --camera-ip 192.168.1.10 --username admin --password secret info
+ax-devil-device-api-device --device-ip 192.168.1.10 --username admin --password secret info
 
 # Capture media
-ax-devil-device-api-media --camera-ip 192.168.1.10 --username admin --password secret --output image.jpg capture
+ax-devil-device-api-media --device-ip 192.168.1.10 --username admin --password secret --output image.jpg capture
 ```
 
 ## License

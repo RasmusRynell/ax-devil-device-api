@@ -4,7 +4,7 @@ from requests.auth import AuthBase
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 
-from .config import CameraConfig
+from .config import DeviceConfig
 from .auth import AuthHandler
 from .protocol import ProtocolHandler
 from .types import TransportResponse
@@ -15,18 +15,18 @@ from ..utils.errors import NetworkError, AuthenticationError
 class FeatureClient(ABC):
     """Abstract base class for all feature clients."""
 
-    def __init__(self, camera_client: 'CameraClient') -> None:
-        """Initialize with camera client instance."""
-        self.camera = camera_client
+    def __init__(self, device_client: 'DeviceClient') -> None:
+        """Initialize with device client instance."""
+        self.device = device_client
 
     def request(self, endpoint: CameraEndpoint, **kwargs) -> TransportResponse:
-        """Make a request to the camera API."""
-        return self.camera.request(endpoint, **kwargs)
+        """Make a request to the device API."""
+        return self.device.request(endpoint, **kwargs)
 
-class CameraClient:
-    """Core client for camera API communication.
+class DeviceClient:
+    """Core client for device API communication.
     
-    This class handles the low-level communication with the camera API,
+    This class handles the low-level communication with the device API,
     including transport, authentication, and protocol handling. It is part
     of Layer 1 (Communications Layer) and should not contain any feature-specific
     code.
@@ -46,8 +46,8 @@ class CameraClient:
         "Accept-Encoding": "gzip, deflate"
     }
 
-    def __init__(self, config: CameraConfig) -> None:
-        """Initialize with camera configuration."""
+    def __init__(self, config: DeviceConfig) -> None:
+        """Initialize with device configuration."""
         self.config = config
         self.auth = AuthHandler(config)
         self.protocol = ProtocolHandler(config)
@@ -102,7 +102,7 @@ class CameraClient:
         self._session = self._create_session()
 
     def request(self, endpoint: CameraEndpoint, **kwargs) -> TransportResponse:
-        """Make a request to the camera API using the session."""
+        """Make a request to the device API using the session."""
         url = self.config.get_base_url()
         url = endpoint.build_url(url, kwargs.get("params"))
         

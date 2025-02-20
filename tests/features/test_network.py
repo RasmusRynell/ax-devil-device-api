@@ -24,7 +24,7 @@ class TestNetworkFeature:
         assert info.data.interface_name, "Interface name should not be empty"
         
         # Network info validation - relaxed requirements
-        # Some cameras might not expose all information or might have different configurations
+        # Some devices might not expose all information or might have different configurations
         assert isinstance(info.data.mac_address, str), "MAC address should be string"
         assert isinstance(info.data.ip_address, str), "IP address should be string"
         assert isinstance(info.data.subnet_mask, str), "Subnet mask should be string"

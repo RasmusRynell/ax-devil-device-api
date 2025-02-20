@@ -37,16 +37,16 @@ def format_json(data: dict, indent: int = 2) -> str:
 @click.group()
 @common_options
 @click.pass_context
-def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
+def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
     """Discover and inspect available APIs on an Axis device.
     
-    When using HTTPS (default), the camera must have a valid SSL certificate. For cameras with
+    When using HTTPS (default), the device must have a valid SSL certificate. For devices with
     self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
     You can also provide a custom CA certificate using --ca-cert.
     """
     ctx.ensure_object(dict)
     ctx.obj.update({
-        'camera_ip': camera_ip,
+        'device_ip': device_ip,
         'username': username,
         'password': password,
         'port': port,
@@ -162,7 +162,7 @@ def show_api_info(api, ctx,
 
     def get_full_url(path: str) -> str:
         """Helper to construct full URLs with protocol and port."""
-        base_url = f"http{'s' if ctx.obj['protocol'] == 'https' else ''}://{ctx.obj['camera_ip']}"
+        base_url = f"http{'s' if ctx.obj['protocol'] == 'https' else ''}://{ctx.obj['device_ip']}"
         if ctx.obj['port']:
             base_url += f":{ctx.obj['port']}"
         return urljoin(base_url, path)

@@ -12,7 +12,7 @@ class TestGeoCoordinatesLocation:
         response = client.geocoordinates.get_location()
         assert response.success, f"Failed to get location: {response.error}"
         assert isinstance(response.data, GeoCoordinatesLocation)
-        # Note: We don't validate ranges, we trust the camera's response
+        # Note: We don't validate ranges, we trust the device's response
         assert response.data.is_valid is not None
         
     def test_set_location_success(self, client):

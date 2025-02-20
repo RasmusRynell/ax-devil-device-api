@@ -1,1 +1,1 @@
-"""Feature-specific clients for camera operations."""
+"""Feature-specific clients for device operations."""

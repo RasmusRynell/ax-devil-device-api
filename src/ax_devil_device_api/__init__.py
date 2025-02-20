@@ -1,7 +1,7 @@
 """
 ax-devil-device-api: Axis Camera Device Management API
 
-A comprehensive Python library that provides a unified interface for Axis network cameras,
+A comprehensive Python library that provides a unified interface for Axis network devices,
 focusing on device-level operations and configuration management. The library emphasizes:
 
 - Type safety and robust error handling
@@ -19,10 +19,10 @@ Key Features:
 
 Example:
     ```python
-    from ax_devil_device_api import Client, CameraConfig
+    from ax_devil_device_api import Client, DeviceConfig
     
     # Create a client with HTTPS (recommended)
-    config = CameraConfig.https("camera.local", "user", "pass")
+    config = DeviceConfig.https("device-ip", "user", "pass")
     client = Client(config)
     
     # Get device information
@@ -37,11 +37,11 @@ For detailed documentation, see the project's README.md and docs/ directory.
 
 __version__ = "0.1.0"
 
-from .core.config import CameraConfig
+from .core.config import DeviceConfig
 from .client import Client
 
 __all__ = [
     # Main interface
     'Client',
-    'CameraConfig',
+    'DeviceConfig',
 ] 

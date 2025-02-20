@@ -1,4 +1,4 @@
-"""Geographic coordinates and orientation features for Axis cameras."""
+"""Geographic coordinates and orientation features for Axis devices."""
 
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple, TypeVar, Protocol, cast, Union
@@ -151,7 +151,7 @@ class GeoCoordinatesOrientation:
         )
 
 class GeoCoordinatesClient(FeatureClient):
-    """Client for camera geocoordinates and orientation features."""
+    """Client for device geocoordinates and orientation features."""
     
     LOCATION_GET_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/geolocation/get.cgi")
     LOCATION_SET_ENDPOINT = CameraEndpoint("GET", "/axis-cgi/geolocation/set.cgi")
@@ -181,7 +181,7 @@ class GeoCoordinatesClient(FeatureClient):
             ))
         
     def get_location(self) -> FeatureResponse[GeoCoordinatesLocation]:
-        """Get current camera location."""
+        """Get current device location."""
         response = self.request(
             self.LOCATION_GET_ENDPOINT,
             headers={"Accept": "text/xml"}
@@ -189,7 +189,7 @@ class GeoCoordinatesClient(FeatureClient):
         return self._handle_response(response, GeoCoordinatesLocation)
             
     def set_location(self, latitude: float, longitude: float) -> FeatureResponse[bool]:
-        """Set camera location."""
+        """Set device location."""
         try:
             lat_str, lng_str = format_iso6709_coordinate(latitude, longitude)
             params = {"lat": lat_str, "lng": lng_str}
@@ -244,7 +244,7 @@ class GeoCoordinatesClient(FeatureClient):
             ))
             
     def get_orientation(self) -> FeatureResponse[GeoCoordinatesOrientation]:
-        """Get current camera orientation."""
+        """Get current device orientation."""
         response = self.request(
             self.ORIENTATION_ENDPOINT,
             params={"action": "get"},
@@ -253,7 +253,7 @@ class GeoCoordinatesClient(FeatureClient):
         return self._handle_response(response, GeoCoordinatesOrientation)
             
     def set_orientation(self, orientation: GeoCoordinatesOrientation) -> FeatureResponse[bool]:
-        """Set camera orientation."""
+        """Set device orientation."""
         try:
             params = {"action": "set"}
             if orientation.heading is not None:

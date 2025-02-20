@@ -7,11 +7,11 @@ ax-devil-device-api is a Python library for working with Axis device APIs. It fo
 The library is built around a simple idea: make Axis device APIs easier to work with in Python while keeping things maintainable. It uses a three-layer architecture to separate the core communication, device features, and user interfaces, making it easier to add new features or fix issues when APIs change.
 
 ## Project Overview
-ax-devil-device-api is built on a foundational principle: to create a robust, stable system for managing common camera interactions while allowing unlimited extensibility via feature-specific modules. Its three-layer architecture clearly separates responsibilities and supports long-term adaptability.
+ax-devil-device-api is built on a foundational principle: to create a robust, stable system for managing common device interactions while allowing unlimited extensibility via feature-specific modules. Its three-layer architecture clearly separates responsibilities and supports long-term adaptability.
 
 ### Layer 1: Communications Layer
 - **Fundamental & Stable:**  
-  This layer supplies the essential camera communication infrastructure—serving as the system's unchanging bedrock once mature.
+  This layer supplies the essential device communication infrastructure—serving as the system's unchanging bedrock once mature.
 - **Responsibilities:**
   - **Network Protocols & Connectivity:** Manages HTTP, HTTPS to ensure reliable communication.
   - **Authentication & Security:** Basic authentication, SSL/TLS connections, and other key security measures.
@@ -21,9 +21,9 @@ ax-devil-device-api is built on a foundational principle: to create a robust, st
 
 ### Layer 2: Feature Layer
 - **Extension & Evolution:**  
-  This dynamic layer is where new device functionalities are developed as independent modules, each dedicated to specific camera capabilities.
+  This dynamic layer is where new device functionalities are developed as independent modules, each dedicated to specific device capabilities.
 - **Responsibilities:**
-  - **Functionality Abstraction:** Implements camera operations (e.g., retrieving device info, restarting devices, managing settings) using the communications layer.
+  - **Functionality Abstraction:** Implements device operations (e.g., retrieving device info, restarting devices, managing settings) using the communications layer.
   - **Data Normalization:** Parses and converts raw responses from Layer 1 into standardized, structured formats (like dictionaries or custom objects).
   - **Error Abstraction:** Translates low-level errors from the communications layer into intuitive, high-level exceptions.
   - **Modularity:** Allows new features to be integrated seamlessly without disrupting the core system, ensuring ongoing adaptability.

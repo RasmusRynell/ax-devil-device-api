@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for managing camera geocoordinates and orientation settings."""
+"""CLI for managing device geocoordinates and orientation settings."""
 
 import click
 from .cli_core import (
@@ -11,16 +11,16 @@ from ..features.geocoordinates import GeoCoordinatesOrientation
 @click.group()
 @common_options
 @click.pass_context
-def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage geographic coordinates for an Axis camera.
+def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
+    """Manage geographic coordinates for an Axis device.
     
-    When using HTTPS (default), the camera must have a valid SSL certificate.
-    For cameras with self-signed certificates, use the --no-verify-ssl flag.
+    When using HTTPS (default), the device must have a valid SSL certificate.
+    For devices with self-signed certificates, use the --no-verify-ssl flag.
     You can also provide a custom CA certificate using --ca-cert.
     """
     ctx.ensure_object(dict)
     ctx.obj.update({
-        'camera_ip': camera_ip,
+        'device_ip': device_ip,
         'username': username,
         'password': password,
         'port': port,
@@ -32,7 +32,7 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, ca_ce
 
 @cli.group()
 def location():
-    """Get or set camera location coordinates."""
+    """Get or set device location coordinates."""
     pass
 
 @location.command('get')
@@ -58,10 +58,10 @@ def get_location(ctx):
 @click.argument('longitude', type=float)
 @click.pass_context
 def set_location(ctx, latitude, longitude):
-    """Set camera location coordinates.
+    """Set device location coordinates.
     
     LATITUDE and LONGITUDE should be specified in decimal degrees.
-    The camera will validate the provided coordinates.
+    The device will validate the provided coordinates.
     """
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
@@ -80,7 +80,7 @@ def set_location(ctx, latitude, longitude):
 
 @cli.group()
 def orientation():
-    """Get or set camera orientation coordinates."""
+    """Get or set device orientation coordinates."""
     pass
 
 @orientation.command('get')
@@ -114,10 +114,10 @@ def get_orientation(ctx):
 @click.option('--height', type=float, help='Installation height in meters')
 @click.pass_context
 def set_orientation(ctx, heading, tilt, roll, height):
-    """Set camera orientation coordinates.
+    """Set device orientation coordinates.
     
     All parameters are optional. Only specified parameters will be updated.
-    The camera will validate the provided values.
+    The device will validate the provided values.
     """
     if not any(x is not None for x in (heading, tilt, roll, height)):
         click.echo(click.style("Error: At least one orientation parameter must be specified", fg="red"), err=True)

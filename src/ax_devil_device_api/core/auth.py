@@ -1,15 +1,15 @@
 from typing import Optional, Callable, Any
 from requests import Response as RequestsResponse
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth, AuthBase
-from .config import CameraConfig, AuthMethod
+from .config import DeviceConfig, AuthMethod
 from ..utils.errors import AuthenticationError
 
 
 class AuthHandler:
-    """Handles authentication for camera requests."""
+    """Handles authentication for device requests."""
 
-    def __init__(self, config: CameraConfig) -> None:
-        """Initialize with camera configuration."""
+    def __init__(self, config: DeviceConfig) -> None:
+        """Initialize with device configuration."""
         self.config = config
         self._detected_method: Optional[AuthMethod] = None
 

@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 
 @dataclass
 class CameraEndpoint:
-    """Definition of a camera API endpoint."""
+    """Definition of a device API endpoint."""
     method: str
     path: str
 

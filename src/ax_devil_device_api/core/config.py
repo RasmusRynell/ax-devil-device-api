@@ -5,7 +5,7 @@ from ..utils.errors import ConfigurationError
 
 
 class AuthMethod(Enum):
-    """Authentication methods supported by the camera."""
+    """Authentication methods supported by the device."""
     AUTO = "auto"
     BASIC = "basic"
     DIGEST = "digest"
@@ -46,21 +46,21 @@ class SSLConfig:
 
 
 @dataclass
-class CameraConfig:
+class DeviceConfig:
     """Camera connection configuration.
 
     Common usage:
-        # For HTTPS cameras with CA-signed certificate:
-        config = CameraConfig.https("camera.local", "user", "pass")
+        # For HTTPS devices with CA-signed certificate:
+        config = DeviceConfig.https("device-ip", "user", "pass")
 
-        # For HTTPS cameras with self-signed certificate (development only):
-        config = CameraConfig.https("camera.local", "user", "pass", verify_ssl=False)
+        # For HTTPS devices with self-signed certificate (development only):
+        config = DeviceConfig.https("device-ip", "user", "pass", verify_ssl=False)
         
-        # For HTTPS cameras with custom CA certificate:
-        config = CameraConfig.https("camera.local", "user", "pass", ca_cert="/path/to/ca.crt")
+        # For HTTPS devices with custom CA certificate:
+        config = DeviceConfig.https("device-ip", "user", "pass", ca_cert="/path/to/ca.crt")
         
-        # For HTTPS cameras with certificate pinning:
-        config = CameraConfig.https("camera.local", "user", "pass", cert_fingerprint="SHA256:...")
+        # For HTTPS devices with certificate pinning:
+        config = DeviceConfig.https("device-ip", "user", "pass", cert_fingerprint="SHA256:...")
     """
     host: str
     username: str
@@ -87,7 +87,7 @@ class CameraConfig:
         if self.protocol == Protocol.HTTP and not self.allow_insecure:
             raise ConfigurationError(
                 "HTTP protocol requested but allow_insecure=False. "
-                "Use CameraConfig.http() to explicitly allow HTTP."
+                "Use DeviceConfig.http() to explicitly allow HTTP."
             )
 
         if self.protocol == Protocol.HTTPS and not self.ssl.verify:
@@ -96,8 +96,8 @@ class CameraConfig:
             warnings.filterwarnings('ignore', category=urllib3.exceptions.InsecureRequestWarning)
 
     @classmethod
-    def http(cls, host: str, username: str, password: str, port: Optional[int] = None) -> 'CameraConfig':
-        """Create configuration for HTTP-only camera."""
+    def http(cls, host: str, username: str, password: str, port: Optional[int] = None) -> 'DeviceConfig':
+        """Create configuration for HTTP-only device."""
         return cls(
             host=host,
             username=username,
@@ -114,8 +114,8 @@ class CameraConfig:
               ca_cert: Optional[str] = None,
               cert_fingerprint: Optional[str] = None,
               client_cert: Optional[str] = None,
-              client_key: Optional[str] = None) -> 'CameraConfig':
-        """Create configuration for HTTPS camera.
+              client_key: Optional[str] = None) -> 'DeviceConfig':
+        """Create configuration for HTTPS device.
         
         Args:
             host: Camera hostname or IP
@@ -144,6 +144,6 @@ class CameraConfig:
         )
 
     def get_base_url(self) -> str:
-        """Get the base URL for the camera."""
+        """Get the base URL for the device."""
         port_part = f":{self.port}" if self.port not in (80, 443) else ""
         return f"{self.protocol.value}://{self.host}{port_part}"

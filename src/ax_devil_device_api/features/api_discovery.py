@@ -276,7 +276,7 @@ class DiscoveredAPICollection:
 class DiscoveryClient(AxisFeatureClient[DiscoveredAPICollection]):
     """Client for API discovery operations.
     
-    Provides access to the camera's API discovery endpoint and helps manage
+    Provides access to the device's API discovery endpoint and helps manage
     API documentation and resources.
     """
     

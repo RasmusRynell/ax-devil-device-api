@@ -11,7 +11,7 @@ class DeviceInfo:
     
     Attributes:
         model: Camera model name (e.g., "AXIS Q1656")
-        product_type: Type of camera (e.g., "Box Camera")
+        product_type: Type of device (e.g., "Box Camera")
         product_number: Short product number (e.g., "Q1656")
         serial_number: Unique serial number
         hardware_id: Hardware identifier
@@ -109,7 +109,7 @@ class DeviceInfoClient(AxisFeatureClient[DeviceInfo]):
             ))
             
     def restart(self) -> FeatureResponse[bool]:
-        """Restart the camera."""
+        """Restart the device."""
         response = self.request(self.RESTART_ENDPOINT)
         
         if not response.is_transport_success:
@@ -124,7 +124,7 @@ class DeviceInfoClient(AxisFeatureClient[DeviceInfo]):
         return FeatureResponse.ok(True)
         
     def check_health(self) -> FeatureResponse[bool]:
-        """Check if the camera is responsive."""
+        """Check if the device is responsive."""
         try:
             response = self.request(
                 self.PARAMS_ENDPOINT,

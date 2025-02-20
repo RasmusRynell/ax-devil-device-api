@@ -26,36 +26,36 @@ class TestDeviceInfoFeature:
     
     @pytest.mark.skip_health_check
     def test_health_check(self, client):
-        """Test camera health check."""
+        """Test device health check."""
         health = client.device.check_health()
         assert health.success, f"Health check failed: {health.error}"
     
     @pytest.mark.restart
     @pytest.mark.skip_health_check
     def test_restart(self, client):
-        """Test camera restart functionality.
+        """Test device restart functionality.
         
         Note: This test is skipped by default as it's potentially disruptive.
         To run this test, use: pytest -v tests/ --run-restart
         """
         # Send restart command
         restart = client.device.restart()
-        assert restart.success, f"Failed to restart camera: {restart.error}"
+        assert restart.success, f"Failed to restart device: {restart.error}"
         
-        # Wait for camera to actually go down (max 30 seconds)
+        # Wait for device to actually go down (max 30 seconds)
         max_down_attempts = 6
         for attempt in range(max_down_attempts):
             try:
                 health = client.device.check_health()
                 if not health.success:  # Camera is down!
                     break
-            except:  # Network errors also indicate camera is down
+            except:  # Network errors also indicate device is down
                 break
             time.sleep(5)
         else:
             pytest.fail("Camera did not go down after restart command")
             
-        # Now wait for camera to come back (max 60 seconds)
+        # Now wait for device to come back (max 60 seconds)
         max_up_attempts = 12
         for attempt in range(max_up_attempts):
             try:
@@ -68,6 +68,6 @@ class TestDeviceInfoFeature:
         else:
             pytest.fail(f"Camera did not come back online after {max_up_attempts * 5} seconds")
         
-        # Verify camera is fully healthy
+        # Verify device is fully healthy
         final_health = client.device.check_health()
         assert final_health.success, "Camera is not healthy after restart" 

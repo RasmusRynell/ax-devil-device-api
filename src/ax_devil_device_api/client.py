@@ -3,8 +3,8 @@
 from typing import Optional, ContextManager
 from contextlib import contextmanager
 import warnings
-from ax_devil_device_api.core.client import CameraClient
-from ax_devil_device_api.core.config import CameraConfig
+from ax_devil_device_api.core.client import DeviceClient
+from ax_devil_device_api.core.config import DeviceConfig
 from ax_devil_device_api.features.device_info import DeviceInfoClient
 from ax_devil_device_api.features.network import NetworkClient
 from ax_devil_device_api.features.media import MediaClient
@@ -14,9 +14,9 @@ from ax_devil_device_api.features.analytics_mqtt import AnalyticsMqttClient
 from ax_devil_device_api.features.api_discovery import DiscoveryClient
 
 class Client:
-    """Main client interface for Axis cameras.
+    """Main client interface for Axis devices.
     
-    This is the primary entry point for interacting with Axis cameras.
+    This is the primary entry point for interacting with Axis devices.
     It provides access to all features through a unified interface and
     handles lazy loading of feature clients.
     
@@ -34,10 +34,10 @@ class Client:
     
     Example:
         ```python
-        from ax_devil_device_api import Client, CameraConfig
+        from ax_devil_device_api import Client, DeviceConfig
         
         # Create a client
-        config = CameraConfig.https("camera.local", "user", "pass")
+        config = DeviceConfig.https("device-ip", "user", "pass")
         
         # Using as context manager (recommended)
         with Client(config) as client:
@@ -60,9 +60,9 @@ class Client:
         ```
     """
     
-    def __init__(self, config: CameraConfig) -> None:
-        """Initialize with camera configuration."""
-        self._core = CameraClient(config)
+    def __init__(self, config: DeviceConfig) -> None:
+        """Initialize with device configuration."""
+        self._core = DeviceClient(config)
         self._closed = False
         
         # Lazy-loaded feature clients

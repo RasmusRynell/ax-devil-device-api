@@ -12,17 +12,17 @@ from ..features.media import MediaConfig
 @click.group()
 @common_options
 @click.pass_context
-def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage media operations for an Axis camera.
+def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
+    """Manage media operations for an Axis device.
     
     Provides functionality for capturing snapshots and configuring media parameters.
-    When using HTTPS (default), the camera must have a valid SSL certificate. For cameras with
+    When using HTTPS (default), the device must have a valid SSL certificate. For devices with
     self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
     You can also provide a custom CA certificate using --ca-cert.
     """
     ctx.ensure_object(dict)
     ctx.obj.update({
-        'camera_ip': camera_ip,
+        'device_ip': device_ip,
         'username': username,
         'password': password,
         'port': port,
@@ -36,20 +36,20 @@ def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, ca_ce
 @cli.command('snapshot')
 @click.option('--resolution', help='Image resolution (WxH format, e.g., "1920x1080")')
 @click.option('--compression', type=int, help='JPEG compression level (1-100)')
-@click.option('--camera', type=int, help='Camera head identifier for multi-sensor devices')
+@click.option('--device', type=int, help='Camera head identifier for multi-sensor devices')
 @click.option('--rotation', type=int, help='Image rotation in degrees (0, 90, 180, or 270)')
 @click.option('--output', '-o', type=click.Path(dir_okay=False), default="snapshot.jpg",
               help='Output file path')
 @click.pass_context
-def snapshot(ctx, resolution, compression, camera, rotation, output):
-    """Capture JPEG snapshot from camera."""
+def snapshot(ctx, resolution, compression, device, rotation, output):
+    """Capture JPEG snapshot from device."""
     try:
         config = None
-        if any(x is not None for x in (resolution, compression, camera, rotation)):
+        if any(x is not None for x in (resolution, compression, device, rotation)):
             config = MediaConfig(
                 resolution=resolution,
                 compression=compression,
-                camera_head=camera,
+                device_head=device,
                 rotation=rotation
             )
         

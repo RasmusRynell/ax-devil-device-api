@@ -11,16 +11,16 @@ from .cli_core import (
 @click.group()
 @common_options
 @click.pass_context
-def cli(ctx, camera_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage device operations for an Axis camera.
+def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
+    """Manage device operations for an Axis device.
 
-    When using HTTPS (default), the camera must have a valid SSL certificate. For cameras with
+    When using HTTPS (default), the device must have a valid SSL certificate. For devices with
     self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
     You can also provide a custom CA certificate using --ca-cert.
     """
     ctx.ensure_object(dict)
     ctx.obj.update({
-        'camera_ip': camera_ip,
+        'device_ip': device_ip,
         'username': username,
         'password': password,
         'port': port,
@@ -54,7 +54,7 @@ def get_info(ctx):
 @cli.command('health')
 @click.pass_context
 def check_health(ctx):
-    """Check if the camera is responsive and healthy."""
+    """Check if the device is responsive and healthy."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.check_health()
@@ -72,9 +72,9 @@ def check_health(ctx):
 @click.option('--force', is_flag=True, help='Force restart without confirmation')
 @click.pass_context
 def restart(ctx, force):
-    """Restart the camera (requires confirmation unless --force is used)."""
+    """Restart the device (requires confirmation unless --force is used)."""
     try:
-        if not force and not click.confirm('Are you sure you want to restart the camera?'):
+        if not force and not click.confirm('Are you sure you want to restart the device?'):
             click.echo('Restart cancelled.')
             return 0
 

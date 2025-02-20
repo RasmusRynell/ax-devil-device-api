@@ -9,7 +9,7 @@ from ..utils.errors import FeatureError
 T = TypeVar('T')
 
 class AxisFeatureClient(FeatureClient, Generic[T]):
-    """Base class for Axis camera feature clients.
+    """Base class for Axis device feature clients.
     
     Provides common functionality used across feature modules:
     - Parameter parsing
@@ -21,7 +21,7 @@ class AxisFeatureClient(FeatureClient, Generic[T]):
         """Parse raw parameter response into dictionary.
         
         Common functionality for parsing param.cgi responses into key-value pairs.
-        Used by multiple feature modules that need to get camera parameters.
+        Used by multiple feature modules that need to get device parameters.
         """
         if not response.is_transport_success:
             return FeatureResponse.from_transport(response)

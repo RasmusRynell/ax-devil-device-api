@@ -4,7 +4,7 @@
 
 ### Layer 1: Communications Layer
 - **Core Components:**
-  - `CameraClient`: Centralized client managing device communication and session handling
+  - `DeviceClient`: Centralized client managing device communication and session handling
     - Advanced connection pooling via requests.Session
     - Persistent connection management
     - Automatic SSL/TLS session reuse
@@ -18,7 +18,7 @@
   - `CameraEndpoint`: Structured API endpoint definitions
   - `AuthHandler`: Unified authentication handling with method auto-detection
   - `ProtocolHandler`: Protocol-specific connection logic and SSL/TLS handling
-  - `CameraConfig`: Comprehensive configuration management
+  - `DeviceConfig`: Comprehensive configuration management
     - Connection parameters
     - Authentication settings
     - Protocol selection

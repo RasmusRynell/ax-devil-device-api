@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 from urllib3.util.ssl_ import create_urllib3_context
-from .config import Protocol, CameraConfig
+from .config import Protocol, DeviceConfig
 from .types import TransportResponse
 from ..utils.errors import SecurityError, NetworkError
 
@@ -50,8 +50,8 @@ def fetch_server_cert(host: str, port: int, timeout: float = 5.0) -> bytes:
 class ProtocolHandler:
     """Handles protocol-specific connection logic."""
 
-    def __init__(self, config: CameraConfig) -> None:
-        """Initialize with camera configuration."""
+    def __init__(self, config: DeviceConfig) -> None:
+        """Initialize with device configuration."""
         self.config = config
 
     def get_ssl_kwargs(self) -> dict:

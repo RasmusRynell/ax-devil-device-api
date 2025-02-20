@@ -1,7 +1,7 @@
 """Test configuration and shared fixtures."""
 import pytest
 import os
-from ax_devil_device_api import Client, CameraConfig
+from ax_devil_device_api import Client, DeviceConfig
 
 def pytest_addoption(parser):
     """Add custom command line options for tests."""
@@ -9,13 +9,13 @@ def pytest_addoption(parser):
         "--run-restart",
         action="store_true",
         default=False,
-        help="Run camera restart tests (potentially disruptive)"
+        help="Run device restart tests (potentially disruptive)"
     )
     parser.addoption(
         "--protocol",
         choices=["http", "https"],
         default="https",
-        help="Protocol to use for camera communication (default: https)"
+        help="Protocol to use for device communication (default: https)"
     )
 
 def pytest_configure(config):
@@ -23,7 +23,7 @@ def pytest_configure(config):
     # Register custom markers
     config.addinivalue_line(
         "markers",
-        "restart: mark test as requiring camera restart (potentially disruptive)"
+        "restart: mark test as requiring device restart (potentially disruptive)"
     )
     config.addinivalue_line(
         "markers",
@@ -46,24 +46,24 @@ def protocol(request):
 @pytest.fixture(scope="session")
 def client(protocol):
     """Create a client instance that persists for the entire test session."""
-    camera_ip = os.getenv("AXIS_TARGET_ADDR")
-    camera_user = os.getenv("AXIS_TARGET_USER")
-    camera_pass = os.getenv("AXIS_TARGET_PASS")
+    device_ip = os.getenv("AXIS_TARGET_ADDR")
+    device_user = os.getenv("AXIS_TARGET_USER")
+    device_pass = os.getenv("AXIS_TARGET_PASS")
 
-    if not all([camera_ip, camera_user, camera_pass]):
+    if not all([device_ip, device_user, device_pass]):
         pytest.skip("Required environment variables not set")
     
     if protocol == "http":
-        config = CameraConfig.http(
-            host=camera_ip,
-            username=camera_user,
-            password=camera_pass
+        config = DeviceConfig.http(
+            host=device_ip,
+            username=device_user,
+            password=device_pass
         )
     else:
-        config = CameraConfig.https(
-            host=camera_ip,
-            username=camera_user,
-            password=camera_pass,
+        config = DeviceConfig.https(
+            host=device_ip,
+            username=device_user,
+            password=device_pass,
             verify_ssl=False
         )
     
@@ -75,7 +75,7 @@ def client(protocol):
 
 @pytest.fixture(autouse=True)
 def auto_health_check(request, client):
-    """Automatically check camera health before and after tests.
+    """Automatically check device health before and after tests.
     
     By default, all tests get health checks. To skip health checks for a specific test:
         @pytest.mark.skip_health_check

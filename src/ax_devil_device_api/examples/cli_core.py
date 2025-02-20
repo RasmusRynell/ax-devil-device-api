@@ -5,7 +5,7 @@ import os
 import traceback
 import sys
 from typing import Dict, Any, Optional
-from ax_devil_device_api import Client, CameraConfig
+from ax_devil_device_api import Client, DeviceConfig
 from ax_devil_device_api.core.config import Protocol
 from ax_devil_device_api.utils.errors import SecurityError, NetworkError, FeatureError, AxisError
 from ax_devil_device_api.core.types import FeatureResponse
@@ -18,7 +18,7 @@ class OperationCancelled(Exception):
     pass
 
 
-def create_client(camera_ip, username, password, port, protocol='https', no_verify_ssl=False, ca_cert=None) -> Client:
+def create_client(device_ip, username, password, port, protocol='https', no_verify_ssl=False, ca_cert=None) -> Client:
     """Create and return a Client instance within a context manager.
     
     Returns:
@@ -29,8 +29,8 @@ def create_client(camera_ip, username, password, port, protocol='https', no_veri
             result = client.device.get_info()
     """
     if protocol == 'https':
-        config = CameraConfig.https(
-            host=camera_ip,
+        config = DeviceConfig.https(
+            host=device_ip,
             username=username,
             password=password,
             port=port,
@@ -41,8 +41,8 @@ def create_client(camera_ip, username, password, port, protocol='https', no_veri
         if not click.confirm('Warning: Using HTTP is insecure. Continue?', default=False):
             raise OperationCancelled("HTTP connection cancelled by user")
 
-        config = CameraConfig.http(
-            host=camera_ip,
+        config = DeviceConfig.http(
+            host=device_ip,
             username=username,
             password=password,
             port=port
@@ -57,7 +57,7 @@ def show_debug_info(ctx, error=None):
         debug_info = {
             "connection": {
                 "protocol": ctx.obj['protocol'],
-                "host": ctx.obj['camera_ip'],
+                "host": ctx.obj['device_ip'],
                 "port": ctx.obj['port'],
                 "ssl_verify": not ctx.obj['no_verify_ssl']
             },
@@ -98,8 +98,8 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
     error_messages = {
         # Security Errors
         "ssl_verification_failed": (
-            "Cannot establish secure connection to camera.\n"
-            "The camera uses a built-in device identity certificate that needs to be verified.\n\n"
+            "Cannot establish secure connection to device.\n"
+            "The device uses a built-in device identity certificate that needs to be verified.\n\n"
             "Available options:\n"
             "1. Use HTTP instead:     --protocol http (not secure, development only)\n"
             "2. Skip verification:    --no-verify-ssl (not secure, development only)\n"
@@ -108,11 +108,11 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
             "   echo -n | openssl s_client -connect <HOST>:443 -showcerts | \\\n"
             "   awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/{ print $0 }' > cert_chain.pem\n\n"
             "Note: Option 3 is recommended as it maintains security while verifying\n"
-            "      the camera's genuine Axis device identity certificate."
+            "      the device's genuine Axis device identity certificate."
         ),
         # Network Errors
         "connection_refused": (
-            "Cannot reach camera. Please check:\n"
+            "Cannot reach device. Please check:\n"
             "1. Camera IP address is correct\n"
             "2. Camera is powered on and connected to network\n"
             "3. No firewall is blocking the connection"
@@ -124,20 +124,20 @@ def format_error_message(error: Union[Exception, AxisError]) -> tuple[str, str]:
         ),
         # Feature Errors
         "fetch_failed": (
-            "Failed to fetch camera parameters.\n"
-            "Please check camera connectivity and try again."
+            "Failed to fetch device parameters.\n"
+            "Please check device connectivity and try again."
         ),
         "info_parse_failed": (
             "Failed to parse device information.\n"
-            "The camera response was not in the expected format."
+            "The device response was not in the expected format."
         ),
         "restart_failed": (
-            "Failed to restart camera.\n"
+            "Failed to restart device.\n"
             "Please check permissions and try again."
         ),
         "health_check_failed": (
             "Camera health check failed.\n"
-            "The camera is not responding correctly."
+            "The device is not responding correctly."
         ),
     }
 
@@ -196,13 +196,13 @@ def handle_result(ctx, result: FeatureResponse) -> int:
 def get_client_args(ctx_obj: dict) -> dict:
     """Extract client-specific arguments from context object."""
     return {k: v for k, v in ctx_obj.items()
-            if k in ['camera_ip', 'username', 'password', 'port',
+            if k in ['device_ip', 'username', 'password', 'port',
                      'protocol', 'no_verify_ssl', 'ca_cert']}
 
 
 def common_options(f):
     """Common CLI options decorator."""
-    f = click.option('--camera-ip', default=lambda: os.getenv('AXIS_TARGET_ADDR'),
+    f = click.option('--device-ip', default=lambda: os.getenv('AXIS_TARGET_ADDR'),
                      required=False, help='Camera IP address or hostname')(f)
     f = click.option('--username', default=lambda: os.getenv('AXIS_TARGET_USER'),
                      required=False, help='Username for authentication')(f)

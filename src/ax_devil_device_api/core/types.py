@@ -15,7 +15,7 @@ class TransportError:
 
 @dataclass(frozen=True)
 class TransportResponse:
-    """Low-level response from the camera API.
+    """Low-level response from the device API.
     
     This class is part of Layer 1 (Communications Layer) and should not contain
     any feature-specific logic. It only handles transport-level success/failure
