@@ -38,7 +38,7 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
             ca_cert=ca_cert
         )
     else:
-        if not os.getenv('AX_DEVIL_UNSAFE', False):
+        if os.getenv('AX_DEVIL_USAGE_CLI', "safe") == "safe":
             if not click.confirm('Warning: Using HTTP is insecure. Continue?', default=False):
                 raise OperationCancelled("HTTP connection cancelled by user")
 
@@ -240,9 +240,9 @@ def common_options(f):
                      required=False, help='Password for authentication')(f)
     f = click.option('--port', type=int, required=False, help='Port number')(f)
     f = click.option('--protocol', type=click.Choice(['http', 'https']),
-                     default='http' if os.getenv('AX_DEVIL_UNSAFE', False) else 'https',
+                     default='https',
                      help='Connection protocol (default: https)')(f)
-    f = click.option('--no-verify-ssl', is_flag=True,
+    f = click.option('--no-verify-ssl', is_flag=True, default=False if os.getenv('AX_DEVIL_USAGE_CLI', "safe") == 'safe' else True,
                      help='Disable SSL certificate verification for HTTPS (use with self-signed certificates)')(f)
     f = click.option('--ca-cert', type=click.Path(exists=True, dir_okay=False),
                      help='Path to CA certificate file for SSL verification')(f)
