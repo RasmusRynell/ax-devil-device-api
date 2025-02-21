@@ -20,7 +20,7 @@ For an easier experience, you can set the following environment variables:
 export AX_DEVIL_TARGET_ADDR=<device-ip>
 export AX_DEVIL_TARGET_USER=<username>
 export AX_DEVIL_TARGET_PASS=<password>
-export AX_DEVIL_USAGE_CLI="unsafe" # Skip SSL certificate verification for HTTPS calls using CLI (default: "safe")
+export AX_DEVIL_USAGE_CLI="safe" # Set to "unsafe" to skip SSL certificate verification for CLI calls
 ```
 
 ### Example Usage
