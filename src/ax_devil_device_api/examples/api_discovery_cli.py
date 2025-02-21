@@ -1,37 +1,21 @@
 #!/usr/bin/env python3
 """CLI for discovering and inspecting available APIs on an Axis device."""
 
+import click
 import json
 import webbrowser
 from urllib.parse import urljoin
 
-import click
+from .cli_core import (
+    format_json,
+    create_client, handle_result, handle_error, get_client_args,
+    common_options
+)
 
 from .cli_core import (
     create_client, handle_result, handle_error, get_client_args,
     common_options
 )
-
-
-def format_json(data: dict, indent: int = 2) -> str:
-    """Format JSON data with syntax highlighting using click.style."""
-    def colorize(obj):
-        if isinstance(obj, dict):
-            return {colorize(k): colorize(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [colorize(item) for item in obj]
-        elif isinstance(obj, str):
-            return click.style(json.dumps(obj), fg='green')
-        elif isinstance(obj, bool):
-            return click.style(str(obj).lower(), fg='yellow')
-        elif obj is None:
-            return click.style('null', fg='blue')
-        elif isinstance(obj, (int, float)):
-            return click.style(str(obj), fg='cyan')
-        return obj
-
-    colored_data = colorize(data)
-    return json.dumps(colored_data, indent=indent)
 
 
 @click.group()

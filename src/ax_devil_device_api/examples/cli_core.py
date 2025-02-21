@@ -38,8 +38,9 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
             ca_cert=ca_cert
         )
     else:
-        if not click.confirm('Warning: Using HTTP is insecure. Continue?', default=False):
-            raise OperationCancelled("HTTP connection cancelled by user")
+        if not os.getenv('AX_DEVIL_UNSAFE', False):
+            if not click.confirm('Warning: Using HTTP is insecure. Continue?', default=False):
+                raise OperationCancelled("HTTP connection cancelled by user")
 
         config = DeviceConfig.http(
             host=device_ip,
@@ -78,8 +79,7 @@ def show_debug_info(ctx, error=None):
             debug_info['error']['details'] = ""
     click.secho("\nDebug Information:", fg='blue', err=True)
     try:
-        click.echo(json.dumps(debug_info,
-                indent=2, sort_keys=True), err=True)
+        click.echo(format_json(debug_info), err=True)
     except Exception as e:
         click.echo(f"Error: {e}, {debug_info}", err=True)
 
@@ -187,7 +187,7 @@ def handle_result(ctx, result: FeatureResponse) -> int:
             data = result.data.__dict__
         else:
             data = result.data
-        click.echo(json.dumps(data, indent=2))
+        click.echo(format_json(data))
         return 0
 
     return handle_error(ctx, result.error, show_prefix=False)
@@ -200,6 +200,38 @@ def get_client_args(ctx_obj: dict) -> dict:
                      'protocol', 'no_verify_ssl', 'ca_cert']}
 
 
+def format_json(data: dict, indent: int = 2) -> str:
+    """Format JSON data with syntax highlighting using click.style."""
+    formatted_json = json.dumps(data, indent=indent)
+    
+    if os.getenv('AX_DEVIL_COLOR') == 'false':
+        return formatted_json
+    
+    colored_lines = []
+    for line in formatted_json.splitlines():
+        if ':' in line:
+            key, value = line.split(':', 1)
+            colored_key = click.style(key, fg='blue')
+            
+            value = value.strip()
+            if value.startswith('"'):
+                colored_value = click.style(value, fg='green')
+            elif value in ('true', 'false'):
+                colored_value = click.style(value, fg='yellow')
+            elif value == 'null':
+                colored_value = click.style(value, fg='blue')
+            elif value.replace('.', '').replace('-', '').isdigit():
+                colored_value = click.style(value, fg='cyan')
+            else:
+                colored_value = value
+                
+            colored_lines.append(f"{colored_key}:{colored_value}")
+        else:
+            colored_lines.append(line)
+    
+    return '\n'.join(colored_lines)
+
+
 def common_options(f):
     """Common CLI options decorator."""
     f = click.option('--device-ip', default=lambda: os.getenv('AX_DEVIL_TARGET_ADDR'),
@@ -210,7 +242,8 @@ def common_options(f):
                      required=False, help='Password for authentication')(f)
     f = click.option('--port', type=int, required=False, help='Port number')(f)
     f = click.option('--protocol', type=click.Choice(['http', 'https']),
-                     default='https', help='Connection protocol (default: https)')(f)
+                     default='http' if os.getenv('AX_DEVIL_UNSAFE', False) else 'https',
+                     help='Connection protocol (default: https)')(f)
     f = click.option('--no-verify-ssl', is_flag=True,
                      help='Disable SSL certificate verification for HTTPS (use with self-signed certificates)')(f)
     f = click.option('--ca-cert', type=click.Path(exists=True, dir_okay=False),
