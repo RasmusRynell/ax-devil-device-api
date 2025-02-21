@@ -14,9 +14,9 @@ from ax_devil_device_api.features.analytics_mqtt import AnalyticsMqttClient
 from ax_devil_device_api.features.api_discovery import DiscoveryClient
 
 class Client:
-    """Main client interface for Axis devices.
+    """Main client interface for a device.
     
-    This is the primary entry point for interacting with Axis devices.
+    This is the primary entry point for interacting with a device.
     It provides access to all features through a unified interface and
     handles lazy loading of feature clients.
     

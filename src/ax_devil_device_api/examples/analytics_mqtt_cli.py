@@ -12,7 +12,7 @@ from ..features.analytics_mqtt import PublisherConfig
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage analytics MQTT publishers for an Axis device."""
+    """Manage analytics MQTT publishers."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,

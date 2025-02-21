@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for discovering and inspecting available APIs on an Axis device."""
+"""CLI for discovering and inspecting available discoverable APIs."""
 
 import click
 import json
@@ -17,7 +17,7 @@ from .cli_core import (
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Discover and inspect available APIs on an Axis device."""
+    """Discover and inspect available discoverable APIs."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,

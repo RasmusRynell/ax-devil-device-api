@@ -12,7 +12,7 @@ from ..features.geocoordinates import GeoCoordinatesOrientation
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage geographic coordinates for an Axis device."""
+    """Manage geographic coordinates."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,

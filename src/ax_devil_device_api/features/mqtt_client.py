@@ -1,4 +1,4 @@
-"""MQTT client feature for managing broker configuration and client lifecycle on Axis devices."""
+"""MQTT client feature for managing broker configuration and client lifecycle on a device."""
 
 from dataclasses import dataclass, asdict
 import json

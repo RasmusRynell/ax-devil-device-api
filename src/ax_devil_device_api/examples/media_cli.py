@@ -13,13 +13,7 @@ from ..features.media import MediaConfig
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage media operations for an Axis device.
-    
-    Provides functionality for capturing snapshots and configuring media parameters.
-    When using HTTPS (default), the device must have a valid SSL certificate. For devices with
-    self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
-    You can also provide a custom CA certificate using --ca-cert.
-    """
+    """Manage media operations."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,

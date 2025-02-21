@@ -13,12 +13,7 @@ from ..features.mqtt_client import BrokerConfig, MqttStatus
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage MQTT client settings for an Axis device.
-    
-    When using HTTPS (default), the device must have a valid SSL certificate. For devices with
-    self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
-    You can also provide a custom CA certificate using --ca-cert.
-    """
+    """Manage MQTT client settings."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,

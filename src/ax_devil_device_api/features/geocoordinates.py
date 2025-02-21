@@ -1,4 +1,4 @@
-"""Geographic coordinates and orientation features for Axis devices."""
+"""Geographic coordinates and orientation features for a device."""
 
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple, TypeVar, Protocol, cast, Union
