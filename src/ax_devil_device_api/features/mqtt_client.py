@@ -165,10 +165,6 @@ class MqttClient(FeatureClient):
     API_VERSION: ClassVar[str] = "1.0"
     MQTT_ENDPOINT = DeviceEndpoint("POST", "/axis-cgi/mqtt/client.cgi")
 
-    def get_feature_name(self) -> str:
-        """Get feature identifier."""
-        return "mqtt_client"
-
     def _parse_mqtt_response(self, response: TransportResponse) -> FeatureResponse[Dict[str, Any]]:
         """Parse and validate MQTT API response."""
         if not response.is_transport_success:

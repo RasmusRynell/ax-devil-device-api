@@ -122,10 +122,6 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         "Content-Type": "application/json"
     }
 
-    def get_feature_name(self) -> str:
-        """Get feature identifier."""
-        return "analytics_mqtt"
-
     def _parse_json_response(self, response: TransportResponse, expected_type: type[T] = dict) -> FeatureResponse[T]:
         """Parse and validate JSON API response.
         
