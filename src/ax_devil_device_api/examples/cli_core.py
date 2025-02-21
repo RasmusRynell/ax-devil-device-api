@@ -49,7 +49,7 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
             port=port
         )
 
-    return Client(config).__enter__()  # Return context manager
+    return Client(config).__enter__() # Return context manager
 
 
 def show_debug_info(ctx, error=None):
@@ -146,14 +146,12 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
     elif not isinstance(error, (SecurityError, NetworkError, FeatureError)):
         return f"Internal Error: {str(error)}", 'red'
 
-    # Use the same message for all SSL-related errors
     if error.code == "ssl_error":
         error.code = "ssl_verification_failed"
 
     message = error_messages.get(error.code, f"{error.code}: {error.message}")
     color = 'yellow' if isinstance(error, SecurityError) else 'red'
 
-    # Also print the message of the original error if it exists
     if hasattr(error, 'details') and error.details and 'original_error' in error.details:
         original_error = error.details['original_error']
         message += f"\n---\n{error_messages.get(original_error.code, f'{original_error.code}: {original_error.message}')}"

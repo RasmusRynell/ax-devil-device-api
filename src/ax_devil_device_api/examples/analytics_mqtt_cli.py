@@ -12,12 +12,7 @@ from ..features.analytics_mqtt import PublisherConfig
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage analytics MQTT publishers for an Axis device.
-    
-    When using HTTPS (default), the device must have a valid SSL certificate. For devices with
-    self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
-    You can also provide a custom CA certificate using --ca-cert.
-    """
+    """Manage analytics MQTT publishers for an Axis device."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,
@@ -91,13 +86,7 @@ def list_publishers(ctx):
 @click.option('--force', is_flag=True, help='Skip confirmation')
 @click.pass_context
 def create_publisher(ctx, id, source, topic, qos, retain, use_topic_prefix, force):
-    """Create a new publisher.
-    
-    Arguments:
-        ID: Unique identifier for the publisher
-        SOURCE: Analytics data source key
-        TOPIC: MQTT topic to publish to
-    """
+    """Create a new publisher."""
     try:
         if not force:
             msg = f"Create publisher '{id}' for data source '{source}' publishing to '{topic}'?"
@@ -137,11 +126,7 @@ def create_publisher(ctx, id, source, topic, qos, retain, use_topic_prefix, forc
 @click.option('--force', is_flag=True, help='Skip confirmation')
 @click.pass_context
 def remove_publisher(ctx, id, force):
-    """Remove a publisher.
-    
-    Arguments:
-        ID: Publisher ID to remove
-    """
+    """Remove a publisher."""
     try:
         if not force:
             msg = f"Are you sure you want to remove publisher '{id}'?"

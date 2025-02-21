@@ -12,12 +12,7 @@ from ..features.geocoordinates import GeoCoordinatesOrientation
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Manage geographic coordinates for an Axis device.
-    
-    When using HTTPS (default), the device must have a valid SSL certificate.
-    For devices with self-signed certificates, use the --no-verify-ssl flag.
-    You can also provide a custom CA certificate using --ca-cert.
-    """
+    """Manage geographic coordinates for an Axis device."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,
@@ -58,20 +53,15 @@ def get_location(ctx):
 @click.argument('longitude', type=float)
 @click.pass_context
 def set_location(ctx, latitude, longitude):
-    """Set device location coordinates.
-    
-    LATITUDE and LONGITUDE should be specified in decimal degrees.
-    The device will validate the provided coordinates.
-    """
+    """Set device location coordinates."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.set_location(latitude, longitude)
             
             if result.success:
                 click.echo(click.style("Location coordinates updated successfully!", fg="green"))
-                click.echo("\nNew Location:")
-                click.echo(f"  Latitude: {latitude}°")
-                click.echo(f"  Longitude: {longitude}°")
+                click.echo(click.style("Note: you can see the current location coordinates with the 'get' command", fg="yellow"))
+                click.echo(click.style("Note: Changes will take effect after applying settings with the 'apply' command", fg="yellow"))
                 return 0
                 
             return handle_result(ctx, result)
@@ -93,14 +83,10 @@ def get_orientation(ctx):
             
             if result.success:
                 click.echo("Device Orientation:")
-                if result.data.heading is not None:
-                    click.echo(f"  Heading: {result.data.heading}°")
-                if result.data.tilt is not None:
-                    click.echo(f"  Tilt: {result.data.tilt}°")
-                if result.data.roll is not None:
-                    click.echo(f"  Roll: {result.data.roll}°")
-                if result.data.installation_height is not None:
-                    click.echo(f"  Installation Height: {result.data.installation_height}m")
+                click.echo(f"  Heading: {result.data.heading}°")
+                click.echo(f"  Tilt: {result.data.tilt}°")
+                click.echo(f"  Roll: {result.data.roll}°")
+                click.echo(f"  Installation Height: {result.data.installation_height}m")
                 return 0
                 
             return handle_result(ctx, result)
@@ -114,11 +100,7 @@ def get_orientation(ctx):
 @click.option('--height', type=float, help='Installation height in meters')
 @click.pass_context
 def set_orientation(ctx, heading, tilt, roll, height):
-    """Set device orientation coordinates.
-    
-    All parameters are optional. Only specified parameters will be updated.
-    The device will validate the provided values.
-    """
+    """Set device orientation coordinates."""
     if not any(x is not None for x in (heading, tilt, roll, height)):
         click.echo(click.style("Error: At least one orientation parameter must be specified", fg="red"), err=True)
         return 1
@@ -135,16 +117,8 @@ def set_orientation(ctx, heading, tilt, roll, height):
             
             if result.success:
                 click.echo(click.style("Orientation coordinates updated successfully!", fg="green"))
-                click.echo("\nUpdated Parameters:")
-                if heading is not None:
-                    click.echo(f"  Heading: {heading}°")
-                if tilt is not None:
-                    click.echo(f"  Tilt: {tilt}°")
-                if roll is not None:
-                    click.echo(f"  Roll: {roll}°")
-                if height is not None:
-                    click.echo(f"  Installation Height: {height}m")
-                click.echo(click.style("\nNote: Changes will take effect after applying settings", fg="yellow"))
+                click.echo(click.style("Note: you can see the current orientation coordinates with the 'get' command", fg="yellow"))
+                click.echo(click.style("Note: Changes will take effect after applying settings with the 'apply' command", fg="yellow"))
                 return 0
                 
             return handle_result(ctx, result)
@@ -161,6 +135,27 @@ def apply_orientation(ctx):
             
             if result.success:
                 click.echo(click.style("Orientation settings applied successfully!", fg="green"))
+
+                click.echo("\nThe new settings are:")
+
+                result = client.geocoordinates.get_orientation()
+                if result.success:
+                    click.echo("Device Orientation:")
+                    click.echo(f"  Heading: {result.data.heading}°")
+                    click.echo(f"  Tilt: {result.data.tilt}°")
+                    click.echo(f"  Roll: {result.data.roll}°")
+                    click.echo(f"  Installation Height: {result.data.installation_height}m")
+                else:
+                    return handle_result(ctx, result)
+
+                result = client.geocoordinates.get_location()
+                if result.success:
+                    click.echo("Location Coordinates:")
+                    click.echo(f"  Latitude: {result.data.latitude}°")
+                    click.echo(f"  Longitude: {result.data.longitude}°")
+                else:
+                    return handle_result(ctx, result)
+
                 return 0
                 
             return handle_result(ctx, result)

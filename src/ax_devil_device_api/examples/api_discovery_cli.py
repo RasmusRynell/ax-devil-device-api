@@ -12,22 +12,12 @@ from .cli_core import (
     common_options
 )
 
-from .cli_core import (
-    create_client, handle_result, handle_error, get_client_args,
-    common_options
-)
-
 
 @click.group()
 @common_options
 @click.pass_context
 def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
-    """Discover and inspect available APIs on an Axis device.
-    
-    When using HTTPS (default), the device must have a valid SSL certificate. For devices with
-    self-signed certificates, use the --no-verify-ssl flag to disable certificate verification.
-    You can also provide a custom CA certificate using --ca-cert.
-    """
+    """Discover and inspect available APIs on an Axis device."""
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,
@@ -139,12 +129,12 @@ def show_api_info(api, ctx,
                  rest_openapi, rest_openapi_raw, rest_openapi_link,
                  rest_ui, rest_ui_raw, rest_ui_link):
     """Show information for a single API version."""
-    # Display basic info
+
     click.echo(click.style(f"\nAPI: {api.name} {api.version}", fg="green"))
     click.echo(f"State: {api.state}")
     click.echo(f"Version: {api.version_string}")
 
-    def get_full_url(path: str) -> str:
+    def _get_full_url(path: str) -> str:
         """Helper to construct full URLs with protocol and port."""
         base_url = f"http{'s' if ctx.obj['protocol'] == 'https' else ''}://{ctx.obj['device_ip']}"
         if ctx.obj['port']:
@@ -158,7 +148,7 @@ def show_api_info(api, ctx,
             return
 
         click.echo(click.style(f"\n{name}:", fg="yellow"))
-        full_url = get_full_url(url)
+        full_url = _get_full_url(url)
 
         if show_link:
             click.echo(click.style(f"URL: {full_url}", fg="bright_blue"))
@@ -176,7 +166,6 @@ def show_api_info(api, ctx,
             click.echo("Opening in browser...")
             webbrowser.open(full_url)
 
-    # Handle each content type
     if docs_md or docs_md_raw or docs_md_link:
         handle_content(
             "Markdown Documentation",
@@ -231,10 +220,7 @@ def show_api_info(api, ctx,
 @click.argument('api-name')
 @click.pass_context
 def list_versions(ctx, api_name):
-    """List all available versions of a specific API.
-    
-    API-NAME: Name of the API to inspect (e.g. 'analytics-mqtt')
-    """
+    """List all available versions of a specific API."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.discovery.discover()
