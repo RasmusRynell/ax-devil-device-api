@@ -38,33 +38,28 @@ class DeviceInfo:
     @classmethod
     def from_params(cls, params: Dict[str, str]) -> 'DeviceInfo':
         """Create instance from parameter dictionary."""
-        # Helper function to get params with or without root prefix
+
         def get_param(key: str, default: str = "unknown") -> str:
             return params.get(f"root.{key}", params.get(key, default))
         
-        # Parse PTZ support
         ptz_modes = get_param("Properties.PTZ.DriverModeList", "").split(",")
         ptz_support = [mode.strip() for mode in ptz_modes if mode.strip()]
         
-        # Check analytics support (based on presence of analytics parameters)
         analytics_support = any(
             key for key in params.keys() 
             if "analytics" in key.lower() or "objectdetection" in key.lower()
         )
         
         return cls(
-            # Device identification
             model=get_param("Brand.ProdShortName"),
             product_type=get_param("Brand.ProdType"),
             product_number=get_param("Brand.ProdNbr"),
             serial_number=get_param("Properties.System.SerialNumber"),
             hardware_id=get_param("Properties.System.HardwareID"),
             
-            # Firmware information
             firmware_version=get_param("Properties.Firmware.Version"),
             build_date=get_param("Properties.Firmware.BuildDate"),
             
-            # Capabilities
             ptz_support=ptz_support,
             analytics_support=analytics_support
         )
@@ -72,13 +67,11 @@ class DeviceInfo:
 class DeviceInfoClient(FeatureClient[DeviceInfo]):
     """Client for basic device operations."""
     
-    # Endpoint definitions
     PARAMS_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/param.cgi")
     RESTART_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/restart.cgi")
     
     def get_info(self) -> FeatureResponse[DeviceInfo]:
         """Get basic device information."""
-        # Get required parameter groups
         param_groups = ["Properties", "Brand"]
         params = {}
         
@@ -132,11 +125,9 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
                 headers={"Accept": "text/plain"}
             )
             
-            # Handle transport-level errors
             if not response.is_transport_success:
                 return FeatureResponse.from_transport(response)
                 
-            # Handle HTTP-level errors
             if response.raw_response.status_code != 200:
                 return FeatureResponse.create_error(FeatureError(
                     "health_check_failed",

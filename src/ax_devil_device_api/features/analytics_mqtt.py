@@ -29,7 +29,6 @@ class DataSource:
     key: str
     name: str
     description: Optional[str] = None
-    type: str = "analytics"
     format: str = "json"
 
     @classmethod
@@ -39,7 +38,6 @@ class DataSource:
             key=data.get("key", ""),
             name=data.get("name", ""),
             description=data.get("description"),
-            type=data.get("type", "analytics"),
             format=data.get("format", "json")
         )
 

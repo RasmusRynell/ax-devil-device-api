@@ -4,7 +4,6 @@ from .core.config import DeviceConfig
 from .client import Client
 
 __all__ = [
-    # Main interface
     'Client',
     'DeviceConfig',
 ] 

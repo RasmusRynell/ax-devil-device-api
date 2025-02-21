@@ -16,9 +16,8 @@ from ax_devil_device_api.features.api_discovery import DiscoveryClient
 class Client:
     """Main client interface for a device.
     
-    This is the primary entry point for interacting with a device.
-    It provides access to all features through a unified interface and
-    handles lazy loading of feature clients.
+    Primary entry point for interacting with a device.
+    Provides access to all features through a unified interface and handles lazy loading of feature clients.
     
     The client maintains a persistent HTTP session for optimal performance
     and resource usage. The session handles connection pooling, cookie
@@ -31,33 +30,6 @@ class Client:
         - Leave connections open on the device
         - Hold network resources longer than necessary
         - Impact connection pooling for other operations
-    
-    Example:
-        ```python
-        from ax_devil_device_api import Client, DeviceConfig
-        
-        # Create a client
-        config = DeviceConfig.https("device-ip", "user", "pass")
-        
-        # Using as context manager (recommended)
-        with Client(config) as client:
-            info = client.device.get_info()
-            
-            # Use a fresh session for sensitive operations
-            with client.new_session():
-                client.device.restart()
-        
-        # Or manually managing the client (not recommended)
-        client = Client(config)
-        try:
-            info = client.device.get_info()
-            
-            # Clear session if needed
-            client.clear_session()
-            client.device.restart()
-        finally:
-            client.close()
-        ```
     """
     
     def __init__(self, config: DeviceConfig) -> None:
