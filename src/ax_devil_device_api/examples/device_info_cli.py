@@ -40,7 +40,7 @@ def get_info(ctx):
             info = result.data
             click.echo("Device Information:")
             for key, value in info.__dict__.items():
-                click.echo(f"{key}: {value}")
+                click.echo(f"   {key}: {value}")
             return 0
     except Exception as e:
         return handle_error(ctx, e)

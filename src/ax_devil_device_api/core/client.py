@@ -77,7 +77,7 @@ class DeviceClient:
             self._session.close()
 
     @contextmanager
-    def new_session(self) -> ContextManager['DeviceClient']:
+    def new_session(self):
         """Context manager for creating a temporary new session.
         
         Useful for operations that need a clean session state.

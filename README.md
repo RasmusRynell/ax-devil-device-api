@@ -51,13 +51,15 @@ finally:
     client.close()  # Always close the client when done
 ```
 
-### CLI Usage
+### CLI Usage Examples
 
+Get device information
 ```bash
-# Get device information
-ax-devil-device-api-device --device-ip 192.168.1.10 --username admin --password secret info
+ax-devil-device-api-device-info --device-ip 192.168.1.10 --username admin --password secret info
+```
 
-# Capture media
+Capture media
+```bash
 ax-devil-device-api-media --device-ip 192.168.1.10 --username admin --password secret --output image.jpg capture
 ```
 
