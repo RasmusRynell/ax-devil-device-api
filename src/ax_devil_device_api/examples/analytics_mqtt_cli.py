@@ -33,18 +33,18 @@ def list_sources(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.analytics_mqtt.get_data_sources()
             
-            if result.success:
-                sources = result.data
-                if not sources:
-                    click.echo("No analytics data sources available")
-                    return 0
-                    
-                click.echo("Available Analytics Data Sources:")
-                for source in sources:
-                    click.echo(f"  - {source.key}")
+            if not result.is_success:
+                return handle_error(ctx, result.error)
+
+            sources = result.data
+            if not sources:
+                click.echo("No analytics data sources available")
                 return 0
-                
-            return handle_result(ctx, result)
+                    
+            click.echo("Available Analytics Data Sources:")
+            for source in sources:
+                click.echo(f"  - {source.key}")
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -56,23 +56,23 @@ def list_publishers(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.analytics_mqtt.list_publishers()
             
-            if result.success:
-                publishers = result.data
-                if not publishers:
-                    click.echo("No publishers configured")
-                    return 0
-                    
-                click.echo("Configured Publishers:")
-                for pub in publishers:
-                    click.echo(f"\n{click.style(pub.id, fg='green')}:")
-                    click.echo(f"  Data Source: {pub.data_source_key}")
-                    click.echo(f"  Topic: {pub.mqtt_topic}")
-                    click.echo(f"  QoS: {pub.qos}")
-                    click.echo(f"  Retain: {pub.retain}")
-                    click.echo(f"  Use Topic Prefix: {pub.use_topic_prefix}")
+            if not result.is_success:
+                return handle_error(ctx, result.error)
+
+            publishers = result.data
+            if not publishers:
+                click.echo("No publishers configured")
                 return 0
-                
-            return handle_result(ctx, result)
+                    
+            click.echo("Configured Publishers:")
+            for pub in publishers:
+                click.echo(f"\n{click.style(pub.id, fg='green')}:")
+                click.echo(f"  Data Source: {pub.data_source_key}")
+                click.echo(f"  Topic: {pub.mqtt_topic}")
+                click.echo(f"  QoS: {pub.qos}")
+                click.echo(f"  Retain: {pub.retain}")
+                click.echo(f"  Use Topic Prefix: {pub.use_topic_prefix}")
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -105,19 +105,19 @@ def create_publisher(ctx, id, source, topic, qos, retain, use_topic_prefix, forc
             )
             result = client.analytics_mqtt.create_publisher(config)
             
-            if result.success:
-                click.echo(click.style("Publisher created successfully!", fg="green"))
-                publisher = result.data
-                click.echo("\nPublisher details:")
-                click.echo(f"  ID: {publisher.id}")
-                click.echo(f"  Data Source: {publisher.data_source_key}")
-                click.echo(f"  Topic: {publisher.mqtt_topic}")
-                click.echo(f"  QoS: {publisher.qos}")
-                click.echo(f"  Retain: {publisher.retain}")
-                click.echo(f"  Use Topic Prefix: {publisher.use_topic_prefix}")
-                return 0
-                
-            return handle_result(ctx, result)
+            if not result.is_success:
+                return handle_error(ctx, result.error)
+
+            click.echo(click.style("Publisher created successfully!", fg="green"))
+            publisher = result.data
+            click.echo("\nPublisher details:")
+            click.echo(f"  ID: {publisher.id}")
+            click.echo(f"  Data Source: {publisher.data_source_key}")
+            click.echo(f"  Topic: {publisher.mqtt_topic}")
+            click.echo(f"  QoS: {publisher.qos}")
+            click.echo(f"  Retain: {publisher.retain}")
+            click.echo(f"  Use Topic Prefix: {publisher.use_topic_prefix}")
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -137,11 +137,11 @@ def remove_publisher(ctx, id, force):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.analytics_mqtt.remove_publisher(id)
             
-            if result.success:
-                click.echo(click.style(f"Publisher '{id}' removed successfully!", fg="green"))
-                return 0
-                
-            return handle_result(ctx, result)
+            if not result.is_success:
+                return handle_error(ctx, result.error)
+
+            click.echo(click.style(f"Publisher '{id}' removed successfully!", fg="green"))
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 

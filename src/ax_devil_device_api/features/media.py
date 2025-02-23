@@ -87,7 +87,7 @@ class MediaClient(FeatureClient):
             headers={"Accept": "image/jpeg"}
         )
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         raw_response = response.raw_response

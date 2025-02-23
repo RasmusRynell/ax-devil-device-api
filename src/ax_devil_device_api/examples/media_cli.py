@@ -50,16 +50,17 @@ def snapshot(ctx, resolution, compression, device, rotation, output):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.media.get_snapshot(config)
             
-            if result.success:
-                try:
-                    with open(output, 'wb') as f:
-                        f.write(result.data)
-                    click.echo(click.style(f"Snapshot saved to {output}", fg="green"))
-                    return 0
-                except IOError as e:
-                    return handle_error(ctx, f"Failed to save snapshot: {e}")
-                    
-            return handle_result(ctx, result)
+            if not result.is_success:
+                return handle_error(ctx, result.error)
+                
+            try:
+                with open(output, 'wb') as f:
+                    f.write(result.data)
+
+                click.echo(click.style(f"Snapshot saved to {output}", fg="green"))
+                return 0
+            except IOError as e:
+                return handle_error(ctx, f"Failed to save snapshot: {e}")
     except Exception as e:
         return handle_error(ctx, e)
 

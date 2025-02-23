@@ -33,7 +33,7 @@ config = DeviceConfig.https("192.168.1.10", "admin", "password")
 with Client(config) as client:
     # Get device information
     device_info = client.device.get_info()
-    if device_info.success:
+    if device_info.is_success:
         print(f"Model: {device_info.data.model}")
         print(f"Serial: {device_info.data.serial}")
         
@@ -45,7 +45,7 @@ with Client(config) as client:
 client = Client(config)
 try:
     device_info = client.device.get_info()
-    if device_info.success:
+    if device_info.is_success:
         print(f"Model: {device_info.data.model}")
 finally:
     client.close()  # Always close the client when done

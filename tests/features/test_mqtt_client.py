@@ -116,7 +116,7 @@ class TestMqttStatus:
     ])
     def test_status_parsing(self, status_data, expected):
         """Test parsing of various MQTT status responses."""
-        status = MqttStatus.from_response(status_data)
+        status = MqttStatus.create_from_response(status_data)
         assert status.status == expected["status"]
         assert status.state == expected["state"]
         assert (status.config is not None) == expected["has_config"]
@@ -136,35 +136,35 @@ class TestMqttClientFeature:
     def test_get_status(self, client):
         """Test MQTT client status retrieval."""
         response = client.mqtt_client.get_status()
-        assert response.success, f"Failed to get MQTT status: {response.error}"
+        assert response.is_success, f"Failed to get MQTT status: {response.error}"
         self._verify_status_response(response.data)
     
     def test_configure_broker(self, client, valid_broker_config):
         """Test MQTT broker configuration."""
         response = client.mqtt_client.configure(valid_broker_config)
-        assert response.success, f"Failed to configure broker: {response.error}"
+        assert response.is_success, f"Failed to configure broker: {response.error}"
     
     def test_client_lifecycle(self, client, valid_broker_config):
         """Test complete client lifecycle: configure -> activate -> deactivate."""
         # Configure
         config_response = client.mqtt_client.configure(valid_broker_config)
-        assert config_response.success, f"Failed to configure broker: {config_response.error}"
+        assert config_response.is_success, f"Failed to configure broker: {config_response.error}"
         
         # Activate and verify
         activate_response = client.mqtt_client.activate()
-        assert activate_response.success, f"Failed to activate client: {activate_response.error}"
+        assert activate_response.is_success, f"Failed to activate client: {activate_response.error}"
         
         status_response = client.mqtt_client.get_status()
-        assert status_response.success
+        assert status_response.is_success
         assert status_response.data.state == "active", \
             "Client should be in active state after activation"
         
         # Deactivate and verify
         deactivate_response = client.mqtt_client.deactivate()
-        assert deactivate_response.success, f"Failed to deactivate client: {deactivate_response.error}"
+        assert deactivate_response.is_success, f"Failed to deactivate client: {deactivate_response.error}"
         
         status_response = client.mqtt_client.get_status()
-        assert status_response.success
+        assert status_response.is_success
         assert status_response.data.state == "inactive", \
             "Client should be in inactive state after deactivation"
     

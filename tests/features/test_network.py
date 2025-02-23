@@ -6,7 +6,7 @@ class TestNetworkFeature:
     def test_get_network_info(self, client):
         """Test network interface information retrieval."""
         info = client.network.get_network_info()
-        assert info.success, f"Failed to get network info: {info.error}"
+        assert info.is_success, f"Failed to get network info: {info.error}"
         self._verify_network_info(info)
         
     def test_get_network_info_custom_interface(self, client):
@@ -15,7 +15,7 @@ class TestNetworkFeature:
         info = client.network.get_network_info("eth99")
         
         # Should still succeed but have default/empty values
-        assert info.success, f"Network info request failed: {info.error}"
+        assert info.is_success, f"Network info request failed: {info.error}"
         assert info.data.interface_name == "eth99"
         assert info.data.ip_address == "unknown"
         

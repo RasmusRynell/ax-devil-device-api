@@ -76,7 +76,7 @@ class DeviceClient:
 
     def __del__(self):
         """Ensure session is cleaned up."""
-        if hasattr(self, '_session'):
+        if self._session:
             self._session.close()
 
     @contextmanager
@@ -126,7 +126,7 @@ class DeviceClient:
             return self._session.request(**request_args)
 
         try:
-            # First wrap with protocol handling (SSL, etc)
+            # Wrap with protocol handling (SSL, etc)
             wrapped_request = lambda request_func=None, **extra_kwargs: self.auth.authenticate_request(
                 lambda auth: make_request(auth, request_func, **extra_kwargs)
             )
@@ -134,16 +134,16 @@ class DeviceClient:
             return self.protocol.execute_request(wrapped_request)
 
         except AuthenticationError as e:
-            return TransportResponse.from_error(e)
+            return TransportResponse.create_from_error(e)
             
         except requests.exceptions.Timeout as e:
-            return TransportResponse.from_error(NetworkError(
+            return TransportResponse.create_from_error(NetworkError(
                 "request_timeout",
                 f"Request timed out after {self.config.timeout}s"
             ))
             
         except requests.exceptions.RequestException as e:
-            return TransportResponse.from_error(NetworkError(
+            return TransportResponse.create_from_error(NetworkError(
                 "request_failed",
                 str(e)
             ))

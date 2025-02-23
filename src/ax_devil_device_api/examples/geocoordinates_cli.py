@@ -38,13 +38,13 @@ def get_location(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.get_location()
             
-            if result.success:
-                click.echo("Location Coordinates:")
-                click.echo(f"  Latitude: {result.data.latitude}°")
-                click.echo(f"  Longitude: {result.data.longitude}°")
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo("Location Coordinates:")
+            click.echo(f"  Latitude: {result.data.latitude}°")
+            click.echo(f"  Longitude: {result.data.longitude}°")
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -58,13 +58,13 @@ def set_location(ctx, latitude, longitude):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.set_location(latitude, longitude)
             
-            if result.success:
-                click.echo(click.style("Location coordinates updated successfully!", fg="green"))
-                click.echo(click.style("Note: you can see the current location coordinates with the 'get' command", fg="yellow"))
-                click.echo(click.style("Note: Changes will take effect after applying settings with the 'apply' command", fg="yellow"))
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo(click.style("Location coordinates updated successfully!", fg="green"))
+            click.echo(click.style("Note: you can see the current location coordinates with the 'get' command", fg="yellow"))
+            click.echo(click.style("Note: Changes will take effect after applying settings with the 'apply' command", fg="yellow"))
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -81,15 +81,15 @@ def get_orientation(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.get_orientation()
             
-            if result.success:
-                click.echo("Device Orientation:")
-                click.echo(f"  Heading: {result.data.heading}°")
-                click.echo(f"  Tilt: {result.data.tilt}°")
-                click.echo(f"  Roll: {result.data.roll}°")
-                click.echo(f"  Installation Height: {result.data.installation_height}m")
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo("Device Orientation:")
+            click.echo(f"  Heading: {result.data.heading}°")
+            click.echo(f"  Tilt: {result.data.tilt}°")
+            click.echo(f"  Roll: {result.data.roll}°")
+            click.echo(f"  Installation Height: {result.data.installation_height}m")
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -115,13 +115,13 @@ def set_orientation(ctx, heading, tilt, roll, height):
             )
             result = client.geocoordinates.set_orientation(orientation)
             
-            if result.success:
-                click.echo(click.style("Orientation coordinates updated successfully!", fg="green"))
-                click.echo(click.style("Note: you can see the current orientation coordinates with the 'get' command", fg="yellow"))
-                click.echo(click.style("Note: Changes will take effect after applying settings with the 'apply' command", fg="yellow"))
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo(click.style("Orientation coordinates updated successfully!", fg="green"))
+            click.echo(click.style("Note: you can see the current orientation coordinates with the 'get' command", fg="yellow"))
+            click.echo(click.style("Note: Changes will take effect after applying settings with the 'apply' command", fg="yellow"))
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -133,32 +133,33 @@ def apply_orientation(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.geocoordinates.apply_settings()
             
-            if result.success:
-                click.echo(click.style("Orientation settings applied successfully!", fg="green"))
-
-                click.echo("\nThe new settings are:")
-
-                result = client.geocoordinates.get_orientation()
-                if result.success:
-                    click.echo("Device Orientation:")
-                    click.echo(f"  Heading: {result.data.heading}°")
-                    click.echo(f"  Tilt: {result.data.tilt}°")
-                    click.echo(f"  Roll: {result.data.roll}°")
-                    click.echo(f"  Installation Height: {result.data.installation_height}m")
-                else:
-                    return handle_result(ctx, result)
-
-                result = client.geocoordinates.get_location()
-                if result.success:
-                    click.echo("Location Coordinates:")
-                    click.echo(f"  Latitude: {result.data.latitude}°")
-                    click.echo(f"  Longitude: {result.data.longitude}°")
-                else:
-                    return handle_result(ctx, result)
-
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo(click.style("Orientation settings applied successfully!", fg="green"))
+
+            click.echo("\nThe new settings are:")
+
+            result = client.geocoordinates.get_orientation()
+            if not result.is_success:
+                return handle_error(ctx, result.error)
+                
+            click.echo("Device Orientation:")
+            click.echo("Device Orientation:")
+            click.echo(f"  Heading: {result.data.heading}°")
+            click.echo(f"  Tilt: {result.data.tilt}°")
+            click.echo(f"  Roll: {result.data.roll}°")
+            click.echo(f"  Installation Height: {result.data.installation_height}m")
+
+            result = client.geocoordinates.get_location()
+            if not result.is_success:
+                return handle_error(ctx, result.error)
+                
+            click.echo("Location Coordinates:")
+            click.echo(f"  Latitude: {result.data.latitude}°")
+            click.echo(f"  Longitude: {result.data.longitude}°")
+
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 

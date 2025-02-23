@@ -9,7 +9,7 @@ class TestDeviceInfoFeature:
     def test_get_info(self, client):
         """Test device info retrieval."""
         info = client.device.get_info()
-        assert info.success, f"Failed to get device info: {info.error}"
+        assert info.is_success, f"Failed to get device info: {info.error}"
         self._verify_device_info(info)
         
     def _verify_device_info(self, info):
@@ -28,7 +28,7 @@ class TestDeviceInfoFeature:
     def test_health_check(self, client):
         """Test device health check."""
         health = client.device.check_health()
-        assert health.success, f"Health check failed: {health.error}"
+        assert health.is_success, f"Health check failed: {health.error}"
     
     @pytest.mark.restart
     @pytest.mark.skip_health_check
@@ -40,14 +40,14 @@ class TestDeviceInfoFeature:
         """
         # Send restart command
         restart = client.device.restart()
-        assert restart.success, f"Failed to restart device: {restart.error}"
+        assert restart.is_success, f"Failed to restart device: {restart.error}"
         
         # Wait for device to actually go down (max 30 seconds)
         max_down_attempts = 6
         for attempt in range(max_down_attempts):
             try:
                 health = client.device.check_health()
-                if not health.success:  # Device is down!
+                if not health.is_success:  # Device is down!
                     break
             except:  # Network errors also indicate device is down
                 break
@@ -60,7 +60,7 @@ class TestDeviceInfoFeature:
         for attempt in range(max_up_attempts):
             try:
                 health = client.device.check_health()
-                if health.success:
+                if health.is_success:
                     break
             except:
                 pass
@@ -70,4 +70,4 @@ class TestDeviceInfoFeature:
         
         # Verify device is fully healthy
         final_health = client.device.check_health()
-        assert final_health.success, "Device is not healthy after restart" 
+        assert final_health.is_success, "Device is not healthy after restart" 

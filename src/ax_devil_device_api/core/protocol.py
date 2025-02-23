@@ -96,7 +96,7 @@ class ProtocolHandler:
                     cert = fetch_server_cert(parsed_url.hostname, port)
                     actual = get_cert_fingerprint(cert)
                     if actual != self.config.ssl.expected_fingerprint:
-                        return TransportResponse.from_error(SecurityError(
+                        return TransportResponse.create_from_error(SecurityError(
                             "cert_fingerprint_mismatch",
                             f"Certificate fingerprint mismatch. Expected: {self.config.ssl.expected_fingerprint}, Got: {actual}"
                         ))
@@ -114,12 +114,12 @@ class ProtocolHandler:
                 # Otherwise use the normal request function
                 response = request_func(**ssl_kwargs)
 
-            return TransportResponse.from_response(response)
+            return TransportResponse.create_from_response(response)
 
         except SSLError as e:
             error_code = "ssl_verification_failed" if "CERTIFICATE_VERIFY_FAILED" in str(e) else "ssl_error"
-            return TransportResponse.from_error(SecurityError(error_code, str(e)))
+            return TransportResponse.create_from_error(SecurityError(error_code, str(e)))
 
         except ConnectionError as e:
             error_code = "connection_refused" if "Connection refused" in str(e) else "connection_error"
-            return TransportResponse.from_error(NetworkError(error_code, str(e)))
+            return TransportResponse.create_from_error(NetworkError(error_code, str(e)))

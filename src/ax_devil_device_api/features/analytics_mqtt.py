@@ -32,7 +32,7 @@ class DataSource:
     format: str = "json"
 
     @classmethod
-    def from_response(cls, data: Dict[str, Any]) -> 'DataSource':
+    def create_from_response(cls, data: Dict[str, Any]) -> 'DataSource':
         """Create instance from API response data."""
         return cls(
             key=data.get("key", ""),
@@ -86,7 +86,7 @@ class PublisherConfig:
         }
 
     @classmethod
-    def from_response(cls, data: Dict[str, Any]) -> 'PublisherConfig':
+    def create_from_response(cls, data: Dict[str, Any]) -> 'PublisherConfig':
         """Create publisher config from API response data."""
         return cls(
             id=data.get("id", ""),
@@ -132,7 +132,7 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         Returns:
             FeatureResponse containing parsed data or error
         """
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
         
         raw_response = response.raw_response
@@ -170,11 +170,11 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         )
 
         parsed = self._parse_json_response(response, list)
-        if not parsed.success:
+        if not parsed.is_success:
             return FeatureResponse.create_error(parsed.error)
             
         try:
-            sources = [DataSource.from_response(source) for source in parsed.data]
+            sources = [DataSource.create_from_response(source) for source in parsed.data]
             return FeatureResponse.ok(sources)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
@@ -194,11 +194,11 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         )
         
         parsed = self._parse_json_response(response, list)
-        if not parsed.success:
+        if not parsed.is_success:
             return FeatureResponse.create_error(parsed.error)
             
         try:
-            publishers = [PublisherConfig.from_response(p) for p in parsed.data]
+            publishers = [PublisherConfig.create_from_response(p) for p in parsed.data]
             return FeatureResponse.ok(publishers)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
@@ -229,11 +229,11 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         )
         
         parsed = self._parse_json_response(response, dict)
-        if not parsed.success:
+        if not parsed.is_success:
             return FeatureResponse.create_error(parsed.error)
             
         try:
-            return FeatureResponse.ok(PublisherConfig.from_response(parsed.data))
+            return FeatureResponse.ok(PublisherConfig.create_from_response(parsed.data))
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
                 "parse_failed",
@@ -267,7 +267,7 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
             endpoint, 
             headers=self.JSON_HEADERS
         )
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
 
         if not (200 <= response.raw_response.status_code < 300):

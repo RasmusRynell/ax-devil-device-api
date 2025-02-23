@@ -10,7 +10,7 @@ class TestMediaFeature:
     def test_get_snapshot_default(self, client):
         """Test snapshot capture with default settings."""
         response = client.media.get_snapshot()
-        assert response.success, f"Failed to get snapshot: {response.error}"
+        assert response.is_success, f"Failed to get snapshot: {response.error}"
         self._verify_snapshot_data(response.data)
         
     def test_get_snapshot_with_config(self, client):
@@ -21,14 +21,14 @@ class TestMediaFeature:
             rotation=0
         )
         response = client.media.get_snapshot(config)
-        assert response.success, f"Failed to get snapshot: {response.error}"
+        assert response.is_success, f"Failed to get snapshot: {response.error}"
         self._verify_snapshot_data(response.data)
         
     def test_invalid_compression(self, client):
         """Test error handling for invalid compression value."""
         config = MediaConfig(compression=101)  # Invalid: > 100
         response = client.media.get_snapshot(config)
-        assert not response.success
+        assert not response.is_success
         assert response.error.code == "invalid_config"
         assert "Compression" in response.error.message
         
@@ -36,7 +36,7 @@ class TestMediaFeature:
         """Test error handling for invalid rotation value."""
         config = MediaConfig(rotation=45)  # Invalid: not 0/90/180/270
         response = client.media.get_snapshot(config)
-        assert not response.success
+        assert not response.is_success
         assert response.error.code == "invalid_config"
         assert "Rotation" in response.error.message
         

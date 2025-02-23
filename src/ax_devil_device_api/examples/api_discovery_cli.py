@@ -38,8 +38,8 @@ def list_apis(ctx):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.discovery.discover()
-            if not result.success:
-                return handle_result(ctx, result)
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
             apis = result.data
             click.echo(f"\nFound {len(apis.get_all_apis())} APIs:")
@@ -95,8 +95,8 @@ def get_api_info(ctx, api_name, version,
         with create_client(**get_client_args(ctx.obj)) as client:
             # First discover APIs
             result = client.discovery.discover()
-            if not result.success:
-                return handle_result(ctx, result)
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
             apis = result.data
 
@@ -155,13 +155,14 @@ def show_api_info(api, ctx,
         elif show_raw and get_raw_content:
             click.echo("Fetching content:")
             result = get_raw_content()
-            if result.success:
-                if is_json:
-                    click.echo(format_json(result.data))
-                else:
-                    click.echo(result.data)
-            else:
+            if not result.is_success:
                 click.echo(f"Error fetching content: {result.error}", err=True)
+                return
+
+            if is_json:
+                click.echo(format_json(result.data))
+            else:
+                click.echo(result.data)
         elif show:
             click.echo("Opening in browser...")
             webbrowser.open(full_url)
@@ -224,8 +225,8 @@ def list_versions(ctx, api_name):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.discovery.discover()
-            if not result.success:
-                return handle_result(ctx, result)
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
             apis = result.data
             versions = apis.get_apis_by_name(api_name)

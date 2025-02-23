@@ -180,15 +180,16 @@ def handle_error(ctx, error: Exception, show_prefix: bool = True) -> int:
 
 def handle_result(ctx, result: FeatureResponse) -> int:
     """Handle command result and return appropriate exit code."""
-    if result.success:
-        if hasattr(result.data, '__dict__'):
-            data = result.data.__dict__
-        else:
-            data = result.data
-        click.echo(format_json(data))
-        return 0
+    if not result.is_success:
+        return handle_error(ctx, result.error, show_prefix=False)
+    
+    if hasattr(result.data, '__dict__'):
+        data = result.data.__dict__
+    else:
+        data = result.data
+    click.echo(format_json(data))
+    return 0
 
-    return handle_error(ctx, result.error, show_prefix=False)
 
 
 def get_client_args(ctx_obj: dict) -> dict:

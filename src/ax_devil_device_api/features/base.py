@@ -23,7 +23,7 @@ class FeatureClient(FeatureClientABC, Generic[T]):
         Common functionality for parsing param.cgi responses into key-value pairs.
         Used by multiple feature modules that need to get device parameters.
         """
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         raw_response = response.raw_response

@@ -93,7 +93,7 @@ class TestPublisherConfig:
             }
         }
 
-    def test_from_response(self):
+    def test_create_from_response(self):
         """Test creation from API response."""
         response_data = {
                 "id": "test1",
@@ -103,7 +103,7 @@ class TestPublisherConfig:
                 "retain": True,
                 "use_topic_prefix": True
             }
-        config = PublisherConfig.from_response(response_data)
+        config = PublisherConfig.create_from_response(response_data)
         assert config.id == "test1"
         assert config.data_source_key == KNOWN_DATA_SOURCE_KEY
         assert config.mqtt_topic == "topic/test"
@@ -117,13 +117,13 @@ class TestAnalyticsMqttClient:
     def test_get_data_sources_success(self, client):
         """Test successful data sources retrieval."""
         response = client.analytics_mqtt.get_data_sources()
-        assert response.success, f"Failed to get data sources: {response.error}"
+        assert response.is_success, f"Failed to get data sources: {response.error}"
         assert isinstance(response.data, list)
         
     def test_list_publishers_success(self, client):
         """Test successful publishers listing."""
         response = client.analytics_mqtt.list_publishers()
-        assert response.success, f"Failed to list publishers: {response.error}"
+        assert response.is_success, f"Failed to list publishers: {response.error}"
         assert isinstance(response.data, list)
         for publisher in response.data:
             assert isinstance(publisher, PublisherConfig)
@@ -139,7 +139,7 @@ class TestAnalyticsMqttClient:
             mqtt_topic="test/topic"
         )
         response = client.analytics_mqtt.create_publisher(config)
-        assert response.success, f"Failed to create publisher: {response.error}"
+        assert response.is_success, f"Failed to create publisher: {response.error}"
         assert isinstance(response.data, PublisherConfig)
         assert response.data.id == config.id
         assert response.data.data_source_key == config.data_source_key
@@ -156,7 +156,7 @@ class TestAnalyticsMqttClient:
             mqtt_topic="test/topic"
         )
         response = client.analytics_mqtt.create_publisher(config)
-        assert not response.success
+        assert not response.is_success
         assert response.error.code == "invalid_config"
         assert "Publisher ID is required" in response.error.message
 
@@ -172,21 +172,21 @@ class TestAnalyticsMqttClient:
             mqtt_topic="test/topic"
         )
         create_response = client.analytics_mqtt.create_publisher(config)
-        assert create_response.success, f"Failed to create test publisher: {create_response.error}"
+        assert create_response.is_success, f"Failed to create test publisher: {create_response.error}"
         
         # Then remove it
         response = client.analytics_mqtt.remove_publisher(config.id)
-        assert response.success, f"Failed to remove publisher: {response.error}"
+        assert response.is_success, f"Failed to remove publisher: {response.error}"
         assert response.data is True
         
         # Verify it's gone
         list_response = client.analytics_mqtt.list_publishers()
-        assert list_response.success
+        assert list_response.is_success
         assert not any(p.id == config.id for p in list_response.data)
         
     def test_remove_publisher_invalid_id(self, client):
         """Test publisher removal with invalid ID."""
         response = client.analytics_mqtt.remove_publisher("")
-        assert not response.success
+        assert not response.is_success
         assert response.error.code == "invalid_id"
         assert "Publisher ID is required" in response.error.message 

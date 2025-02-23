@@ -159,7 +159,7 @@ class GeoCoordinatesClient(FeatureClient):
     
     def _handle_response(self, response: TransportResponse, parser: type[T]) -> FeatureResponse[T]:
         """Handle common response processing pattern."""
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         raw_response = response.raw_response
@@ -200,7 +200,7 @@ class GeoCoordinatesClient(FeatureClient):
                 headers={"Accept": "text/xml"}
             )
             
-            if not response.is_transport_success:
+            if not response.is_success:
                 return FeatureResponse.from_transport(response)
                 
             raw_response = response.raw_response
@@ -267,7 +267,7 @@ class GeoCoordinatesClient(FeatureClient):
                 
             response = self.request(self.ORIENTATION_ENDPOINT, params=params)
             
-            if not response.is_transport_success:
+            if not response.is_success:
                 return FeatureResponse.from_transport(response)
                 
             raw_response = response.raw_response
@@ -317,7 +317,7 @@ class GeoCoordinatesClient(FeatureClient):
             params={"action": "set", "auto_update_once": "true"}
         )
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         if response.raw_response.status_code != 200:

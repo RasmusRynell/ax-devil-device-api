@@ -79,7 +79,7 @@ class DiscoveredAPI:
             headers={"Accept": "text/markdown"}
         )
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         if response.raw_response.status_code != 200:
@@ -113,7 +113,7 @@ class DiscoveredAPI:
             headers={"Accept": "application/json"}
         )
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         if response.raw_response.status_code != 200:
@@ -153,7 +153,7 @@ class DiscoveredAPI:
             headers={"Accept": "text/html"}
         )
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         if response.raw_response.status_code != 200:
@@ -187,7 +187,7 @@ class DiscoveredAPI:
             headers={"Accept": "application/json"}
         )
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         if response.raw_response.status_code != 200:
@@ -231,7 +231,7 @@ class DiscoveredAPICollection:
     raw_data: Dict
     
     @classmethod
-    def from_response(cls, data: Dict, client: 'DiscoveryClient') -> 'DiscoveredAPICollection':
+    def create_from_response(cls, data: Dict, client: 'DiscoveryClient') -> 'DiscoveredAPICollection':
         """Create APICollection from discovery response data."""
         apis = {}
         
@@ -293,7 +293,7 @@ class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
             headers={"Accept": "application/json"}
         )
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         if response.raw_response.status_code != 200:
@@ -304,7 +304,7 @@ class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
             
         try:
             data = response.raw_response.json()
-            return FeatureResponse.ok(DiscoveredAPICollection.from_response(data, self))
+            return FeatureResponse.ok(DiscoveredAPICollection.create_from_response(data, self))
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
                 "parse_error",

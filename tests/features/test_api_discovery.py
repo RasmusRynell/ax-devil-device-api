@@ -9,7 +9,7 @@ class TestAPIDiscoveryFeature:
     def test_discover(self, client):
         """Test basic API discovery."""
         result = client.discovery.discover()
-        assert result.success, f"Failed to discover APIs: {result.error}"
+        assert result.is_success, f"Failed to discover APIs: {result.error}"
         self._verify_discovery_result(result)
     
     def _verify_discovery_result(self, result):
@@ -36,49 +36,49 @@ class TestAPIDiscoveryFeature:
         """Test fetching API documentation."""
         # First discover APIs
         discovery = client.discovery.discover()
-        assert discovery.success, "Discovery failed"
+        assert discovery.is_success, "Discovery failed"
         
         # Get first available API
         api = discovery.data.get_all_apis()[0]
         
         # Test markdown documentation
         doc_result = api.get_documentation()
-        assert doc_result.success, f"Failed to get documentation: {doc_result.error}"
+        assert doc_result.is_success, f"Failed to get documentation: {doc_result.error}"
         assert isinstance(doc_result.data, str), "Documentation should be a string"
         assert len(doc_result.data) > 0, "Documentation should not be empty"
         
         # Test caching - second call should use cached data
         cached_result = api.get_documentation()
-        assert cached_result.success
+        assert cached_result.is_success
         assert cached_result.data == doc_result.data
         
         # Test HTML documentation
         html_result = api.get_documentation_html()
-        assert html_result.success, f"Failed to get HTML documentation: {html_result.error}"
+        assert html_result.is_success, f"Failed to get HTML documentation: {html_result.error}"
         assert isinstance(html_result.data, str), "HTML documentation should be a string"
         assert len(html_result.data) > 0, "HTML documentation should not be empty"
         
         # Test HTML caching
         cached_html = api.get_documentation_html()
-        assert cached_html.success
+        assert cached_html.is_success
         assert cached_html.data == html_result.data
     
     def test_get_api_model(self, client):
         """Test fetching API model."""
         discovery = client.discovery.discover()
-        assert discovery.success, "Discovery failed"
+        assert discovery.is_success, "Discovery failed"
         
         api = discovery.data.get_all_apis()[0]
         
         # Test model retrieval
         model_result = api.get_model()
-        assert model_result.success, f"Failed to get model: {model_result.error}"
+        assert model_result.is_success, f"Failed to get model: {model_result.error}"
         assert isinstance(model_result.data, dict), "Model should be a dictionary"
         self._verify_model_structure(model_result.data)
         
         # Test caching
         cached_model = api.get_model()
-        assert cached_model.success
+        assert cached_model.is_success
         assert cached_model.data == model_result.data
     
     def _verify_model_structure(self, model):
@@ -90,19 +90,19 @@ class TestAPIDiscoveryFeature:
     def test_get_openapi_spec(self, client):
         """Test fetching OpenAPI specification."""
         discovery = client.discovery.discover()
-        assert discovery.success, "Discovery failed"
+        assert discovery.is_success, "Discovery failed"
         
         api = discovery.data.get_all_apis()[0]
         
         # Test OpenAPI spec retrieval
         spec_result = api.get_openapi_spec()
-        assert spec_result.success, f"Failed to get OpenAPI spec: {spec_result.error}"
+        assert spec_result.is_success, f"Failed to get OpenAPI spec: {spec_result.error}"
         assert isinstance(spec_result.data, dict), "OpenAPI spec should be a dictionary"
         self._verify_openapi_structure(spec_result.data)
         
         # Test caching
         cached_spec = api.get_openapi_spec()
-        assert cached_spec.success
+        assert cached_spec.is_success
         assert cached_spec.data == spec_result.data
     
     def _verify_openapi_structure(self, spec):
@@ -115,7 +115,7 @@ class TestAPIDiscoveryFeature:
     def test_api_collection_methods(self, client):
         """Test API collection helper methods."""
         discovery = client.discovery.discover()
-        assert discovery.success, "Discovery failed"
+        assert discovery.is_success, "Discovery failed"
         
         collection = discovery.data
         
@@ -143,7 +143,7 @@ class TestAPIDiscoveryFeature:
     def test_error_handling(self, client):
         """Test error handling for invalid requests."""
         discovery = client.discovery.discover()
-        assert discovery.success, "Discovery failed"
+        assert discovery.is_success, "Discovery failed"
         
         collection = discovery.data
         
@@ -159,7 +159,7 @@ class TestAPIDiscoveryFeature:
     def test_url_properties(self, client):
         """Test REST API and UI URL properties."""
         discovery = client.discovery.discover()
-        assert discovery.success, "Discovery failed"
+        assert discovery.is_success, "Discovery failed"
         
         api = discovery.data.get_all_apis()[0]
         
@@ -197,7 +197,7 @@ class TestAPIDiscoveryFeature:
     def test_client_initialization(self, client):
         """Test client initialization checks."""
         discovery = client.discovery.discover()
-        assert discovery.success, "Discovery failed"
+        assert discovery.is_success, "Discovery failed"
         
         api = discovery.data.get_all_apis()[0]
         

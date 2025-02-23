@@ -69,7 +69,7 @@ class BrokerConfig:
         return payload
 
     @classmethod
-    def from_response(cls, data: Dict[str, Any]) -> 'BrokerConfig':
+    def create_from_response(cls, data: Dict[str, Any]) -> 'BrokerConfig':
         """Create broker config from API response data."""
         config = data.get("config", {})
         server = config.get("server", {})
@@ -127,7 +127,7 @@ class MqttStatus:
         }
 
     @classmethod
-    def from_response(cls, data: Dict[str, Any]) -> 'MqttStatus':
+    def create_from_response(cls, data: Dict[str, Any]) -> 'MqttStatus':
         """Create status instance from API response data. Raises ValueError if status is invalid."""
         status_data = data.get("data", {}).get("status", {})
         
@@ -150,7 +150,7 @@ class MqttStatus:
         # Create broker config if available
         config = None
         if "config" in data.get("data", {}):
-            config = BrokerConfig.from_response(data.get("data", {}))
+            config = BrokerConfig.create_from_response(data.get("data", {}))
             
         return cls(
             status=connection_status,
@@ -167,7 +167,7 @@ class MqttClient(FeatureClient):
 
     def _parse_mqtt_response(self, response: TransportResponse) -> FeatureResponse[Dict[str, Any]]:
         """Parse and validate MQTT API response."""
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
         
         raw_response = response.raw_response
@@ -230,11 +230,11 @@ class MqttClient(FeatureClient):
     def get_status(self) -> FeatureResponse[MqttStatus]:
         """Get MQTT connection status. Raises FeatureError if response parsing fails."""
         response = self._make_mqtt_request("getClientStatus")
-        if not response.success:
+        if not response.is_success:
             return FeatureResponse.create_error(response.error)
             
         try:
-            status = MqttStatus.from_response(response.data)
+            status = MqttStatus.create_from_response(response.data)
             return FeatureResponse.ok(status)  # Return the MqttStatus object
         except ValueError as e:
             return FeatureResponse.create_error(FeatureError(

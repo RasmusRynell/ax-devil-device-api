@@ -35,13 +35,13 @@ def network_info(ctx, interface):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.network.get_network_info(interface)
             
-            if result.success:
-                click.echo(f"Interface {interface} information:")
-                for key, value in result.data.__dict__.items():
-                    click.echo(f"  {key}: {value}")
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo(f"Interface {interface} information:")
+            for key, value in result.data.__dict__.items():
+                click.echo(f"  {key}: {value}")
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 

@@ -34,14 +34,14 @@ def get_info(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.get_info()
             
-            if result.success:
-                info = result.data
-                click.echo("Device Information:")
-                for key, value in info.__dict__.items():
-                    click.echo(f"{key}: {value}")
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            info = result.data
+            click.echo("Device Information:")
+            for key, value in info.__dict__.items():
+                click.echo(f"{key}: {value}")
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -54,11 +54,11 @@ def check_health(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.check_health()
             
-            if result.success:
-                click.echo(click.style("Device is healthy!", fg="green"))
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo(click.style("Device is healthy!", fg="green"))
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -76,14 +76,14 @@ def restart(ctx, force):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.restart()
 
-            if result.success:
-                click.echo(click.style(
-                    "Device restart initiated. The device will be unavailable for a few minutes.",
-                    fg="yellow"
-                ))
-                return 0
+            if not result.is_success:
+                return handle_error(ctx, result.error)
                 
-            return handle_result(ctx, result)
+            click.echo(click.style(
+                "Device restart initiated. The device will be unavailable for a few minutes.",
+                fg="yellow"
+            ))
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 

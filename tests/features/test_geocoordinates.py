@@ -10,7 +10,7 @@ class TestGeoCoordinatesLocation:
     def test_get_location_success(self, client):
         """Test successful location retrieval."""
         response = client.geocoordinates.get_location()
-        assert response.success, f"Failed to get location: {response.error}"
+        assert response.is_success, f"Failed to get location: {response.error}"
         assert isinstance(response.data, GeoCoordinatesLocation)
         # Note: We don't validate ranges, we trust the device's response
         assert response.data.is_valid is not None
@@ -19,21 +19,21 @@ class TestGeoCoordinatesLocation:
         """Test successful location update."""
         # Get initial state
         initial = client.geocoordinates.get_location()
-        assert initial.success, "Failed to get initial location"
+        assert initial.is_success, "Failed to get initial location"
         
         # Set new location
         response = client.geocoordinates.set_location(latitude=45.0, longitude=90.0)
-        assert response.success, f"Failed to set location: {response.error}"
+        assert response.is_success, f"Failed to set location: {response.error}"
         assert response.data is True
         
         # Verify the update
         get_response = client.geocoordinates.get_location()
-        assert get_response.success, "Failed to get updated location"
+        assert get_response.is_success, "Failed to get updated location"
         assert get_response.data.latitude == 45.0
         assert get_response.data.longitude == 90.0
         
         # Reset to initial state
-        if initial.success:
+        if initial.is_success:
             client.geocoordinates.set_location(
                 latitude=initial.data.latitude,
                 longitude=initial.data.longitude
@@ -59,7 +59,7 @@ class TestGeoCoordinatesOrientation:
     def test_get_orientation_success(self, client):
         """Test successful orientation retrieval."""
         response = client.geocoordinates.get_orientation()
-        assert response.success, f"Failed to get orientation: {response.error}"
+        assert response.is_success, f"Failed to get orientation: {response.error}"
         assert isinstance(response.data, GeoCoordinatesOrientation)
         assert response.data.is_valid is not None
             
@@ -67,7 +67,7 @@ class TestGeoCoordinatesOrientation:
         """Test successful orientation update."""
         # Get initial state
         initial = client.geocoordinates.get_orientation()
-        assert initial.success, "Failed to get initial orientation"
+        assert initial.is_success, "Failed to get initial orientation"
         
         # Set new orientation
         orientation = GeoCoordinatesOrientation(
@@ -77,43 +77,43 @@ class TestGeoCoordinatesOrientation:
             installation_height=2.5
         )
         response = client.geocoordinates.set_orientation(orientation)
-        assert response.success, f"Failed to set orientation: {response.error}"
+        assert response.is_success, f"Failed to set orientation: {response.error}"
         assert response.data is True
         
         # Verify the update
         get_response = client.geocoordinates.get_orientation()
-        assert get_response.success, "Failed to get updated orientation"
+        assert get_response.is_success, "Failed to get updated orientation"
         assert get_response.data.heading == 180.0
         assert get_response.data.tilt == 45.0
         assert get_response.data.roll == 0.0
         assert get_response.data.installation_height == 2.5
         
         # Reset to initial state
-        if initial.success:
+        if initial.is_success:
             client.geocoordinates.set_orientation(initial.data)
         
     def test_set_orientation_partial(self, client):
         """Test partial orientation update."""
         # Get initial state
         initial = client.geocoordinates.get_orientation()
-        assert initial.success, "Failed to get initial orientation"
+        assert initial.is_success, "Failed to get initial orientation"
         
         # Set only heading
         orientation = GeoCoordinatesOrientation(heading=90.0)
         response = client.geocoordinates.set_orientation(orientation)
-        assert response.success, f"Failed to set partial orientation: {response.error}"
+        assert response.is_success, f"Failed to set partial orientation: {response.error}"
         
         # Verify update - heading changed, others unchanged
         get_response = client.geocoordinates.get_orientation()
-        assert get_response.success, "Failed to get updated orientation"
+        assert get_response.is_success, "Failed to get updated orientation"
         assert get_response.data.heading == 90.0
-        if initial.success:
+        if initial.is_success:
             assert get_response.data.tilt == initial.data.tilt
             assert get_response.data.roll == initial.data.roll
             assert get_response.data.installation_height == initial.data.installation_height
             
         # Reset to initial state
-        if initial.success:
+        if initial.is_success:
             client.geocoordinates.set_orientation(initial.data)
             
     def test_orientation_info_from_params(self):
@@ -141,24 +141,24 @@ class TestGeoCoordinatesOrientation:
         """Test successful settings application."""
         # Get initial state
         initial = client.geocoordinates.get_orientation()
-        assert initial.success, "Failed to get initial orientation"
+        assert initial.is_success, "Failed to get initial orientation"
         
         # Set new orientation
         orientation = GeoCoordinatesOrientation(heading=270.0)
         set_response = client.geocoordinates.set_orientation(orientation)
-        assert set_response.success, "Failed to set orientation"
+        assert set_response.is_success, "Failed to set orientation"
         
         # Apply settings
         response = client.geocoordinates.apply_settings()
-        assert response.success, f"Failed to apply settings: {response.error}"
+        assert response.is_success, f"Failed to apply settings: {response.error}"
         assert response.data is True
         
         # Verify changes were applied
         get_response = client.geocoordinates.get_orientation()
-        assert get_response.success, "Failed to get updated orientation"
+        assert get_response.is_success, "Failed to get updated orientation"
         assert get_response.data.heading == 270.0
         
         # Reset to initial state
-        if initial.success:
+        if initial.is_success:
             client.geocoordinates.set_orientation(initial.data)
             client.geocoordinates.apply_settings() 

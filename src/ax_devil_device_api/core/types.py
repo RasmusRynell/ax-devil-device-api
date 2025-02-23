@@ -5,13 +5,6 @@ from ..utils.errors import BaseError, FeatureError
 
 T = TypeVar('T')
 
-@dataclass(frozen=True)
-class TransportError:
-    """Immutable transport-level error information."""
-    code: str
-    message: str
-    original_error: Optional[Exception] = None
-    details: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass(frozen=True)
 class TransportResponse:
@@ -31,19 +24,20 @@ class TransportResponse:
             raise ValueError("TransportResponse cannot have both response and error")
 
     @property
-    def is_transport_success(self) -> bool:
+    def is_success(self) -> bool:
         """Whether the transport-level request succeeded."""
         return self.error is None
 
     @classmethod
-    def from_response(cls, response: RequestsResponse) -> 'TransportResponse':
+    def create_from_response(cls, response: RequestsResponse) -> 'TransportResponse':
         """Create successful transport response."""
         return cls(raw_response=response)
 
     @classmethod
-    def from_error(cls, error: BaseError) -> 'TransportResponse':
+    def create_from_error(cls, error: BaseError) -> 'TransportResponse':
         """Create a response from an error."""
         return cls(error=error)
+
 
 @dataclass(frozen=True)
 class FeatureResponse(Generic[T]):
@@ -65,7 +59,7 @@ class FeatureResponse(Generic[T]):
             raise ValueError("FeatureResponse cannot have both data and error")
 
     @property
-    def success(self) -> bool:
+    def is_success(self) -> bool:
         """Whether the feature operation succeeded."""
         return self._error is None
 
@@ -92,6 +86,6 @@ class FeatureResponse(Generic[T]):
     @classmethod
     def from_transport(cls, response: TransportResponse) -> 'FeatureResponse[T]':
         """Create a feature response from a transport response."""
-        if not response.is_transport_success:
+        if not response.is_success:
             return cls.create_error(response.error)
         return cls()

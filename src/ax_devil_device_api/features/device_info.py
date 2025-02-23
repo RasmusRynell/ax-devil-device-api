@@ -83,7 +83,7 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
             )
             
             parsed = self._parse_param_response(response)
-            if not parsed.success:
+            if not parsed.is_success:
                 return FeatureResponse.create_error(FeatureError(
                     "fetch_failed",
                     f"Failed to get {group} parameters",
@@ -105,7 +105,7 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
         """Restart the device."""
         response = self.request(self.RESTART_ENDPOINT)
         
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         if response.raw_response.status_code != 200:
@@ -125,7 +125,7 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
                 headers={"Accept": "text/plain"}
             )
             
-            if not response.is_transport_success:
+            if not response.is_success:
                 return FeatureResponse.from_transport(response)
                 
             if response.raw_response.status_code != 200:

@@ -90,10 +90,10 @@ def auto_health_check(request, client):
         
     # Pre-test health check
     health = client.device.check_health()
-    assert health.success, f"Pre-test health check failed: {health.error}"
+    assert health.is_success, f"Pre-test health check failed: {health.error}"
     
     yield
     
     # Post-test health check
     health = client.device.check_health()
-    assert health.success, f"Post-test health check failed: {health.error}" 
+    assert health.is_success, f"Post-test health check failed: {health.error}" 

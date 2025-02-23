@@ -63,7 +63,7 @@ class NetworkClient(FeatureClient):
     
     def _parse_param_response(self, response: TransportResponse) -> FeatureResponse[Dict[str, str]]:
         """Parse raw parameter response into dictionary."""
-        if not response.is_transport_success:
+        if not response.is_success:
             return FeatureResponse.from_transport(response)
             
         raw_response = response.raw_response
@@ -92,7 +92,7 @@ class NetworkClient(FeatureClient):
         )
         
         parsed = self._parse_param_response(response)
-        if not parsed.success:
+        if not parsed.is_success:
             return FeatureResponse.create_error(FeatureError(
                 "fetch_failed",
                 "Failed to get network parameters",
