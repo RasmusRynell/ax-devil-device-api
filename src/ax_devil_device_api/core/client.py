@@ -57,7 +57,6 @@ class DeviceClient:
         """Create and configure a requests Session with proper pooling."""
         session = requests.Session()
         
-        # Configure connection pooling
         adapter = requests.adapters.HTTPAdapter(
             pool_connections=10,  # Number of connection pools to cache
             pool_maxsize=100,     # Max connections per pool
@@ -65,11 +64,9 @@ class DeviceClient:
             pool_block=False      # Don't block when pool is full
         )
         
-        # Mount for both HTTP and HTTPS
         session.mount('http://', adapter)
         session.mount('https://', adapter)
         
-        # Set default headers
         session.headers.update(self._TRANSPORT_HEADERS)
         
         return session
@@ -80,7 +77,7 @@ class DeviceClient:
             self._session.close()
 
     @contextmanager
-    def new_session(self):
+    def new_session(self) -> ContextManager['DeviceClient']:
         """Context manager for creating a temporary new session.
         
         Useful for operations that need a clean session state.
