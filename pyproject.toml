@@ -31,3 +31,5 @@ ax-devil-device-api-geocoordinates = "ax_devil_device_api.examples.geocoordinate
 ax-devil-device-api-analytics-mqtt = "ax_devil_device_api.examples.analytics_mqtt_cli:cli"
 ax-devil-device-api-media = "ax_devil_device_api.examples.media_cli:cli"
 ax-devil-device-api-discovery = "ax_devil_device_api.examples.api_discovery_cli:cli"
+ax-devil-device-api-feature-flags = "ax_devil_device_api.examples.feature_flags_cli:cli"
+ax-devil-device-api-ssh = "ax_devil_device_api.examples.ssh_cli:cli"
