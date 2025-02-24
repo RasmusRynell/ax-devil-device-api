@@ -74,6 +74,12 @@
     - Publisher configuration
     - Data stream control
     - Analytics event handling
+    
+  - `FeatureFlagClient`: Dynamic feature management
+    - Feature flag configuration
+    - Flag state retrieval
+    - Batch flag operations
+    - API version management
 
 ### Layer 3: Interface Layer
 - **Main Client Interface:**

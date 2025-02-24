@@ -12,6 +12,7 @@ from ax_devil_device_api.features.geocoordinates import GeoCoordinatesClient
 from ax_devil_device_api.features.mqtt_client import MqttClient
 from ax_devil_device_api.features.analytics_mqtt import AnalyticsMqttClient
 from ax_devil_device_api.features.api_discovery import DiscoveryClient
+from ax_devil_device_api.features.feature_flags import FeatureFlagClient
 
 class Client:
     """Main client interface for a device.
@@ -45,6 +46,7 @@ class Client:
         self._mqtt_client: Optional[MqttClient] = None
         self._analytics_mqtt: Optional[AnalyticsMqttClient] = None
         self._discovery: Optional[DiscoveryClient] = None
+        self._feature_flags: Optional[FeatureFlagClient] = None
     
     def __del__(self):
         """Attempt to clean up if user forgets to close.
@@ -86,22 +88,27 @@ class Client:
     
     @contextmanager
     def new_session(self) -> ContextManager['Client']:
-        """Create a temporary new session.
+        """Create a temporary session for sensitive operations.
         
-        This is useful for operations that need a clean session state,
-        such as sensitive operations or when you want to ensure no
-        previous session state affects the requests.
+        This context manager creates a new session that will be used
+        for all requests within its scope. The session is automatically
+        closed when exiting the context.
         
         Example:
             ```python
             with client.new_session():
-                # These operations will use a fresh session
+                # These operations use a fresh session
                 client.device.restart()
             # Back to the original session
             ```
         """
-        with self._core.new_session():
+        old_session = self._core._session
+        self._core._session = self._core._create_session()
+        try:
             yield self
+        finally:
+            self._core._session.close()
+            self._core._session = old_session
     
     def clear_session(self) -> None:
         """Clear and reset the current session.
@@ -113,49 +120,56 @@ class Client:
     
     @property
     def device(self) -> DeviceInfoClient:
-        """Access device operations."""
+        """Access device information and management features."""
         if not self._device:
             self._device = DeviceInfoClient(self._core)
         return self._device
     
     @property
     def network(self) -> NetworkClient:
-        """Access network operations."""
+        """Access network configuration features."""
         if not self._network:
             self._network = NetworkClient(self._core)
         return self._network
 
     @property
     def media(self) -> MediaClient:
-        """Access media operations."""
+        """Access media streaming and snapshot features."""
         if not self._media:
             self._media = MediaClient(self._core)
         return self._media
 
     @property
     def geocoordinates(self) -> GeoCoordinatesClient:
-        """Access geographic coordinates and orientation operations."""
+        """Access geographic coordinates and orientation features."""
         if not self._geocoordinates:
             self._geocoordinates = GeoCoordinatesClient(self._core)
         return self._geocoordinates
 
     @property
     def mqtt_client(self) -> MqttClient:
-        """Access MQTT client operations."""
+        """Access MQTT client features."""
         if not self._mqtt_client:
             self._mqtt_client = MqttClient(self._core)
         return self._mqtt_client
 
     @property
     def analytics_mqtt(self) -> AnalyticsMqttClient:
-        """Access analytics MQTT operations."""
+        """Access analytics MQTT features."""
         if not self._analytics_mqtt:
             self._analytics_mqtt = AnalyticsMqttClient(self._core)
         return self._analytics_mqtt
 
     @property
     def discovery(self) -> DiscoveryClient:
-        """Access API discovery operations."""
+        """Access API discovery features."""
         if not self._discovery:
             self._discovery = DiscoveryClient(self._core)
         return self._discovery
+
+    @property
+    def feature_flags(self) -> FeatureFlagClient:
+        """Access feature flag management features."""
+        if not self._feature_flags:
+            self._feature_flags = FeatureFlagClient(self._core)
+        return self._feature_flags
