@@ -28,6 +28,14 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
         with create_client(...) as client:
             result = client.device.get_info()
     """
+    assert protocol in ['http', 'https'], "Invalid protocol"
+    assert port is None or isinstance(port, int), "\n\tInvalid port"
+    assert username is not None and password is not None, "\n\tUsername and password are required, use --username and --password options or set AX_DEVIL_TARGET_USER and AX_DEVIL_TARGET_PASS environment variables"
+    assert device_ip is not None, "\n\tDevice IP is required, use --device-ip option or set AX_DEVIL_TARGET_ADDR environment variable"
+    assert ca_cert is None or os.path.exists(ca_cert), "\n\tCA certificate file does not exist, use --ca-cert option or set AX_DEVIL_CA_CERT environment variable"
+    assert no_verify_ssl is False or protocol == 'https', "\n\tSSL verification can only be disabled for HTTPS connections"
+    assert not no_verify_ssl or not ca_cert, "\n\tCA certificate cannot be provided if SSL verification is disabled"
+
     if protocol == 'https':
         config = DeviceConfig.https(
             host=device_ip,
@@ -138,6 +146,39 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
         "health_check_failed": (
             "Device health check failed.\n"
             "The device is not responding correctly."
+        ),
+        "username_password_required": (
+            "Username and password are required.\n"
+            "Please provide a username and password using the --username and --password options."
+            "\nOptionally: you can set the AX_DEVIL_TARGET_USER and AX_DEVIL_TARGET_PASS environment variables."
+        ),
+        "authentication_failed": (
+            "Authentication failed.\n"
+            "Please check your username and password and try again."
+        ),
+        "unsupported_auth_method": (
+            "Unsupported authentication method.\n"
+            "Please check your authentication method and try again."
+        ),
+        "invalid_port": (
+            "Invalid port number.\n"
+            "Please check your port number and try again."
+        ),
+        "http_protocol_requested": (
+            "HTTP protocol requested but allow_insecure=False.\n"
+            "Please use the --protocol http option to connect to the device."
+        ),  
+        "request_failed": (
+            "Request failed.\n"
+            "Please check your request and try again."
+        ),
+        "parse_failed": (
+            "Failed to parse the response.\n"
+            "Please check the response and try again."
+        ),
+        "invalid_response": (
+            "Invalid response.\n"
+            "Please check the response and try again."
         ),
     }
 

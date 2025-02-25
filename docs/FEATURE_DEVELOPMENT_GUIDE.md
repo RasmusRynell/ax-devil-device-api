@@ -9,7 +9,7 @@ Create a new file `src/ax_devil_device_api/features/your_feature.py`:
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 from .base import FeatureClient
-from ..core.types import FeatureResponse
+from ..core.types import FeatureResponse, FeatureError
 
 @dataclass
 class YourFeatureData:
@@ -43,8 +43,8 @@ class YourFeatureClient(FeatureClient[YourFeatureData]):
         
     def your_method(self, param: str) -> FeatureResponse[YourFeatureData]:
         """REQUIRED: Implement at least one feature method."""
-        if not param:  # Basic validation
-            return FeatureResponse.create_error("Parameter required")
+        if not param:
+            return FeatureResponse.create_error(FeatureError("parameter_required", "Parameter required"))
             
         response = self._make_request("yourMethod", {"param": param}) # if multiple requests can be made in the same way. Not required. 
         if not response.is_success:

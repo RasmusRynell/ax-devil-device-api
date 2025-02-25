@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List
 from .base import FeatureClient, DeviceEndpoint
-from ..core.types import FeatureResponse
+from ..core.types import FeatureResponse, FeatureError
 
 @dataclass
 class SSHUser:
@@ -18,8 +18,8 @@ class SSHClient(FeatureClient[SSHUser]):
 
     def add_user(self, username: str, password: str, comment: Optional[str] = None) -> FeatureResponse[SSHUser]:
         """Add a new SSH user to the device."""
-        if not username or not password:  # Basic validation
-            return FeatureResponse.create_error("Username and password are required")
+        if not username or not password:
+            return FeatureResponse.create_error(FeatureError("username_password_required", "Username and password are required"))
             
         response = self.request(
             DeviceEndpoint("POST", self.BASE_PATH),
@@ -47,16 +47,16 @@ class SSHClient(FeatureClient[SSHUser]):
             
         try:
             if not response.raw_response:
-                return FeatureResponse.create_error("No response received")
+                return FeatureResponse.create_error(FeatureError("no_response", "No response received"))
                 
             response_json = response.raw_response.json()
             if not isinstance(response_json.get("data"), list):
-                return FeatureResponse.create_error("Invalid response format")
+                return FeatureResponse.create_error(FeatureError("invalid_response_format", "Invalid response format"))
                 
             users = []
             for user_data in response_json["data"]:
                 if "username" not in user_data:
-                    continue  # Skip invalid entries
+                    continue
                 users.append(SSHUser(
                     username=user_data["username"],
                     comment=user_data.get("comment")
@@ -64,12 +64,12 @@ class SSHClient(FeatureClient[SSHUser]):
                 
             return FeatureResponse.ok(users)
         except (ValueError, KeyError) as e:
-            return FeatureResponse.create_error(f"Failed to parse response: {str(e)}")
+            return FeatureResponse.create_error(FeatureError("failed_to_parse_response", f"Failed to parse response: {str(e)}"))
 
     def get_user(self, username: str) -> FeatureResponse[SSHUser]:
         """Get a specific SSH user from the device."""
-        if not username:  # Basic validation
-            return FeatureResponse.create_error("Username is required")
+        if not username:
+            return FeatureResponse.create_error(FeatureError("username_required", "Username is required"))
             
         response = self.request(DeviceEndpoint("GET", f"{self.BASE_PATH}/{username}"))
         
@@ -78,28 +78,28 @@ class SSHClient(FeatureClient[SSHUser]):
             
         try:
             if not response.raw_response:
-                return FeatureResponse.create_error("No response received")
+                return FeatureResponse.create_error(FeatureError("no_response", "No response received"))
                 
             response_json = response.raw_response.json()
             data = response_json.get("data", {})
             if "username" not in data:
-                return FeatureResponse.create_error("Invalid response format")
+                return FeatureResponse.create_error(FeatureError("invalid_response_format", "Invalid response format"))
                 
             return FeatureResponse.ok(SSHUser(
                 username=data["username"],
                 comment=data.get("comment")
             ))
         except (ValueError, KeyError) as e:
-            return FeatureResponse.create_error(f"Failed to parse response: {str(e)}")
+            return FeatureResponse.create_error(FeatureError("failed_to_parse_response", f"Failed to parse response: {str(e)}"))
 
     def modify_user(self, username: str, password: Optional[str] = None, 
                    comment: Optional[str] = None) -> FeatureResponse[SSHUser]:
         """Modify an existing SSH user."""
-        if not username:  # Basic validation
-            return FeatureResponse.create_error("Username is required")
+        if not username:
+            return FeatureResponse.create_error(FeatureError("username_required", "Username is required"))
         
         if password is None and comment is None:
-            return FeatureResponse.create_error("At least one of password or comment must be specified")
+            return FeatureResponse.create_error(FeatureError("at_least_one_of_password_or_comment_required", "At least one of password or comment must be specified"))
             
         data = {}
         if password is not None:
@@ -119,8 +119,8 @@ class SSHClient(FeatureClient[SSHUser]):
 
     def remove_user(self, username: str) -> FeatureResponse[None]:
         """Remove an SSH user from the device."""
-        if not username:  # Basic validation
-            return FeatureResponse.create_error("Username is required")
+        if not username:
+            return FeatureResponse.create_error(FeatureError("username_required", "Username is required"))
             
         response = self.request(DeviceEndpoint("DELETE", f"{self.BASE_PATH}/{username}"))
         
