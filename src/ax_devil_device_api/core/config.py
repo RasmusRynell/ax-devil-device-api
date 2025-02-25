@@ -82,10 +82,11 @@ class DeviceConfig:
             self.ssl = SSLConfig()
 
         if self.port is not None and not (0 < self.port < 65536):
-            raise ConfigurationError(f"Invalid port number: {self.port}")
+            raise ConfigurationError("invalid_port", f"Invalid port number: {self.port}")
 
         if self.protocol == Protocol.HTTP and not self.allow_insecure:
             raise ConfigurationError(
+                "http_protocol_requested",
                 "HTTP protocol requested but allow_insecure=False. "
                 "Use DeviceConfig.http() to explicitly allow HTTP."
             )

@@ -26,13 +26,14 @@ class AuthHandler:
             AuthenticationError: If authentication fails
         """
         if not self.config.username or not self.config.password:
-            raise AuthenticationError("Username and password are required")
+            raise AuthenticationError("username_password_required", "Username and password are required")
 
         # For explicit auth methods, just try once
         if self.config.auth_method != AuthMethod.AUTO:
             response = request_func(self._create_auth(self.config.auth_method))
             if response.status_code == 401:
                 raise AuthenticationError(
+                    "authentication_failed",
                     f"Authentication failed using {self.config.auth_method}")
             return response
 
@@ -49,7 +50,7 @@ class AuthHandler:
                 self._detected_method = AuthMethod.DIGEST
                 return response
 
-        raise AuthenticationError("Failed to authenticate with any method")
+        raise AuthenticationError("authentication_failed", "Failed to authenticate with any method")
 
     def _create_auth(self, method: AuthMethod) -> AuthBase:
         """Create an auth object for the specified method."""
@@ -59,4 +60,5 @@ class AuthHandler:
             return HTTPDigestAuth(self.config.username, self.config.password)
         else:
             raise AuthenticationError(
+                "unsupported_auth_method",
                 f"Unsupported authentication method: {method}")

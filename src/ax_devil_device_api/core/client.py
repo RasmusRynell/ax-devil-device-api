@@ -142,5 +142,6 @@ class DeviceClient:
         except requests.exceptions.RequestException as e:
             return TransportResponse.create_from_error(NetworkError(
                 "request_failed",
+                "Request failed",
                 str(e)
             ))

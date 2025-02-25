@@ -18,20 +18,11 @@ class ConfigurationError(BaseError):
 
 class NetworkError(BaseError):
     """Network communication errors."""
-    def __init__(self, code: str, message: str = None):
-        super().__init__(code, message)
+    pass
 
 class SecurityError(BaseError):
     """Security-related errors like SSL/TLS issues."""
-    def __init__(self, code: str, message: str = None, details: Optional[Dict[str, Any]] = None):
-        if message is None:
-            message = {
-                "ssl_verification_failed": "SSL certificate verification failed",
-                "ssl_error": "SSL error occurred",
-                "cert_fingerprint_mismatch": "Certificate fingerprint mismatch",
-                "protocol_error": "Protocol security error",
-            }.get(code, "Security error")
-        super().__init__(code, message, details)
+    pass
 
 class FeatureError(BaseError):
     """Feature-specific errors."""

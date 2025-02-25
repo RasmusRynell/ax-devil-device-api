@@ -118,8 +118,8 @@ class ProtocolHandler:
 
         except SSLError as e:
             error_code = "ssl_verification_failed" if "CERTIFICATE_VERIFY_FAILED" in str(e) else "ssl_error"
-            return TransportResponse.create_from_error(SecurityError(error_code, str(e)))
+            return TransportResponse.create_from_error(SecurityError(error_code, "SSL verification failed", str(e)))
 
         except ConnectionError as e:
             error_code = "connection_refused" if "Connection refused" in str(e) else "connection_error"
-            return TransportResponse.create_from_error(NetworkError(error_code, str(e)))
+            return TransportResponse.create_from_error(NetworkError(error_code, "Connection error", str(e)))
