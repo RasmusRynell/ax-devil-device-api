@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 
 from .cli_core import (
     format_json,
-    create_client, handle_result, handle_error, get_client_args,
+    create_client, handle_error, get_client_args,
     common_options
 )
 
