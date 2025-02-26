@@ -14,6 +14,7 @@ from ax_devil_device_api.features.analytics_mqtt import AnalyticsMqttClient
 from ax_devil_device_api.features.api_discovery import DiscoveryClient
 from ax_devil_device_api.features.feature_flags import FeatureFlagClient
 from .features.ssh import SSHClient
+from ax_devil_device_api.features.device_debug import DeviceDebugClient
 
 class Client:
     """Main client interface for a device.
@@ -49,6 +50,7 @@ class Client:
         self._discovery: Optional[DiscoveryClient] = None
         self._feature_flags: Optional[FeatureFlagClient] = None
         self._ssh: Optional[SSHClient] = None
+        self._device_debug: Optional[DeviceDebugClient] = None
     
     def __del__(self):
         """Attempt to clean up if user forgets to close.
@@ -182,3 +184,9 @@ class Client:
         if not self._ssh:
             self._ssh = SSHClient(self._core)
         return self._ssh
+
+    @property
+    def device_debug(self) -> DeviceDebugClient:
+        if not self._device_debug:
+            self._device_debug = DeviceDebugClient(self._core)
+        return self._device_debug
