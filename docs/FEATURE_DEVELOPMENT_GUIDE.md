@@ -1,5 +1,19 @@
 # Feature Development Guide
 
+## CRITICAL WARNING - READ FIRST
+```
+NEVER MODIFY EXISTING PROJECT ARCHITECTURE OR BASE CLASSES!
+Your scope is LIMITED to:
+1. Creating your new feature file(s)
+2. Adding ONE import line to client.py and wire it up to the client in the __init__ method
+3. Adding ONE entry point to pyproject.toml
+
+If you think there are issues with the core architecture:
+- Create a separate issue/PR
+- Do NOT modify core files while implementing features
+- Do NOT try to "fix" working code
+```
+
 ## Required Steps for Adding a New Feature
 
 ### 1. Create Feature Module
@@ -10,6 +24,9 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional
 from .base import FeatureClient
 from ..core.types import FeatureResponse, FeatureError
+from ..core.endpoints import DeviceEndpoint
+from ..utils.errors import FeatureError
+
 
 @dataclass
 class YourFeatureData:
@@ -61,7 +78,7 @@ Add to `src/ax_devil_device_api/client.py`:
 
 ```python
 # REQUIRED: Add import
-from .features.your_feature import YourFeatureClient
+from ax_devil_device_api.features.your_feature import YourFeatureClient
 
 class Client:
     def __init__(self):
@@ -83,15 +100,28 @@ Create `src/ax_devil_device_api/examples/your_feature_cli.py`:
 #!/usr/bin/env python3
 # REQUIRED: Standard imports
 import click
-from .cli_core import create_client, common_options
+from .cli_core import (
+    create_client, handle_result, handle_error, get_client_args,
+    common_options, format_json
+)
 
 # REQUIRED: Main CLI group
 @click.group()
 @common_options
 @click.pass_context
-def cli(ctx, **options):
-    """Your feature description."""
-    ctx.obj = options
+def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
+    """Manage your feature."""
+    ctx.ensure_object(dict)
+    ctx.obj.update({
+        'device_ip': device_ip,
+        'username': username,
+        'password': password,
+        'port': port,
+        'protocol': protocol,
+        'no_verify_ssl': no_verify_ssl,
+        'ca_cert': ca_cert,
+        'debug': debug
+    })
 
 # REQUIRED: At least one command
 @cli.command()
@@ -99,13 +129,24 @@ def cli(ctx, **options):
 @click.pass_context
 def your_command(ctx, param):
     """Command description."""
-    with create_client(**ctx.obj) as client:
+    with create_client(**get_client_args(ctx.obj)) as client:
         result = client.your_feature.your_method(param)
         if not result.is_success:
-            click.echo(f"Error: {result.error}")
-            return 1
-        click.echo(f"Success: {result.data}")
-        return 0
+            return handle_error(ctx, result.error)
+        
+        # IMPORTANT:
+        # There are many ways to print the result.
+        # You can either return the result or print it yourself.
+        # See examples below:
+        # click.echo(format_json(result.data))
+        # or
+        # click.echo(result.data)
+        # or
+        # click.echo(f"Success: {result.data}")
+        # or
+        # click.echo(f"Error: {result.error}")
+        # And then return 0 or 1 to indicate success or failure.
+        # or if you don't care about handling the result yourself, you can just return handle_result(ctx, result)
 
 if __name__ == '__main__':
     cli()
