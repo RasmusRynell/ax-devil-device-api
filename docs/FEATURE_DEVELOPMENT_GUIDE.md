@@ -35,6 +35,11 @@ class YourFeatureData:
     field_one: str
     field_two: int
 
+# IMPORTANT:
+# DO NOT CREATE data classes for parameters to your feature. 
+# Such as for example something like "NetworkTraceOptions"!
+# Instead, use the standard python types for parameters.
+
 class YourFeatureClient(FeatureClient[YourFeatureData]):
     """REQUIRED: Set your feature's API version."""
     API_VERSION = "1.0"
@@ -65,11 +70,42 @@ class YourFeatureClient(FeatureClient[YourFeatureData]):
             
         response = self._make_request("yourMethod", {"param": param}) # if multiple requests can be made in the same way. Not required. 
         if not response.is_success:
-            return response
-            
+            return FeatureResponse.from_transport(response)
+
+        # If looking for a specific status code, check it here. 
+        # If you don't care about the status code, you can remove this check.
+        if response.raw_response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "health_check_failed",
+                f"Health check failed: HTTP {response.raw_response.status_code}"
+            ))
+
+        # If you need to inspect the response data, do it here.
+        # If you don't care about the response data, you can remove this block.
+        try:
+            data = response.raw_response.json().get("data")
+            if not isinstance(data, expected_type):
+                return FeatureResponse.create_error(FeatureError(
+                    "invalid_response",
+                    f"Expected {expected_type.__name__}, got {type(data).__name__}"
+                ))
+            return FeatureResponse.ok(data)
+        except Exception as e:
+            return FeatureResponse.create_error(FeatureError(
+                "parse_failed",
+                f"Failed to parse response: {str(e)}",
+                details={"response": raw_response.text}
+            ))
+
+        # If you feel that the response is not needed, you can return a simple True or False.
+        # or data that you want to return.
+        return FeatureResponse.ok(True)
+        # or
+        return FeatureResponse.ok({"success": True})
+        # or
         return FeatureResponse.ok(YourFeatureData(
-            field_one=response.data["fieldOne"],
-            field_two=response.data["fieldTwo"]
+            field_one="expected",
+            field_two=42
         ))
 ```
 
