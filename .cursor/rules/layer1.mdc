@@ -1,0 +1,8 @@
+---
+description: General understanding for how to work with layer 1.
+globs: src/ax_devil_device_api/core/*
+alwaysApply: false
+---
+- ax-devil-device-api is a Python library for working with Axis device APIs. It focuses on making device interactions reliable and predictable through type safety and error handling. The goal is to provide an interface that makes sense for real-world device management.
+- Extremely important: **DO NOT ASSUME ANYTHING.** Do not assume we have tests, do not assume prior knowledge, and question everything to ensure clarity and correctness.
+- Read [WORKING_WITH_LAYER_1.md](mdc:docs/WORKING_WITH_LAYER_1.md).
