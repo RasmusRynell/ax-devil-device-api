@@ -4,6 +4,7 @@ globs:
 alwaysApply: true
 ---
 - ax-devil-device-api is a Python library for working with Axis device APIs. It focuses on making device interactions reliable and predictable through type safety and error handling. The goal is to provide an interface that makes sense for real-world device management.
-- Extremely important: DO NOT ASSUME ANYTHING. Do not assume we have tests, do not assume prior knowledge, and question everything to ensure clarity and correctness.
-- When writing in the docs folder, review every line of the relevant files before making updates. Only document what is fully understood.
-- To understand the project vision, refer to VISIen implementing new feature modules, always consult FEATURE_DEVELOPMENT_GUIDs.
+- Extremely important: **DO NOT ASSUME ANYTHING.** Do not assume we have tests, do not assume prior knowledge, and question everything to ensure clarity and correctness.
+- When writing in the `docs` folder, **review every line** of the relevant files before making updates. Only document what is fullyd.
+- To understand the project vision, refer to [VISION.md](mdc:docs/VISION.md). talks about layers 1, 2 and 3.
+- When implementing new feature modules (layer 2), **always** consult [FEATURE_DEVELOPMENT_GUIDE.md](mdc:docs/FEATURE_DEVELOPMENT_GUIDE.md) before making any changes.
