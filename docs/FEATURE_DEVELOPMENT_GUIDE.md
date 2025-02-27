@@ -279,8 +279,3 @@ See these complete implementations:
 - `feature_flags.py`: Simple boolean flags
 - `analytics_mqtt.py`: Data publishing
 - `geocoordinates.py`: Location data
-
-Need help? Ask about:
-1. API endpoint details
-2. Response format for your feature
-3. Required fields for your data model
