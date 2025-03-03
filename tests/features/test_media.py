@@ -7,12 +7,14 @@ from ax_devil_device_api.utils.errors import FeatureError
 class TestMediaFeature:
     """Test suite for media feature."""
     
+    @pytest.mark.device_required
     def test_get_snapshot_default(self, client):
         """Test snapshot capture with default settings."""
         response = client.media.get_snapshot()
         assert response.is_success, f"Failed to get snapshot: {response.error}"
         self._verify_snapshot_data(response.data)
         
+    @pytest.mark.device_required
     def test_get_snapshot_with_config(self, client):
         """Test snapshot capture with custom configuration."""
         config = MediaConfig(
@@ -24,6 +26,7 @@ class TestMediaFeature:
         assert response.is_success, f"Failed to get snapshot: {response.error}"
         self._verify_snapshot_data(response.data)
         
+    @pytest.mark.device_required
     def test_invalid_compression(self, client):
         """Test error handling for invalid compression value."""
         config = MediaConfig(compression=101)  # Invalid: > 100
@@ -32,6 +35,7 @@ class TestMediaFeature:
         assert response.error.code == "invalid_config"
         assert "Compression" in response.error.message
         
+    @pytest.mark.device_required
     def test_invalid_rotation(self, client):
         """Test error handling for invalid rotation value."""
         config = MediaConfig(rotation=45)  # Invalid: not 0/90/180/270
@@ -40,6 +44,7 @@ class TestMediaFeature:
         assert response.error.code == "invalid_config"
         assert "Rotation" in response.error.message
         
+    @pytest.mark.unit
     def test_mediaconfig_validation(self):
         """Test MediaConfig validation logic."""
         # Valid configurations
@@ -69,6 +74,7 @@ class TestMediaFeature:
             assert error is not None, f"Invalid config passed validation: {config}"
             assert expected_error in error
             
+    @pytest.mark.unit
     def test_mediaconfig_to_params(self):
         """Test MediaConfig parameter conversion."""
         config = MediaConfig(

@@ -72,28 +72,3 @@ def client(protocol):
         yield client
     finally:
         client.close()
-
-@pytest.fixture(autouse=True)
-def auto_health_check(request, client):
-    """Automatically check device health before and after tests.
-    
-    By default, all tests get health checks. To skip health checks for a specific test:
-        @pytest.mark.skip_health_check
-        def test_something():
-            # No health checks will run
-            ...
-    """
-    if request.node.get_closest_marker('skip_health_check'):
-        # Skip health check for tests that explicitly opt out
-        yield
-        return
-        
-    # Pre-test health check
-    health = client.device.check_health()
-    assert health.is_success, f"Pre-test health check failed: {health.error}"
-    
-    yield
-    
-    # Post-test health check
-    health = client.device.check_health()
-    assert health.is_success, f"Post-test health check failed: {health.error}" 

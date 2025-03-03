@@ -36,6 +36,7 @@ def mock_connected_response():
 class TestBrokerConfig:
     """Test suite for broker configuration validation."""
     
+    @pytest.mark.unit
     def test_valid_configurations(self):
         """Test various valid broker configurations."""
         valid_configs = [
@@ -51,6 +52,7 @@ class TestBrokerConfig:
         for config in valid_configs:
             assert config.validate() is None, f"Valid config failed validation: {config}"
     
+    @pytest.mark.unit
     @pytest.mark.parametrize("config,expected_error", [
         (BrokerConfig(host=""), "host is required"),
         (BrokerConfig(host="mqtt.example.com", port=0), "Port must be between"),
@@ -59,7 +61,7 @@ class TestBrokerConfig:
          "Keep alive interval must be positive")
     ])
     def test_invalid_configurations(self, config, expected_error):
-        """Test invalid broker configurations."""
+        """Test validation for invalid configurations."""
         error = config.validate()
         assert error is not None, f"Invalid config passed validation: {config}"
         assert expected_error in error
@@ -67,6 +69,7 @@ class TestBrokerConfig:
 class TestMqttStatus:
     """Test suite for MQTT status parsing and validation."""
     
+    @pytest.mark.unit
     @pytest.mark.parametrize("status_data,expected", [
         ({
             "data": {
@@ -115,13 +118,14 @@ class TestMqttStatus:
         })
     ])
     def test_status_parsing(self, status_data, expected):
-        """Test parsing of various MQTT status responses."""
+        """Test parsing of MQTT status responses."""
         status = MqttStatus.create_from_response(status_data)
         assert status.status == expected["status"]
         assert status.state == expected["state"]
         assert (status.config is not None) == expected["has_config"]
         assert (status.connected_to is not None) == expected["has_connection"]
 
+    @pytest.mark.unit
     def test_invalid_status_value(self):
         """Test handling of invalid status values."""
         with pytest.raises(ValueError, match="Invalid status value"):
@@ -133,19 +137,22 @@ class TestMqttStatus:
 class TestMqttClientFeature:
     """Test suite for MQTT client operations."""
     
+    @pytest.mark.device_required
     def test_get_status(self, client):
-        """Test MQTT client status retrieval."""
+        """Test retrieving MQTT client status."""
         response = client.mqtt_client.get_status()
         assert response.is_success, f"Failed to get MQTT status: {response.error}"
         self._verify_status_response(response.data)
     
+    @pytest.mark.device_required
     def test_configure_broker(self, client, valid_broker_config):
-        """Test MQTT broker configuration."""
+        """Test configuring MQTT broker."""
         response = client.mqtt_client.configure(valid_broker_config)
         assert response.is_success, f"Failed to configure broker: {response.error}"
     
+    @pytest.mark.device_required
     def test_client_lifecycle(self, client, valid_broker_config):
-        """Test complete client lifecycle: configure -> activate -> deactivate."""
+        """Test the complete MQTT client lifecycle."""
         # Configure
         config_response = client.mqtt_client.configure(valid_broker_config)
         assert config_response.is_success, f"Failed to configure broker: {config_response.error}"
@@ -169,7 +176,7 @@ class TestMqttClientFeature:
             "Client should be in inactive state after deactivation"
     
     def _verify_status_response(self, status: MqttStatus):
-        """Helper to verify MQTT status response structure."""
+        """Helper to verify status response structure."""
         assert isinstance(status, MqttStatus), "Status should be MqttStatus instance"
         assert status.status in MqttStatus.VALID_STATUSES, "Invalid status value"
         assert status.state in [

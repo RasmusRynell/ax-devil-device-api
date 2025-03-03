@@ -9,6 +9,7 @@ KNOWN_DATA_SOURCE_KEY = "com.axis.analytics_scene_description.v0.beta#1"
 class TestPublisherConfig:
     """Test suite for publisher configuration."""
     
+    @pytest.mark.unit
     def test_validation_valid(self):
         """Test validation with valid configuration."""
         valid_configs = [
@@ -29,6 +30,7 @@ class TestPublisherConfig:
         for config in valid_configs:
             assert config.validate() is None
             
+    @pytest.mark.unit
     def test_validation_invalid(self):
         """Test validation with invalid configurations."""
         invalid_configs = [
@@ -71,6 +73,7 @@ class TestPublisherConfig:
             assert error is not None
             assert expected_error in error
             
+    @pytest.mark.unit
     def test_to_payload(self):
         """Test conversion to API payload."""
         config = PublisherConfig(
@@ -93,6 +96,7 @@ class TestPublisherConfig:
             }
         }
 
+    @pytest.mark.unit
     def test_create_from_response(self):
         """Test creation from API response."""
         response_data = {
@@ -114,12 +118,14 @@ class TestPublisherConfig:
 class TestAnalyticsMqttClient:
     """Test suite for analytics MQTT client."""
     
+    @pytest.mark.device_required
     def test_get_data_sources_success(self, client):
         """Test successful data sources retrieval."""
         response = client.analytics_mqtt.get_data_sources()
         assert response.is_success, f"Failed to get data sources: {response.error}"
         assert isinstance(response.data, list)
         
+    @pytest.mark.device_required
     def test_list_publishers_success(self, client):
         """Test successful publishers listing."""
         response = client.analytics_mqtt.list_publishers()
@@ -128,6 +134,7 @@ class TestAnalyticsMqttClient:
         for publisher in response.data:
             assert isinstance(publisher, PublisherConfig)
             
+    @pytest.mark.device_required
     def test_create_publisher_success(self, client):
         """Test successful publisher creation."""
         # Remove any existing publisher with this id
@@ -148,6 +155,7 @@ class TestAnalyticsMqttClient:
         # Cleanup
         client.analytics_mqtt.remove_publisher(config.id)
         
+    @pytest.mark.device_required
     def test_create_publisher_invalid_config(self, client):
         """Test publisher creation with invalid config."""
         config = PublisherConfig(
@@ -163,6 +171,7 @@ class TestAnalyticsMqttClient:
         # remove the publisher
         client.analytics_mqtt.remove_publisher(config.id)
         
+    @pytest.mark.device_required
     def test_remove_publisher_success(self, client):
         """Test successful publisher removal."""
         # First create a publisher
@@ -184,6 +193,7 @@ class TestAnalyticsMqttClient:
         assert list_response.is_success
         assert not any(p.id == config.id for p in list_response.data)
         
+    @pytest.mark.device_required
     def test_remove_publisher_invalid_id(self, client):
         """Test publisher removal with invalid ID."""
         response = client.analytics_mqtt.remove_publisher("")

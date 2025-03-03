@@ -1,14 +1,17 @@
 """Tests for network-related features."""
+import pytest
 
 class TestNetworkFeature:
     """Test suite for network feature."""
     
+    @pytest.mark.device_required
     def test_get_network_info(self, client):
         """Test network interface information retrieval."""
         info = client.network.get_network_info()
         assert info.is_success, f"Failed to get network info: {info.error}"
         self._verify_network_info(info)
         
+    @pytest.mark.device_required
     def test_get_network_info_custom_interface(self, client):
         """Test network info retrieval for non-default interface."""
         # Test with a non-existent interface to verify error handling

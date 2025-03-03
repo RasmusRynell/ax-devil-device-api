@@ -6,6 +6,7 @@ import pytest
 class TestDeviceInfoFeature:
     """Test suite for device feature."""
     
+    @pytest.mark.device_required
     def test_get_info(self, client):
         """Test device info retrieval."""
         info = client.device.get_info()
@@ -25,6 +26,7 @@ class TestDeviceInfoFeature:
         assert isinstance(info.data.analytics_support, bool), "Analytics support should be a boolean"
     
     @pytest.mark.skip_health_check
+    @pytest.mark.device_required
     def test_health_check(self, client):
         """Test device health check."""
         health = client.device.check_health()

@@ -7,6 +7,7 @@ from ax_devil_device_api.utils.errors import FeatureError
 class TestGeoCoordinatesLocation:
     """Test suite for geocoordinates location features."""
     
+    @pytest.mark.device_required
     def test_get_location_success(self, client):
         """Test successful location retrieval."""
         response = client.geocoordinates.get_location()
@@ -15,6 +16,7 @@ class TestGeoCoordinatesLocation:
         # Note: We don't validate ranges, we trust the device's response
         assert response.data.is_valid is not None
         
+    @pytest.mark.device_required
     def test_set_location_success(self, client):
         """Test successful location update."""
         # Get initial state
@@ -39,6 +41,7 @@ class TestGeoCoordinatesLocation:
                 longitude=initial.data.longitude
             )
             
+    @pytest.mark.unit
     def test_location_info_from_params(self):
         """Test GeoCoordinatesLocation creation from parameters."""
         params = {
@@ -56,6 +59,7 @@ class TestGeoCoordinatesLocation:
 class TestGeoCoordinatesOrientation:
     """Test suite for geocoordinates orientation features."""
     
+    @pytest.mark.device_required
     def test_get_orientation_success(self, client):
         """Test successful orientation retrieval."""
         response = client.geocoordinates.get_orientation()
@@ -63,6 +67,7 @@ class TestGeoCoordinatesOrientation:
         assert isinstance(response.data, GeoCoordinatesOrientation)
         assert response.data.is_valid is not None
             
+    @pytest.mark.device_required
     def test_set_orientation_success(self, client):
         """Test successful orientation update."""
         # Get initial state
@@ -92,6 +97,7 @@ class TestGeoCoordinatesOrientation:
         if initial.is_success:
             client.geocoordinates.set_orientation(initial.data)
         
+    @pytest.mark.device_required
     def test_set_orientation_partial(self, client):
         """Test partial orientation update."""
         # Get initial state
@@ -116,6 +122,7 @@ class TestGeoCoordinatesOrientation:
         if initial.is_success:
             client.geocoordinates.set_orientation(initial.data)
             
+    @pytest.mark.unit
     def test_orientation_info_from_params(self):
         """Test GeoCoordinatesOrientation creation from parameters."""
         params = {
@@ -137,6 +144,7 @@ class TestGeoCoordinatesOrientation:
         assert empty_info.roll is None
         assert empty_info.installation_height is None
         
+    @pytest.mark.device_required
     def test_apply_settings_success(self, client):
         """Test successful settings application."""
         # Get initial state
