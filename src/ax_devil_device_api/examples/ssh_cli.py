@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import click
 from typing import Optional
-from .cli_core import create_client, common_options
+from .cli_core import create_client, common_options, get_client_args
 
 @click.group()
 @common_options
@@ -17,7 +17,7 @@ def cli(ctx, **options):
 @click.pass_context
 def add(ctx, username: str, password: str, comment: Optional[str] = None):
     """Add a new SSH user."""
-    with create_client(**ctx.obj) as client:
+    with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.add_user(username, password, comment)
         if not result.is_success:
             click.echo(f"Error: {result.error}")
@@ -29,7 +29,7 @@ def add(ctx, username: str, password: str, comment: Optional[str] = None):
 @click.pass_context
 def list(ctx):
     """List all SSH users."""
-    with create_client(**ctx.obj) as client:
+    with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.get_users()
         if not result.is_success:
             click.echo(f"Error: {result.error}")
@@ -50,7 +50,7 @@ def list(ctx):
 @click.pass_context
 def show(ctx, username: str):
     """Show details for a specific SSH user."""
-    with create_client(**ctx.obj) as client:
+    with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.get_user(username)
         if not result.is_success:
             click.echo(f"Error: {result.error}")
@@ -73,7 +73,7 @@ def modify(ctx, username: str, password: Optional[str] = None,
         click.echo("Error: Must specify at least one of --password or --comment")
         return 1
         
-    with create_client(**ctx.obj) as client:
+    with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.modify_user(username, password=password, comment=comment)
         if not result.is_success:
             click.echo(f"Error: {result.error}")
@@ -87,7 +87,7 @@ def modify(ctx, username: str, password: Optional[str] = None,
 @click.pass_context
 def remove(ctx, username: str):
     """Remove an SSH user."""
-    with create_client(**ctx.obj) as client:
+    with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.remove_user(username)
         if not result.is_success:
             click.echo(f"Error: {result.error}")
