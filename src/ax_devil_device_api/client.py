@@ -187,6 +187,7 @@ class Client:
 
     @property
     def device_debug(self) -> DeviceDebugClient:
+        """Get the device debug client."""
         if not self._device_debug:
             self._device_debug = DeviceDebugClient(self._core)
         return self._device_debug
