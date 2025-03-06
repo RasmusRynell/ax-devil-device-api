@@ -224,13 +224,17 @@ def handle_result(ctx, result: FeatureResponse) -> int:
     if not result.is_success:
         return handle_error(ctx, result.error, show_prefix=False)
     
-    if hasattr(result.data, '__dict__'):
+    if hasattr(result.data, 'to_dict'):
+        data = result.data.to_dict()
+    elif isinstance(result.data, list) and all(hasattr(item, 'to_dict') for item in result.data):
+        data = [item.to_dict() for item in result.data]
+    elif hasattr(result.data, '__dict__'):
         data = result.data.__dict__
     else:
         data = result.data
+    
     click.echo(format_json(data))
     return 0
-
 
 
 def get_client_args(ctx_obj: dict) -> dict:

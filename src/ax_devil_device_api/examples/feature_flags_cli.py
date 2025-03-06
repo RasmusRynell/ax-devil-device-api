@@ -17,11 +17,11 @@ def parse_flag_values(flags: tuple[str, ...]) -> Dict[str, bool]:
         try:
             name, value = flag.split('=', 1)
             if value.lower() not in ('true', 'false'):
-                click.secho(f"Error: Invalid value for {name}: {value}", fg='red', err=True)
+                click.secho(f"Error: Invalid value for {name}: {value}. Use \"feature_flag_name=true\" or \"feature_flag_name=false\"", fg='red', err=True)
                 raise click.Abort()
             flag_values[name] = value.lower() == 'true'
         except ValueError:
-            click.secho(f"Error: Invalid format: {flag}. Use: flag.name=true", fg='red', err=True)
+            click.secho(f"Error: Invalid format: {flag}. Use: feature_flag_name=true or feature_flag_name=false", fg='red', err=True)
             raise click.Abort()
             
     return flag_values

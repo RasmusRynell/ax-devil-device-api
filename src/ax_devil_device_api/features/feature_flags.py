@@ -23,6 +23,15 @@ class FeatureFlag:
     default_value: bool = False
     description: Optional[str] = None
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the FeatureFlag to a dictionary for JSON serialization."""
+        return {
+            "name": self.name,
+            "value": self.value,
+            "default_value": self.default_value,
+            "description": self.description
+        }
+
     @classmethod
     def from_response(cls, data: Dict[str, Any]) -> 'FeatureFlag':
         """Create instance from API response data."""
