@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Dict
 from .base import FeatureClient
-from ..core.types import TransportResponse, FeatureResponse
+from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
@@ -86,19 +86,15 @@ class MediaClient(FeatureClient):
             params=params,
             headers={"Accept": "image/jpeg"}
         )
-        
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
             
-        raw_response = response.raw_response
-        if raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "snapshot_failed",
-                f"Failed to capture snapshot: HTTP {raw_response.status_code}"
+                f"Failed to capture snapshot: HTTP {response.status_code}"
             ))
             
         try:
-            return FeatureResponse.ok(raw_response.content)
+            return FeatureResponse.ok(response.content)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
                 "parse_error",

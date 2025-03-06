@@ -1,3 +1,4 @@
+import requests
 from dataclasses import dataclass
 from typing import Dict, List
 from .base import FeatureClient
@@ -86,6 +87,29 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
     PARAMS_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/param.cgi")
     RESTART_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/restart.cgi")
     
+    def _parse_param_response(self, response: requests.Response) -> FeatureResponse[Dict[str, str]]:
+        """Parse raw parameter response into dictionary.
+        
+        Common functionality for parsing param.cgi responses into key-value pairs.
+        Used by multiple feature modules that need to get device parameters.
+        """
+            
+        if response.status_code != 200:
+            return FeatureResponse(error=FeatureError(
+                "invalid_response",
+                f"Invalid parameter response: HTTP {response.status_code}"
+            ))
+            
+        try:
+            lines = response.text.strip().split('\n')
+            params = dict(line.split('=', 1) for line in lines if '=' in line)
+            return FeatureResponse.ok(params)
+        except Exception as e:
+            return FeatureResponse(error=FeatureError(
+                "parse_error",
+                f"Failed to parse parameters: {str(e)}"
+            ))
+
     def get_info(self) -> FeatureResponse[DeviceInfo]:
         """Get basic device information."""
         param_groups = ["Properties", "Brand"]
@@ -121,13 +145,10 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
         """Restart the device."""
         response = self.request(self.RESTART_ENDPOINT)
         
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        if response.raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "restart_failed",
-                f"Restart failed: HTTP {response.raw_response.status_code}"
+                f"Restart failed: HTTP {response.status_code}"
             ))
             
         return FeatureResponse.ok(True)
@@ -141,13 +162,10 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
                 headers={"Accept": "text/plain"}
             )
             
-            if not response.is_success:
-                return FeatureResponse.from_transport(response)
-                
-            if response.raw_response.status_code != 200:
+            if response.status_code != 200:
                 return FeatureResponse.create_error(FeatureError(
                     "health_check_failed",
-                    f"Health check failed: HTTP {response.raw_response.status_code}"
+                    f"Health check failed: HTTP {response.status_code}"
                 ))
                 
             return FeatureResponse.ok(True)

@@ -5,40 +5,6 @@ from ..utils.errors import BaseError, FeatureError
 
 T = TypeVar('T')
 
-
-@dataclass(frozen=True)
-class TransportResponse:
-    """Low-level response from the device API.
-    
-    This class is part of Layer 1 (Communications Layer) and should not contain
-    any feature-specific logic. It only handles transport-level success/failure
-    and raw response data.
-    """
-    
-    raw_response: Optional[RequestsResponse] = None
-    error: Optional[BaseError] = None
-
-    def __post_init__(self):
-        """Validate response state."""
-        if self.raw_response is not None and self.error is not None:
-            raise ValueError("TransportResponse cannot have both response and error")
-
-    @property
-    def is_success(self) -> bool:
-        """Whether the transport-level request succeeded."""
-        return self.error is None
-
-    @classmethod
-    def create_from_response(cls, response: RequestsResponse) -> 'TransportResponse':
-        """Create successful transport response."""
-        return cls(raw_response=response)
-
-    @classmethod
-    def create_from_error(cls, error: BaseError) -> 'TransportResponse':
-        """Create a response from an error."""
-        return cls(error=error)
-
-
 @dataclass(frozen=True)
 class FeatureResponse(Generic[T]):
     """High-level response from a feature operation.
@@ -82,10 +48,3 @@ class FeatureResponse(Generic[T]):
     def create_error(cls, error: BaseError) -> 'FeatureResponse[T]':
         """Create an error response."""
         return cls(_error=error)
-
-    @classmethod
-    def from_transport(cls, response: TransportResponse) -> 'FeatureResponse[T]':
-        """Create a feature response from a transport response."""
-        if not response.is_success:
-            return cls.create_error(response.error)
-        return cls()

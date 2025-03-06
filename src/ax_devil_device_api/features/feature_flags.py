@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
 from .base import FeatureClient
-from ..core.types import TransportResponse, FeatureResponse
+from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
@@ -82,16 +82,14 @@ class FeatureFlagClient(FeatureClient[FeatureFlag]):
             headers=self.JSON_HEADERS
         )
         
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        if response.raw_response.status_code != 200:
+
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "request_failed",
-                f"Request failed: HTTP {response.raw_response.status_code}"
+                f"Request failed: HTTP {response.status_code}"
             ))
             
-        json_response = response.raw_response.json()
+        json_response = response.json()
         
         # Check for API error response
         if "error" in json_response:

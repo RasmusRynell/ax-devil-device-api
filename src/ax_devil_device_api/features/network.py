@@ -1,7 +1,8 @@
+import requests
 from dataclasses import dataclass
 from typing import Optional, Dict, List
 from .base import FeatureClient
-from ..core.types import TransportResponse, FeatureResponse
+from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
@@ -61,20 +62,16 @@ class NetworkClient(FeatureClient):
     PARAMS_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/param.cgi")
     NETWORK_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/network_status.cgi")
     
-    def _parse_param_response(self, response: TransportResponse) -> FeatureResponse[Dict[str, str]]:
+    def _parse_param_response(self, response: requests.Response) -> FeatureResponse[Dict[str, str]]:
         """Parse raw parameter response into dictionary."""
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        raw_response = response.raw_response
-        if raw_response.status_code != 200:
-            return FeatureResponse(error=FeatureError(
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
                 "invalid_response",
-                f"Invalid parameter response: HTTP {raw_response.status_code}"
+                f"Invalid parameter response: HTTP {response.status_code}"
             ))
             
         try:
-            lines = raw_response.text.strip().split('\n')
+            lines = response.text.strip().split('\n')
             params = dict(line.split('=', 1) for line in lines if '=' in line)
             return FeatureResponse.ok(params)
         except Exception as e:

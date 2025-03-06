@@ -8,14 +8,7 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 ### `DeviceClient`
 - Central request coordinator
 - Manages connection pooling via `requests.Session`
-- Translates network exceptions to `TransportResponse`
 - Ensures thread-safe operation for concurrent requests
-
-### `TransportResponse`
-- Wraps HTTP responses or errors
-- Provides `.is_success`, `.raw_response`, and `.error` properties
-- Never throws exceptions - all errors are contained in the response
-- Immutable dataclass with factory methods for creation from response or error
 
 ### `DeviceEndpoint`
 - Defines HTTP method and path for API endpoints
@@ -46,13 +39,10 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 1. `DeviceClient.request()` receives endpoint and parameters
 2. URL is constructed from endpoint and config
 3. Auth and protocol handlers process the request
-4. Network errors are caught and wrapped in `TransportResponse`
-5. Raw response is returned without any content processing
+4. Raw response is returned without any content processing
 
 ### Error Handling
 - All network exceptions (timeout, connection errors) are caught
-- Exceptions are converted to `TransportResponse` with `.is_success = False`
-- Original exception details are preserved in `.error`
 - Specific error types include `SecurityError`, `NetworkError`, and `AuthenticationError`
 - Layer 1 never interprets response content or status codes semantically
 
@@ -83,7 +73,7 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 When modifying Layer 1:
 
 1. **Maintain the Interface Contract**
-   - `request()` must always return a `TransportResponse`
+   - `request()` must always return a `requests.Response`
    - Never throw exceptions from public methods
    - Don't change existing method signatures
 

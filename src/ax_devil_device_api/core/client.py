@@ -7,21 +7,9 @@ from contextlib import contextmanager
 from .config import DeviceConfig
 from .auth import AuthHandler
 from .protocol import ProtocolHandler
-from .types import TransportResponse
 from .endpoints import DeviceEndpoint
 from ..utils.errors import NetworkError, AuthenticationError
 
-
-class FeatureClientABC(ABC):
-    """Abstract base class for all feature clients."""
-
-    def __init__(self, device_client: 'DeviceClient') -> None:
-        """Initialize with device client instance."""
-        self.device = device_client
-
-    def request(self, endpoint: DeviceEndpoint, **kwargs) -> TransportResponse:
-        """Make a request to the device API."""
-        return self.device.request(endpoint, **kwargs)
 
 class DeviceClient:
     """Core client for device API communication.
@@ -98,7 +86,7 @@ class DeviceClient:
         self._session.close()
         self._session = self._create_session()
 
-    def request(self, endpoint: DeviceEndpoint, **kwargs) -> TransportResponse:
+    def request(self, endpoint: DeviceEndpoint, **kwargs) -> requests.Response:
         """Make a request to the device API using the session."""
         url = self.config.get_base_url()
         url = endpoint.build_url(url, kwargs.get("params"))
@@ -129,19 +117,16 @@ class DeviceClient:
             )
 
             return self.protocol.execute_request(wrapped_request)
-
-        except AuthenticationError as e:
-            return TransportResponse.create_from_error(e)
             
         except requests.exceptions.Timeout as e:
-            return TransportResponse.create_from_error(NetworkError(
+            raise NetworkError(
                 "request_timeout",
                 f"Request timed out after {self.config.timeout}s"
-            ))
-            
+            )
+
         except requests.exceptions.RequestException as e:
-            return TransportResponse.create_from_error(NetworkError(
+            raise NetworkError(
                 "request_failed",
                 "Request failed",
                 str(e)
-            ))
+            )

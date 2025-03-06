@@ -5,10 +5,11 @@ providing a clean interface for managing analytics data publishers while
 handling data normalization and error abstraction.
 """
 
+import requests
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, ClassVar, Generic, TypeVar
 from .base import FeatureClient
-from ..core.types import FeatureResponse, TransportResponse
+from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 from urllib.parse import quote
@@ -122,7 +123,7 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         "Content-Type": "application/json"
     }
 
-    def _parse_json_response(self, response: TransportResponse, expected_type: type[T] = dict) -> FeatureResponse[T]:
+    def _parse_json_response(self, response: requests.Response, expected_type: type[T] = dict) -> FeatureResponse[T]:
         """Parse and validate JSON API response.
         
         Args:
@@ -132,19 +133,15 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         Returns:
             FeatureResponse containing parsed data or error
         """
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-        
-        raw_response = response.raw_response
-        if not (200 <= raw_response.status_code < 300):
+        if not (200 <= response.status_code < 300):
             return FeatureResponse.create_error(FeatureError(
                 "request_failed",
-                f"Request failed: HTTP {raw_response.status_code}",
-                details={"response": raw_response.text}
+                f"Request failed: HTTP {response.status_code}",
+                details={"response": response.text}
             ))
             
         try:
-            data = response.raw_response.json().get("data")
+            data = response.json().get("data")
             if not isinstance(data, expected_type):
                 return FeatureResponse.create_error(FeatureError(
                     "invalid_response",
@@ -155,7 +152,7 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
             return FeatureResponse.create_error(FeatureError(
                 "parse_failed",
                 f"Failed to parse response: {str(e)}",
-                details={"response": raw_response.text}
+                details={"response": response.text}
             ))
 
     def get_data_sources(self) -> FeatureResponse[List[DataSource]]:
@@ -267,13 +264,11 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
             endpoint, 
             headers=self.JSON_HEADERS
         )
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
 
-        if not (200 <= response.raw_response.status_code < 300):
+        if not (200 <= response.status_code < 300):
             return FeatureResponse.create_error(FeatureError(
                 "request_failed",
-                f"Failed to remove publisher: HTTP {response.raw_response.status_code}"
+                f"Failed to remove publisher: HTTP {response.status_code}"
             ))
             
         return FeatureResponse.ok(True)

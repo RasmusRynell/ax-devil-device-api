@@ -78,17 +78,14 @@ class DiscoveredAPI:
             DeviceEndpoint("GET", doc_url),
             headers={"Accept": "text/markdown"}
         )
-        
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
             
-        if response.raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "doc_fetch_failed",
-                f"Failed to fetch documentation: HTTP {response.raw_response.status_code}"
+                f"Failed to fetch documentation: HTTP {response.status_code}"
             ))
             
-        self._documentation = response.raw_response.text
+        self._documentation = response.text
         return FeatureResponse.ok(self._documentation)
     
     def get_model(self) -> FeatureResponse[Dict]:
@@ -113,17 +110,14 @@ class DiscoveredAPI:
             headers={"Accept": "application/json"}
         )
         
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        if response.raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "model_fetch_failed",
-                f"Failed to fetch model: HTTP {response.raw_response.status_code}"
+                f"Failed to fetch model: HTTP {response.status_code}"
             ))
             
         try:
-            self._model = response.raw_response.json()
+            self._model = response.json()
             return FeatureResponse.ok(self._model)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
@@ -153,16 +147,13 @@ class DiscoveredAPI:
             headers={"Accept": "text/html"}
         )
         
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        if response.raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "doc_html_fetch_failed",
-                f"Failed to fetch HTML documentation: HTTP {response.raw_response.status_code}"
+                f"Failed to fetch HTML documentation: HTTP {response.status_code}"
             ))
             
-        self._documentation_html = response.raw_response.text
+        self._documentation_html = response.text
         return FeatureResponse.ok(self._documentation_html)
 
     def get_openapi_spec(self) -> FeatureResponse[Dict]:
@@ -187,17 +178,14 @@ class DiscoveredAPI:
             headers={"Accept": "application/json"}
         )
         
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        if response.raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "openapi_fetch_failed",
-                f"Failed to fetch OpenAPI spec: HTTP {response.raw_response.status_code}"
+                f"Failed to fetch OpenAPI spec: HTTP {response.status_code}"
             ))
             
         try:
-            self._openapi = response.raw_response.json()
+            self._openapi = response.json()
             return FeatureResponse.ok(self._openapi)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
@@ -292,18 +280,15 @@ class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
             self.DISCOVER_ENDPOINT,
             headers={"Accept": "application/json"}
         )
-        
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
             
-        if response.raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "discovery_failed",
-                f"Discovery request failed: HTTP {response.raw_response.status_code}"
+                f"Discovery request failed: HTTP {response.status_code}"
             ))
             
         try:
-            data = response.raw_response.json()
+            data = response.json()
             return FeatureResponse.ok(DiscoveredAPICollection.create_from_response(data, self))
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(

@@ -9,7 +9,6 @@ from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 from urllib3.util.ssl_ import create_urllib3_context
 from .config import Protocol, DeviceConfig
-from .types import TransportResponse
 from ..utils.errors import SecurityError, NetworkError
 
 T = TypeVar('T')
@@ -79,7 +78,7 @@ class ProtocolHandler:
 
         return ssl_kwargs
 
-    def execute_request(self, request_func: Callable[..., requests.Response]) -> TransportResponse:
+    def execute_request(self, request_func: Callable[..., requests.Response]) -> requests.Response:
         """
         Execute a request with appropriate protocol handling, including
         SSL configuration and certificate pinning.
@@ -96,10 +95,10 @@ class ProtocolHandler:
                     cert = fetch_server_cert(parsed_url.hostname, port)
                     actual = get_cert_fingerprint(cert)
                     if actual != self.config.ssl.expected_fingerprint:
-                        return TransportResponse.create_from_error(SecurityError(
+                        raise SecurityError(
                             "cert_fingerprint_mismatch",
                             f"Certificate fingerprint mismatch. Expected: {self.config.ssl.expected_fingerprint}, Got: {actual}"
-                        ))
+                        )
 
             if session:
                 # If we have a custom session (for SSL verification), use it
@@ -109,17 +108,13 @@ class ProtocolHandler:
                         kwargs.pop("url"),
                         **kwargs
                     )
-                response = request_func(session_request, **ssl_kwargs)
-            else:
-                # Otherwise use the normal request function
-                response = request_func(**ssl_kwargs)
-
-            return TransportResponse.create_from_response(response)
+                return request_func(session_request, **ssl_kwargs)
+            return request_func(**ssl_kwargs)
 
         except SSLError as e:
             error_code = "ssl_verification_failed" if "CERTIFICATE_VERIFY_FAILED" in str(e) else "ssl_error"
-            return TransportResponse.create_from_error(SecurityError(error_code, "SSL verification failed", str(e)))
+            raise SecurityError(error_code, "SSL verification failed", str(e))
 
         except ConnectionError as e:
             error_code = "connection_refused" if "Connection refused" in str(e) else "connection_error"
-            return TransportResponse.create_from_error(NetworkError(error_code, "Connection error", str(e)))
+            raise NetworkError(error_code, "Connection error", str(e))

@@ -1,10 +1,12 @@
 """MQTT client feature for managing broker configuration and client lifecycle on a device."""
 
-from dataclasses import dataclass, asdict
 import json
+import requests
+
+from dataclasses import dataclass, asdict
 from typing import Dict, Any, Optional, ClassVar, Tuple, Union
 from .base import FeatureClient
-from ..core.types import FeatureResponse, TransportResponse
+from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
@@ -165,27 +167,23 @@ class MqttClient(FeatureClient):
     API_VERSION: ClassVar[str] = "1.0"
     MQTT_ENDPOINT = DeviceEndpoint("POST", "/axis-cgi/mqtt/client.cgi")
 
-    def _parse_mqtt_response(self, response: TransportResponse) -> FeatureResponse[Dict[str, Any]]:
+    def _parse_mqtt_response(self, response: requests.Response) -> FeatureResponse[Dict[str, Any]]:
         """Parse and validate MQTT API response."""
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-        
-        raw_response = response.raw_response
-        if raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "mqtt_error",
-                f"MQTT operation failed: HTTP {raw_response.status_code}",
-                details={"response": raw_response.text}
+                f"MQTT operation failed: HTTP {response.status_code}",
+                details={"response": response.text}
             ))
             
         try:
-            data = json.loads(raw_response.text)
+            data = json.loads(response.text)
             return FeatureResponse.ok(data)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
                 "parse_error",
                 f"Failed to parse MQTT response: {str(e)}",
-                details={"response": raw_response.text}
+                details={"response": response.text}
             ))
 
     def _make_mqtt_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> FeatureResponse[Dict[str, Any]]:

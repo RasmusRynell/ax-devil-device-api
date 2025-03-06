@@ -29,15 +29,7 @@ class Protocol(Enum):
 
 @dataclass
 class SSLConfig:
-    """SSL/TLS configuration.
-    
-    Attributes:
-        verify: Whether to verify SSL certificates
-        ca_cert_path: Path to custom CA certificate bundle
-        client_cert_path: Path to client certificate for mutual TLS
-        client_key_path: Path to client private key
-        expected_fingerprint: Expected certificate fingerprint for pinning
-    """
+    """SSL/TLS configuration."""
     verify: bool = True
     ca_cert_path: Optional[str] = None
     client_cert_path: Optional[str] = None
@@ -47,21 +39,7 @@ class SSLConfig:
 
 @dataclass
 class DeviceConfig:
-    """Device connection configuration.
-
-    Common usage:
-        # For HTTPS devices with CA-signed certificate:
-        config = DeviceConfig.https("device-ip", "user", "pass")
-
-        # For HTTPS devices with self-signed certificate (development only):
-        config = DeviceConfig.https("device-ip", "user", "pass", verify_ssl=False)
-        
-        # For HTTPS devices with custom CA certificate:
-        config = DeviceConfig.https("device-ip", "user", "pass", ca_cert="/path/to/ca.crt")
-        
-        # For HTTPS devices with certificate pinning:
-        config = DeviceConfig.https("device-ip", "user", "pass", cert_fingerprint="SHA256:...")
-    """
+    """Device connection configuration."""
     host: str
     username: str
     password: str
@@ -116,19 +94,7 @@ class DeviceConfig:
               cert_fingerprint: Optional[str] = None,
               client_cert: Optional[str] = None,
               client_key: Optional[str] = None) -> 'DeviceConfig':
-        """Create configuration for HTTPS device.
-        
-        Args:
-            host: Device hostname or IP
-            username: Authentication username
-            password: Authentication password
-            verify_ssl: Whether to verify SSL certificates
-            port: Optional custom port (default: 443)
-            ca_cert: Path to custom CA certificate bundle
-            cert_fingerprint: Expected certificate fingerprint for pinning
-            client_cert: Path to client certificate for mutual TLS
-            client_key: Path to client private key
-        """
+        """Create configuration for HTTPS device."""
         return cls(
             host=host,
             username=username,

@@ -26,9 +26,12 @@ class DeviceDebugClient(FeatureClient[Any]):
             headers={"Content-Type": "application/octet-stream"},
             timeout=self.DOWNLOAD_TIMEOUT
         )
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-        return FeatureResponse.ok(response.raw_response.content)
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "download_server_report_error",
+                f"Failed to download server report: HTTP {response.status_code}"
+            ))
+        return FeatureResponse.ok(response.content)
     
     def download_crash_report(self) -> FeatureResponse[bytes]:
         response = self.request(
@@ -36,9 +39,12 @@ class DeviceDebugClient(FeatureClient[Any]):
             headers={"Content-Type": "application/octet-stream"},
             timeout=self.DOWNLOAD_TIMEOUT
         )
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-        return FeatureResponse.ok(response.raw_response.content)
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "download_crash_report_error",
+                f"Failed to download crash report: HTTP {response.status_code}"
+            ))
+        return FeatureResponse.ok(response.content)
     
     def download_network_trace(self, duration: int = 30, interface: Optional[str] = None) -> FeatureResponse[bytes]:
         params = {"duration": duration}
@@ -52,9 +58,12 @@ class DeviceDebugClient(FeatureClient[Any]):
             headers={"Content-Type": "application/octet-stream"},
             timeout=total_timeout
         )
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-        return FeatureResponse.ok(response.raw_response.content)
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "network_trace_error",
+                f"Failed to download network trace: HTTP {response.status_code}"
+            ))
+        return FeatureResponse.ok(response.content)
     
     def ping_test(self, target: str) -> FeatureResponse[str]:
         if not target:
@@ -64,10 +73,13 @@ class DeviceDebugClient(FeatureClient[Any]):
             params={"ip": target},
             headers={"Accept": "application/json"}
         )
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "ping_test_error",
+                f"Failed to ping test: HTTP {response.status_code}"
+            ))
         try:
-            data = response.raw_response.text
+            data = response.text
             return FeatureResponse.ok(data)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError("parse_failed", f"Error parsing ping response: {str(e)}"))
@@ -80,10 +92,13 @@ class DeviceDebugClient(FeatureClient[Any]):
             params={"address": address, "port": port},
             headers={"Accept": "application/json"}
         )
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "port_open_test_error",
+                f"Failed to port open test: HTTP {response.status_code}"
+            ))
         try:
-            data = response.raw_response.text
+            data = response.text
             return FeatureResponse.ok(data)
         except Exception as e:
             return FeatureResponse.create_error(FeatureError("parse_failed", f"Error parsing port test response: {str(e)}"))
@@ -94,6 +109,9 @@ class DeviceDebugClient(FeatureClient[Any]):
             headers={"Content-Type": "application/octet-stream"},
             timeout=self.CORE_DUMP_TIMEOUT
         )
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-        return FeatureResponse.ok(response.raw_response.content) 
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "core_dump_error",
+                f"Failed to collect core dump: HTTP {response.status_code}"
+            ))
+        return FeatureResponse.ok(response.content)

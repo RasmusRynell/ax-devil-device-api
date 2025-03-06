@@ -30,8 +30,11 @@ class SSHClient(FeatureClient[SSHUser]):
             }}
         )
         
-        if not response.is_success:
-            return response
+        if response.status_code != 201:
+            return FeatureResponse.create_error(FeatureError(
+                "add_user_error",
+                f"Failed to add user: HTTP {response.status_code}"
+            ))
             
         return FeatureResponse.ok(SSHUser(
             username=username,
@@ -42,14 +45,14 @@ class SSHClient(FeatureClient[SSHUser]):
         """Get all SSH users from the device."""
         response = self.request(DeviceEndpoint("GET", self.BASE_PATH))
         
-        if not response.is_success:
-            return response
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "get_users_error",
+                f"Failed to get users: HTTP {response.status_code}"
+            ))
             
         try:
-            if not response.raw_response:
-                return FeatureResponse.create_error(FeatureError("no_response", "No response received"))
-                
-            response_json = response.raw_response.json()
+            response_json = response.json()
             if not isinstance(response_json.get("data"), list):
                 return FeatureResponse.create_error(FeatureError("invalid_response_format", "Invalid response format"))
                 
@@ -73,14 +76,14 @@ class SSHClient(FeatureClient[SSHUser]):
             
         response = self.request(DeviceEndpoint("GET", f"{self.BASE_PATH}/{username}"))
         
-        if not response.is_success:
-            return response
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "get_user_error",
+                f"Failed to get user: HTTP {response.status_code}"
+            ))
             
-        try:
-            if not response.raw_response:
-                return FeatureResponse.create_error(FeatureError("no_response", "No response received"))
-                
-            response_json = response.raw_response.json()
+        try:                
+            response_json = response.json()
             data = response_json.get("data", {})
             if "username" not in data:
                 return FeatureResponse.create_error(FeatureError("invalid_response_format", "Invalid response format"))
@@ -112,8 +115,11 @@ class SSHClient(FeatureClient[SSHUser]):
             json={"data": data}
         )
         
-        if not response.is_success:
-            return response
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "modify_user_error",
+                f"Failed to modify user: HTTP {response.status_code}"
+            ))
             
         return FeatureResponse.ok(SSHUser(username=username, comment=comment))
 
@@ -124,7 +130,10 @@ class SSHClient(FeatureClient[SSHUser]):
             
         response = self.request(DeviceEndpoint("DELETE", f"{self.BASE_PATH}/{username}"))
         
-        if not response.is_success:
-            return response
+        if response.status_code != 200:
+            return FeatureResponse.create_error(FeatureError(
+                "remove_user_error",
+                f"Failed to remove user: HTTP {response.status_code}"
+            ))
             
         return FeatureResponse.ok(None) 

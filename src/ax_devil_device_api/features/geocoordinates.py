@@ -1,10 +1,11 @@
 """Geographic coordinates and orientation features for a device."""
 
+import xml.etree.ElementTree as ET
+import requests
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple, TypeVar, Protocol, cast, Union
-import xml.etree.ElementTree as ET
 from .base import FeatureClient
-from ..core.types import TransportResponse, FeatureResponse
+from ..core.types import FeatureResponse
 from ..core.endpoints import DeviceEndpoint
 from ..utils.errors import FeatureError
 
@@ -157,22 +158,18 @@ class GeoCoordinatesClient(FeatureClient):
     LOCATION_SET_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geolocation/set.cgi")
     ORIENTATION_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geoorientation/geoorientation.cgi")
     
-    def _handle_response(self, response: TransportResponse, parser: type[T]) -> FeatureResponse[T]:
+    def _handle_response(self, response: requests.Response, parser: type[T]) -> FeatureResponse[T]:
         """Handle common response processing pattern."""
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        raw_response = response.raw_response
-        if raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "invalid_response",
-                f"Invalid response: HTTP {raw_response.status_code}"
+                f"Invalid response: HTTP {response.status_code}"
             ))
             
         try:
             if parser is bool:
                 return FeatureResponse.ok(True)
-            result = parser.from_xml(raw_response.text)
+            result = parser.from_xml(response.text)
             return FeatureResponse.ok(cast(T, result))
         except Exception as e:
             return FeatureResponse.create_error(FeatureError(
@@ -199,20 +196,16 @@ class GeoCoordinatesClient(FeatureClient):
                 params=params,
                 headers={"Accept": "text/xml"}
             )
-            
-            if not response.is_success:
-                return FeatureResponse.from_transport(response)
                 
-            raw_response = response.raw_response
-            if raw_response.status_code != 200:
+            if response.status_code != 200:
                 return FeatureResponse.create_error(FeatureError(
                     "set_failed",
-                    f"Failed to set location: HTTP {raw_response.status_code}"
+                    f"Failed to set location: HTTP {response.status_code}"
                 ))
                 
             # Check response XML for success/error
             try:
-                root = parse_xml_root(raw_response.text)
+                root = parse_xml_root(response.text)
                 error = root.find(".//Error")
                 if error is not None:
                     error_code = extract_xml_value(error, "ErrorCode") or "Unknown"
@@ -267,19 +260,16 @@ class GeoCoordinatesClient(FeatureClient):
                 
             response = self.request(self.ORIENTATION_ENDPOINT, params=params)
             
-            if not response.is_success:
-                return FeatureResponse.from_transport(response)
-                
-            raw_response = response.raw_response
-            if raw_response.status_code != 200:
+            if response.status_code != 200:
                 return FeatureResponse.create_error(FeatureError(
                     "set_failed",
-                    f"Failed to set orientation: HTTP {raw_response.status_code}"
+                    f"Failed to set orientation: HTTP {response.status_code}"
                 ))
+                
                 
             # Check response XML for success/error
             try:
-                root = parse_xml_root(raw_response.text)
+                root = parse_xml_root(response.text)
                 error = root.find(".//Error")
                 if error is not None:
                     error_code = extract_xml_value(error, "ErrorCode") or "Unknown"
@@ -317,13 +307,10 @@ class GeoCoordinatesClient(FeatureClient):
             params={"action": "set", "auto_update_once": "true"}
         )
         
-        if not response.is_success:
-            return FeatureResponse.from_transport(response)
-            
-        if response.raw_response.status_code != 200:
+        if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
                 "apply_failed",
-                f"Failed to apply settings: HTTP {response.raw_response.status_code}"
+                f"Failed to apply settings: HTTP {response.status_code}"
             ))
-            
-        return FeatureResponse.ok(True) 
+
+        return FeatureResponse.ok(True)
