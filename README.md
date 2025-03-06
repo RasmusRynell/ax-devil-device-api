@@ -22,27 +22,24 @@ export AX_DEVIL_USAGE_CLI="safe" # Set to "unsafe" to skip SSL certificate verif
 ### Example Usage
 
 ```python
+import json
 from ax_devil_device_api import Client, DeviceConfig
 
 # Initialize client (recommended way using context manager)
-config = DeviceConfig.https("192.168.1.10", "admin", "password")
+config = DeviceConfig.https("192.168.1.81", "root", "fusion", verify_ssl=False)
 with Client(config) as client:
-    # Get device information
     device_info = client.device.get_info()
-    if device_info.is_success:
-        print(f"Model: {device_info.data.model}")
-        print(f"Serial: {device_info.data.serial}")
-        
-    # Use a fresh session for sensitive operations
-    with client.new_session():
-        client.device.restart()
+    if not device_info.is_success:
+        raise device_info.error
+    print(json.dumps(device_info.data.to_dict(), indent=4))
 
 # Alternative: Manual resource management (not recommended)
 client = Client(config)
 try:
-    device_info = client.device.get_info()
-    if device_info.is_success:
-        print(f"Model: {device_info.data.model}")
+    device_info = client.mqtt_client.get_status()
+    if not device_info.is_success:
+        raise device_info.error
+    print(json.dumps(device_info.data.to_dict(), indent=4))
 finally:
     client.close()  # Always close the client when done
 ```

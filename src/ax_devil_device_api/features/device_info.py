@@ -64,6 +64,22 @@ class DeviceInfo:
             analytics_support=analytics_support
         )
 
+
+    def to_dict(self) -> Dict[str, any]:
+        """Return a JSON representation of the device info."""
+        return {
+            "model": self.model,
+            "product_type": self.product_type,
+            "product_number": self.product_number,
+            "serial_number": self.serial_number,
+            "hardware_id": self.hardware_id,
+            "firmware_version": self.firmware_version,
+            "build_date": self.build_date,
+            "ptz_support": self.ptz_support,
+            "analytics_support": self.analytics_support
+        }
+    
+
 class DeviceInfoClient(FeatureClient[DeviceInfo]):
     """Client for basic device operations."""
     

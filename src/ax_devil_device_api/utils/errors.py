@@ -8,6 +8,9 @@ class BaseError(Exception):
         self.message = message
         self.details = details or {}
 
+    def __str__(self):
+        return f"\ncode: {self.code}\nmessage: {self.message}\ndetails: {self.details}"
+
 class AuthenticationError(BaseError):
     """Authentication related errors."""
     pass

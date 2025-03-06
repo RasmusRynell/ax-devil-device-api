@@ -7,8 +7,6 @@
 	* Get all properties
 	* Get all unrestricted properties?
 	* systemready
-* Device Ip Config
-	*  List (externalipdeviceinfo)
 * Get syslog
 	* Full and per app
 	* Server report
