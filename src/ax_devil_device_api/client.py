@@ -3,7 +3,7 @@
 from typing import Optional, ContextManager
 from contextlib import contextmanager
 import warnings
-from ax_devil_device_api.core.client import DeviceClient
+from ax_devil_device_api.core.transport_client import TransportClient
 from ax_devil_device_api.core.config import DeviceConfig
 from ax_devil_device_api.features.device_info import DeviceInfoClient
 from ax_devil_device_api.features.network import NetworkClient
@@ -13,7 +13,7 @@ from ax_devil_device_api.features.mqtt_client import MqttClient
 from ax_devil_device_api.features.analytics_mqtt import AnalyticsMqttClient
 from ax_devil_device_api.features.api_discovery import DiscoveryClient
 from ax_devil_device_api.features.feature_flags import FeatureFlagClient
-from .features.ssh import SSHClient
+from ax_devil_device_api.features.ssh import SSHClient
 from ax_devil_device_api.features.device_debug import DeviceDebugClient
 
 class Client:
@@ -37,7 +37,7 @@ class Client:
     
     def __init__(self, config: DeviceConfig) -> None:
         """Initialize with device configuration."""
-        self._core = DeviceClient(config)
+        self._core = TransportClient(config)
         self._closed = False
         
         # Lazy-loaded feature clients

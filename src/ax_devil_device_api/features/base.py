@@ -16,7 +16,7 @@ class FeatureClient(Generic[T]):
     - Response formatting
     """
     
-    def __init__(self, device_client: 'DeviceClient') -> None:
+    def __init__(self, device_client: 'TransportClient') -> None:
         """Initialize with device client instance."""
         self.device = device_client
 

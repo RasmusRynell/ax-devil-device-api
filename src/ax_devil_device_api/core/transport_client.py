@@ -11,7 +11,7 @@ from .endpoints import DeviceEndpoint
 from ..utils.errors import NetworkError, AuthenticationError
 
 
-class DeviceClient:
+class TransportClient:
     """Core client for device API communication.
     
     This class handles the low-level communication with the device API,

@@ -5,7 +5,7 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 
 ## Key Components & Responsibilities
 
-### `DeviceClient`
+### `TransportClient`
 - Central request coordinator
 - Manages connection pooling via `requests.Session`
 - Ensures thread-safe operation for concurrent requests
@@ -36,7 +36,7 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 ## Critical Implementation Details
 
 ### Request Flow
-1. `DeviceClient.request()` receives endpoint and parameters
+1. `TransportClient.request()` receives endpoint and parameters
 2. URL is constructed from endpoint and config
 3. Auth and protocol handlers process the request
 4. Raw response is returned without any content processing
@@ -59,7 +59,7 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 - Session resources must be properly cleaned up via `close()`
 
 ### Thread Safety
-- `DeviceClient` is designed to be thread-safe for concurrent requests
+- `TransportClient` is designed to be thread-safe for concurrent requests
 - Shared session state (cookies, etc.) is maintained across requests
 
 ### Security Features
