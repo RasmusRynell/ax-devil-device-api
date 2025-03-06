@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List
-from .base import FeatureClient, DeviceEndpoint
+from .base import FeatureClient, TransportEndpoint
 from ..core.types import FeatureResponse, FeatureError
 
 @dataclass
@@ -22,7 +22,7 @@ class SSHClient(FeatureClient[SSHUser]):
             return FeatureResponse.create_error(FeatureError("username_password_required", "Username and password are required"))
             
         response = self.request(
-            DeviceEndpoint("POST", self.BASE_PATH),
+            TransportEndpoint("POST", self.BASE_PATH),
             json={"data": {
                 "username": username,
                 "password": password,
@@ -43,7 +43,7 @@ class SSHClient(FeatureClient[SSHUser]):
 
     def get_users(self) -> FeatureResponse[List[SSHUser]]:
         """Get all SSH users from the device."""
-        response = self.request(DeviceEndpoint("GET", self.BASE_PATH))
+        response = self.request(TransportEndpoint("GET", self.BASE_PATH))
         
         if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
@@ -74,7 +74,7 @@ class SSHClient(FeatureClient[SSHUser]):
         if not username:
             return FeatureResponse.create_error(FeatureError("username_required", "Username is required"))
             
-        response = self.request(DeviceEndpoint("GET", f"{self.BASE_PATH}/{username}"))
+        response = self.request(TransportEndpoint("GET", f"{self.BASE_PATH}/{username}"))
         
         if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(
@@ -111,7 +111,7 @@ class SSHClient(FeatureClient[SSHUser]):
             data["comment"] = comment
             
         response = self.request(
-            DeviceEndpoint("PATCH", f"{self.BASE_PATH}/{username}"),
+            TransportEndpoint("PATCH", f"{self.BASE_PATH}/{username}"),
             json={"data": data}
         )
         
@@ -128,7 +128,7 @@ class SSHClient(FeatureClient[SSHUser]):
         if not username:
             return FeatureResponse.create_error(FeatureError("username_required", "Username is required"))
             
-        response = self.request(DeviceEndpoint("DELETE", f"{self.BASE_PATH}/{username}"))
+        response = self.request(TransportEndpoint("DELETE", f"{self.BASE_PATH}/{username}"))
         
         if response.status_code != 200:
             return FeatureResponse.create_error(FeatureError(

@@ -10,7 +10,7 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 - Manages connection pooling via `requests.Session`
 - Ensures thread-safe operation for concurrent requests
 
-### `DeviceEndpoint`
+### `TransportEndpoint`
 - Defines HTTP method and path for API endpoints
 - Handles URL construction including query parameters
 - Normalizes paths to ensure consistent format

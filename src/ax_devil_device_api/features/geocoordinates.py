@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Tuple, TypeVar, Protocol, cast, Union
 from .base import FeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import DeviceEndpoint
+from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
 class XMLParseable(Protocol):
@@ -154,9 +154,9 @@ class GeoCoordinatesOrientation:
 class GeoCoordinatesClient(FeatureClient):
     """Client for device geocoordinates and orientation features."""
     
-    LOCATION_GET_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geolocation/get.cgi")
-    LOCATION_SET_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geolocation/set.cgi")
-    ORIENTATION_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/geoorientation/geoorientation.cgi")
+    LOCATION_GET_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/geolocation/get.cgi")
+    LOCATION_SET_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/geolocation/set.cgi")
+    ORIENTATION_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/geoorientation/geoorientation.cgi")
     
     def _handle_response(self, response: requests.Response, parser: type[T]) -> FeatureResponse[T]:
         """Handle common response processing pattern."""

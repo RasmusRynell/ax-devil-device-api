@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 
 
 @dataclass
-class DeviceEndpoint:
+class TransportEndpoint:
     """Definition of a device API endpoint."""
     method: str
     path: str
@@ -28,4 +28,4 @@ class DeviceEndpoint:
         return url
 
     def __repr__(self) -> str:
-        return f"DeviceEndpoint({self.method}, {self.path})"
+        return f"TransportEndpoint({self.method}, {self.path})"

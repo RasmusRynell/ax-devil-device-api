@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from .config import DeviceConfig
 from .auth import AuthHandler
 from .protocol import ProtocolHandler
-from .endpoints import DeviceEndpoint
+from .endpoints import TransportEndpoint
 from ..utils.errors import NetworkError, AuthenticationError
 
 
@@ -86,7 +86,7 @@ class TransportClient:
         self._session.close()
         self._session = self._create_session()
 
-    def request(self, endpoint: DeviceEndpoint, **kwargs) -> requests.Response:
+    def request(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
         """Make a request to the device API using the session."""
         url = self.config.get_base_url()
         url = endpoint.build_url(url, kwargs.get("params"))

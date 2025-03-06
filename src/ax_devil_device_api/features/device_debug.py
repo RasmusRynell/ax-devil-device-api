@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 from .base import FeatureClient
 from ..core.types import FeatureResponse, FeatureError
-from ..core.endpoints import DeviceEndpoint
+from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError as UtilsFeatureError
 
 
@@ -13,12 +13,12 @@ class DeviceDebugClient(FeatureClient[Any]):
     DOWNLOAD_TIMEOUT = 300  # 5 minutes
     CORE_DUMP_TIMEOUT = 600  # 10 minutes
     
-    SERVER_REPORT_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/serverreport.cgi?mode=zip_with_image")
-    CRASH_REPORT_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/debug/debug.tgz")
-    NETWORK_TRACE_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/debug/debug.tgz?cmd=pcapdump")
-    PING_TEST_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/pingtest.cgi")
-    TCP_TEST_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/tcptest.cgi")
-    CORE_DUMP_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/debug/debug.tgz?listen")
+    SERVER_REPORT_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/serverreport.cgi?mode=zip_with_image")
+    CRASH_REPORT_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/debug/debug.tgz")
+    NETWORK_TRACE_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/debug/debug.tgz?cmd=pcapdump")
+    PING_TEST_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/pingtest.cgi")
+    TCP_TEST_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/tcptest.cgi")
+    CORE_DUMP_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/debug/debug.tgz?listen")
     
     def download_server_report(self) -> FeatureResponse[bytes]:
         response = self.request(

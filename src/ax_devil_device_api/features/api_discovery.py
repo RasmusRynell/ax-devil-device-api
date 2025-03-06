@@ -3,7 +3,7 @@ from typing import Optional, Dict, List
 
 from .base import FeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import DeviceEndpoint
+from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
 
@@ -75,7 +75,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            DeviceEndpoint("GET", doc_url),
+            TransportEndpoint("GET", doc_url),
             headers={"Accept": "text/markdown"}
         )
             
@@ -106,7 +106,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            DeviceEndpoint("GET", model_url),
+            TransportEndpoint("GET", model_url),
             headers={"Accept": "application/json"}
         )
         
@@ -143,7 +143,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            DeviceEndpoint("GET", doc_url),
+            TransportEndpoint("GET", doc_url),
             headers={"Accept": "text/html"}
         )
         
@@ -174,7 +174,7 @@ class DiscoveredAPI:
             ))
             
         response = self._client.request(
-            DeviceEndpoint("GET", openapi_url),
+            TransportEndpoint("GET", openapi_url),
             headers={"Accept": "application/json"}
         )
         
@@ -268,7 +268,7 @@ class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
     API documentation and resources.
     """
     
-    DISCOVER_ENDPOINT = DeviceEndpoint("GET", "/config/discover")
+    DISCOVER_ENDPOINT = TransportEndpoint("GET", "/config/discover")
     
     def discover(self) -> FeatureResponse[DiscoveredAPICollection]:
         """Get information about available APIs.

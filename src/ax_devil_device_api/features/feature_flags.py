@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
 from .base import FeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import DeviceEndpoint
+from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
 
@@ -53,7 +53,7 @@ class FeatureFlagClient(FeatureClient[FeatureFlag]):
     - Getting supported API versions
     """
     
-    FEATURE_FLAG_ENDPOINT = DeviceEndpoint("POST", "/axis-cgi/featureflag.cgi")
+    FEATURE_FLAG_ENDPOINT = TransportEndpoint("POST", "/axis-cgi/featureflag.cgi")
     JSON_HEADERS = {
         "Accept": "application/json",
         "Content-Type": "application/json"

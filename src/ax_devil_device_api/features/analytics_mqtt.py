@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, ClassVar, Generic, TypeVar
 from .base import FeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import DeviceEndpoint
+from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 from urllib.parse import quote
 
@@ -112,10 +112,10 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
     BASE_PATH: ClassVar[str] = "/config/rest/analytics-mqtt/v1beta"
     
     # Endpoint definitions
-    DATA_SOURCES_ENDPOINT = DeviceEndpoint("GET", f"{BASE_PATH}/data_sources")
-    PUBLISHERS_ENDPOINT = DeviceEndpoint("GET", f"{BASE_PATH}/publishers")
-    CREATE_PUBLISHER_ENDPOINT = DeviceEndpoint("POST", f"{BASE_PATH}/publishers")
-    REMOVE_PUBLISHER_ENDPOINT = DeviceEndpoint("DELETE", f"{BASE_PATH}/publishers/{{id}}")
+    DATA_SOURCES_ENDPOINT = TransportEndpoint("GET", f"{BASE_PATH}/data_sources")
+    PUBLISHERS_ENDPOINT = TransportEndpoint("GET", f"{BASE_PATH}/publishers")
+    CREATE_PUBLISHER_ENDPOINT = TransportEndpoint("POST", f"{BASE_PATH}/publishers")
+    REMOVE_PUBLISHER_ENDPOINT = TransportEndpoint("DELETE", f"{BASE_PATH}/publishers/{{id}}")
 
     # Common headers
     JSON_HEADERS = {
@@ -255,7 +255,7 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         # URL encode the publisher ID to handle special characters, including '/'
         encoded_id = quote(publisher_id, safe='')
 
-        endpoint = DeviceEndpoint(
+        endpoint = TransportEndpoint(
             self.REMOVE_PUBLISHER_ENDPOINT.method,
             self.REMOVE_PUBLISHER_ENDPOINT.path.format(id=encoded_id)
         )

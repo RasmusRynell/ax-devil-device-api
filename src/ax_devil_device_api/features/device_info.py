@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 from .base import FeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import DeviceEndpoint
+from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
 @dataclass
@@ -84,8 +84,8 @@ class DeviceInfo:
 class DeviceInfoClient(FeatureClient[DeviceInfo]):
     """Client for basic device operations."""
     
-    PARAMS_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/param.cgi")
-    RESTART_ENDPOINT = DeviceEndpoint("GET", "/axis-cgi/restart.cgi")
+    PARAMS_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/param.cgi")
+    RESTART_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/restart.cgi")
     
     def _parse_param_response(self, response: requests.Response) -> FeatureResponse[Dict[str, str]]:
         """Parse raw parameter response into dictionary.

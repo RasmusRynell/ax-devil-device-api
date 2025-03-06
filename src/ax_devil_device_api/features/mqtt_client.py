@@ -7,7 +7,7 @@ from dataclasses import dataclass, asdict
 from typing import Dict, Any, Optional, ClassVar, Tuple, Union
 from .base import FeatureClient
 from ..core.types import FeatureResponse
-from ..core.endpoints import DeviceEndpoint
+from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
 @dataclass
@@ -165,7 +165,7 @@ class MqttClient(FeatureClient):
     """Client for managing MQTT operations."""
     
     API_VERSION: ClassVar[str] = "1.0"
-    MQTT_ENDPOINT = DeviceEndpoint("POST", "/axis-cgi/mqtt/client.cgi")
+    MQTT_ENDPOINT = TransportEndpoint("POST", "/axis-cgi/mqtt/client.cgi")
 
     def _parse_mqtt_response(self, response: requests.Response) -> FeatureResponse[Dict[str, Any]]:
         """Parse and validate MQTT API response."""
