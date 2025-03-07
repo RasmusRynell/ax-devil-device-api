@@ -6,7 +6,6 @@ from contextlib import contextmanager
 
 from .config import DeviceConfig
 from .auth import AuthHandler
-from .protocol import ProtocolHandler
 from .endpoints import TransportEndpoint
 from ..utils.errors import NetworkError, AuthenticationError
 
@@ -38,7 +37,6 @@ class TransportClient:
         """Initialize with device configuration."""
         self.config = config
         self.auth = AuthHandler(config)
-        self.protocol = ProtocolHandler(config)
         self._session = self._create_session()
 
     def _create_session(self) -> requests.Session:
@@ -102,6 +100,7 @@ class TransportClient:
                 "headers": headers,
                 "timeout": self.config.timeout,
                 "auth": auth,
+                "verify": self.config.verify_ssl,
                 **kwargs,
                 **extra_kwargs
             }
@@ -110,14 +109,16 @@ class TransportClient:
                 return request_func(**request_args)
             return self._session.request(**request_args)
 
-        try:
-            # Wrap with protocol handling (SSL, etc)
-            wrapped_request = lambda request_func=None, **extra_kwargs: self.auth.authenticate_request(
-                lambda auth: make_request(auth, request_func or self._session.request, **extra_kwargs)
+        if self.config.protocol.is_secure and self.config.verify_ssl:
+            raise SecurityError(
+                "ssl_not_implemented",
+                "Secure SSL verification is not implemented. Use verify_ssl=False for insecure connections."
             )
 
-
-            return self.protocol.execute_request(wrapped_request)
+        try:
+            return self.auth.authenticate_request(
+                lambda auth: make_request(auth)
+            )
             
         except requests.exceptions.Timeout as e:
             raise NetworkError(
