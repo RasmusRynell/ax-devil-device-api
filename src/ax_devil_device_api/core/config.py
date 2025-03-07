@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
-from ..utils.errors import ConfigurationError
+from ..utils.errors import ConfigurationError, SecurityError
 
 
 class AuthMethod(Enum):
@@ -28,16 +28,6 @@ class Protocol(Enum):
 
 
 @dataclass
-class SSLConfig:
-    """SSL/TLS configuration."""
-    verify: bool = True
-    ca_cert_path: Optional[str] = None
-    client_cert_path: Optional[str] = None
-    client_key_path: Optional[str] = None
-    expected_fingerprint: Optional[str] = None
-
-
-@dataclass
 class DeviceConfig:
     """Device connection configuration."""
     host: str
@@ -47,7 +37,7 @@ class DeviceConfig:
     port: Optional[int] = None
     auth_method: AuthMethod = AuthMethod.AUTO
     timeout: float = 10.0
-    ssl: Optional[SSLConfig] = None
+    verify_ssl: bool = False  # Always False not implemented, set to True will raise an error
     allow_insecure: bool = False
 
     def __post_init__(self) -> None:
@@ -55,9 +45,6 @@ class DeviceConfig:
 
         if self.port is None:
             self.port = self.protocol.default_port
-
-        if self.ssl is None and self.protocol.is_secure:
-            self.ssl = SSLConfig()
 
         if self.port is not None and not (0 < self.port < 65536):
             raise ConfigurationError("invalid_port", f"Invalid port number: {self.port}")
@@ -69,7 +56,15 @@ class DeviceConfig:
                 "Use DeviceConfig.http() to explicitly allow HTTP."
             )
 
-        if self.protocol == Protocol.HTTPS and not self.ssl.verify:
+        # Always disable SSL verification for HTTPS
+        if self.protocol == Protocol.HTTPS:
+            if self.verify_ssl:
+                raise SecurityError(
+                    "ssl_not_implemented",
+                    "Secure SSL verification is not implemented. Use verify_ssl=False for insecure connections."
+                )
+            
+            print("WARNING: SSL/TLS verification disabled, not yet implemented. Ignoring warnings.")
             import warnings
             import urllib3
             warnings.filterwarnings('ignore', category=urllib3.exceptions.InsecureRequestWarning)
@@ -88,12 +83,8 @@ class DeviceConfig:
 
     @classmethod
     def https(cls, host: str, username: str, password: str, *, 
-              verify_ssl: bool = True, 
-              port: Optional[int] = None,
-              ca_cert: Optional[str] = None,
-              cert_fingerprint: Optional[str] = None,
-              client_cert: Optional[str] = None,
-              client_key: Optional[str] = None) -> 'DeviceConfig':
+              verify_ssl: bool = False, 
+              port: Optional[int] = None) -> 'DeviceConfig':
         """Create configuration for HTTPS device."""
         return cls(
             host=host,
@@ -101,13 +92,7 @@ class DeviceConfig:
             password=password,
             protocol=Protocol.HTTPS,
             port=port,
-            ssl=SSLConfig(
-                verify=verify_ssl,
-                ca_cert_path=ca_cert,
-                expected_fingerprint=cert_fingerprint,
-                client_cert_path=client_cert,
-                client_key_path=client_key
-            )
+            verify_ssl=verify_ssl
         )
 
     def get_base_url(self) -> str:

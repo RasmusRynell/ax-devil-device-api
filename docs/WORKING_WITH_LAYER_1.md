@@ -30,7 +30,6 @@ Layer 1 handles device communication via HTTP/HTTPS. It's designed to be stable 
 ### `DeviceConfig`
 - Contains connection parameters (host, port, protocol)
 - Stores authentication credentials
-- Configures SSL/TLS behavior
 - Provides factory methods (`http()`, `https()`) for simplified configuration
 
 ## Critical Implementation Details
