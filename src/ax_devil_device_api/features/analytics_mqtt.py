@@ -9,7 +9,6 @@ import requests
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, ClassVar, Generic, TypeVar
 from .base import FeatureClient
-from ..core.types import FeatureResponse
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 from urllib.parse import quote
@@ -22,24 +21,14 @@ class DataSource:
     
     Attributes:
         key: Unique identifier for the data source
-        name: Human-readable name
-        description: Optional description of the data source
-        type: Type of analytics data
-        format: Data format (e.g., "json")
     """
     key: str
-    name: str
-    description: Optional[str] = None
-    format: str = "json"
 
     @classmethod
     def create_from_response(cls, data: Dict[str, Any]) -> 'DataSource':
         """Create instance from API response data."""
         return cls(
-            key=data.get("key", ""),
-            name=data.get("name", ""),
-            description=data.get("description"),
-            format=data.get("format", "json")
+            key=data.get("key")
         )
 
 @dataclass
@@ -61,18 +50,6 @@ class PublisherConfig:
     retain: bool = False
     use_topic_prefix: bool = False
 
-    def validate(self) -> Optional[str]:
-        """Validate configuration values."""
-        if not self.id:
-            return "Publisher ID is required"
-        if not self.data_source_key:
-            return "Data source key is required"
-        if not self.mqtt_topic:
-            return "MQTT topic is required"
-        if not isinstance(self.qos, int) or self.qos not in (0, 1, 2):
-            return "QoS must be 0, 1, or 2"
-        return None
-
     def to_payload(self) -> Dict[str, Any]:
         """Convert to API request payload."""
         return {
@@ -90,12 +67,12 @@ class PublisherConfig:
     def create_from_response(cls, data: Dict[str, Any]) -> 'PublisherConfig':
         """Create publisher config from API response data."""
         return cls(
-            id=data.get("id", ""),
-            data_source_key=data.get("data_source_key", ""),
-            mqtt_topic=data.get("mqtt_topic", ""),
-            qos=data.get("qos", 0),
-            retain=data.get("retain", False),
-            use_topic_prefix=data.get("use_topic_prefix", False)
+            id=data.get("id"),
+            data_source_key=data.get("data_source_key"),
+            mqtt_topic=data.get("mqtt_topic"),
+            qos=data.get("qos"),
+            retain=data.get("retain"),
+            use_topic_prefix=data.get("use_topic_prefix")
         )
 
 class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
@@ -123,134 +100,68 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         "Content-Type": "application/json"
     }
 
-    def _parse_json_response(self, response: requests.Response, expected_type: type[T] = dict) -> FeatureResponse[T]:
-        """Parse and validate JSON API response.
+    def _json_request_wrapper(self, endpoint: TransportEndpoint, **kwargs) -> Dict[str, Any]:
+        """Wrapper for request method to handle JSON parsing and error checking."""
+        response = self.request(endpoint, **kwargs)
         
-        Args:
-            response: Raw transport response
-            expected_type: Expected type of the parsed data
-            
-        Returns:
-            FeatureResponse containing parsed data or error
-        """
-        if not (200 <= response.status_code < 300):
-            return FeatureResponse.create_error(FeatureError(
-                "request_failed",
-                f"Request failed: HTTP {response.status_code}",
-                details={"response": response.text}
-            ))
-            
-        try:
-            data = response.json().get("data")
-            if not isinstance(data, expected_type):
-                return FeatureResponse.create_error(FeatureError(
-                    "invalid_response",
-                    f"Expected {expected_type.__name__}, got {type(data).__name__}"
-                ))
-            return FeatureResponse.ok(data)
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
-                "parse_failed",
-                f"Failed to parse response: {str(e)}",
-                details={"response": response.text}
-            ))
+        json_response = response.json()
 
-    def get_data_sources(self) -> FeatureResponse[List[DataSource]]:
+        if json_response.get("status") != "success":
+            raise FeatureError("request_failed", json_response.get("error", "Unknown error"))
+        if "data" not in json_response:
+            raise FeatureError("parse_failed", "No data found in response")
+        print("TEST5")
+        response.raise_for_status()
+        return json_response.get("data")
+
+
+    def get_data_sources(self) -> List[DataSource]:
         """Get available analytics data sources.
         
         Returns:
-            FeatureResponse containing list of data sources
+            List of data sources
         """
-        response = self.request(
-            self.DATA_SOURCES_ENDPOINT,
-            headers=self.JSON_HEADERS
-        )
+        data_sources = self._json_request_wrapper(self.DATA_SOURCES_ENDPOINT)
+        return [DataSource.create_from_response(source) for source in data_sources]
 
-        parsed = self._parse_json_response(response, list)
-        if not parsed.is_success:
-            return FeatureResponse.create_error(parsed.error)
-            
-        try:
-            sources = [DataSource.create_from_response(source) for source in parsed.data]
-            return FeatureResponse.ok(sources)
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
-                "parse_failed",
-                f"Failed to parse data sources: {str(e)}"
-            ))
-
-    def list_publishers(self) -> FeatureResponse[List[PublisherConfig]]:
+    def list_publishers(self) -> List[PublisherConfig]:
         """List configured MQTT publishers.
         
         Returns:
-            FeatureResponse containing list of publisher configurations
+            List of publisher configurations
         """
-        response = self.request(
-            self.PUBLISHERS_ENDPOINT,
-            headers=self.JSON_HEADERS
-        )
-        
-        parsed = self._parse_json_response(response, list)
-        if not parsed.is_success:
-            return FeatureResponse.create_error(parsed.error)
-            
-        try:
-            publishers = [PublisherConfig.create_from_response(p) for p in parsed.data]
-            return FeatureResponse.ok(publishers)
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
-                "parse_failed",
-                f"Failed to parse publishers: {str(e)}"
-            ))
+        publishers = self._json_request_wrapper(self.PUBLISHERS_ENDPOINT)
+        return [PublisherConfig.create_from_response(p) for p in publishers]
 
-    def create_publisher(self, config: PublisherConfig) -> FeatureResponse[PublisherConfig]:
+    def create_publisher(self, config: PublisherConfig) -> PublisherConfig:
         """Create new MQTT publisher.
         
         Args:
             config: Publisher configuration
             
         Returns:
-            FeatureResponse containing created publisher configuration
+            Created publisher configuration
         """
-        error = config.validate()
-        if error:
-            return FeatureResponse.create_error(FeatureError(
-                "invalid_config",
-                f"Invalid publisher configuration: {error}"
-            ))
-            
-        response = self.request(
+        print("TEST6")
+        response = self._json_request_wrapper(
             self.CREATE_PUBLISHER_ENDPOINT,
             json=config.to_payload(),
             headers=self.JSON_HEADERS
         )
-        
-        parsed = self._parse_json_response(response, dict)
-        if not parsed.is_success:
-            return FeatureResponse.create_error(parsed.error)
-            
-        try:
-            return FeatureResponse.ok(PublisherConfig.create_from_response(parsed.data))
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
-                "parse_failed",
-                f"Failed to parse created publisher: {str(e)}"
-            ))
+        print("TEST7")
+        return PublisherConfig.create_from_response(response)
 
-    def remove_publisher(self, publisher_id: str) -> FeatureResponse[bool]:
+    def remove_publisher(self, publisher_id: str) -> bool:
         """Delete MQTT publisher by ID.
         
         Args:
             publisher_id: ID of publisher to remove
             
         Returns:
-            FeatureResponse indicating success/failure
+            True if publisher was removed, False otherwise
         """
         if not publisher_id:
-            return FeatureResponse.create_error(FeatureError(
-                "invalid_id",
-                "Publisher ID is required"
-            ))
+            raise FeatureError("invalid_id", "Publisher ID is required")
             
         # URL encode the publisher ID to handle special characters, including '/'
         encoded_id = quote(publisher_id, safe='')
@@ -264,11 +175,5 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
             endpoint, 
             headers=self.JSON_HEADERS
         )
-
-        if not (200 <= response.status_code < 300):
-            return FeatureResponse.create_error(FeatureError(
-                "request_failed",
-                f"Failed to remove publisher: HTTP {response.status_code}"
-            ))
-            
-        return FeatureResponse.ok(True)
+        response.raise_for_status()
+        return True
