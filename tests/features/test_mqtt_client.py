@@ -137,20 +137,20 @@ class TestMqttStatus:
 class TestMqttClientFeature:
     """Test suite for MQTT client operations."""
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_get_status(self, client):
         """Test retrieving MQTT client status."""
         response = client.mqtt_client.get_status()
         assert response.is_success, f"Failed to get MQTT status: {response.error}"
         self._verify_status_response(response.data)
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_configure_broker(self, client, valid_broker_config):
         """Test configuring MQTT broker."""
         response = client.mqtt_client.configure(valid_broker_config)
         assert response.is_success, f"Failed to configure broker: {response.error}"
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_client_lifecycle(self, client, valid_broker_config):
         """Test the complete MQTT client lifecycle."""
         # Configure

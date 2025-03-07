@@ -54,7 +54,6 @@ class TransportClient:
         session.mount('https://', adapter)
         
         session.headers.update(self._TRANSPORT_HEADERS)
-        
         return session
 
     def __del__(self):
@@ -75,7 +74,6 @@ class TransportClient:
         finally:
             self._session.close()
             self._session = old_session
-
     def clear_session(self):
         """Clear and reset the current session.
         
@@ -88,26 +86,8 @@ class TransportClient:
         """Make a request to the device API using the session."""
         url = self.config.get_base_url()
         url = endpoint.build_url(url, kwargs.get("params"))
-        
-        # Merge transport headers with user headers, letting user headers take precedence
-        headers = {}
-        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
 
-        def make_request(auth: AuthBase, request_func=None, **extra_kwargs) -> requests.Response:
-            request_args = {
-                "method": endpoint.method,
-                "url": url,
-                "headers": headers,
-                "timeout": self.config.timeout,
-                "auth": auth,
-                "verify": self.config.verify_ssl,
-                **kwargs,
-                **extra_kwargs
-            }
-            
-            if request_func:
-                return request_func(**request_args)
-            return self._session.request(**request_args)
+        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
 
         if self.config.protocol.is_secure and self.config.verify_ssl:
             raise SecurityError(
@@ -116,9 +96,8 @@ class TransportClient:
             )
 
         try:
-            return self.auth.authenticate_request(
-                lambda auth: make_request(auth)
-            )
+            return self.auth.send_request(self._session, endpoint, headers, kwargs)
+
             
         except requests.exceptions.Timeout as e:
             raise NetworkError(

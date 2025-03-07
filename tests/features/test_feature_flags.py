@@ -8,7 +8,7 @@ from ax_devil_device_api.utils.errors import FeatureError
 class TestFeatureFlagFeature:
     """Test suite for feature flag feature."""
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_list_and_modify_flags(self, client):
         """Test listing and modifying feature flags.
         
@@ -47,7 +47,7 @@ class TestFeatureFlagFeature:
             restore_response = client.feature_flags.set_flags({test_flag.name: original_value})
             assert restore_response.is_success, f"Failed to restore flag: {restore_response.error}"
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_get_flags_empty(self, client):
         """Test error handling for empty flag names."""
         response = client.feature_flags.get_flags([])
@@ -55,7 +55,7 @@ class TestFeatureFlagFeature:
         assert response.error.code == "invalid_request"
         assert "No flag names" in response.error.message
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_set_flags_empty(self, client):
         """Test error handling for empty flag values."""
         response = client.feature_flags.set_flags({})
@@ -63,7 +63,7 @@ class TestFeatureFlagFeature:
         assert response.error.code == "invalid_request"
         assert "No flag values" in response.error.message
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_get_supported_versions(self, client):
         """Test retrieving supported API versions."""
         response = client.feature_flags.get_supported_versions()

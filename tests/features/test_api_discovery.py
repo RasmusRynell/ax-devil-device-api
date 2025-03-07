@@ -6,7 +6,7 @@ from ax_devil_device_api.utils.errors import FeatureError
 class TestAPIDiscoveryFeature:
     """Test suite for API discovery feature."""
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_discover(self, client):
         """Test basic API discovery."""
         result = client.discovery.discover()
@@ -33,7 +33,7 @@ class TestAPIDiscoveryFeature:
         assert first_version.version_string, "API should have a version string"
         assert hasattr(first_version, '_urls'), "API should have URLs"
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_get_api_documentation(self, client):
         """Test fetching API documentation."""
         # First discover APIs
@@ -65,7 +65,7 @@ class TestAPIDiscoveryFeature:
         assert cached_html.is_success
         assert cached_html.data == html_result.data
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_get_api_model(self, client):
         """Test fetching API model."""
         discovery = client.discovery.discover()
@@ -90,7 +90,7 @@ class TestAPIDiscoveryFeature:
         assert isinstance(model, dict), "Model should be a dictionary"
         # Add more specific model structure checks based on your API model format
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_get_openapi_spec(self, client):
         """Test fetching OpenAPI specification."""
         discovery = client.discovery.discover()
@@ -116,7 +116,7 @@ class TestAPIDiscoveryFeature:
         assert 'info' in spec, "OpenAPI spec should have info section"
         assert 'paths' in spec, "OpenAPI spec should have paths section"
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_api_collection_methods(self, client):
         """Test API collection helper methods."""
         discovery = client.discovery.discover()
@@ -145,7 +145,7 @@ class TestAPIDiscoveryFeature:
         assert isinstance(api_versions, list), "get_apis_by_name should return a list"
         assert len(api_versions) > 0, "Should find at least one version"
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_error_handling(self, client):
         """Test error handling for invalid requests."""
         discovery = client.discovery.discover()
@@ -162,7 +162,7 @@ class TestAPIDiscoveryFeature:
         non_existent_version = collection.get_api(first_api.name, "999.999")
         assert non_existent_version is None, "Should return None for non-existent version"
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_url_properties(self, client):
         """Test REST API and UI URL properties."""
         discovery = client.discovery.discover()
@@ -202,7 +202,7 @@ class TestAPIDiscoveryFeature:
         assert partial_api.version_string == "unknown"
         assert partial_api._urls["doc"] == "/api/doc"
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_client_initialization(self, client):
         """Test client initialization checks."""
         discovery = client.discovery.discover()

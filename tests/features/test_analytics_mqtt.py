@@ -118,14 +118,14 @@ class TestPublisherConfig:
 class TestAnalyticsMqttClient:
     """Test suite for analytics MQTT client."""
     
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_get_data_sources_success(self, client):
         """Test successful data sources retrieval."""
         response = client.analytics_mqtt.get_data_sources()
         assert response.is_success, f"Failed to get data sources: {response.error}"
         assert isinstance(response.data, list)
         
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_list_publishers_success(self, client):
         """Test successful publishers listing."""
         response = client.analytics_mqtt.list_publishers()
@@ -134,7 +134,7 @@ class TestAnalyticsMqttClient:
         for publisher in response.data:
             assert isinstance(publisher, PublisherConfig)
             
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_create_publisher_success(self, client):
         """Test successful publisher creation."""
         # Remove any existing publisher with this id
@@ -155,7 +155,7 @@ class TestAnalyticsMqttClient:
         # Cleanup
         client.analytics_mqtt.remove_publisher(config.id)
         
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_create_publisher_invalid_config(self, client):
         """Test publisher creation with invalid config."""
         config = PublisherConfig(
@@ -171,7 +171,7 @@ class TestAnalyticsMqttClient:
         # remove the publisher
         client.analytics_mqtt.remove_publisher(config.id)
         
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_remove_publisher_success(self, client):
         """Test successful publisher removal."""
         # First create a publisher
@@ -193,7 +193,7 @@ class TestAnalyticsMqttClient:
         assert list_response.is_success
         assert not any(p.id == config.id for p in list_response.data)
         
-    @pytest.mark.device_required
+    @pytest.mark.integration
     def test_remove_publisher_invalid_id(self, client):
         """Test publisher removal with invalid ID."""
         response = client.analytics_mqtt.remove_publisher("")
