@@ -18,7 +18,7 @@ class OperationCancelled(Exception):
     pass
 
 
-def create_client(device_ip, username, password, port, protocol='https', no_verify_ssl=False, ca_cert=None) -> Client:
+def create_client(device_ip, username, password, port, protocol='https', no_verify_ssl=False) -> Client:
     """Create and return a Client instance within a context manager.
     
     Returns:
@@ -32,9 +32,7 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
     assert port is None or isinstance(port, int), "\n\tInvalid port"
     assert username is not None and password is not None, "\n\tUsername and password are required, use --username and --password options or set AX_DEVIL_TARGET_USER and AX_DEVIL_TARGET_PASS environment variables"
     assert device_ip is not None, "\n\tDevice IP is required, use --device-ip option or set AX_DEVIL_TARGET_ADDR environment variable"
-    assert ca_cert is None or os.path.exists(ca_cert), "\n\tCA certificate file does not exist, use --ca-cert option or set AX_DEVIL_CA_CERT environment variable"
     assert no_verify_ssl is False or protocol == 'https', "\n\tSSL verification can only be disabled for HTTPS connections"
-    assert not no_verify_ssl or not ca_cert, "\n\tCA certificate cannot be provided if SSL verification is disabled"
 
     if protocol == 'https':
         config = DeviceConfig.https(
@@ -42,8 +40,7 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
             username=username,
             password=password,
             port=port,
-            verify_ssl=not no_verify_ssl,
-            ca_cert=ca_cert
+            verify_ssl=not no_verify_ssl
         )
     else:
         if os.getenv('AX_DEVIL_USAGE_CLI', "safe") == "safe":
@@ -111,12 +108,6 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
             "Available options:\n"
             "1. Use HTTP instead:     --protocol http (not secure, development only)\n"
             "2. Skip verification:    --no-verify-ssl (not secure, development only)\n"
-            "3. Use certificate chain: --ca-cert <cert_chain.pem> (recommended, secure)\n"
-            "   To get the certificate chain:\n"
-            "   echo -n | openssl s_client -connect <HOST>:443 -showcerts | \\\n"
-            "   awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/{ print $0 }' > cert_chain.pem\n\n"
-            "Note: Option 3 is recommended as it maintains security while verifying\n"
-            "      the device's genuine device identity certificate."
         ),
         # Network Errors
         "connection_refused": (
@@ -241,7 +232,7 @@ def get_client_args(ctx_obj: dict) -> dict:
     """Extract client-specific arguments from context object."""
     return {k: v for k, v in ctx_obj.items()
             if k in ['device_ip', 'username', 'password', 'port',
-                     'protocol', 'no_verify_ssl', 'ca_cert']}
+                     'protocol', 'no_verify_ssl']}
 
 
 def format_json(data: dict, indent: int = 2) -> str:
@@ -290,8 +281,6 @@ def common_options(f):
                      help='Connection protocol (default: https)')(f)
     f = click.option('--no-verify-ssl', is_flag=True, default=False if os.getenv('AX_DEVIL_USAGE_CLI', "safe") == 'safe' else True,
                      help='Disable SSL certificate verification for HTTPS (use with self-signed certificates)')(f)
-    f = click.option('--ca-cert', type=click.Path(exists=True, dir_okay=False),
-                     help='Path to CA certificate file for SSL verification')(f)
     f = click.option('--debug', is_flag=True,
                      help='Show detailed debug information for troubleshooting')(f)
     return f

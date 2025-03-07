@@ -16,7 +16,7 @@ from .cli_core import (
 @click.group()
 @common_options
 @click.pass_context
-def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_cert, debug):
+def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, debug):
     """Discover and inspect available discoverable APIs."""
     ctx.ensure_object(dict)
     ctx.obj.update({
@@ -26,7 +26,6 @@ def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, ca_ce
         'port': port,
         'protocol': protocol,
         'no_verify_ssl': no_verify_ssl,
-        'ca_cert': ca_cert,
         'debug': debug
     })
 
