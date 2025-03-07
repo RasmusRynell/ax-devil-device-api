@@ -93,7 +93,7 @@ class TransportClient:
         
         # Merge transport headers with user headers, letting user headers take precedence
         headers = {}
-        headers.update(kwargs.pop("headers", {}))
+        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
 
         def make_request(auth: AuthBase, request_func=None, **extra_kwargs) -> requests.Response:
             request_args = {
@@ -113,8 +113,9 @@ class TransportClient:
         try:
             # Wrap with protocol handling (SSL, etc)
             wrapped_request = lambda request_func=None, **extra_kwargs: self.auth.authenticate_request(
-                lambda auth: make_request(auth, request_func, **extra_kwargs)
+                lambda auth: make_request(auth, request_func or self._session.request, **extra_kwargs)
             )
+
 
             return self.protocol.execute_request(wrapped_request)
             
