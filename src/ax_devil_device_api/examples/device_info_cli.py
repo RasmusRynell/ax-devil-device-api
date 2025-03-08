@@ -3,7 +3,7 @@
 
 import click
 from .cli_core import (
-    create_client, handle_result, handle_error, get_client_args,
+    create_client, handle_error, get_client_args,
     common_options
 )
 
@@ -31,14 +31,9 @@ def get_info(ctx):
     """Get device information including model, firmware, and capabilities."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.device.get_info()
-            
-            if not result.is_success:
-                return handle_error(ctx, result.error)
-                
-            info = result.data
+            info = client.device.get_info()
             click.echo("Device Information:")
-            for key, value in info.__dict__.items():
+            for key, value in info.items():
                 click.echo(f"   {key}: {value}")
             return 0
     except Exception as e:
@@ -53,8 +48,8 @@ def check_health(ctx):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.check_health()
             
-            if not result.is_success:
-                return handle_error(ctx, result.error)
+            if not result:
+                return handle_error(ctx, "Device is not healthy")
                 
             click.echo(click.style("Device is healthy!", fg="green"))
             return 0
@@ -75,8 +70,8 @@ def restart(ctx, force):
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.device.restart()
 
-            if not result.is_success:
-                return handle_error(ctx, result.error)
+            if not result:
+                return handle_error(ctx, "Failed to restart device")
                 
             click.echo(click.style(
                 "Device restart initiated. The device will be unavailable for a few minutes.",

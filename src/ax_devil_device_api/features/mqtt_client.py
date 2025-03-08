@@ -73,8 +73,8 @@ class BrokerConfig:
     @classmethod
     def create_from_response(cls, data: Dict[str, Any]) -> 'BrokerConfig':
         """Create broker config from API response data."""
-        config = data.get("config", {})
-        server = config.get("server", {})
+        config = data.get("config")
+        server = config.get("server")
         return cls(
             host=server.get("host", ""),
             port=server.get("port", 1883),
@@ -131,7 +131,7 @@ class MqttStatus:
     @classmethod
     def create_from_response(cls, data: Dict[str, Any]) -> 'MqttStatus':
         """Create status instance from API response data. Raises ValueError if status is invalid."""
-        status_data = data.get("data", {}).get("status", {})
+        status_data = data.get("data").get("status")
         
         # Map API status to our status enum
         connection_status = status_data.get("connectionStatus", cls.STATUS_UNKNOWN).lower()
@@ -142,7 +142,7 @@ class MqttStatus:
         state = status_data.get("state", cls.STATE_INACTIVE).lower()
         connected_to = None
         if connection_status == cls.STATUS_CONNECTED:
-            config = data.get("data", {}).get("config", {}).get("server", {})
+            config = data.get("data").get("config").get("server")
             if config:
                 connected_to = {
                     "host": config.get("host"),
@@ -151,8 +151,8 @@ class MqttStatus:
         
         # Create broker config if available
         config = None
-        if "config" in data.get("data", {}):
-            config = BrokerConfig.create_from_response(data.get("data", {}))
+        if "config" in data.get("data"):
+            config = BrokerConfig.create_from_response(data.get("data"))
             
         return cls(
             status=connection_status,

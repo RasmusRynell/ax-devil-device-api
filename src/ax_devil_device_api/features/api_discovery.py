@@ -206,7 +206,7 @@ class DiscoveredAPICollection:
         """Create APICollection from discovery response data."""
         apis = {}
         
-        for api_name, versions in data.get('apis', {}).items():
+        for api_name, versions in data.get('apis').items():
             apis[api_name] = {}
             for version, api_data in versions.items():
                 api = DiscoveredAPI.from_discovery_data(api_name, version, api_data)
@@ -239,7 +239,7 @@ class DiscoveredAPICollection:
     
     def get_apis_by_name(self, name: str) -> List[DiscoveredAPI]:
         """Get all versions of a specific API."""
-        return list(self.apis.get(name, {}).values())
+        return list(self.apis.get(name).values())
 
 
 class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):

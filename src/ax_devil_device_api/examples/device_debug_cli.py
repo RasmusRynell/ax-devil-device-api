@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import click
 from .cli_core import (
-    create_client, handle_error, get_client_args,
+    create_client, get_client_args,
     common_options
 )
 

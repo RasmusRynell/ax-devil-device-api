@@ -4,6 +4,8 @@ import json
 import os
 import traceback
 import sys
+from rich.table import Table
+from rich.console import Console
 from ax_devil_device_api import Client, DeviceConfig
 from ax_devil_device_api.utils.errors import SecurityError, NetworkError, FeatureError, BaseError
 from ax_devil_device_api.core.types import FeatureResponse
@@ -230,6 +232,40 @@ def get_client_args(ctx_obj: dict) -> dict:
     return {k: v for k, v in ctx_obj.items()
             if k in ['device_ip', 'username', 'password', 'port',
                      'protocol', 'no_verify_ssl']}
+
+
+def format_list(data: list) -> str:
+    """Format list data with syntax highlighting using click.style."""
+    return '\n'.join(click.style(item, fg='green') for item in data)
+
+def print_table_list_with_dict(data: list[dict], keys_with_order: list[str] = None) -> str:
+    """Format into table format with all possible keys across all dicts."""
+    if not data:
+        return "No data"
+    
+    # Get all unique keys across all dicts
+    keys = set()
+    for item in data:
+        keys.update(item.keys())
+    if keys_with_order:
+        keys = [key for key in keys_with_order if key in keys]
+    else:
+        keys = sorted(list(keys))
+
+    # Create rich table
+    table = Table()
+    for key in keys:
+        table.add_column(key)
+
+    # Add rows
+    for item in data:
+        row = [str(item.get(key, '')) for key in keys]
+        table.add_row(*row)
+
+    # Render table to string
+    console = Console(record=True)
+    console.print(table)
+
 
 
 def format_json(data: dict, indent: int = 2) -> str:

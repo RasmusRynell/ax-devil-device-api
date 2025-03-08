@@ -84,7 +84,7 @@ class SSHClient(FeatureClient[SSHUser]):
             
         try:                
             response_json = response.json()
-            data = response_json.get("data", {})
+            data = response_json.get("data")
             if "username" not in data:
                 return FeatureResponse.create_error(FeatureError("invalid_response_format", "Invalid response format"))
                 

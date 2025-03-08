@@ -5,82 +5,49 @@ from .base import FeatureClient
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
-@dataclass
-class DeviceInfo:
-    """Device device information.
+def get_device_info_from_params(params: Dict[str, str]) -> Dict[str, any]:
+    """Create device info dictionary from parameter dictionary.
     
-    Attributes:
-        model: Device model name (e.g., "AXIS Q1656")
-        product_type: Type of device (e.g., "Box Camera")
-        product_number: Short product number (e.g., "Q1656")
-        serial_number: Unique serial number
-        hardware_id: Hardware identifier
-        firmware_version: Current firmware version
-        build_date: Firmware build date
-        ptz_support: List of supported PTZ modes
-        analytics_support: Whether analytics are supported
+    Args:
+        params: Dictionary of device parameters
+        
+    Returns:
+        Dictionary containing device information with fields:
+        - model: Device model name (e.g., "AXIS Q1656")
+        - product_type: Type of device (e.g., "Box Camera") 
+        - product_number: Short product number (e.g., "Q1656")
+        - serial_number: Unique serial number
+        - hardware_id: Hardware identifier
+        - firmware_version: Current firmware version
+        - build_date: Firmware build date
+        - ptz_support: List of supported PTZ modes
+        - analytics_support: Whether analytics are supported
     """
-    # Device identification
-    model: str
-    product_type: str
-    product_number: str
-    serial_number: str
-    hardware_id: str
+    def get_param(key: str, default: str = "unknown") -> str:
+        return params.get(f"root.{key}", params.get(key, default))
     
-    # Firmware information
-    firmware_version: str
-    build_date: str
+    ptz_modes = get_param("Properties.PTZ.DriverModeList", "").split(",")
+    ptz_support = [mode.strip() for mode in ptz_modes if mode.strip()]
     
-    # Capabilities
-    ptz_support: List[str] = None
-    analytics_support: bool = False
+    analytics_support = any(
+        key for key in params.keys() 
+        if "analytics" in key.lower() or "objectdetection" in key.lower()
+    )
     
-    @classmethod
-    def from_params(cls, params: Dict[str, str]) -> 'DeviceInfo':
-        """Create instance from parameter dictionary."""
-
-        def get_param(key: str, default: str = "unknown") -> str:
-            return params.get(f"root.{key}", params.get(key, default))
-        
-        ptz_modes = get_param("Properties.PTZ.DriverModeList", "").split(",")
-        ptz_support = [mode.strip() for mode in ptz_modes if mode.strip()]
-        
-        analytics_support = any(
-            key for key in params.keys() 
-            if "analytics" in key.lower() or "objectdetection" in key.lower()
-        )
-        
-        return cls(
-            model=get_param("Brand.ProdShortName"),
-            product_type=get_param("Brand.ProdType"),
-            product_number=get_param("Brand.ProdNbr"),
-            serial_number=get_param("Properties.System.SerialNumber"),
-            hardware_id=get_param("Properties.System.HardwareID"),
-            
-            firmware_version=get_param("Properties.Firmware.Version"),
-            build_date=get_param("Properties.Firmware.BuildDate"),
-            
-            ptz_support=ptz_support,
-            analytics_support=analytics_support
-        )
-
-
-    def to_dict(self) -> Dict[str, any]:
-        """Return a JSON representation of the device info."""
-        return {
-            "model": self.model,
-            "product_type": self.product_type,
-            "product_number": self.product_number,
-            "serial_number": self.serial_number,
-            "hardware_id": self.hardware_id,
-            "firmware_version": self.firmware_version,
-            "build_date": self.build_date,
-            "ptz_support": self.ptz_support,
-            "analytics_support": self.analytics_support
-        }
+    return {
+        "model": get_param("Brand.ProdShortName"),
+        "product_type": get_param("Brand.ProdType"),
+        "product_number": get_param("Brand.ProdNbr"),
+        "serial_number": get_param("Properties.System.SerialNumber"),
+        "hardware_id": get_param("Properties.System.HardwareID"),
+        "firmware_version": get_param("Properties.Firmware.Version"),
+        "build_date": get_param("Properties.Firmware.BuildDate"),
+        "ptz_support": ptz_support,
+        "analytics_support": analytics_support
+    }
     
 
-class DeviceInfoClient(FeatureClient[DeviceInfo]):
+class DeviceInfoClient(FeatureClient):
     """Client for basic device operations."""
     
     PARAMS_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/param.cgi")
@@ -103,7 +70,7 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
         params = dict(line.split('=', 1) for line in lines if '=' in line)
         return params
 
-    def get_info(self) -> DeviceInfo:
+    def get_info(self) -> Dict[str, any]:
         """Get basic device information."""
         param_groups = ["Properties", "Brand"]
         params = {}
@@ -125,7 +92,7 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
             
             params.update(parsed)
         
-        return DeviceInfo.from_params(params)
+        return get_device_info_from_params(params)
             
     def restart(self) -> bool:
         """Restart the device."""

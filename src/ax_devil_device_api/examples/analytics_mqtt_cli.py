@@ -6,7 +6,6 @@ from .cli_core import (
     create_client, handle_error, get_client_args,
     common_options
 )
-from ..features.analytics_mqtt import PublisherConfig
 
 @click.group()
 @common_options
@@ -57,12 +56,12 @@ def list_publishers(ctx):
                     
             click.echo("Configured Publishers:")
             for pub in result:
-                click.echo(f"\n{click.style(pub.id, fg='green')}:")
-                click.echo(f"  Data Source: {pub.data_source_key}")
-                click.echo(f"  Topic: {pub.mqtt_topic}")
-                click.echo(f"  QoS: {pub.qos}")
-                click.echo(f"  Retain: {pub.retain}")
-                click.echo(f"  Use Topic Prefix: {pub.use_topic_prefix}")
+                click.echo(f"\n{click.style(pub.get('id'), fg='green')}:")
+                click.echo(f"  Data Source: {pub.get('data_source_key')}")
+                click.echo(f"  Topic: {pub.get('mqtt_topic')}")
+                click.echo(f"  QoS: {pub.get('qos')}")
+                click.echo(f"  Retain: {pub.get('retain')}")
+                click.echo(f"  Use Topic Prefix: {pub.get('use_topic_prefix')}")
             return 0
     except Exception as e:
         return handle_error(ctx, e)
@@ -86,24 +85,16 @@ def create_publisher(ctx, id, source, topic, qos, retain, use_topic_prefix, forc
                 return 0
 
         with create_client(**get_client_args(ctx.obj)) as client:
-            config = PublisherConfig(
-                id=id,
-                data_source_key=source,
-                mqtt_topic=topic,
-                qos=qos,
-                retain=retain,
-                use_topic_prefix=use_topic_prefix
-            )
-            result = client.analytics_mqtt.create_publisher(config)
+            client.analytics_mqtt.create_publisher(id, source, topic, qos, retain, use_topic_prefix)
 
             click.echo(click.style("Publisher created successfully!", fg="green"))
             click.echo("\nPublisher details:")
-            click.echo(f"  ID: {result.id}")
-            click.echo(f"  Data Source: {result.data_source_key}")
-            click.echo(f"  Topic: {result.mqtt_topic}")
-            click.echo(f"  QoS: {result.qos}")
-            click.echo(f"  Retain: {result.retain}")
-            click.echo(f"  Use Topic Prefix: {result.use_topic_prefix}")
+            click.echo(f"  ID: {id}")
+            click.echo(f"  Data Source: {source}")
+            click.echo(f"  Topic: {topic}")
+            click.echo(f"  QoS: {qos}")
+            click.echo(f"  Retain: {retain}")
+            click.echo(f"  Use Topic Prefix: {use_topic_prefix}")
             return 0
     except Exception as e:
         return handle_error(ctx, e)
