@@ -1,7 +1,7 @@
 """Tests for geocoordinates operations."""
 
 import pytest
-from ax_devil_device_api.features.geocoordinates import GeoCoordinatesParser, GeoCoordinatesClient
+from ax_devil_device_api.features.geocoordinates import GeoCoordinatesParser
 from ax_devil_device_api.utils.errors import FeatureError
 
 class TestGeoCoordinatesLocation:
@@ -10,35 +10,31 @@ class TestGeoCoordinatesLocation:
     @pytest.mark.integration
     def test_get_location_success(self, client):
         """Test successful location retrieval."""
-        response = client.geocoordinates.get_location()
-        assert response.is_success, f"Failed to get location: {response.error}"
-        assert isinstance(response.data, dict)
-        assert "is_valid" in response.data
+        location = client.geocoordinates.get_location()
+        assert isinstance(location, dict)
+        assert "is_valid" in location
+        assert "latitude" in location
+        assert "longitude" in location
         
     @pytest.mark.integration
     def test_set_location_success(self, client):
         """Test successful location update."""
-        # Get initial state
         initial = client.geocoordinates.get_location()
-        assert initial.is_success, "Failed to get initial location"
         
         # Set new location
-        response = client.geocoordinates.set_location(latitude=45.0, longitude=90.0)
-        assert response.is_success, f"Failed to set location: {response.error}"
-        assert response.data is True
+        result = client.geocoordinates.set_location(latitude=45.0, longitude=90.0)
+        assert result is True
         
         # Verify the update
-        get_response = client.geocoordinates.get_location()
-        assert get_response.is_success, "Failed to get updated location"
-        assert get_response.data["latitude"] == 45.0
-        assert get_response.data["longitude"] == 90.0
+        updated_location = client.geocoordinates.get_location()
+        assert updated_location["latitude"] == 45.0
+        assert updated_location["longitude"] == 90.0
         
         # Reset to initial state
-        if initial.is_success:
-            client.geocoordinates.set_location(
-                latitude=initial.data["latitude"],
-                longitude=initial.data["longitude"]
-            )
+        client.geocoordinates.set_location(
+            latitude=initial["latitude"],
+            longitude=initial["longitude"]
+        )
             
     @pytest.mark.unit
     def test_location_info_from_params(self):
@@ -61,17 +57,19 @@ class TestGeoCoordinatesOrientation:
     @pytest.mark.integration
     def test_get_orientation_success(self, client):
         """Test successful orientation retrieval."""
-        response = client.geocoordinates.get_orientation()
-        assert response.is_success, f"Failed to get orientation: {response.error}"
-        assert isinstance(response.data, dict)
-        assert "is_valid" in response.data
+        orientation = client.geocoordinates.get_orientation()
+        assert isinstance(orientation, dict)
+        assert "is_valid" in orientation
+        assert "heading" in orientation
+        assert "tilt" in orientation
+        assert "roll" in orientation
+        assert "installation_height" in orientation
             
     @pytest.mark.integration
     def test_set_orientation_success(self, client):
         """Test successful orientation update."""
         # Get initial state
         initial = client.geocoordinates.get_orientation()
-        assert initial.is_success, "Failed to get initial orientation"
         
         # Set new orientation
         orientation = {
@@ -80,46 +78,39 @@ class TestGeoCoordinatesOrientation:
             "roll": 0.0,
             "installation_height": 2.5
         }
-        response = client.geocoordinates.set_orientation(orientation)
-        assert response.is_success, f"Failed to set orientation: {response.error}"
-        assert response.data is True
+        result = client.geocoordinates.set_orientation(orientation)
+        assert result is True
         
         # Verify the update
-        get_response = client.geocoordinates.get_orientation()
-        assert get_response.is_success, "Failed to get updated orientation"
-        assert get_response.data["heading"] == 180.0
-        assert get_response.data["tilt"] == 45.0
-        assert get_response.data["roll"] == 0.0
-        assert get_response.data["installation_height"] == 2.5
+        updated_orientation = client.geocoordinates.get_orientation()
+        assert updated_orientation["heading"] == 180.0
+        assert updated_orientation["tilt"] == 45.0
+        assert updated_orientation["roll"] == 0.0
+        assert updated_orientation["installation_height"] == 2.5
         
         # Reset to initial state
-        if initial.is_success:
-            client.geocoordinates.set_orientation(initial.data)
+        client.geocoordinates.set_orientation(initial)
         
     @pytest.mark.integration
     def test_set_orientation_partial(self, client):
         """Test partial orientation update."""
         # Get initial state
         initial = client.geocoordinates.get_orientation()
-        assert initial.is_success, "Failed to get initial orientation"
         
         # Set only heading
         orientation = {"heading": 90.0}
-        response = client.geocoordinates.set_orientation(orientation)
-        assert response.is_success, f"Failed to set partial orientation: {response.error}"
+        result = client.geocoordinates.set_orientation(orientation)
+        assert result is True
         
         # Verify update - heading changed, others unchanged
-        get_response = client.geocoordinates.get_orientation()
-        assert get_response.is_success, "Failed to get updated orientation"
-        assert get_response.data["heading"] == 90.0
-        if initial.is_success:
-            assert get_response.data["tilt"] == initial.data["tilt"]
-            assert get_response.data["roll"] == initial.data["roll"]
-            assert get_response.data["installation_height"] == initial.data["installation_height"]
+        updated_orientation = client.geocoordinates.get_orientation()
+        assert updated_orientation["heading"] == 90.0
+        assert updated_orientation["tilt"] == initial["tilt"]
+        assert updated_orientation["roll"] == initial["roll"]
+        assert updated_orientation["installation_height"] == initial["installation_height"]
             
         # Reset to initial state
-        if initial.is_success:
-            client.geocoordinates.set_orientation(initial.data)
+        client.geocoordinates.set_orientation(initial)
             
     @pytest.mark.unit
     def test_orientation_info_from_params(self):
@@ -148,24 +139,36 @@ class TestGeoCoordinatesOrientation:
         """Test successful settings application."""
         # Get initial state
         initial = client.geocoordinates.get_orientation()
-        assert initial.is_success, "Failed to get initial orientation"
         
         # Set new orientation
         orientation = {"heading": 270.0}
-        set_response = client.geocoordinates.set_orientation(orientation)
-        assert set_response.is_success, "Failed to set orientation"
+        client.geocoordinates.set_orientation(orientation)
         
         # Apply settings
-        response = client.geocoordinates.apply_settings()
-        assert response.is_success, f"Failed to apply settings: {response.error}"
-        assert response.data is True
+        result = client.geocoordinates.apply_settings()
+        assert result is True
         
         # Verify changes were applied
-        get_response = client.geocoordinates.get_orientation()
-        assert get_response.is_success, "Failed to get updated orientation"
-        assert get_response.data["heading"] == 270.0
+        updated_orientation = client.geocoordinates.get_orientation()
+        assert updated_orientation["heading"] == 270.0
         
         # Reset to initial state
-        if initial.is_success:
-            client.geocoordinates.set_orientation(initial.data)
-            client.geocoordinates.apply_settings() 
+        client.geocoordinates.set_orientation(initial)
+        client.geocoordinates.apply_settings()
+        
+    @pytest.mark.integration
+    def test_error_handling(self, client, monkeypatch):
+        """Test error handling with invalid requests."""
+        # Test invalid URL
+        from unittest.mock import Mock
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.text = "<Error><ErrorCode>NotFound</ErrorCode><ErrorDescription>Resource not found</ErrorDescription></Error>"
+        
+        # Patch the request method to return our mock
+        monkeypatch.setattr(client.geocoordinates, "request", lambda *args, **kwargs: mock_response)
+        
+        # Test that FeatureError is raised
+        with pytest.raises(FeatureError) as excinfo:
+            client.geocoordinates.get_location()
+        assert "HTTP 404" in str(excinfo.value) 

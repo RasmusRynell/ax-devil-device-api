@@ -2,13 +2,11 @@
 
 import xml.etree.ElementTree as ET
 import requests
-from typing import Optional, Dict, Tuple, TypeVar, cast, Union, Any, Callable
+from typing import Optional, Dict, Tuple, Any
 from .base import FeatureClient
-from ..core.types import FeatureResponse
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
-T = TypeVar('T', bound=Union[Dict[str, Any], bool])
 LocationDict = Dict[str, Any]
 OrientationDict = Dict[str, Any]
 
@@ -128,7 +126,6 @@ class GeoCoordinatesParser:
             "is_valid": xml_bool(success, "ValidHeading")
         }
 
-
 class GeoCoordinatesClient(FeatureClient):
     """Client for device geocoordinates and orientation features."""
     
@@ -136,112 +133,84 @@ class GeoCoordinatesClient(FeatureClient):
     LOCATION_SET_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/geolocation/set.cgi")
     ORIENTATION_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/geoorientation/geoorientation.cgi")
     
-    def _handle_response(self, response: requests.Response, 
-                         parser_func: Callable[[str], T]) -> FeatureResponse[T]:
-        """Handle common response processing pattern."""
-        if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
-                "invalid_response", f"HTTP {response.status_code}"
-            ))
-            
-        try:
-            if parser_func is bool:
-                return FeatureResponse.ok(True)
-            return FeatureResponse.ok(cast(T, parser_func(response.text)))
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
-                "parse_error", f"Failed to parse response: {e}"
-            ))
-    
-    def _check_xml_response_for_success(self, response: requests.Response, 
-                                       error_code: str) -> FeatureResponse[bool]:
+    def _check_xml_success(self, response: requests.Response, error_code: str) -> bool:
         """Check XML response for success or error elements."""
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
-                error_code, f"HTTP {response.status_code}"
-            ))
+            raise FeatureError(error_code, f"HTTP {response.status_code}")
             
-        try:
-            root = parse_xml(response.text)
-            error = root.find(".//Error")
-            if error is not None:
-                error_code_val = xml_value(error, "ErrorCode") or "Unknown"
-                error_desc = xml_value(error, "ErrorDescription") or ""
-                return FeatureResponse.create_error(FeatureError(
-                    error_code, f"API error: {error_code_val} - {error_desc}"
-                ))
-                
-            if root.find(".//Success") is None:
-                return FeatureResponse.create_error(FeatureError(
-                    error_code, "No success confirmation in response"
-                ))
-                
-            return FeatureResponse.ok(True)
+        root = parse_xml(response.text)
+        error = root.find(".//Error")
+        if error is not None:
+            error_code_val = xml_value(error, "ErrorCode") or "Unknown"
+            error_desc = xml_value(error, "ErrorDescription") or ""
+            raise FeatureError(error_code, f"API error: {error_code_val} - {error_desc}")
             
-        except ValueError as e:
-            return FeatureResponse.create_error(FeatureError(
-                "invalid_response", f"Failed to parse response: {e}"
-            ))
-    
-    def _handle_request_error(self, e: Exception, error_code: str) -> FeatureResponse[bool]:
-        """Handle common request error pattern."""
-        return FeatureResponse.create_error(FeatureError(
-            error_code, f"Request failed: {e}"
-        ))
+        if root.find(".//Success") is None:
+            raise FeatureError(error_code, "No success confirmation in response")
+            
+        return True
         
-    def get_location(self) -> FeatureResponse[LocationDict]:
+    def get_location(self) -> LocationDict:
         """Get current device location."""
         response = self.request(
             self.LOCATION_GET_ENDPOINT,
             headers={"Accept": "text/xml"}
         )
-        return self._handle_response(response, GeoCoordinatesParser.location_from_xml)
+        
+        if response.status_code != 200:
+            raise FeatureError("invalid_response", f"HTTP {response.status_code}")
             
-    def set_location(self, latitude: float, longitude: float) -> FeatureResponse[bool]:
-        """Set device location."""
         try:
-            lat_str, lng_str = format_iso6709_coordinate(latitude, longitude)
-            response = self.request(
-                self.LOCATION_SET_ENDPOINT,
-                params={"lat": lat_str, "lng": lng_str},
-                headers={"Accept": "text/xml"}
-            )
-            return self._check_xml_response_for_success(response, "set_failed")
-        except Exception as e:
-            return self._handle_request_error(e, "set_failed")
+            return GeoCoordinatesParser.location_from_xml(response.text)
+        except ValueError as e:
+            raise FeatureError("parse_error", f"Failed to parse response: {e}")
             
-    def get_orientation(self) -> FeatureResponse[OrientationDict]:
+    def set_location(self, latitude: float, longitude: float) -> bool:
+        """Set device location."""
+        lat_str, lng_str = format_iso6709_coordinate(latitude, longitude)
+        response = self.request(
+            self.LOCATION_SET_ENDPOINT,
+            params={"lat": lat_str, "lng": lng_str},
+            headers={"Accept": "text/xml"}
+        )
+        return self._check_xml_success(response, "set_failed")
+            
+    def get_orientation(self) -> OrientationDict:
         """Get current device orientation."""
         response = self.request(
             self.ORIENTATION_ENDPOINT,
             params={"action": "get"},
             headers={"Accept": "text/xml"}
         )
-        return self._handle_response(response, GeoCoordinatesParser.orientation_from_xml)
-            
-    def set_orientation(self, orientation: OrientationDict) -> FeatureResponse[bool]:
-        """Set device orientation."""
-        try:
-            params = {"action": "set"}
-            param_mapping = {
-                "heading": "heading",
-                "tilt": "tilt", 
-                "roll": "roll",
-                "installation_height": "inst_height"
-            }
-            
-            params.update({
-                param: str(orientation[key]) 
-                for key, param in param_mapping.items() 
-                if orientation.get(key) is not None
-            })
-                
-            response = self.request(self.ORIENTATION_ENDPOINT, params=params)
-            return self._check_xml_response_for_success(response, "set_failed")
-        except Exception as e:
-            return self._handle_request_error(e, "set_failed")
         
-    def apply_settings(self) -> FeatureResponse[bool]:
+        if response.status_code != 200:
+            raise FeatureError("invalid_response", f"HTTP {response.status_code}")
+            
+        try:
+            return GeoCoordinatesParser.orientation_from_xml(response.text)
+        except ValueError as e:
+            raise FeatureError("parse_error", f"Failed to parse response: {e}")
+            
+    def set_orientation(self, orientation: OrientationDict) -> bool:
+        """Set device orientation."""
+        params = {"action": "set"}
+        param_mapping = {
+            "heading": "heading",
+            "tilt": "tilt", 
+            "roll": "roll",
+            "installation_height": "inst_height"
+        }
+        
+        params.update({
+            param: str(orientation[key]) 
+            for key, param in param_mapping.items() 
+            if orientation.get(key) is not None
+        })
+            
+        response = self.request(self.ORIENTATION_ENDPOINT, params=params)
+        return self._check_xml_success(response, "set_failed")
+        
+    def apply_settings(self) -> bool:
         """Apply pending orientation settings."""
         response = self.request(
             self.ORIENTATION_ENDPOINT,
@@ -249,8 +218,6 @@ class GeoCoordinatesClient(FeatureClient):
         )
         
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
-                "apply_failed", f"Failed to apply settings: HTTP {response.status_code}"
-            ))
-
-        return FeatureResponse.ok(True)
+            raise FeatureError("apply_failed", f"HTTP {response.status_code}")
+            
+        return True
