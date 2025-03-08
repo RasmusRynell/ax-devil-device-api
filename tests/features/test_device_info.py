@@ -33,6 +33,7 @@ class TestDeviceInfoFeature:
         assert health.is_success, f"Health check failed: {health.error}"
     
     @pytest.mark.restart
+    @pytest.mark.slow
     @pytest.mark.skip_health_check
     def test_restart(self, client):
         """Test device restart functionality.
