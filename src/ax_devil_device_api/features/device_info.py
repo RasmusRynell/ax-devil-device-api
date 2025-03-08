@@ -2,7 +2,6 @@ import requests
 from dataclasses import dataclass
 from typing import Dict, List
 from .base import FeatureClient
-from ..core.types import FeatureResponse
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
@@ -87,7 +86,7 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
     PARAMS_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/param.cgi")
     RESTART_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/restart.cgi")
     
-    def _parse_param_response(self, response: requests.Response) -> FeatureResponse[Dict[str, str]]:
+    def _parse_param_response(self, response: requests.Response) -> Dict[str, str]:
         """Parse raw parameter response into dictionary.
         
         Common functionality for parsing param.cgi responses into key-value pairs.
@@ -95,22 +94,16 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
         """
             
         if response.status_code != 200:
-            return FeatureResponse(error=FeatureError(
+            raise FeatureError(
                 "invalid_response",
                 f"Invalid parameter response: HTTP {response.status_code}"
-            ))
+            )
             
-        try:
-            lines = response.text.strip().split('\n')
-            params = dict(line.split('=', 1) for line in lines if '=' in line)
-            return FeatureResponse.ok(params)
-        except Exception as e:
-            return FeatureResponse(error=FeatureError(
-                "parse_error",
-                f"Failed to parse parameters: {str(e)}"
-            ))
+        lines = response.text.strip().split('\n')
+        params = dict(line.split('=', 1) for line in lines if '=' in line)
+        return params
 
-    def get_info(self) -> FeatureResponse[DeviceInfo]:
+    def get_info(self) -> DeviceInfo:
         """Get basic device information."""
         param_groups = ["Properties", "Brand"]
         params = {}
@@ -123,56 +116,41 @@ class DeviceInfoClient(FeatureClient[DeviceInfo]):
             )
             
             parsed = self._parse_param_response(response)
-            if not parsed.is_success:
-                return FeatureResponse.create_error(FeatureError(
+            if not parsed:
+                raise FeatureError(
                     "fetch_failed",
                     f"Failed to get {group} parameters",
-                    details={"group": group, "original_error": parsed.error}
-                ))
+                    details={"group": group}
+                )
             
-            params.update(parsed.data)
+            params.update(parsed)
         
-        try:
-            return FeatureResponse.ok(DeviceInfo.from_params(params))
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
-                "info_parse_failed",
-                "Failed to parse device info",
-                details={"error": str(e)}
-            ))
+        return DeviceInfo.from_params(params)
             
-    def restart(self) -> FeatureResponse[bool]:
+    def restart(self) -> bool:
         """Restart the device."""
         response = self.request(self.RESTART_ENDPOINT)
         
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "restart_failed",
                 f"Restart failed: HTTP {response.status_code}"
-            ))
-            
-        return FeatureResponse.ok(True)
-        
-    def check_health(self) -> FeatureResponse[bool]:
-        """Check if the device is responsive."""
-        try:
-            response = self.request(
-                self.PARAMS_ENDPOINT,
-                params={"action": "list", "group": "Network"},
-                headers={"Accept": "text/plain"}
             )
             
-            if response.status_code != 200:
-                return FeatureResponse.create_error(FeatureError(
-                    "health_check_failed",
-                    f"Health check failed: HTTP {response.status_code}"
-                ))
-                
-            return FeatureResponse.ok(True)
+        return True
+        
+    def check_health(self) -> bool:
+        """Check if the device is responsive."""
+        response = self.request(
+            self.PARAMS_ENDPOINT,
+            params={"action": "list", "group": "Network"},
+            headers={"Accept": "text/plain"}
+        )
+        
+        if response.status_code != 200:
+            raise FeatureError(
+                "health_check_failed",
+                f"Health check failed: HTTP {response.status_code}"
+            )
             
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
-                "health_check_error",
-                str(e),
-                details={"exception": str(e), "type": e.__class__.__name__}
-            ))
+        return True

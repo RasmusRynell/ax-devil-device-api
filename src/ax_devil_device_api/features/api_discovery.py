@@ -113,14 +113,7 @@ class DiscoveredAPI:
                 f"Failed to fetch model: HTTP {response.status_code}"
             )
             
-        try:
-            self._model = response.json()
-            return self._model
-        except Exception as e:
-            raise FeatureError(
-                "model_parse_failed",
-                f"Failed to parse model JSON: {str(e)}"
-            )
+        return response.json()
     
     def get_documentation_html(self) -> str:
         """Get the API's HTML documentation.
@@ -181,14 +174,7 @@ class DiscoveredAPI:
                 f"Failed to fetch OpenAPI spec: HTTP {response.status_code}"
             )
             
-        try:
-            self._openapi = response.json()
-            return self._openapi
-        except Exception as e:
-            raise FeatureError(
-                "openapi_parse_failed",
-                f"Failed to parse OpenAPI JSON: {str(e)}"
-            )
+        return response.json()
 
     @property
     def rest_api_url(self) -> str:
@@ -282,11 +268,4 @@ class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
                 f"Discovery request failed: HTTP {response.status_code}"
             )
             
-        try:
-            data = response.json()
-            return DiscoveredAPICollection.create_from_response(data, self)
-        except Exception as e:
-            raise FeatureError(
-                "parse_error",
-                f"Failed to parse discovery response: {str(e)}"
-            ) 
+        return DiscoveredAPICollection.create_from_response(response.json(), self)

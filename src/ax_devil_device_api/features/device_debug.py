@@ -1,9 +1,7 @@
-from dataclasses import dataclass
 from typing import Any, Optional
 from .base import FeatureClient
-from ..core.types import FeatureResponse, FeatureError
+from ..core.types import FeatureError
 from ..core.endpoints import TransportEndpoint
-from ..utils.errors import FeatureError as UtilsFeatureError
 
 
 class DeviceDebugClient(FeatureClient[Any]):
@@ -20,33 +18,33 @@ class DeviceDebugClient(FeatureClient[Any]):
     TCP_TEST_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/tcptest.cgi")
     CORE_DUMP_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/debug/debug.tgz?listen")
     
-    def download_server_report(self) -> FeatureResponse[bytes]:
+    def download_server_report(self) -> bytes:
         response = self.request(
             self.SERVER_REPORT_ENDPOINT,
             headers={"Content-Type": "application/octet-stream"},
             timeout=self.DOWNLOAD_TIMEOUT
         )
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "download_server_report_error",
                 f"Failed to download server report: HTTP {response.status_code}"
-            ))
-        return FeatureResponse.ok(response.content)
+            )
+        return response.content
     
-    def download_crash_report(self) -> FeatureResponse[bytes]:
+    def download_crash_report(self) -> bytes:
         response = self.request(
             self.CRASH_REPORT_ENDPOINT,
             headers={"Content-Type": "application/octet-stream"},
             timeout=self.DOWNLOAD_TIMEOUT
         )
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "download_crash_report_error",
                 f"Failed to download crash report: HTTP {response.status_code}"
-            ))
-        return FeatureResponse.ok(response.content)
+            )
+        return response.content
     
-    def download_network_trace(self, duration: int = 30, interface: Optional[str] = None) -> FeatureResponse[bytes]:
+    def download_network_trace(self, duration: int = 30, interface: Optional[str] = None) -> bytes:
         params = {"duration": duration}
         if interface:
             params["interface"] = interface
@@ -59,59 +57,51 @@ class DeviceDebugClient(FeatureClient[Any]):
             timeout=total_timeout
         )
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "network_trace_error",
                 f"Failed to download network trace: HTTP {response.status_code}"
-            ))
-        return FeatureResponse.ok(response.content)
+            )
+        return response.content
     
-    def ping_test(self, target: str) -> FeatureResponse[str]:
+    def ping_test(self, target: str) -> str:
         if not target:
-            return FeatureResponse.create_error(FeatureError("parameter_required", "Target IP or hostname is required"))
+            raise FeatureError("parameter_required", "Target IP or hostname is required")
         response = self.request(
             self.PING_TEST_ENDPOINT,
             params={"ip": target},
             headers={"Accept": "application/json"}
         )
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "ping_test_error",
                 f"Failed to ping test: HTTP {response.status_code}"
-            ))
-        try:
-            data = response.text
-            return FeatureResponse.ok(data)
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError("parse_failed", f"Error parsing ping response: {str(e)}"))
+            )
+        return response.text
     
-    def port_open_test(self, address: str, port: int) -> FeatureResponse[str]:
+    def port_open_test(self, address: str, port: int) -> str:
         if not address or not port:
-            return FeatureResponse.create_error(FeatureError("parameter_required", "Address and port are required"))
+            raise FeatureError("parameter_required", "Address and port are required")
         response = self.request(
             self.TCP_TEST_ENDPOINT,
             params={"address": address, "port": port},
             headers={"Accept": "application/json"}
         )
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "port_open_test_error",
                 f"Failed to port open test: HTTP {response.status_code}"
-            ))
-        try:
-            data = response.text
-            return FeatureResponse.ok(data)
-        except Exception as e:
-            return FeatureResponse.create_error(FeatureError("parse_failed", f"Error parsing port test response: {str(e)}"))
+            )
+        return response.text
     
-    def collect_core_dump(self) -> FeatureResponse[bytes]:
+    def collect_core_dump(self) -> bytes:
         response = self.request(
             self.CORE_DUMP_ENDPOINT,
             headers={"Content-Type": "application/octet-stream"},
             timeout=self.CORE_DUMP_TIMEOUT
         )
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "core_dump_error",
                 f"Failed to collect core dump: HTTP {response.status_code}"
-            ))
-        return FeatureResponse.ok(response.content)
+            )
+        return response.content
