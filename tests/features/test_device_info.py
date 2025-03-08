@@ -10,15 +10,15 @@ class TestDeviceInfoFeature:
     def test_get_info(self, client):
         """Test device info retrieval."""
         info = client.device.get_info()
-        assert info.model, "Model should not be empty"
-        assert info.product_number, "Product number should not be empty"
-        assert info.product_type, "Product type should not be empty"
-        assert info.serial_number, "Serial number should not be empty"
-        assert info.hardware_id, "Hardware ID should not be empty"
-        assert info.firmware_version, "Firmware version should not be empty"
-        assert info.build_date, "Build date should not be empty"
-        assert isinstance(info.ptz_support, list), "PTZ support should be a list"
-        assert isinstance(info.analytics_support, bool), "Analytics support should be a boolean"
+        assert info.get("model"), "Model should not be empty"
+        assert info.get("product_number"), "Product number should not be empty"
+        assert info.get("product_type"), "Product type should not be empty"
+        assert info.get("serial_number"), "Serial number should not be empty"
+        assert info.get("hardware_id"), "Hardware ID should not be empty"
+        assert info.get("firmware_version"), "Firmware version should not be empty"
+        assert info.get("build_date"), "Build date should not be empty"
+        assert isinstance(info.get("ptz_support"), list), "PTZ support should be a list"
+        assert isinstance(info.get("analytics_support"), bool), "Analytics support should be a boolean"
     
     @pytest.mark.skip_health_check
     @pytest.mark.integration
