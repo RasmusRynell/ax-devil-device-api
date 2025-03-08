@@ -1,7 +1,6 @@
 """Feature flag management functionality."""
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from .base import FeatureClient
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
