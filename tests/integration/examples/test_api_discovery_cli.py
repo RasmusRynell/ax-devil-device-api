@@ -24,16 +24,28 @@ class MockApi:
         }
     
     def get_documentation(self):
-        return MagicMock(is_success=True, data="# Markdown Documentation")
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.data = "# Markdown Documentation\n\nThis is the API documentation."
+        return mock_response.data
     
     def get_documentation_html(self):
-        return MagicMock(is_success=True, data="<html>HTML Documentation</html>")
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.data = "<html>HTML Documentation</html>"
+        return mock_response.data
     
     def get_model(self):
-        return MagicMock(is_success=True, data={"model": "data"})
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.data = {"model": "data"}
+        return mock_response.data
     
     def get_openapi_spec(self):
-        return MagicMock(is_success=True, data={"openapi": "3.0.0"})
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.data = {"openapi": "3.0.0"}
+        return mock_response.data
 
 # Mock APIs collection
 class MockApis:

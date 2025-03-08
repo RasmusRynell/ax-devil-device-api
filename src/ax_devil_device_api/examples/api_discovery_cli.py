@@ -2,7 +2,6 @@
 """CLI for discovering and inspecting available discoverable APIs."""
 
 import click
-import json
 import webbrowser
 from urllib.parse import urljoin
 
