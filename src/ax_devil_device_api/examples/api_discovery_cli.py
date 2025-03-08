@@ -146,14 +146,11 @@ def show_api_info(api, ctx,
         elif show_raw and get_raw_content:
             click.echo("Fetching content:")
             result = get_raw_content()
-            if not result.is_success:
-                click.echo(f"Error fetching content: {result.error}", err=True)
-                return
 
             if is_json:
-                click.echo(format_json(result.data))
+                click.echo(format_json(result))
             else:
-                click.echo(result.data)
+                click.echo(result)
         elif show:
             click.echo("Opening in browser...")
             webbrowser.open(full_url)
