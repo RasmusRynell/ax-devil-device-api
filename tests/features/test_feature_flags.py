@@ -47,7 +47,7 @@ class TestFeatureFlagFeature:
             restore_response = client.feature_flags.set_flags({test_flag.name: original_value})
             assert restore_response.is_success, f"Failed to restore flag: {restore_response.error}"
     
-    @pytest.mark.integration
+    @pytest.mark.unit
     def test_get_flags_empty(self, client):
         """Test error handling for empty flag names."""
         response = client.feature_flags.get_flags([])
@@ -55,7 +55,7 @@ class TestFeatureFlagFeature:
         assert response.error.code == "invalid_request"
         assert "No flag names" in response.error.message
     
-    @pytest.mark.integration
+    @pytest.mark.unit
     def test_set_flags_empty(self, client):
         """Test error handling for empty flag values."""
         response = client.feature_flags.set_flags({})

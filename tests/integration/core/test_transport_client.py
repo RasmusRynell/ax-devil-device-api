@@ -14,11 +14,7 @@ from ax_devil_device_api.core.config import DeviceConfig, Protocol, AuthMethod
 from ax_devil_device_api.core.endpoints import TransportEndpoint
 from ax_devil_device_api.utils.errors import NetworkError, AuthenticationError, SecurityError
 
-# Import from our test mocks
 from tests.mocks.http_server import MockDeviceHandler
-
-# Define pytest marks
-pytestmark = pytest.mark.integration  # Mark all tests in this module as integration tests
 
 
 @pytest.mark.transport
@@ -65,6 +61,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.basic_operation
+    @pytest.mark.unit
     def test_basic_request(self, http_client):
         """Test that a basic GET request works."""
         endpoint = TransportEndpoint("GET", "/api/info")
@@ -77,6 +74,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.basic_operation
+    @pytest.mark.unit
     def test_post_request_with_json(self, http_client):
         """Test POST request with JSON payload."""
         endpoint = TransportEndpoint("POST", "/api/data")
@@ -90,6 +88,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.basic_operation
+    @pytest.mark.unit
     def test_put_request(self, http_client):
         """Test that PUT requests work properly."""
         endpoint = TransportEndpoint("PUT", "/api/data")
@@ -103,6 +102,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.basic_operation
+    @pytest.mark.unit
     def test_delete_request(self, http_client):
         """Test that DELETE requests work properly."""
         endpoint = TransportEndpoint("DELETE", "/api/resource")
@@ -112,6 +112,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.basic_operation
+    @pytest.mark.unit
     def test_custom_headers(self, http_client):
         """Test that custom headers are properly sent."""
         endpoint = TransportEndpoint("GET", "/api/info")
@@ -131,6 +132,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.session
+    @pytest.mark.unit
     def test_session_persistence(self, mock_server, http_client):
         """Test that session cookies are maintained across requests."""
         endpoint = TransportEndpoint("GET", "/api/info")
@@ -145,6 +147,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.session
+    @pytest.mark.unit
     def test_new_session_context_manager(self, mock_server, http_client):
         """Test that new_session context manager creates a fresh session."""
         endpoint = TransportEndpoint("GET", "/api/info")
@@ -164,6 +167,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.session
+    @pytest.mark.unit
     def test_clear_session(self, mock_server, http_client):
         """Test that clear_session creates a fresh session."""
         endpoint = TransportEndpoint("GET", "/api/info")
@@ -184,6 +188,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.auth
+    @pytest.mark.unit
     def test_basic_auth(self, mock_server, http_client):
         """Test that basic authentication works."""
         MockDeviceHandler.auth_required = True
@@ -196,6 +201,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.auth
+    @pytest.mark.unit
     def test_digest_auth(self, mock_server):
         """Test digest authentication."""
         MockDeviceHandler.auth_required = True
@@ -220,6 +226,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.auth
+    @pytest.mark.unit
     def test_auto_auth_basic(self, mock_server):
         """Test automatic detection of basic auth."""
         MockDeviceHandler.auth_required = True
@@ -244,6 +251,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.auth
+    @pytest.mark.unit
     def test_auto_auth_digest(self, mock_server):
         """Test automatic detection of digest auth."""
         MockDeviceHandler.auth_required = True
@@ -269,6 +277,7 @@ class TestTransportClient:
     @pytest.mark.http
     @pytest.mark.auth
     @pytest.mark.error
+    @pytest.mark.unit
     def test_auth_failure(self, mock_server):
         """Test handling of authentication failures."""
         MockDeviceHandler.auth_required = True
@@ -299,6 +308,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.error
+    @pytest.mark.unit
     def test_timeout_handling(self, mock_server):
         """Test that timeouts are properly handled."""
         MockDeviceHandler.simulate_timeout = True
@@ -326,6 +336,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.error
+    @pytest.mark.unit
     def test_connection_error_handling(self, mock_server):
         """Test that connection errors are properly handled."""
         MockDeviceHandler.simulate_connection_error = True
@@ -353,6 +364,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.error
+    @pytest.mark.unit
     def test_http_error_handling(self, http_client):
         """Test handling of HTTP error status codes."""
         endpoint = TransportEndpoint("GET", "/api/server-error")
@@ -369,6 +381,7 @@ class TestTransportClient:
     # =========================================================================
     
     @pytest.mark.https
+    @pytest.mark.unit
     def test_basic_https_request(self, https_client):
         """Test a basic HTTPS request with verification disabled."""
         endpoint = TransportEndpoint("GET", "/api/info")
@@ -379,6 +392,7 @@ class TestTransportClient:
         assert data["version"] == "1.0"
     
     @pytest.mark.https
+    @pytest.mark.unit
     def test_https_always_insecure(self, mock_https_server):
         """Test that HTTPS connections are always insecure (verify=False) by default."""
         port, _ = mock_https_server
@@ -408,6 +422,7 @@ class TestTransportClient:
     
     @pytest.mark.https
     @pytest.mark.error
+    @pytest.mark.unit
     def test_ssl_verification_not_implemented(self, mock_https_server):
         """Test that SSL verification is not implemented and raises an error."""
         port, _ = mock_https_server
@@ -432,6 +447,7 @@ class TestTransportClient:
     
     @pytest.mark.http
     @pytest.mark.concurrency
+    @pytest.mark.unit
     def test_concurrent_requests(self, http_client):
         """Test that the client can handle multiple concurrent requests."""
         # Reset session tokens explicitly for this test
@@ -446,14 +462,10 @@ class TestTransportClient:
         endpoint = TransportEndpoint("GET", "/api/info")
         num_requests = 5  # Reduced from 10 to make debugging easier
         
-        print(f"\nBefore concurrent requests: {MockDeviceHandler.session_tokens}")
-        
         # Execute requests concurrently
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_requests) as executor:
             futures = [executor.submit(http_client.request, endpoint) for _ in range(num_requests)]
             responses = [future.result() for future in concurrent.futures.as_completed(futures)]
-        
-        print(f"After concurrent requests: {MockDeviceHandler.session_tokens}")
         
         # All requests should succeed
         assert len(responses) == num_requests
@@ -472,6 +484,7 @@ class TestTransportClient:
         MockDeviceHandler.use_fixed_session_token = False
     
     @pytest.mark.http
+    @pytest.mark.unit
     def test_connection_pool_configuration(self, http_client):
         """Test that the client has the expected adapter configuration."""
         # Test that the client has the expected adapter configuration

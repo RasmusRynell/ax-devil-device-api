@@ -130,7 +130,7 @@ class TestAnalyticsMqttClient:
         list_response = client.analytics_mqtt.list_publishers()
         assert not any(p.id == config.id for p in list_response)
         
-    @pytest.mark.integration
+    @pytest.mark.unit
     def test_remove_publisher_invalid_id(self, client):
         """Test publisher removal with invalid ID."""
         with pytest.raises(FeatureError) as e:

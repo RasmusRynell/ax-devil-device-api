@@ -110,7 +110,7 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
             raise FeatureError("request_failed", json_response.get("error", "Unknown error"))
         if "data" not in json_response:
             raise FeatureError("parse_failed", "No data found in response")
-        print("TEST5")
+        
         response.raise_for_status()
         return json_response.get("data")
 
@@ -142,13 +142,12 @@ class AnalyticsMqttClient(FeatureClient[PublisherConfig]):
         Returns:
             Created publisher configuration
         """
-        print("TEST6")
+
         response = self._json_request_wrapper(
             self.CREATE_PUBLISHER_ENDPOINT,
             json=config.to_payload(),
             headers=self.JSON_HEADERS
         )
-        print("TEST7")
         return PublisherConfig.create_from_response(response)
 
     def remove_publisher(self, publisher_id: str) -> bool:

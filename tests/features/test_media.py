@@ -26,7 +26,7 @@ class TestMediaFeature:
         assert response.is_success, f"Failed to get snapshot: {response.error}"
         self._verify_snapshot_data(response.data)
         
-    @pytest.mark.integration
+    @pytest.mark.unit
     def test_invalid_compression(self, client):
         """Test error handling for invalid compression value."""
         config = MediaConfig(compression=101)  # Invalid: > 100
@@ -35,7 +35,7 @@ class TestMediaFeature:
         assert response.error.code == "invalid_config"
         assert "Compression" in response.error.message
         
-    @pytest.mark.integration
+    @pytest.mark.unit
     def test_invalid_rotation(self, client):
         """Test error handling for invalid rotation value."""
         config = MediaConfig(rotation=45)  # Invalid: not 0/90/180/270

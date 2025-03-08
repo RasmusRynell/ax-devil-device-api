@@ -30,6 +30,12 @@ def pytest_addoption(parser):
         default="https",
         help="Protocol to use for device communication (default: https)"
     )
+    parser.addoption(
+        "--run-slow",
+        action="store_true",
+        default=False,
+        help="Run slow tests (potentially time-consuming)"
+    )
 
 def pytest_configure(config):
     """Configure test environment."""
@@ -44,12 +50,18 @@ def pytest_configure(config):
     )
 
 def pytest_collection_modifyitems(config, items):
-    """Skip restart tests unless explicitly enabled."""
+    """Skip restart and slow tests unless explicitly enabled."""
     if not config.getoption("--run-restart"):
         skip_restart = pytest.mark.skip(reason="Need --run-restart option to run")
         for item in items:
             if "restart" in item.keywords:
                 item.add_marker(skip_restart)
+
+    if not config.getoption("--run-slow"):
+        skip_slow = pytest.mark.skip(reason="Need --run-slow option to run")
+        for item in items:
+            if "slow" in item.keywords:
+                item.add_marker(skip_slow)
 
 @pytest.fixture(scope="session")
 def protocol(request):
@@ -251,7 +263,6 @@ def https_client(mock_https_server):
 @pytest.fixture(autouse=True)
 def reset_mock_handler():
     """Reset the MockDeviceHandler state before each test."""
-    print("\nResetting MockDeviceHandler state")
     with MockDeviceHandler.session_lock:
         MockDeviceHandler.auth_required = True
         MockDeviceHandler.auth_method = "basic"

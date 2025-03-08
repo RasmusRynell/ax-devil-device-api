@@ -1,6 +1,7 @@
 """Tests for analytics MQTT CLI."""
 
 import pytest
+import time
 from click.testing import CliRunner
 from unittest.mock import patch, MagicMock
 from ax_devil_device_api.examples.analytics_mqtt_cli import cli

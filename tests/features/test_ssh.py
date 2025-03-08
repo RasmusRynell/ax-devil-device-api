@@ -10,7 +10,7 @@ def test_add_user(client):
     assert result.data.username == "testuser"
     assert result.data.comment == "Test User"
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_add_user_invalid_input(client):
     """Test adding user with invalid input."""
     result = client.ssh.add_user("", "testpass")
@@ -41,7 +41,7 @@ def test_get_user(client):
     assert result.data.username == "testuser"
     assert result.data.comment == "Test User"
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_get_user_invalid_input(client):
     """Test retrieving user with invalid input."""
     result = client.ssh.get_user("")
@@ -60,7 +60,7 @@ def test_modify_user(client):
     assert result.data.username == "testuser"
     assert result.data.comment == "Updated User"
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_modify_user_invalid_input(client):
     """Test modifying user with invalid input."""
     result = client.ssh.modify_user("")
@@ -80,7 +80,7 @@ def test_remove_user(client):
     result = client.ssh.get_user("testuser")
     assert not result.is_success
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_remove_user_invalid_input(client):
     """Test removing user with invalid input."""
     result = client.ssh.remove_user("")

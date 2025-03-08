@@ -38,7 +38,7 @@ def test_ping_test_valid(client):
     assert isinstance(result.data, str), "Expected text data for ping test"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_ping_test_invalid(client):
     """Test ping test with empty target returns error."""
     result = client.device_debug.ping_test("")
@@ -53,7 +53,7 @@ def test_port_open_test_valid(client):
     assert isinstance(result.data, str), "Expected text data for port open test"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_port_open_test_invalid(client):
     """Test port open test with invalid inputs returns error."""
     result = client.device_debug.port_open_test("", 53)
