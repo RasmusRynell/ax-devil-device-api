@@ -10,19 +10,18 @@ class TestAPIDiscoveryFeature:
     def test_discover(self, client):
         """Test basic API discovery."""
         result = client.discovery.discover()
-        assert result.is_success, f"Failed to discover APIs: {result.error}"
         self._verify_discovery_result(result)
     
     def _verify_discovery_result(self, result):
         """Helper to verify discovery response."""
         # Verify collection structure
-        assert hasattr(result.data, 'apis'), "Result should have apis attribute"
-        assert isinstance(result.data.apis, dict), "APIs should be a dictionary"
-        assert len(result.data.apis) > 0, "At least one API should be discovered"
+        assert hasattr(result, 'apis'), "Result should have apis attribute"
+        assert isinstance(result.apis, dict), "APIs should be a dictionary"
+        assert len(result.apis) > 0, "At least one API should be discovered"
         
         # Get first API for detailed verification
-        first_api_name = next(iter(result.data.apis))
-        first_api_versions = result.data.apis[first_api_name]
+        first_api_name = next(iter(result.apis))
+        first_api_versions = result.apis[first_api_name]
         assert isinstance(first_api_versions, dict), "API versions should be a dictionary"
         
         # Verify API version structure
@@ -37,52 +36,44 @@ class TestAPIDiscoveryFeature:
     def test_get_api_documentation(self, client):
         """Test fetching API documentation."""
         # First discover APIs
-        discovery = client.discovery.discover()
-        assert discovery.is_success, "Discovery failed"
+        collection = client.discovery.discover()
         
         # Get first available API
-        api = discovery.data.get_all_apis()[0]
+        api = collection.get_all_apis()[0]
         
         # Test markdown documentation
         doc_result = api.get_documentation()
-        assert doc_result.is_success, f"Failed to get documentation: {doc_result.error}"
-        assert isinstance(doc_result.data, str), "Documentation should be a string"
-        assert len(doc_result.data) > 0, "Documentation should not be empty"
+        assert isinstance(doc_result, str), "Documentation should be a string"
+        assert len(doc_result) > 0, "Documentation should not be empty"
         
         # Test caching - second call should use cached data
         cached_result = api.get_documentation()
-        assert cached_result.is_success
-        assert cached_result.data == doc_result.data
+        assert cached_result == doc_result
         
         # Test HTML documentation
         html_result = api.get_documentation_html()
-        assert html_result.is_success, f"Failed to get HTML documentation: {html_result.error}"
-        assert isinstance(html_result.data, str), "HTML documentation should be a string"
-        assert len(html_result.data) > 0, "HTML documentation should not be empty"
+        assert isinstance(html_result, str), "HTML documentation should be a string"
+        assert len(html_result) > 0, "HTML documentation should not be empty"
         
         # Test HTML caching
         cached_html = api.get_documentation_html()
-        assert cached_html.is_success
-        assert cached_html.data == html_result.data
+        assert cached_html == html_result
     
     @pytest.mark.integration
     def test_get_api_model(self, client):
         """Test fetching API model."""
-        discovery = client.discovery.discover()
-        assert discovery.is_success, "Discovery failed"
-        
-        api = discovery.data.get_all_apis()[0]
+        collection = client.discovery.discover()
+            
+        api = collection.get_all_apis()[0]
         
         # Test model retrieval
         model_result = api.get_model()
-        assert model_result.is_success, f"Failed to get model: {model_result.error}"
-        assert isinstance(model_result.data, dict), "Model should be a dictionary"
-        self._verify_model_structure(model_result.data)
+        assert isinstance(model_result, dict), "Model should be a dictionary"
+        self._verify_model_structure(model_result)
         
         # Test caching
         cached_model = api.get_model()
-        assert cached_model.is_success
-        assert cached_model.data == model_result.data
+        assert cached_model == model_result
     
     def _verify_model_structure(self, model):
         """Helper to verify model response structure."""
@@ -93,21 +84,18 @@ class TestAPIDiscoveryFeature:
     @pytest.mark.integration
     def test_get_openapi_spec(self, client):
         """Test fetching OpenAPI specification."""
-        discovery = client.discovery.discover()
-        assert discovery.is_success, "Discovery failed"
+        collection = client.discovery.discover()
         
-        api = discovery.data.get_all_apis()[0]
+        api = collection.get_all_apis()[0]
         
         # Test OpenAPI spec retrieval
         spec_result = api.get_openapi_spec()
-        assert spec_result.is_success, f"Failed to get OpenAPI spec: {spec_result.error}"
-        assert isinstance(spec_result.data, dict), "OpenAPI spec should be a dictionary"
-        self._verify_openapi_structure(spec_result.data)
+        assert isinstance(spec_result, dict), "OpenAPI spec should be a dictionary"
+        self._verify_openapi_structure(spec_result)
         
         # Test caching
         cached_spec = api.get_openapi_spec()
-        assert cached_spec.is_success
-        assert cached_spec.data == spec_result.data
+        assert cached_spec == spec_result
     
     def _verify_openapi_structure(self, spec):
         """Helper to verify OpenAPI spec structure."""
@@ -119,10 +107,7 @@ class TestAPIDiscoveryFeature:
     @pytest.mark.integration
     def test_api_collection_methods(self, client):
         """Test API collection helper methods."""
-        discovery = client.discovery.discover()
-        assert discovery.is_success, "Discovery failed"
-        
-        collection = discovery.data
+        collection = client.discovery.discover()
         
         # Test get_all_apis
         all_apis = collection.get_all_apis()
@@ -148,10 +133,7 @@ class TestAPIDiscoveryFeature:
     @pytest.mark.integration
     def test_error_handling(self, client):
         """Test error handling for invalid requests."""
-        discovery = client.discovery.discover()
-        assert discovery.is_success, "Discovery failed"
-        
-        collection = discovery.data
+        collection = client.discovery.discover()
         
         # Test non-existent API
         non_existent = collection.get_api("non_existent_api")
@@ -165,10 +147,9 @@ class TestAPIDiscoveryFeature:
     @pytest.mark.integration
     def test_url_properties(self, client):
         """Test REST API and UI URL properties."""
-        discovery = client.discovery.discover()
-        assert discovery.is_success, "Discovery failed"
+        collection = client.discovery.discover()
         
-        api = discovery.data.get_all_apis()[0]
+        api = collection.get_all_apis()[0]
         
         # Test URL properties
         assert isinstance(api.rest_api_url, str), "REST API URL should be a string"
@@ -205,10 +186,9 @@ class TestAPIDiscoveryFeature:
     @pytest.mark.integration
     def test_client_initialization(self, client):
         """Test client initialization checks."""
-        discovery = client.discovery.discover()
-        assert discovery.is_success, "Discovery failed"
+        collection = client.discovery.discover()
         
-        api = discovery.data.get_all_apis()[0]
+        api = collection.get_all_apis()[0]
         
         # Test with uninitialized client
         api._client = None

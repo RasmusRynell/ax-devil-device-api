@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Optional, Dict, List
 
 from .base import FeatureClient
-from ..core.types import FeatureResponse
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
@@ -22,10 +21,8 @@ class DiscoveredAPI:
     state: str
     version_string: str
     
-    # URLs for various resources
     _urls: Dict[str, str]
     
-    # Cache for loaded resources
     _documentation: Optional[str] = None
     _documentation_html: Optional[str] = None
     _model: Optional[Dict] = None
@@ -57,53 +54,53 @@ class DiscoveredAPI:
         if not self._client:
             raise RuntimeError("API instance not properly initialized with client")
     
-    def get_documentation(self) -> FeatureResponse[str]:
+    def get_documentation(self) -> str:
         """Get the API's markdown documentation.
         
         Makes a request only on first access, then caches the result.
         """
-        self._ensure_client()
-        
         if self._documentation is not None:
-            return FeatureResponse.ok(self._documentation)
+            return self._documentation
+        
+        self._ensure_client()
             
         doc_url = self._urls.get('doc')
         if not doc_url:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "missing_documentation",
                 f"No documentation URL available for {self.name} {self.version}"
-            ))
-            
+            )
+        
         response = self._client.request(
             TransportEndpoint("GET", doc_url),
             headers={"Accept": "text/markdown"}
         )
             
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "doc_fetch_failed",
                 f"Failed to fetch documentation: HTTP {response.status_code}"
-            ))
+            )
             
         self._documentation = response.text
-        return FeatureResponse.ok(self._documentation)
+        return self._documentation
     
-    def get_model(self) -> FeatureResponse[Dict]:
+    def get_model(self) -> Dict:
         """Get the API's JSON model.
         
         Makes a request only on first access, then caches the result.
         """
-        self._ensure_client()
-        
         if self._model is not None:
-            return FeatureResponse.ok(self._model)
+            return self._model
+        
+        self._ensure_client()
             
         model_url = self._urls.get('model')
         if not model_url:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "missing_model",
                 f"No model URL available for {self.name} {self.version}"
-            ))
+            )
             
         response = self._client.request(
             TransportEndpoint("GET", model_url),
@@ -111,36 +108,36 @@ class DiscoveredAPI:
         )
         
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "model_fetch_failed",
                 f"Failed to fetch model: HTTP {response.status_code}"
-            ))
+            )
             
         try:
             self._model = response.json()
-            return FeatureResponse.ok(self._model)
+            return self._model
         except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "model_parse_failed",
                 f"Failed to parse model JSON: {str(e)}"
-            ))
+            )
     
-    def get_documentation_html(self) -> FeatureResponse[str]:
+    def get_documentation_html(self) -> str:
         """Get the API's HTML documentation.
         
         Makes a request only on first access, then caches the result.
         """
-        self._ensure_client()
-        
         if self._documentation_html is not None:
-            return FeatureResponse.ok(self._documentation_html)
+            return self._documentation_html
+        
+        self._ensure_client()
             
         doc_url = self._urls.get('doc_html')
         if not doc_url:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "missing_documentation_html",
                 f"No HTML documentation URL available for {self.name} {self.version}"
-            ))
+            )
             
         response = self._client.request(
             TransportEndpoint("GET", doc_url),
@@ -148,30 +145,30 @@ class DiscoveredAPI:
         )
         
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "doc_html_fetch_failed",
                 f"Failed to fetch HTML documentation: HTTP {response.status_code}"
-            ))
+            )
             
         self._documentation_html = response.text
-        return FeatureResponse.ok(self._documentation_html)
+        return self._documentation_html
 
-    def get_openapi_spec(self) -> FeatureResponse[Dict]:
+    def get_openapi_spec(self) -> Dict:
         """Get the API's OpenAPI specification.
         
         Makes a request only on first access, then caches the result.
         """
-        self._ensure_client()
-        
         if self._openapi is not None:
-            return FeatureResponse.ok(self._openapi)
+            return self._openapi
+        
+        self._ensure_client()
             
         openapi_url = self._urls.get('rest_openapi')
         if not openapi_url:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "missing_openapi",
                 f"No OpenAPI spec URL available for {self.name} {self.version}"
-            ))
+            )
             
         response = self._client.request(
             TransportEndpoint("GET", openapi_url),
@@ -179,19 +176,19 @@ class DiscoveredAPI:
         )
         
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "openapi_fetch_failed",
                 f"Failed to fetch OpenAPI spec: HTTP {response.status_code}"
-            ))
+            )
             
         try:
             self._openapi = response.json()
-            return FeatureResponse.ok(self._openapi)
+            return self._openapi
         except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "openapi_parse_failed",
                 f"Failed to parse OpenAPI JSON: {str(e)}"
-            ))
+            )
 
     @property
     def rest_api_url(self) -> str:
@@ -223,12 +220,11 @@ class DiscoveredAPICollection:
         """Create APICollection from discovery response data."""
         apis = {}
         
-        # Parse the nested API structure
         for api_name, versions in data.get('apis', {}).items():
             apis[api_name] = {}
             for version, api_data in versions.items():
                 api = DiscoveredAPI.from_discovery_data(api_name, version, api_data)
-                api._client = client  # Inject client for making requests
+                api._client = client  # Inject client for making requests in future requests
                 apis[api_name][version] = api
         
         return cls(apis=apis, raw_data=data)
@@ -244,7 +240,6 @@ class DiscoveredAPICollection:
         if version:
             return self.apis[name].get(version)
             
-        # If no version specified, try to get latest
         versions = sorted(self.apis[name].keys())
         return self.apis[name][versions[-1]] if versions else None
     
@@ -270,11 +265,11 @@ class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
     
     DISCOVER_ENDPOINT = TransportEndpoint("GET", "/config/discover")
     
-    def discover(self) -> FeatureResponse[DiscoveredAPICollection]:
+    def discover(self) -> DiscoveredAPICollection:
         """Get information about available APIs.
         
         Returns:
-            FeatureResponse containing DiscoveredAPICollection with discovered APIs
+            DiscoveredAPICollection with discovered APIs
         """
         response = self.request(
             self.DISCOVER_ENDPOINT,
@@ -282,16 +277,16 @@ class DiscoveryClient(FeatureClient[DiscoveredAPICollection]):
         )
             
         if response.status_code != 200:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "discovery_failed",
                 f"Discovery request failed: HTTP {response.status_code}"
-            ))
+            )
             
         try:
             data = response.json()
-            return FeatureResponse.ok(DiscoveredAPICollection.create_from_response(data, self))
+            return DiscoveredAPICollection.create_from_response(data, self)
         except Exception as e:
-            return FeatureResponse.create_error(FeatureError(
+            raise FeatureError(
                 "parse_error",
                 f"Failed to parse discovery response: {str(e)}"
-            )) 
+            ) 

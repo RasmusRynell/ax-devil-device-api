@@ -36,11 +36,8 @@ def list_apis(ctx):
     """List all available APIs on the device."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.discovery.discover()
-            if not result.is_success:
-                return handle_error(ctx, result.error)
-                
-            apis = result.data
+            apis = client.discovery.discover()
+            
             click.echo(f"\nFound {len(apis.get_all_apis())} APIs:")
             for api in apis.get_all_apis():
                 click.echo(f"- {api.name} {api.version} ({api.state})")
@@ -92,12 +89,7 @@ def get_api_info(ctx, api_name, version,
     """
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            # First discover APIs
-            result = client.discovery.discover()
-            if not result.is_success:
-                return handle_error(ctx, result.error)
-                
-            apis = result.data
+            apis = client.discovery.discover()
 
             api = apis.get_api(api_name, version)
             if not api:
@@ -223,11 +215,7 @@ def list_versions(ctx, api_name):
     """List all available versions of a specific API."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.discovery.discover()
-            if not result.is_success:
-                return handle_error(ctx, result.error)
-                
-            apis = result.data
+            apis = client.discovery.discover()
             versions = apis.get_apis_by_name(api_name)
             
             if not versions:
