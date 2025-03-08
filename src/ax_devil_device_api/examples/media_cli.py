@@ -6,8 +6,6 @@ from .cli_core import (
     create_client, handle_result, handle_error, get_client_args,
     common_options
 )
-from ..features.media import MediaConfig
-
 
 @click.group()
 @common_options
@@ -27,34 +25,23 @@ def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, debug
 
 
 @cli.command('snapshot')
-@click.option('--resolution', help='Image resolution (WxH format, e.g., "1920x1080")')
-@click.option('--compression', type=int, help='JPEG compression level (1-100)')
-@click.option('--device', type=int, help='Camera head identifier for multi-sensor devices')
-@click.option('--rotation', type=int, help='Image rotation in degrees (0, 90, 180, or 270)')
+@click.option('--resolution', help='Image resolution (WxH format, e.g., "1920x1080")', default="1920x1080")
+@click.option('--compression', type=int, help='JPEG compression level (1-100)', default=0)
+@click.option('--device', type=int, help='Camera head identifier for multi-sensor devices', default=0)
+@click.option('--rotation', type=int, help='Image rotation in degrees (0, 90, 180, or 270)', default=0)
 @click.option('--output', '-o', type=click.Path(dir_okay=False), default="snapshot.jpg",
               help='Output file path')
 @click.pass_context
 def snapshot(ctx, resolution, compression, device, rotation, output):
     """Capture JPEG snapshot from device."""
     try:
-        config = None
-        if any(x is not None for x in (resolution, compression, device, rotation)):
-            config = MediaConfig(
-                resolution=resolution,
-                compression=compression,
-                device_head=device,
-                rotation=rotation
-            )
         
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.media.get_snapshot(config)
-            
-            if not result.is_success:
-                return handle_error(ctx, result.error)
-                
+            result = client.media.get_snapshot(resolution, compression, device, rotation)
+
             try:
                 with open(output, 'wb') as f:
-                    f.write(result.data)
+                    f.write(result)
 
                 click.echo(click.style(f"Snapshot saved to {output}", fg="green"))
                 return 0
