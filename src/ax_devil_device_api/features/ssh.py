@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 
 import requests
 from .base import FeatureClient, TransportEndpoint
-from ..core.types import FeatureError
+from ..utils.errors import FeatureError
 
 
 class SSHClient(FeatureClient):

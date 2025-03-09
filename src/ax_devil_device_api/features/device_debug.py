@@ -1,6 +1,6 @@
 from typing import Any, Optional
 from .base import FeatureClient
-from ..core.types import FeatureError
+from ..utils.errors import FeatureError
 from ..core.endpoints import TransportEndpoint
 
 
