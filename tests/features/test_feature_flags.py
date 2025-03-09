@@ -60,12 +60,4 @@ class TestFeatureFlagFeature:
             client.feature_flags.set_flags({})
         assert exc_info.value.code == "invalid_request"
         assert "No flag values" in str(exc_info.value)
-    
-    @pytest.mark.integration
-    def test_get_supported_versions(self, client):
-        """Test retrieving supported API versions."""
-        response = client.feature_flags.get_supported_versions()
-        assert response
-        assert isinstance(response, list)
-        assert all(isinstance(version, str) for version in response)
-        assert "1.0" in response  # API version 1.0 should be supported
+

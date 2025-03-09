@@ -8,7 +8,6 @@ from rich.table import Table
 from rich.console import Console
 from ax_devil_device_api import Client, DeviceConfig
 from ax_devil_device_api.utils.errors import SecurityError, NetworkError, FeatureError, BaseError
-from ax_devil_device_api.core.types import FeatureResponse
 from typing import Union
 
 
@@ -207,24 +206,6 @@ def handle_error(ctx, error: Exception, show_prefix: bool = True) -> int:
         show_debug_info(ctx, error)
 
     return 1
-
-
-def handle_result(ctx, result: FeatureResponse) -> int:
-    """Handle command result and return appropriate exit code."""
-    if not result.is_success:
-        return handle_error(ctx, result.error, show_prefix=False)
-    
-    if hasattr(result.data, 'to_dict'):
-        data = result.data.to_dict()
-    elif isinstance(result.data, list) and all(hasattr(item, 'to_dict') for item in result.data):
-        data = [item.to_dict() for item in result.data]
-    elif hasattr(result.data, '__dict__'):
-        data = result.data.__dict__
-    else:
-        data = result.data
-    
-    click.echo(format_json(data))
-    return 0
 
 
 def get_client_args(ctx_obj: dict) -> dict:

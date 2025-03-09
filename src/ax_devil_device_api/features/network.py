@@ -1,8 +1,6 @@
 import requests
-from dataclasses import dataclass
-from typing import Optional, Dict, List, Any
+from typing import Dict, Any
 from .base import FeatureClient
-from ..core.types import FeatureResponse
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 

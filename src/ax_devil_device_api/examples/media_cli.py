@@ -3,7 +3,7 @@
 
 import click
 from .cli_core import (
-    create_client, handle_result, handle_error, get_client_args,
+    create_client, handle_error, get_client_args,
     common_options
 )
 

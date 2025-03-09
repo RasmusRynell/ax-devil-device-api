@@ -12,7 +12,6 @@ class FeatureFlagClient(FeatureClient):
     - Setting feature flag values
     - Retrieving feature flag states
     - Listing all available feature flags
-    - Getting supported API versions
     """
     
     FEATURE_FLAG_ENDPOINT = TransportEndpoint("POST", "/axis-cgi/featureflag.cgi")
@@ -106,12 +105,3 @@ class FeatureFlagClient(FeatureClient):
         """
         response = self._make_request("listAll")
         return response.get("flags")
-
-    def get_supported_versions(self) -> List[str]:
-        """Get list of supported API versions.
-        
-        Returns:
-            List of version strings
-        """
-        response_json = self._make_request("getSupportedVersions")
-        return response_json.get("apiVersions")

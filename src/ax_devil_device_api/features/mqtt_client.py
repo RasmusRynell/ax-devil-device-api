@@ -5,7 +5,6 @@ import requests
 
 from typing import Dict, Any, Optional, ClassVar
 from .base import FeatureClient
-from ..core.types import FeatureResponse
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 

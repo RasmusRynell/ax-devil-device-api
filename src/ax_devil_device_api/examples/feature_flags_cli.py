@@ -6,7 +6,7 @@ from typing import Dict
 
 from ax_devil_device_api.utils.errors import FeatureError
 from .cli_core import (
-    create_client, print_table_list_with_dict, handle_result, handle_error, get_client_args,
+    create_client, print_table_list_with_dict, handle_error, get_client_args,
     common_options, format_json
 )
 
@@ -67,7 +67,8 @@ def get_flags(ctx, names):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.feature_flags.get_flags(list(names))
-            return handle_result(ctx, result)
+            click.echo(format_json(result))
+            return 0
     except Exception as e:
         return handle_error(ctx, e)
 
@@ -95,18 +96,6 @@ def set_flags(ctx, flags, force):
             
             click.secho("Feature flags updated successfully!", fg='green')
             return 0
-    except Exception as e:
-        return handle_error(ctx, e)
-
-
-@cli.command('versions')
-@click.pass_context
-def get_versions(ctx):
-    """Get supported API versions."""
-    try:
-        with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.feature_flags.get_supported_versions()
-            return handle_result(ctx, result)
     except Exception as e:
         return handle_error(ctx, e)
 
