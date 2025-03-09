@@ -3,10 +3,9 @@
 
 import click
 from .cli_core import (
-    create_client, handle_result, handle_error, get_client_args,
+    create_client, handle_error, get_client_args,
     common_options
 )
-from ..features.mqtt_client import BrokerConfig, MqttStatus
 
 
 @click.group()
@@ -73,7 +72,7 @@ def configure(ctx, broker_host, broker_port, broker_username, broker_password,
     """Configure MQTT broker settings."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            config = BrokerConfig(
+            client.mqtt_client.configure(
                 host=broker_host,
                 port=broker_port,
                 username=broker_username,
@@ -81,11 +80,6 @@ def configure(ctx, broker_host, broker_port, broker_username, broker_password,
                 use_tls=use_tls,
                 keep_alive_interval=keep_alive
             )
-            
-            result = client.mqtt_client.configure(config)
-            
-            if not result.is_success:
-                return handle_error(ctx, result.error)
                 
             click.echo(click.style("MQTT broker configuration updated successfully!", fg="green"))
             click.echo("\nBroker Configuration:")
@@ -106,29 +100,39 @@ def status(ctx):
     """Get MQTT client status."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.mqtt_client.get_status()
-            
-            if not result.is_success:
-                return handle_error(ctx, result.error)
-                
-            status = result.data
+            status = client.mqtt_client.get_status()
             click.echo("MQTT Client Status:")
-            click.echo(f"  State: {click.style(status.state, fg='green' if status.state == 'CONNECTED' else 'yellow')}")
-            click.echo(f"  Status: {click.style(status.status, fg='green' if status.status == 'CONNECTED' else 'yellow')}")
-            click.echo(f"  Host: {status.config.host}")
-            click.echo(f"  Port: {status.config.port}")
-            click.echo(f"  TLS Enabled: {status.config.use_tls}")
-            click.echo(f"  Keep Alive: {status.config.keep_alive_interval}s")
-            click.echo(f"  Client ID: {status.config.client_id}")
-            click.echo(f"  Clean Session: {status.config.clean_session}")
-            click.echo(f"  Auto Reconnect: {status.config.auto_reconnect}")
-            click.echo(f"  Device Topic Prefix: {status.config.device_topic_prefix}")
-            click.echo(f"  Error: {status.error}")
-            click.echo(f"  Connected To: {status.connected_to}")
+            click.echo(f"  state: {click.style(status.get('state'), fg='green' if status.get('state') == 'connected' else 'yellow')}")
+            click.echo(f"  connectionStatus: {click.style(status.get('status'), fg='green' if status.get('status') == 'connected' else 'yellow')}")
             return 0
     except Exception as e:
         return handle_error(ctx, e)
 
-
+@cli.command('config')
+@click.pass_context
+def config(ctx):
+    """Get MQTT client configuration."""
+    try:
+        with create_client(**get_client_args(ctx.obj)) as client:
+            config = client.mqtt_client.get_config()
+            click.echo("MQTT Client Configuration:")
+            click.echo(f"  Host: {config.get('server').get('host')}")
+            click.echo(f"  Port: {config.get('server').get('port')}")
+            click.echo(f"  protocol: {config.get('server').get('protocol')}")
+            click.echo(f"  alpnProtocol: {config.get('server').get('alpnProtocol')}")
+            click.echo(f"  username: {config.get('username')}")
+            click.echo(f"  password: {config.get('password')}")
+            click.echo(f"  clientId: {config.get('clientId')}")
+            click.echo(f"  keepAliveInterval: {config.get('keepAliveInterval')}s")
+            click.echo(f"  connectTimeout: {config.get('connectTimeout')}s")
+            click.echo(f"  cleanSession: {config.get('cleanSession')}")
+            click.echo(f"  autoReconnect: {config.get('autoReconnect')}")
+            click.echo(f"  deviceTopicPrefix: {config.get('deviceTopicPrefix')}")
+            click.echo(f"  httpProxy: {config.get('httpProxy')}")
+            click.echo(f"  httpsProxy: {config.get('httpsProxy')}")
+            return 0
+    except Exception as e:
+        return handle_error(ctx, e)
+    
 if __name__ == '__main__':
     cli() 
