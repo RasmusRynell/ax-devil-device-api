@@ -3,7 +3,7 @@
 
 import click
 from .cli_core import (
-    create_client, handle_result, handle_error, get_client_args,
+    create_client, handle_error, get_client_args,
     common_options
 )
 
@@ -32,13 +32,9 @@ def network_info(ctx, interface):
     """Get network interface information."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.network.get_network_info(interface)
-            
-            if not result.is_success:
-                return handle_error(ctx, result.error)
+            result = client.network.get_network_info()
                 
-            click.echo(f"Interface {interface} information:")
-            for key, value in result.data.__dict__.items():
+            for key, value in result.items():
                 click.echo(f"  {key}: {value}")
             return 0
     except Exception as e:
