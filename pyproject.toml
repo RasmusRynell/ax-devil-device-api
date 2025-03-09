@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ax-devil-device-api"
-version = "0.2.2"
+version = "0.2.3"
 description = "Python library for interacting with Axis device APIs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,8 @@ authors = [
 ]
 dependencies = [
     "requests>=2.25.0",
-    "click>=8.0.0",  # Required for CLIs
+    "click>=8.0.0",
+    "rich>=13.9.4",
 ]
 
 [project.urls]
