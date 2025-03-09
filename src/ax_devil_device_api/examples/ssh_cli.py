@@ -19,9 +19,6 @@ def add(ctx, username: str, password: str, comment: Optional[str] = None):
     """Add a new SSH user."""
     with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.add_user(username, password, comment)
-        if not result.is_success:
-            click.echo(f"Error: {result.error}")
-            return 1
         click.echo(f"Successfully added SSH user: {result.data.username}")
         return 0
 
@@ -31,16 +28,13 @@ def list(ctx):
     """List all SSH users."""
     with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.get_users()
-        if not result.is_success:
-            click.echo(f"Error: {result.error}")
-            return 1
         
-        if not result.data:
+        if len(result) == 0:
             click.echo("No SSH users found")
             return 0
             
         click.echo("SSH Users:")
-        for user in result.data:
+        for user in result:
             comment_str = f" ({user.comment})" if user.comment else ""
             click.echo(f"- {user.username}{comment_str}")
         return 0
@@ -51,12 +45,8 @@ def list(ctx):
 def show(ctx, username: str):
     """Show details for a specific SSH user."""
     with create_client(**get_client_args(ctx.obj)) as client:
-        result = client.ssh.get_user(username)
-        if not result.is_success:
-            click.echo(f"Error: {result.error}")
-            return 1
-            
-        user = result.data
+        user = client.ssh.get_user(username)
+
         comment_str = f"\nComment: {user.comment}" if user.comment else ""
         click.echo(f"Username: {user.username}{comment_str}")
         return 0
@@ -75,9 +65,6 @@ def modify(ctx, username: str, password: Optional[str] = None,
         
     with create_client(**get_client_args(ctx.obj)) as client:
         result = client.ssh.modify_user(username, password=password, comment=comment)
-        if not result.is_success:
-            click.echo(f"Error: {result.error}")
-            return 1
         click.echo(f"Successfully modified SSH user: {username}")
         return 0
 
@@ -88,10 +75,7 @@ def modify(ctx, username: str, password: Optional[str] = None,
 def remove(ctx, username: str):
     """Remove an SSH user."""
     with create_client(**get_client_args(ctx.obj)) as client:
-        result = client.ssh.remove_user(username)
-        if not result.is_success:
-            click.echo(f"Error: {result.error}")
-            return 1
+        client.ssh.remove_user(username)
         click.echo(f"Successfully removed SSH user: {username}")
         return 0
 
