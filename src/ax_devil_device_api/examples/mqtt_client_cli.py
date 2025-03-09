@@ -114,7 +114,7 @@ def config(ctx):
     """Get MQTT client configuration."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            config = client.mqtt_client.get_config()
+            config = client.mqtt_client.get_status()
             click.echo("MQTT Client Configuration:")
             click.echo(f"  Host: {config.get('server').get('host')}")
             click.echo(f"  Port: {config.get('server').get('port')}")

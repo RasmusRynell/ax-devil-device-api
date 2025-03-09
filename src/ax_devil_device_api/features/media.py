@@ -49,7 +49,6 @@ class MediaClient(FeatureClient):
         )
             
         if response.status_code != 200:
-            print(response.content)
             raise FeatureError(
                 "snapshot_failed",
                 f"Failed to capture snapshot: HTTP {response.status_code}"

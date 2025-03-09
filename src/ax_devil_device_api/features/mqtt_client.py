@@ -68,14 +68,12 @@ class MqttClient(FeatureClient):
                          device_topic_prefix: Optional[str] = None):
         """Configure MQTT broker settings."""
 
-        server_config = {
-            "host": host,
-            "port": port,
-            "protocol": protocol
-        }
-
         payload = {
-            "server": server_config,
+            "server": {
+                "host": host,
+                "port": port,
+                "protocol": protocol
+            },
             "username": username,
             "password": password,
             "keepAliveInterval": keep_alive_interval,
@@ -89,8 +87,4 @@ class MqttClient(FeatureClient):
 
     def get_status(self) -> Dict[str, Any]:
         """Get MQTT connection status."""
-        return self._make_mqtt_request("getClientStatus").get("status")
-    
-    def get_config(self) -> Dict[str, Any]:
-        """Get MQTT configuration."""
-        return self._make_mqtt_request("getClientStatus").get("config")
+        return self._make_mqtt_request("getClientStatus")
