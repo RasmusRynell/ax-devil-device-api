@@ -37,7 +37,7 @@ def list_sources(ctx):
                     
             click.echo("Available Analytics Data Sources:")
             for source in result:
-                click.echo(f"  - {source.key}")
+                click.echo(f"  - {source.get('key')}")
             return 0
     except Exception as e:
         return handle_error(ctx, e)

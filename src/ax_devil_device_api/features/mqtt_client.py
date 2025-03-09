@@ -22,7 +22,11 @@ class MqttClient(FeatureClient):
                 f"MQTT operation failed: HTTP {response.status_code}",
                 details={"response": response.text}
             )
-        return json.loads(response.text).get("data")
+        
+        json_response = json.loads(response.text)
+        if "error" in json_response:
+            raise FeatureError("mqtt_error", json_response.get("error", "Unknown error"))
+        return json_response.get("data")
 
     def _make_mqtt_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make MQTT API request with optional parameters."""
@@ -56,25 +60,31 @@ class MqttClient(FeatureClient):
                          port: int = 1883,
                          username: Optional[str] = None,
                          password: Optional[str] = None,
-                         use_tls: bool = False,
+                         protocol: str = "tcp",
                          keep_alive_interval: int = 60,
                          client_id: str = "client1",
                          clean_session: bool = True,
                          auto_reconnect: bool = True,
                          device_topic_prefix: Optional[str] = None):
         """Configure MQTT broker settings."""
-        payload = {
+
+        server_config = {
             "host": host,
             "port": port,
+            "protocol": protocol
+        }
+
+        payload = {
+            "server": server_config,
             "username": username,
             "password": password,
-            "useTLS": use_tls,
             "keepAliveInterval": keep_alive_interval,
             "clientId": client_id,
             "cleanSession": clean_session,
-            "autoReconnect": auto_reconnect,
-            "deviceTopicPrefix": device_topic_prefix
+            "autoReconnect": auto_reconnect
         }
+        if device_topic_prefix:
+            payload["deviceTopicPrefix"] = device_topic_prefix
         _ = self._make_mqtt_request("configureClient", payload)
 
     def get_status(self) -> Dict[str, Any]:
