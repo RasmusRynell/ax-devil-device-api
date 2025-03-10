@@ -24,7 +24,8 @@ class SSHClient(FeatureClient):
         """Add a new SSH user to the device."""
         if not username or not password:
             raise FeatureError("username_password_required", "Username and password are required")
-        
+        if not comment:
+            comment = ""
         response = self.request(
             TransportEndpoint("POST", self.BASE_PATH),
             json={"data": {
@@ -33,7 +34,6 @@ class SSHClient(FeatureClient):
                 "comment": comment
             }}
         )
-
         if response.status_code != 201:
             raise FeatureError("add_user_error", json.dumps(self._parse_response(response)))
         
@@ -82,8 +82,9 @@ class SSHClient(FeatureClient):
         
         if response.status_code != 200:
             raise FeatureError("modify_user_error", json.dumps(self._parse_response(response)))
-            
-        return self._parse_response(response)
+        
+        if not response.json().get("status") == "success":
+            raise FeatureError("modify_user_error", json.dumps(response.json().get("error")))
 
     def remove_user(self, username: str) -> Dict[str, Any]:
         """Remove an SSH user from the device."""

@@ -15,7 +15,7 @@ class MediaClient(FeatureClient):
     # Endpoint definitions
     SNAPSHOT_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/jpg/image.cgi")
     
-    def get_snapshot(self, resolution: str, compression: int, rotation: int, camera_head: int) -> bytes:
+    def get_snapshot(self, resolution: str, compression: int, camera_head: int) -> bytes:
         """Capture a JPEG snapshot from the camera.
         
         Args:
@@ -29,16 +29,10 @@ class MediaClient(FeatureClient):
                 "invalid_parameter",
                 "Compression must be between 0 and 100"
             )
-        if rotation not in [0, 90, 180, 270]:
-            raise FeatureError(
-                "invalid_parameter",
-                "Rotation must be 0, 90, 180, or 270"
-            )
             
         params = {
             "resolution": resolution,
             "compression": compression,
-            "rotation": rotation,
             "camera": camera_head
         }
 
@@ -51,7 +45,7 @@ class MediaClient(FeatureClient):
         if response.status_code != 200:
             raise FeatureError(
                 "snapshot_failed",
-                f"Failed to capture snapshot: HTTP {response.status_code}"
+                f"Failed to capture snapshot: HTTP {response.status_code}, {response.text}"
             )
             
         return response.content

@@ -12,9 +12,9 @@ class TestMqttClientFeature:
     """Test suite for MQTT client operations."""
     
     @pytest.mark.integration
-    def test_get_status(self, client):
+    def test_get_state(self, client):
         """Test retrieving MQTT client status."""
-        response = client.mqtt_client.get_status()
+        response = client.mqtt_client.get_state()
         self._verify_status_status_and_config(response)
     
     @pytest.mark.integration
@@ -40,14 +40,14 @@ class TestMqttClientFeature:
         )
         client.mqtt_client.activate()
         
-        status_response = client.mqtt_client.get_status()
+        status_response = client.mqtt_client.get_state()
         self._verify_status_status_and_config(status_response)
         assert status_response.get("status").get("state") == "active", \
             "Client should be in active state after activation"
         
         client.mqtt_client.deactivate()
         
-        status_response = client.mqtt_client.get_status()
+        status_response = client.mqtt_client.get_state()
         self._verify_status_status_and_config(status_response)
         assert status_response.get("status").get("state") == "inactive", \
             "Client should be in inactive state after deactivation"

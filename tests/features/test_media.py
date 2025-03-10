@@ -13,7 +13,6 @@ class TestMediaFeature:
         response = client.media.get_snapshot(
             resolution="1920x1080",
             compression=0,
-            rotation=0,
             camera_head=0
         )
         self._verify_snapshot_data(response)
@@ -24,7 +23,6 @@ class TestMediaFeature:
         response = client.media.get_snapshot(
             resolution="1280x720",
             compression=75,
-            rotation=0,
             camera_head=0
         )
         self._verify_snapshot_data(response)
@@ -33,17 +31,9 @@ class TestMediaFeature:
     def test_invalid_compression(self, client):
         """Test error handling for invalid compression value."""
         with pytest.raises(FeatureError) as e:
-            client.media.get_snapshot(resolution="1920x1080", compression=101, rotation=0, camera_head=0)
+            client.media.get_snapshot(resolution="1920x1080", compression=101, camera_head=0)
         assert e.value.code == "invalid_parameter"
         assert "Compression" in e.value.message
-        
-    @pytest.mark.unit
-    def test_invalid_rotation(self, client):
-        """Test error handling for invalid rotation value."""
-        with pytest.raises(FeatureError) as e:
-            client.media.get_snapshot(resolution="1920x1080", compression=0, rotation=45, camera_head=0)
-        assert e.value.code == "invalid_parameter"
-        assert "Rotation" in e.value.message
         
     def _verify_snapshot_data(self, data):
         """Helper to verify snapshot response data."""

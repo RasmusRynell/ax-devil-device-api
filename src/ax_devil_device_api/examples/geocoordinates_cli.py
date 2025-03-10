@@ -54,8 +54,33 @@ def set_location(ctx, latitude, longitude):
             client.geocoordinates.set_location(latitude, longitude)
             
             click.echo(click.style("Location coordinates updated successfully!", fg="green"))
-            click.echo(click.style("Note: you can see the current location coordinates with the 'get' command", fg="yellow"))
             click.echo(click.style("Note: Changes will take effect after applying settings with the 'apply' command", fg="yellow"))
+            return 0
+    except Exception as e:
+        return handle_error(ctx, e)
+
+@location.command('apply')
+@click.pass_context
+def apply_location(ctx):
+    """Apply pending location coordinate settings."""
+    try:
+        with create_client(**get_client_args(ctx.obj)) as client:
+            client.geocoordinates.apply_settings()
+
+            click.echo(click.style("Location settings applied successfully!", fg="green"))
+
+            orientation = client.geocoordinates.get_orientation()
+            click.echo("Device Orientation:")
+            click.echo(f"  Heading: {orientation.get('heading')}°")
+            click.echo(f"  Tilt: {orientation.get('tilt')}°")
+            click.echo(f"  Roll: {orientation.get('roll')}°")
+            click.echo(f"  Installation Height: {orientation.get('installation_height')}m")
+
+            location = client.geocoordinates.get_location()
+            click.echo("Location Coordinates:")
+            click.echo(f"  Latitude: {location.get('latitude')}°")
+            click.echo(f"  Longitude: {location.get('longitude')}°")
+
             return 0
     except Exception as e:
         return handle_error(ctx, e)
@@ -83,10 +108,10 @@ def get_orientation(ctx):
         return handle_error(ctx, e)
 
 @orientation.command('set')
-@click.option('--heading', type=float, help='Device heading in degrees')
-@click.option('--tilt', type=float, help='Device tilt angle in degrees')
-@click.option('--roll', type=float, help='Device roll angle in degrees')
-@click.option('--height', type=float, help='Installation height in meters')
+@click.argument('heading', type=float)
+@click.argument('tilt', type=float)
+@click.argument('roll', type=float)
+@click.argument('height', type=float)
 @click.pass_context
 def set_orientation(ctx, heading, tilt, roll, height):
     """Set device orientation coordinates."""

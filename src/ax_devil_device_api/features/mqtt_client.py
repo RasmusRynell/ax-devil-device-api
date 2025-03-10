@@ -85,6 +85,6 @@ class MqttClient(FeatureClient):
             payload["deviceTopicPrefix"] = device_topic_prefix
         _ = self._make_mqtt_request("configureClient", payload)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_state(self) -> Dict[str, Any]:
         """Get MQTT connection status."""
         return self._make_mqtt_request("getClientStatus")

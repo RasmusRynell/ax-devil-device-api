@@ -31,11 +31,7 @@ def activate(ctx):
     """Activate MQTT client."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.mqtt_client.activate()
-            
-            if not result.is_success:
-                return handle_error(ctx, result.error)
-                
+            _ = client.mqtt_client.activate()
             click.echo(click.style("MQTT client activated successfully!", fg="green"))
             return 0
     except Exception as e:
@@ -48,10 +44,7 @@ def deactivate(ctx):
     """Deactivate MQTT client."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            result = client.mqtt_client.deactivate()
-            
-            if not result.is_success:
-                return handle_error(ctx, result.error)
+            _ = client.mqtt_client.deactivate()
                 
             click.echo(click.style("MQTT client deactivated successfully!", fg="yellow"))
             return 0
@@ -100,10 +93,10 @@ def status(ctx):
     """Get MQTT client status."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            status = client.mqtt_client.get_status()
+            status = client.mqtt_client.get_state().get('status')
             click.echo("MQTT Client Status:")
-            click.echo(f"  state: {click.style(status.get('state'), fg='green' if status.get('state') == 'connected' else 'yellow')}")
-            click.echo(f"  connectionStatus: {click.style(status.get('status'), fg='green' if status.get('status') == 'connected' else 'yellow')}")
+            click.echo(f"  state: {click.style(status.get('state'), fg='green' if status.get('state') == 'active' else 'yellow')}")
+            click.echo(f"  connectionStatus: {click.style(status.get('connectionStatus'), fg='green' if status.get('connectionStatus') == 'connected' else 'yellow')}")
             return 0
     except Exception as e:
         return handle_error(ctx, e)
@@ -114,7 +107,7 @@ def config(ctx):
     """Get MQTT client configuration."""
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
-            config = client.mqtt_client.get_status()
+            config = client.mqtt_client.get_state().get('config')
             click.echo("MQTT Client Configuration:")
             click.echo(f"  Host: {config.get('server').get('host')}")
             click.echo(f"  Port: {config.get('server').get('port')}")

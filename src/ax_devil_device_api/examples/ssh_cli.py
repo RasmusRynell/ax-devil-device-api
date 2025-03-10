@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import click
 from typing import Optional
-from .cli_core import create_client, common_options, get_client_args
+from .cli_core import create_client, common_options, get_client_args, handle_error
 
 @click.group()
 @common_options
@@ -17,39 +17,50 @@ def cli(ctx, **options):
 @click.pass_context
 def add(ctx, username: str, password: str, comment: Optional[str] = None):
     """Add a new SSH user."""
-    with create_client(**get_client_args(ctx.obj)) as client:
-        result = client.ssh.add_user(username, password, comment)
-        click.echo(f"Successfully added SSH user: {result.data.username}")
+    try:
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.ssh.add_user(username, password, comment)
+            click.echo(f"Successfully added SSH user: {result.get('username')}")
         return 0
+    except Exception as e:
+        handle_error(ctx, e)
+        return 1
 
 @cli.command()
 @click.pass_context
 def list(ctx):
     """List all SSH users."""
-    with create_client(**get_client_args(ctx.obj)) as client:
-        result = client.ssh.get_users()
-        
+    try:
+        with create_client(**get_client_args(ctx.obj)) as client:
+            result = client.ssh.get_users()
         if len(result) == 0:
             click.echo("No SSH users found")
             return 0
             
         click.echo("SSH Users:")
         for user in result:
-            comment_str = f" ({user.comment})" if user.comment else ""
-            click.echo(f"- {user.username}{comment_str}")
+            comment_str = f" ({user.get('comment')})" if user.get('comment') else ""
+            click.echo(f"- {user.get('username')}{comment_str}")
         return 0
+    except Exception as e:
+        handle_error(ctx, e)
+        return 1
 
 @cli.command()
 @click.argument('username')
 @click.pass_context
 def show(ctx, username: str):
     """Show details for a specific SSH user."""
-    with create_client(**get_client_args(ctx.obj)) as client:
-        user = client.ssh.get_user(username)
+    try:
+        with create_client(**get_client_args(ctx.obj)) as client:
+            user = client.ssh.get_user(username)
 
-        comment_str = f"\nComment: {user.comment}" if user.comment else ""
-        click.echo(f"Username: {user.username}{comment_str}")
+        comment_str = f"\nComment: {user.get('comment')}" if user.get('comment') else ""
+        click.echo(f"Username: {user.get('username')}{comment_str}")
         return 0
+    except Exception as e:
+        handle_error(ctx, e)
+        return 1
 
 @cli.command()
 @click.argument('username')
@@ -59,14 +70,18 @@ def show(ctx, username: str):
 def modify(ctx, username: str, password: Optional[str] = None, 
           comment: Optional[str] = None):
     """Modify an existing SSH user."""
-    if not password and not comment:
-        click.echo("Error: Must specify at least one of --password or --comment")
-        return 1
+    try:
+        if not password and not comment:
+            click.echo("Error: Must specify at least one of --password or --comment")
+            return 1
         
-    with create_client(**get_client_args(ctx.obj)) as client:
-        result = client.ssh.modify_user(username, password=password, comment=comment)
-        click.echo(f"Successfully modified SSH user: {username}")
-        return 0
+        with create_client(**get_client_args(ctx.obj)) as client:
+            client.ssh.modify_user(username, password=password, comment=comment)
+            click.echo(f"Successfully modified SSH user: {username}")
+            return 0
+    except Exception as e:
+        handle_error(ctx, e)
+        return 1
 
 @cli.command()
 @click.argument('username')
@@ -74,10 +89,14 @@ def modify(ctx, username: str, password: Optional[str] = None,
 @click.pass_context
 def remove(ctx, username: str):
     """Remove an SSH user."""
-    with create_client(**get_client_args(ctx.obj)) as client:
-        client.ssh.remove_user(username)
-        click.echo(f"Successfully removed SSH user: {username}")
-        return 0
+    try:
+        with create_client(**get_client_args(ctx.obj)) as client:
+            client.ssh.remove_user(username)
+            click.echo(f"Successfully removed SSH user: {username}")
+            return 0
+    except Exception as e:
+        handle_error(ctx, e)
+        return 1
 
 if __name__ == '__main__':
     cli() 
