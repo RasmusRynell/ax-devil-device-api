@@ -203,6 +203,34 @@ ax-devil-device-api-ssh --device-ip 192.168.1.10 --username admin --password sec
 </details>
 
 <details>
+<summary><a name="mqtt-client-cli"></a><b>📡 MQTT Client</b></summary>
+<p>
+
+```bash
+# Activate MQTT client
+ax-devil-device-api-mqtt-client --device-ip 192.168.1.10 --username admin --password secret activate
+
+# Deactivate MQTT client
+ax-devil-device-api-mqtt-client --device-ip 192.168.1.10 --username admin --password secret deactivate
+```
+</p>
+</details>
+
+<details>
+<summary><a name="analytics-mqtt-cli"></a><b>📊 Analytics MQTT</b></summary>
+<p>
+
+```bash
+# List available analytics data sources
+ax-devil-device-api-analytics-mqtt --device-ip 192.168.1.10 --username admin --password secret sources
+
+# List configured publishers
+ax-devil-device-api-analytics-mqtt --device-ip 192.168.1.10 --username admin --password secret list
+```
+</p>
+</details>
+
+<details>
 <summary><a name="api-discovery-cli"></a><b>🔎 API Discovery</b></summary>
 <p>
 
@@ -212,6 +240,45 @@ ax-devil-device-api-discovery --device-ip 192.168.1.10 --username admin --passwo
 
 # Get API info
 ax-devil-device-api-discovery --device-ip 192.168.1.10 --username admin --password secret info vapix
+```
+</p>
+</details>
+
+<details>
+<summary><a name="geocoordinates-cli"></a><b>🌍 Geocoordinates</b></summary>
+<p>
+
+```bash
+# Get current location coordinates
+ax-devil-device-api-geocoordinates --device-ip 192.168.1.10 --username admin --password secret location get
+
+# Set location coordinates
+ax-devil-device-api-geocoordinates --device-ip 192.168.1.10 --username admin --password secret location set 59.3293 18.0686
+```
+</p>
+</details>
+
+<details>
+<summary><a name="feature-flags-cli"></a><b>🚩 Feature Flags</b></summary>
+<p>
+
+```bash
+# List all feature flags
+ax-devil-device-api-feature-flags --device-ip 192.168.1.10 --username admin --password secret list
+
+# Set feature flags
+ax-devil-device-api-feature-flags --device-ip 192.168.1.10 --username admin --password secret set feature_name=true
+```
+</p>
+</details>
+
+<details>
+<summary><a name="network-cli"></a><b>🌐 Network</b></summary>
+<p>
+
+```bash
+# Get network interface information
+ax-devil-device-api-network --device-ip 192.168.1.10 --username admin --password secret info
 ```
 </p>
 </details>
