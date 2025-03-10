@@ -14,30 +14,11 @@ A Python library for interacting with Axis device APIs. Provides a type-safe int
 
 ## 📋 Contents
 
-- [Quick Start](#-quick-start)
 - [Feature Overview](#-feature-overview)
+- [Quick Start](#-quick-start)
 - [Usage Examples](#-usage-examples)
 - [Disclaimer](#-disclaimer)
 - [License](#-license)
-
----
-
-## 🚀 Quick Start
-
-### Installation
-
-```bash
-pip install ax-devil-device-api
-```
-
-### Environment Variables
-For an easier experience, you can set the following environment variables:
-```bash
-export AX_DEVIL_TARGET_ADDR=<device-ip>
-export AX_DEVIL_TARGET_USER=<username>
-export AX_DEVIL_TARGET_PASS=<password>
-export AX_DEVIL_USAGE_CLI="safe" # Set to "unsafe" to skip SSL certificate verification for CLI calls
-```
 
 ---
 
@@ -115,6 +96,25 @@ export AX_DEVIL_USAGE_CLI="safe" # Set to "unsafe" to skip SSL certificate verif
     </tr>
   </tbody>
 </table>
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+pip install ax-devil-device-api
+```
+
+### Environment Variables
+For an easier experience, you can set the following environment variables:
+```bash
+export AX_DEVIL_TARGET_ADDR=<device-ip>
+export AX_DEVIL_TARGET_USER=<username>
+export AX_DEVIL_TARGET_PASS=<password>
+export AX_DEVIL_USAGE_CLI="safe" # Set to "unsafe" to skip SSL certificate verification for CLI calls
+```
 
 ---
 
