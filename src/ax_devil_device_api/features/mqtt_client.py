@@ -88,3 +88,7 @@ class MqttClient(FeatureClient):
     def get_state(self) -> Dict[str, Any]:
         """Get MQTT connection status."""
         return self._make_mqtt_request("getClientStatus")
+
+    def set_state(self, state: dict[str, Any]) -> Dict[str, Any]:
+        """Set MQTT connection state. Same as you get back from get_state()."""
+        return self._make_mqtt_request("configureClient", state)
