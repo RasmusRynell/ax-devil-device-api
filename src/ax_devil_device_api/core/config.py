@@ -64,7 +64,6 @@ class DeviceConfig:
                     "Secure SSL verification is not implemented. Use verify_ssl=False for insecure connections."
                 )
             
-            print("WARNING: SSL/TLS verification disabled, not yet implemented. Ignoring warnings.")
             import warnings
             import urllib3
             warnings.filterwarnings('ignore', category=urllib3.exceptions.InsecureRequestWarning)
