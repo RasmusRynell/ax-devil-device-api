@@ -1,8 +1,8 @@
 """Tests for geocoordinates operations."""
 
 import pytest
-from ax_devil_device_api.features.geocoordinates import GeoCoordinatesParser
-from ax_devil_device_api.utils.errors import FeatureError
+from src.ax_devil_device_api.features.geocoordinates import GeoCoordinatesParser
+from src.ax_devil_device_api.utils.errors import FeatureError
 
 class TestGeoCoordinatesLocation:
     """Test suite for geocoordinates location features."""

@@ -1,7 +1,5 @@
 import pytest
-from ax_devil_device_api.features.device_debug import DeviceDebugClient
-from ax_devil_device_api.utils.errors import FeatureError
-
+from src.ax_devil_device_api.utils.errors import FeatureError
 
 @pytest.mark.integration
 @pytest.mark.slow

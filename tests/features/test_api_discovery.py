@@ -1,7 +1,7 @@
 """Tests for API discovery feature."""
 
 import pytest
-from ax_devil_device_api.utils.errors import FeatureError
+from src.ax_devil_device_api.features.api_discovery import DiscoveredAPI
 
 class TestAPIDiscoveryFeature:
     """Test suite for API discovery feature."""
@@ -164,8 +164,6 @@ class TestAPIDiscoveryFeature:
     @pytest.mark.unit
     def test_api_creation_edge_cases(self):
         """Test DiscoveredAPI creation with missing fields."""
-        from ax_devil_device_api.features.api_discovery import DiscoveredAPI
-        
         # Test with minimal data
         minimal_api = DiscoveredAPI.from_discovery_data("test-api", "v1", {})
         assert minimal_api.state == "unknown", "Missing state should default to 'unknown'"

@@ -1,7 +1,7 @@
 """Tests for analytics MQTT operations."""
 
 import pytest
-from ax_devil_device_api.utils.errors import FeatureError
+from src.ax_devil_device_api.utils.errors import FeatureError
 
 KNOWN_DATA_SOURCE_KEY = "com.axis.analytics_scene_description.v0.beta#1"
 
@@ -11,7 +11,12 @@ class TestAnalyticsMqttClient:
     @pytest.mark.integration
     def test_get_data_sources_success(self, client):
         """Test successful data sources retrieval."""
-        response = client.analytics_mqtt.get_data_sources()
+        try:
+            response = client.analytics_mqtt.get_data_sources()
+        except FeatureError as e:
+            print(e)
+            raise e
+
         assert isinstance(response, list)
         
     @pytest.mark.integration

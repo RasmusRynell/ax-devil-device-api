@@ -1,7 +1,7 @@
 """Tests for feature flag operations."""
 
 import pytest
-from ax_devil_device_api.utils.errors import FeatureError
+from src.ax_devil_device_api.utils.errors import FeatureError
 
 
 class TestFeatureFlagFeature:

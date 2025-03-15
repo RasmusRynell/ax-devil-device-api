@@ -1,6 +1,6 @@
 import pytest
 
-from ax_devil_device_api.utils.errors import FeatureError
+from src.ax_devil_device_api.utils.errors import FeatureError
 
 @pytest.mark.unit
 def test_add_user_invalid_input(client):

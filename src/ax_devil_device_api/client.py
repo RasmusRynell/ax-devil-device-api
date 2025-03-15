@@ -3,18 +3,18 @@
 from typing import Optional, ContextManager
 from contextlib import contextmanager
 import warnings
-from ax_devil_device_api.core.transport_client import TransportClient
-from ax_devil_device_api.core.config import DeviceConfig
-from ax_devil_device_api.features.device_info import DeviceInfoClient
-from ax_devil_device_api.features.network import NetworkClient
-from ax_devil_device_api.features.media import MediaClient
-from ax_devil_device_api.features.geocoordinates import GeoCoordinatesClient
-from ax_devil_device_api.features.mqtt_client import MqttClient
-from ax_devil_device_api.features.analytics_mqtt import AnalyticsMqttClient
-from ax_devil_device_api.features.api_discovery import DiscoveryClient
-from ax_devil_device_api.features.feature_flags import FeatureFlagClient
-from ax_devil_device_api.features.ssh import SSHClient
-from ax_devil_device_api.features.device_debug import DeviceDebugClient
+from .core.transport_client import TransportClient
+from .core.config import DeviceConfig
+from .features.device_info import DeviceInfoClient
+from .features.network import NetworkClient
+from .features.media import MediaClient
+from .features.geocoordinates import GeoCoordinatesClient
+from .features.mqtt_client import MqttClient
+from .features.analytics_mqtt import AnalyticsMqttClient
+from .features.api_discovery import DiscoveryClient
+from .features.feature_flags import FeatureFlagClient
+from .features.ssh import SSHClient
+from .features.device_debug import DeviceDebugClient
 
 class Client:
     """Main client interface for a device.

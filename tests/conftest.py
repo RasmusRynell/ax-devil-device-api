@@ -1,7 +1,6 @@
 """Test configuration and shared fixtures."""
 import pytest
 import os
-from ax_devil_device_api import Client, DeviceConfig
 import ssl
 import socket
 import threading
@@ -11,8 +10,9 @@ from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from ax_devil_device_api.core.transport_client import TransportClient
-from ax_devil_device_api.core.config import Protocol, AuthMethod
+from src.ax_devil_device_api import Client, DeviceConfig
+from src.ax_devil_device_api.core.transport_client import TransportClient
+from src.ax_devil_device_api.core.config import Protocol, AuthMethod
 from tests.mocks.http_server import ThreadedHTTPServer, MockDeviceHandler
 from tests.mocks.mock_api_routes import get_standard_routes
 

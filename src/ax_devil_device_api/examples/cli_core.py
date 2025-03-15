@@ -159,7 +159,7 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
         ),  
         "request_failed": (
             "Request failed.\n"
-            "Please check your request and try again."
+            "Please check your connection and try again."
         ),
         "parse_failed": (
             "Failed to parse the response.\n"
@@ -167,7 +167,7 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
         ),
         "invalid_response": (
             "Invalid response.\n"
-            "Please check the response and try again."
+            "API returned an invalid response. Please check the response and try again."
         ),
     }
 

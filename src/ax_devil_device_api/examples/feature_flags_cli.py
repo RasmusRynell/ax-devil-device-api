@@ -4,7 +4,6 @@
 import click
 from typing import Dict
 
-from ax_devil_device_api.utils.errors import FeatureError
 from .cli_core import (
     create_client, print_table_list_with_dict, handle_error, get_client_args,
     common_options, format_json
@@ -91,10 +90,7 @@ def set_flags(ctx, flags, force):
     try:
         with create_client(**get_client_args(ctx.obj)) as client:
             result = client.feature_flags.set_flags(flag_values)
-            if not result:
-                return handle_error(ctx, FeatureError("set_flags_failed", "Failed to set feature flags"))
-            
-            click.secho("Feature flags updated successfully!", fg='green')
+            click.echo(result)
             return 0
     except Exception as e:
         return handle_error(ctx, e)

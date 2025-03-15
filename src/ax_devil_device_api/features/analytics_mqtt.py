@@ -43,7 +43,7 @@ class AnalyticsMqttClient(FeatureClient):
         json_response = response.json()
 
         if json_response.get("status") != "success":
-            raise FeatureError("request_failed", json_response.get("error", "Unknown error"))
+            raise FeatureError("invalid_response", json_response.get("error", "Unknown error"))
         if "data" not in json_response:
             raise FeatureError("parse_failed", "No data found in response")
         
