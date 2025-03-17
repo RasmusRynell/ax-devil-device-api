@@ -129,7 +129,7 @@ import json
 from ax_devil_device_api import Client, DeviceConfig
 
 # Initialize client (recommended way using context manager)
-config = DeviceConfig.https("192.168.1.81", "root", "fusion", verify_ssl=False)
+config = DeviceConfig.https("192.168.1.81", "root", "pass", verify_ssl=False)
 with Client(config) as client:
     device_info = client.device.get_info()
     print(json.dumps(device_info, indent=4))
