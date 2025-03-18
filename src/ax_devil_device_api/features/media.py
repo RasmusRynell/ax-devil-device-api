@@ -24,6 +24,12 @@ class MediaClient(FeatureClient):
         Returns:
             bytes containing the image data on success
         """
+        if not isinstance(compression, int):
+            raise FeatureError(
+                "invalid_parameter", 
+                "Compression must be an integer between 0 and 100"
+            )
+            
         if not (0 <= compression <= 100):
             raise FeatureError(
                 "invalid_parameter",
