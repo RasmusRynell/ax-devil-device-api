@@ -8,7 +8,7 @@
 
 A Python library for interacting with Axis device APIs. Provides a type-safe interface with tools for device management, configuration, and integration.
 
-See also: [ax-devil-mqtt](https://github.com/ax-devil/ax-devil-mqtt) for using MQTT with an Axis device.
+See also: [ax-devil-mqtt](https://github.com/rasmusrynell/ax-devil-mqtt) for using MQTT with an Axis device.
 
 </div>
 
