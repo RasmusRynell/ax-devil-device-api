@@ -108,10 +108,10 @@ def get_orientation(ctx):
         return handle_error(ctx, e)
 
 @orientation.command('set')
-@click.argument('heading', type=float)
-@click.argument('tilt', type=float)
-@click.argument('roll', type=float)
-@click.argument('height', type=float)
+@click.option('--heading', required=False, type=float)
+@click.option('--tilt', required=False, type=float)
+@click.option('--roll', required=False, type=float)
+@click.option('--height', required=False, type=float)
 @click.pass_context
 def set_orientation(ctx, heading, tilt, roll, height):
     """Set device orientation coordinates."""
