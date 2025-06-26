@@ -4,7 +4,8 @@ import os
 import ssl
 import socket
 import threading
-import datetime
+
+from datetime import datetime, timedelta, UTC
 from functools import partial
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -159,9 +160,9 @@ def mock_https_server(tmp_path):
     ).serial_number(
         x509.random_serial_number()
     ).not_valid_before(
-        datetime.datetime.utcnow()
+        datetime.now(UTC)
     ).not_valid_after(
-        datetime.datetime.utcnow() + datetime.timedelta(days=10)
+        datetime.now(UTC) + timedelta(days=10)
     ).add_extension(
         x509.SubjectAlternativeName([x509.DNSName("localhost")]),
         critical=False,
