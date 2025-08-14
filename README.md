@@ -40,61 +40,61 @@ See also: [ax-devil-mqtt](https://github.com/rasmusrynell/ax-devil-mqtt) for usi
       <td><b>📱 Device Information</b></td>
       <td>Get device details, check health status, and restart device</td>
       <td align="center"><code>client.device</code></td>
-      <td align="center"><a href="#device-info-cli">ax-devil-device-api-device-info</a></td>
+      <td align="center"><a href="#device-operations">ax-devil-device-api device</a></td>
     </tr>
     <tr>
       <td><b>🔧 Device Debugging</b></td>
       <td>Download server reports, crash reports, and run diagnostics</td>
       <td align="center"><code>client.device_debug</code></td>
-      <td align="center"><a href="#device-debug-cli">ax-devil-device-api-device-debug</a></td>
+      <td align="center"><a href="#device-debugging">ax-devil-device-api debug</a></td>
     </tr>
     <tr>
       <td><b>📷 Media Operations</b></td>
       <td>Capture snapshots from device cameras</td>
       <td align="center"><code>client.media</code></td>
-      <td align="center"><a href="#media-cli">ax-devil-device-api-media</a></td>
+      <td align="center"><a href="#media-operations">ax-devil-device-api media</a></td>
     </tr>
     <tr>
       <td><b>🔐 SSH Management</b></td>
       <td>Add, list, modify, and remove SSH users</td>
       <td align="center"><code>client.ssh</code></td>
-      <td align="center"><a href="#ssh-cli">ax-devil-device-api-ssh</a></td>
+      <td align="center"><a href="#ssh-management">ax-devil-device-api ssh</a></td>
     </tr>
     <tr>
       <td><b>📡 MQTT Client</b></td>
       <td>Configure, activate, deactivate, and check MQTT client status</td>
       <td align="center"><code>client.mqtt_client</code></td>
-      <td align="center"><a href="#mqtt-client-cli">ax-devil-device-api-mqtt-client</a></td>
+      <td align="center"><a href="#mqtt-client">ax-devil-device-api mqtt</a></td>
     </tr>
     <tr>
       <td><b>📊 Analytics MQTT</b></td>
       <td>Manage analytics data sources and publishers for MQTT</td>
       <td align="center"><code>client.analytics_mqtt</code></td>
-      <td align="center"><a href="#analytics-mqtt-cli">ax-devil-device-api-analytics-mqtt</a></td>
+      <td align="center"><a href="#analytics-mqtt">ax-devil-device-api analytics</a></td>
     </tr>
     <tr>
       <td><b>🔎 API Discovery</b></td>
       <td>List and inspect available APIs on the device</td>
       <td align="center"><code>client.discovery</code></td>
-      <td align="center"><a href="#api-discovery-cli">ax-devil-device-api-discovery</a></td>
+      <td align="center"><a href="#api-discovery">ax-devil-device-api discovery</a></td>
     </tr>
     <tr>
       <td><b>🌍 Geocoordinates</b></td>
       <td>Get and set device location and orientation</td>
       <td align="center"><code>client.geocoordinates</code></td>
-      <td align="center"><a href="#geocoordinates-cli">ax-devil-device-api-geocoordinates</a></td>
+      <td align="center"><a href="#geocoordinates">ax-devil-device-api geocoordinates</a></td>
     </tr>
     <tr>
       <td><b>🚩 Feature Flags</b></td>
       <td>List, get, and set device feature flags</td>
       <td align="center"><code>client.feature_flags</code></td>
-      <td align="center"><a href="#feature-flags-cli">ax-devil-device-api-feature-flags</a></td>
+      <td align="center"><a href="#feature-flags">ax-devil-device-api features</a></td>
     </tr>
     <tr>
       <td><b>🌐 Network</b></td>
       <td>Get network interface information</td>
       <td align="center"><code>client.network</code></td>
-      <td align="center"><a href="#network-cli">ax-devil-device-api-network</a></td>
+      <td align="center"><a href="#network-operations">ax-devil-device-api network</a></td>
     </tr>
   </tbody>
 </table>
@@ -145,58 +145,84 @@ finally:
 
 ### CLI Usage Examples
 
+#### 🎯 New Unified CLI (Recommended)
+
+The project now provides a unified CLI with organized subcommands:
+
+```bash
+# Main help - shows all available subcommands
+ax-devil-device-api --help
+
+# Check version
+ax-devil-device-api --version
+
+# Set common parameters as environment variables for convenience
+export AX_DEVIL_TARGET_ADDR=192.168.1.10
+export AX_DEVIL_TARGET_USER=admin
+export AX_DEVIL_TARGET_PASS=secret
+```
+
 <details open>
-<summary><a name="device-info-cli"></a><b>📱 Device Information</b></summary>
+<summary><a name="device-operations"></a><b>📱 Device Operations</b></summary>
 <p>
 
 ```bash
 # Get device information
-ax-devil-device-api-device-info --device-ip 192.168.1.10 --username admin --password secret info
+ax-devil-device-api device info
 
 # Check device health
-ax-devil-device-api-device-info --device-ip 192.168.1.10 --username admin --password secret health
+ax-devil-device-api device health
 
-# Restart device
-ax-devil-device-api-device-info --device-ip 192.168.1.10 --username admin --password secret restart
+# Restart device (with confirmation)
+ax-devil-device-api device restart
+
+# Force restart without confirmation
+ax-devil-device-api device restart --force
 ```
 </p>
 </details>
 
 <details>
-<summary><a name="device-debug-cli"></a><b>🔧 Device Debugging</b></summary>
+<summary><a name="device-debugging"></a><b>🔧 Device Debugging</b></summary>
 <p>
 
 ```bash
 # Download server report
-ax-devil-device-api-device-debug --device-ip 192.168.1.10 --username admin --password secret download_server_report report.tar.gz
+ax-devil-device-api debug download-server-report report.tar.gz
 
 # Download crash report
-ax-devil-device-api-device-debug --device-ip 192.168.1.10 --username admin --password secret download_crash_report crash.tar.gz
+ax-devil-device-api debug download-crash-report crash.tar.gz
+
+# Run ping test
+ax-devil-device-api debug ping-test google.com
 ```
 </p>
 </details>
 
 <details>
-<summary><a name="media-cli"></a><b>📷 Media Operations</b></summary>
+<summary><a name="media-operations"></a><b>📷 Media Operations</b></summary>
 <p>
 
 ```bash
 # Capture snapshot
-ax-devil-device-api-media --device-ip 192.168.1.10 --username admin --password secret --output image.jpg snapshot
+ax-devil-device-api media snapshot --output image.jpg
+
+# With custom resolution
+ax-devil-device-api media snapshot --resolution 1920x1080 --output snapshot.jpg
 ```
 </p>
 </details>
 
 <details>
-<summary><a name="ssh-cli"></a><b>🔐 SSH Management</b></summary>
+<summary><a name="ssh-management"></a><b>🔐 SSH Management</b></summary>
 <p>
 
 ```bash
 # List SSH users
-ax-devil-device-api-ssh --device-ip 192.168.1.10 --username admin --password secret list
+ax-devil-device-api ssh list
 
 # Add SSH user
-ax-devil-device-api-ssh --device-ip 192.168.1.10 --username admin --password secret add new-user password123
+ax-devil-device-api ssh add new-user password123 --comment "John Doe"
 
 # Remove SSH user
 ax-devil-device-api-ssh --device-ip 192.168.1.10 --username admin --password secret remove user123
@@ -247,45 +273,62 @@ ax-devil-device-api-discovery --device-ip 192.168.1.10 --username admin --passwo
 </details>
 
 <details>
-<summary><a name="geocoordinates-cli"></a><b>🌍 Geocoordinates</b></summary>
+<summary><a name="geocoordinates"></a><b>🌍 Geocoordinates</b></summary>
 <p>
 
 ```bash
 # Get current location coordinates
-ax-devil-device-api-geocoordinates --device-ip 192.168.1.10 --username admin --password secret location get
+ax-devil-device-api geocoordinates location get
 
-# Set location coordinates
-ax-devil-device-api-geocoordinates --device-ip 192.168.1.10 --username admin --password secret location set 59.3293 18.0686
+# Set location coordinates (latitude, longitude)
+ax-devil-device-api geocoordinates location set 59.3293 18.0686
+
+# Apply pending location changes
+ax-devil-device-api geocoordinates location apply
+
+# Get device orientation
+ax-devil-device-api geocoordinates orientation get
+
+# Set device orientation (pan, tilt, roll)
+ax-devil-device-api geocoordinates orientation set 45 30 0
 ```
 </p>
 </details>
 
 <details>
-<summary><a name="feature-flags-cli"></a><b>🚩 Feature Flags</b></summary>
+<summary><a name="feature-flags"></a><b>🚩 Feature Flags</b></summary>
 <p>
 
 ```bash
 # List all feature flags
-ax-devil-device-api-feature-flags --device-ip 192.168.1.10 --username admin --password secret list
+ax-devil-device-api features list
+
+# Get specific feature flag values
+ax-devil-device-api features get flag1 flag2
 
 # Set feature flags
-ax-devil-device-api-feature-flags --device-ip 192.168.1.10 --username admin --password secret set feature_name=true
+ax-devil-device-api features set flag1=true flag2=false
 ```
 </p>
 </details>
 
 <details>
-<summary><a name="network-cli"></a><b>🌐 Network</b></summary>
+<summary><a name="network-operations"></a><b>🌐 Network Operations</b></summary>
 <p>
 
 ```bash
 # Get network interface information
-ax-devil-device-api-network --device-ip 192.168.1.10 --username admin --password secret info
+ax-devil-device-api network info
+
+# Get info for specific interface
+ax-devil-device-api network info --interface eth0
 ```
 </p>
 </details>
 
-> **Note:** For more CLI examples, check the [examples directory](src/ax_devil_device_api/examples) in the source code.
+> **Note:** All CLI commands support the `--help` flag to see available options and parameters.
+>
+> **Breaking Change in v1.0:** The old individual commands (e.g., `ax-devil-device-api-device-info`) have been removed. Please use the new unified CLI structure shown above.
 
 ---
 

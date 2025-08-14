@@ -7,108 +7,122 @@ from urllib.parse import urljoin
 
 from .cli_core import (
     format_json,
-    create_client, handle_error, get_client_args,
-    common_options
+    create_client, handle_error, get_client_args
 )
 
 
-@click.group()
-@common_options
-@click.pass_context
-def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, debug):
-    """Discover and inspect available discoverable APIs."""
-    ctx.ensure_object(dict)
-    ctx.obj.update({
-        'device_ip': device_ip,
-        'username': username,
-        'password': password,
-        'port': port,
-        'protocol': protocol,
-        'no_verify_ssl': no_verify_ssl,
-        'debug': debug
-    })
+def create_discovery_group():
+    """Create and return the discovery command group."""
+    @click.group()
+    @click.pass_context
+    def discovery(ctx):
+        """Discover and inspect available discoverable APIs."""
+        pass
 
-
-@cli.command('list')
-@click.pass_context
-def list_apis(ctx):
-    """List all available APIs on the device."""
-    try:
-        with create_client(**get_client_args(ctx.obj)) as client:
-            apis = client.discovery.discover()
-            
-            click.echo(f"\nFound {len(apis.get_all_apis())} APIs:")
-            for api in apis.get_all_apis():
-                click.echo(f"- {api.name} {api.version} ({api.state})")
-            return 0
-    except Exception as e:
-        return handle_error(ctx, e)
-
-
-@cli.command('info')
-@click.argument('api-name')
-@click.option('--version', '-v', help='Specific version of the API to inspect')
-@click.option('--docs-md', is_flag=True, help='Open markdown documentation in browser')
-@click.option('--docs-md-raw', is_flag=True, help='Show raw markdown content')
-@click.option('--docs-md-link', is_flag=True, help='Show documentation URL')
-@click.option('--docs-html', is_flag=True, help='Open HTML documentation in browser')
-@click.option('--docs-html-raw', is_flag=True, help='Show raw HTML content')
-@click.option('--docs-html-link', is_flag=True, help='Show documentation URL')
-@click.option('--model', is_flag=True, help='Open model in browser')
-@click.option('--model-raw', is_flag=True, help='Show raw JSON model')
-@click.option('--model-link', is_flag=True, help='Show model URL')
-@click.option('--rest-api', is_flag=True, help='Open REST API in browser')
-@click.option('--rest-api-raw', is_flag=True, help='Show raw API documentation')
-@click.option('--rest-api-link', is_flag=True, help='Show API URL')
-@click.option('--rest-openapi', is_flag=True, help='Open OpenAPI spec in browser')
-@click.option('--rest-openapi-raw', is_flag=True, help='Show raw OpenAPI JSON')
-@click.option('--rest-openapi-link', is_flag=True, help='Show OpenAPI URL')
-@click.option('--rest-ui', is_flag=True, help='Open Swagger UI in browser')
-@click.option('--rest-ui-raw', is_flag=True, help='Show raw Swagger UI HTML')
-@click.option('--rest-ui-link', is_flag=True, help='Show Swagger UI URL')
-@click.pass_context
-def get_api_info(ctx, api_name, version,
-                 docs_md, docs_md_raw, docs_md_link,
-                 docs_html, docs_html_raw, docs_html_link,
-                 model, model_raw, model_link,
-                 rest_api, rest_api_raw, rest_api_link,
-                 rest_openapi, rest_openapi_raw, rest_openapi_link,
-                 rest_ui, rest_ui_raw, rest_ui_link):
-    """Get detailed information about a specific API.
-    
-    API-NAME: Name of the API to inspect (e.g. 'analytics-mqtt')
-    
-    When no version is specified, the latest released version is used.
-    Use --all-versions to show information for all available versions.
-    
-    For all content types (documentation, model, API, etc.):
-    - Default: Open in browser
-    - --*-raw: Show raw content
-    - --*-link: Show URL only
-    """
-    try:
-        with create_client(**get_client_args(ctx.obj)) as client:
-            apis = client.discovery.discover()
-
-            api = apis.get_api(api_name, version)
-            if not api:
-                if version:
-                    click.echo(f"Error: API {api_name} version {version} not found", err=True)
-                else:
-                    click.echo(f"Error: API {api_name} not found", err=True)
-                return 1
-            
-            show_api_info(api, ctx,
-                        docs_md, docs_md_raw, docs_md_link,
-                        docs_html, docs_html_raw, docs_html_link,
-                        model, model_raw, model_link,
-                        rest_api, rest_api_raw, rest_api_link,
-                        rest_openapi, rest_openapi_raw, rest_openapi_link,
-                        rest_ui, rest_ui_raw, rest_ui_link)
+    @discovery.command('list')
+    @click.pass_context
+    def list_apis(ctx):
+        """List all available APIs on the device."""
+        try:
+            with create_client(**get_client_args(ctx.obj)) as client:
+                apis = client.discovery.discover()
                 
-            return 0
-    except Exception as e:
-        return handle_error(ctx, e)
+                click.echo(f"\nFound {len(apis.get_all_apis())} APIs:")
+                for api in apis.get_all_apis():
+                    click.echo(f"- {api.name} {api.version} ({api.state})")
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
+
+    @discovery.command('info')
+    @click.argument('api-name')
+    @click.option('--version', '-v', help='Specific version of the API to inspect')
+    @click.option('--docs-md', is_flag=True, help='Open markdown documentation in browser')
+    @click.option('--docs-md-raw', is_flag=True, help='Show raw markdown content')
+    @click.option('--docs-md-link', is_flag=True, help='Show documentation URL')
+    @click.option('--docs-html', is_flag=True, help='Open HTML documentation in browser')
+    @click.option('--docs-html-raw', is_flag=True, help='Show raw HTML content')
+    @click.option('--docs-html-link', is_flag=True, help='Show documentation URL')
+    @click.option('--model', is_flag=True, help='Open model in browser')
+    @click.option('--model-raw', is_flag=True, help='Show raw JSON model')
+    @click.option('--model-link', is_flag=True, help='Show model URL')
+    @click.option('--rest-api', is_flag=True, help='Open REST API in browser')
+    @click.option('--rest-api-raw', is_flag=True, help='Show raw API documentation')
+    @click.option('--rest-api-link', is_flag=True, help='Show API URL')
+    @click.option('--rest-openapi', is_flag=True, help='Open OpenAPI spec in browser')
+    @click.option('--rest-openapi-raw', is_flag=True, help='Show raw OpenAPI JSON')
+    @click.option('--rest-openapi-link', is_flag=True, help='Show OpenAPI URL')
+    @click.option('--rest-ui', is_flag=True, help='Open Swagger UI in browser')
+    @click.option('--rest-ui-raw', is_flag=True, help='Show raw Swagger UI HTML')
+    @click.option('--rest-ui-link', is_flag=True, help='Show Swagger UI URL')
+    @click.pass_context
+    def get_api_info(ctx, api_name, version,
+                     docs_md, docs_md_raw, docs_md_link,
+                     docs_html, docs_html_raw, docs_html_link,
+                     model, model_raw, model_link,
+                     rest_api, rest_api_raw, rest_api_link,
+                     rest_openapi, rest_openapi_raw, rest_openapi_link,
+                     rest_ui, rest_ui_raw, rest_ui_link):
+        """Get detailed information about a specific API.
+        
+        API-NAME: Name of the API to inspect (e.g. 'analytics-mqtt')
+        
+        When no version is specified, the latest released version is used.
+        Use --all-versions to show information for all available versions.
+        
+        For all content types (documentation, model, API, etc.):
+        - Default: Open in browser
+        - --*-raw: Show raw content
+        - --*-link: Show URL only
+        """
+        try:
+            with create_client(**get_client_args(ctx.obj)) as client:
+                apis = client.discovery.discover()
+
+                api = apis.get_api(api_name, version)
+                if not api:
+                    if version:
+                        click.echo(f"Error: API {api_name} version {version} not found", err=True)
+                    else:
+                        click.echo(f"Error: API {api_name} not found", err=True)
+                    return 1
+                
+                show_api_info(api, ctx,
+                            docs_md, docs_md_raw, docs_md_link,
+                            docs_html, docs_html_raw, docs_html_link,
+                            model, model_raw, model_link,
+                            rest_api, rest_api_raw, rest_api_link,
+                            rest_openapi, rest_openapi_raw, rest_openapi_link,
+                            rest_ui, rest_ui_raw, rest_ui_link)
+                    
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
+
+    @discovery.command('versions')
+    @click.argument('api-name')
+    @click.pass_context
+    def list_versions(ctx, api_name):
+        """List all available versions of a specific API."""
+        try:
+            with create_client(**get_client_args(ctx.obj)) as client:
+                apis = client.discovery.discover()
+                versions = apis.get_apis_by_name(api_name)
+                
+                if not versions:
+                    click.echo(f"Error: API {api_name} not found", err=True)
+                    return 1
+                    
+                click.echo(f"\nFound {len(versions)} versions of {api_name}:")
+                for api in sorted(versions, key=lambda x: x.version):
+                    click.echo(f"- {api.version} ({api.version_string})")
+                    click.echo(f"  State: {api.state}")
+                    click.echo(f"  REST API: {api.rest_api_url}")
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
+    
+    return discovery
 
 
 def show_api_info(api, ctx,
@@ -201,32 +215,4 @@ def show_api_info(api, ctx,
             api.rest_ui_url,
             rest_ui, rest_ui_raw, rest_ui_link,
             api.get_documentation_html
-        )
-
-
-@cli.command('versions')
-@click.argument('api-name')
-@click.pass_context
-def list_versions(ctx, api_name):
-    """List all available versions of a specific API."""
-    try:
-        with create_client(**get_client_args(ctx.obj)) as client:
-            apis = client.discovery.discover()
-            versions = apis.get_apis_by_name(api_name)
-            
-            if not versions:
-                click.echo(f"Error: API {api_name} not found", err=True)
-                return 1
-                
-            click.echo(f"\nFound {len(versions)} versions of {api_name}:")
-            for api in sorted(versions, key=lambda x: x.version):
-                click.echo(f"- {api.version} ({api.version_string})")
-                click.echo(f"  State: {api.state}")
-                click.echo(f"  REST API: {api.rest_api_url}")
-            return 0
-    except Exception as e:
-        return handle_error(ctx, e)
-
-
-if __name__ == '__main__':
-    cli() 
+        ) 
