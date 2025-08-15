@@ -45,6 +45,7 @@ def register_subcommands():
     from .api_discovery_cli import create_discovery_group
     from .feature_flags_cli import create_features_group
     from .device_debug_cli import create_debug_group
+    from .analytics_metadata_cli import create_analytics_metadata_group
     
     # Register subcommands
     cli.add_command(create_device_group(), name='device')
@@ -57,6 +58,7 @@ def register_subcommands():
     cli.add_command(create_discovery_group(), name='discovery')
     cli.add_command(create_features_group(), name='features')
     cli.add_command(create_debug_group(), name='debug')
+    cli.add_command(create_analytics_metadata_group(), name='analytics-metadata')
 
 
 # Register subcommands when module is imported

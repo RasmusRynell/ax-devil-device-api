@@ -15,6 +15,7 @@ from .features.api_discovery import DiscoveryClient
 from .features.feature_flags import FeatureFlagClient
 from .features.ssh import SSHClient
 from .features.device_debug import DeviceDebugClient
+from .features.analytics_metadata import AnalyticsMetadataClient
 
 class Client:
     """Main client interface for a device.
@@ -51,6 +52,7 @@ class Client:
         self._feature_flags: Optional[FeatureFlagClient] = None
         self._ssh: Optional[SSHClient] = None
         self._device_debug: Optional[DeviceDebugClient] = None
+        self._analytics_metadata: Optional[AnalyticsMetadataClient] = None
     
     def __del__(self):
         """Attempt to clean up if user forgets to close.
@@ -191,3 +193,10 @@ class Client:
         if not self._device_debug:
             self._device_debug = DeviceDebugClient(self._core)
         return self._device_debug
+
+    @property
+    def analytics_metadata(self) -> AnalyticsMetadataClient:
+        """Get the analytics metadata producer configuration client."""
+        if not self._analytics_metadata:
+            self._analytics_metadata = AnalyticsMetadataClient(self._core)
+        return self._analytics_metadata
