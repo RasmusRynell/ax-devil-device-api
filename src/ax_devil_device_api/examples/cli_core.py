@@ -168,6 +168,7 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
         "invalid_response": (
             "Invalid response.\n"
             "API returned an invalid response. Please check the response and try again."
+            "{{ORIGINAL_ERROR_MESSAGE}}"
         ),
     }
 
@@ -180,8 +181,10 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
         error.code = "ssl_verification_failed"
 
     message = error_messages.get(error.code, f"{error.code}: {error.message}")
+    if "ORIGINAL_ERROR_MESSAGE" in message and hasattr(error, 'message') and "message" in error.message:
+        message = message.replace("{{ORIGINAL_ERROR_MESSAGE}}", f"\n(Original error: \"{error.message['message']}\")")
+    
     color = 'yellow' if isinstance(error, SecurityError) else 'red'
-
     if hasattr(error, 'details') and error.details and 'original_error' in error.details:
         original_error = error.details['original_error']
         message += f"\n---\n{error_messages.get(original_error.code, f'{original_error.code}: {original_error.message}')}"
