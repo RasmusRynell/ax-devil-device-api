@@ -4,7 +4,7 @@
 
 Python package and CLI for configuring Axis devices via their HTTPS APIs: device info and health, snapshots, network details, MQTT clients, analytics publishers, API discovery, SSH users and more.
 
-See also: [ax-devil-mqtt](https://github.com/rasmusrynell/ax-devil-mqtt) and [ax-devil-rtsp](https://github.com/rasmusrynell/ax-devil-rtsp) for related tooling.
+See also [ax-devil-mqtt](https://github.com/rasmusrynell/ax-devil-mqtt) and [ax-devil-rtsp](https://github.com/rasmusrynell/ax-devil-rtsp) for related tools.
 
 </div>
 
