@@ -33,4 +33,4 @@ Documentation = "https://github.com/rasmusrynell/ax-devil-device-api#readme"
 "Bug Tracker" = "https://github.com/rasmusrynell/ax-devil-device-api/issues"
 
 [project.scripts]
-ax-devil-device-api = "ax_devil_device_api.examples.main_cli:cli"
+ax-devil-device-api = "ax_devil_device_api.clis.main_cli:cli"
