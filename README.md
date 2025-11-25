@@ -18,6 +18,7 @@ See also: [ax-devil-mqtt](https://github.com/rasmusrynell/ax-devil-mqtt) for usi
 
 - [Feature Overview](#-feature-overview)
 - [Quick Start](#-quick-start)
+- [Development Setup](#-development-setup)
 - [Usage Examples](#-usage-examples)
 - [Disclaimer](#-disclaimer)
 - [License](#-license)
@@ -117,6 +118,14 @@ export AX_DEVIL_TARGET_USER=<username>
 export AX_DEVIL_TARGET_PASS=<password>
 export AX_DEVIL_USAGE_CLI="safe" # Set to "unsafe" to skip SSL certificate verification for CLI calls
 ```
+
+---
+
+## 🛠️ Development Setup
+
+- Create and activate a virtual environment.
+- Install the package with development extras (dev dependencies now live in `pyproject.toml`): `pip install -e ".[dev]"`
+- Run the test suite with `pytest` (use `pytest --cov` for coverage).
 
 ---
 
