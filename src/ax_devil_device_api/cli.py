@@ -13,7 +13,7 @@ __version__ = version('ax-devil-device-api')
 @common_options
 @click.version_option(version=__version__, prog_name='ax-devil-device-api')
 @click.pass_context
-def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, debug):
+def cli(ctx, device_ip, device_username, device_password, port, protocol, no_verify_ssl, debug):
     """ax-devil-device-api - Unified CLI for Axis device APIs.
     
     Manage Axis network devices through a comprehensive command-line interface.
@@ -23,8 +23,8 @@ def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, debug
     ctx.ensure_object(dict)
     ctx.obj.update({
         'device_ip': device_ip,
-        'username': username,
-        'password': password,
+        'device_username': device_username,
+        'device_password': device_password,
         'port': port,
         'protocol': protocol,
         'no_verify_ssl': no_verify_ssl,

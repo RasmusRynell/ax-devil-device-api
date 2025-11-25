@@ -16,7 +16,7 @@ class OperationCancelled(Exception):
     pass
 
 
-def create_client(device_ip, username, password, port, protocol='https', no_verify_ssl=False) -> Client:
+def create_client(device_ip, device_username, device_password, port, protocol='https', no_verify_ssl=False) -> Client:
     """Create and return a Client instance within a context manager.
     
     Returns:
@@ -28,15 +28,20 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
     """
     assert protocol in ['http', 'https'], "Invalid protocol"
     assert port is None or isinstance(port, int), "\n\tInvalid port"
-    assert username is not None and password is not None, "\n\tUsername and password are required, use --username and --password options or set AX_DEVIL_TARGET_USER and AX_DEVIL_TARGET_PASS environment variables"
-    assert device_ip is not None, "\n\tDevice IP is required, use --device-ip option or set AX_DEVIL_TARGET_ADDR environment variable"
+    assert device_username is not None and device_password is not None, (
+        "\n\tUsername and password are required, use --device-username/-u and --device-password/-p options "
+        "or set AX_DEVIL_TARGET_USER and AX_DEVIL_TARGET_PASS environment variables"
+    )
+    assert device_ip is not None, (
+        "\n\tDevice IP is required, use --device-ip/-a option or set AX_DEVIL_TARGET_ADDR environment variable"
+    )
     assert no_verify_ssl is False or protocol == 'https', "\n\tSSL verification can only be disabled for HTTPS connections"
 
     if protocol == 'https':
         config = DeviceConfig.https(
             host=device_ip,
-            username=username,
-            password=password,
+            username=device_username,
+            password=device_password,
             port=port,
             verify_ssl=not no_verify_ssl
         )
@@ -47,8 +52,8 @@ def create_client(device_ip, username, password, port, protocol='https', no_veri
 
         config = DeviceConfig.http(
             host=device_ip,
-            username=username,
-            password=password,
+            username=device_username,
+            password=device_password,
             port=port
         )
 
@@ -138,7 +143,7 @@ def format_error_message(error: Union[Exception, BaseError]) -> tuple[str, str]:
         ),
         "username_password_required": (
             "Username and password are required.\n"
-            "Please provide a username and password using the --username and --password options."
+            "Please provide credentials using the --device-username/-u and --device-password/-p options."
             "\nOptionally: you can set the AX_DEVIL_TARGET_USER and AX_DEVIL_TARGET_PASS environment variables."
         ),
         "authentication_failed": (
@@ -214,7 +219,7 @@ def handle_error(ctx, error: Exception, show_prefix: bool = True) -> int:
 def get_client_args(ctx_obj: dict) -> dict:
     """Extract client-specific arguments from context object."""
     return {k: v for k, v in ctx_obj.items()
-            if k in ['device_ip', 'username', 'password', 'port',
+            if k in ['device_ip', 'device_username', 'device_password', 'port',
                      'protocol', 'no_verify_ssl']}
 
 
@@ -286,12 +291,12 @@ def format_json(data: dict, indent: int = 2) -> str:
 
 def common_options(f):
     """Common CLI options decorator."""
-    f = click.option('--device-ip', default=lambda: os.getenv('AX_DEVIL_TARGET_ADDR'),
-                     required=False, help='Device IP address or hostname')(f)
-    f = click.option('--username', default=lambda: os.getenv('AX_DEVIL_TARGET_USER'),
-                     required=False, help='Username for authentication')(f)
-    f = click.option('--password', default=lambda: os.getenv('AX_DEVIL_TARGET_PASS'),
-                     required=False, help='Password for authentication')(f)
+    f = click.option('--device-ip', '-a', envvar='AX_DEVIL_TARGET_ADDR',
+                     required=True, show_envvar=True, help='Device IP address or hostname')(f)
+    f = click.option('--device-username', '-u', envvar='AX_DEVIL_TARGET_USER',
+                     required=True, show_envvar=True, help='Username for authentication')(f)
+    f = click.option('--device-password', '-p', envvar='AX_DEVIL_TARGET_PASS',
+                     required=True, show_envvar=True, help='Password for authentication')(f)
     f = click.option('--port', type=int, required=False, help='Port number')(f)
     f = click.option('--protocol', type=click.Choice(['http', 'https']),
                      default='https',

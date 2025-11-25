@@ -234,7 +234,7 @@ ax-devil-device-api ssh list
 ax-devil-device-api ssh add new-user password123 --comment "John Doe"
 
 # Remove SSH user
-ax-devil-device-api-ssh --device-ip 192.168.1.10 --username admin --password secret remove user123
+ax-devil-device-api-ssh --device-ip 192.168.1.10 --device-username admin --device-password secret remove user123
 ```
 </p>
 </details>
@@ -245,10 +245,10 @@ ax-devil-device-api-ssh --device-ip 192.168.1.10 --username admin --password sec
 
 ```bash
 # Activate MQTT client
-ax-devil-device-api-mqtt-client --device-ip 192.168.1.10 --username admin --password secret activate
+ax-devil-device-api-mqtt-client --device-ip 192.168.1.10 --device-username admin --device-password secret activate
 
 # Deactivate MQTT client
-ax-devil-device-api-mqtt-client --device-ip 192.168.1.10 --username admin --password secret deactivate
+ax-devil-device-api-mqtt-client --device-ip 192.168.1.10 --device-username admin --device-password secret deactivate
 ```
 </p>
 </details>
@@ -259,10 +259,10 @@ ax-devil-device-api-mqtt-client --device-ip 192.168.1.10 --username admin --pass
 
 ```bash
 # List available analytics data sources
-ax-devil-device-api-analytics-mqtt --device-ip 192.168.1.10 --username admin --password secret sources
+ax-devil-device-api-analytics-mqtt --device-ip 192.168.1.10 --device-username admin --device-password secret sources
 
 # List configured publishers
-ax-devil-device-api-analytics-mqtt --device-ip 192.168.1.10 --username admin --password secret list
+ax-devil-device-api-analytics-mqtt --device-ip 192.168.1.10 --device-username admin --device-password secret list
 ```
 </p>
 </details>
@@ -273,10 +273,10 @@ ax-devil-device-api-analytics-mqtt --device-ip 192.168.1.10 --username admin --p
 
 ```bash
 # List available APIs
-ax-devil-device-api-discovery --device-ip 192.168.1.10 --username admin --password secret list
+ax-devil-device-api-discovery --device-ip 192.168.1.10 --device-username admin --device-password secret list
 
 # Get API info
-ax-devil-device-api-discovery --device-ip 192.168.1.10 --username admin --password secret info vapix
+ax-devil-device-api-discovery --device-ip 192.168.1.10 --device-username admin --device-password secret info vapix
 ```
 </p>
 </details>

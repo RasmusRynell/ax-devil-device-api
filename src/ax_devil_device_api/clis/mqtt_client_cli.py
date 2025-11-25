@@ -34,27 +34,29 @@ def create_mqtt_group():
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
                 _ = client.mqtt_client.deactivate()
-                    
+
                 click.echo(click.style("MQTT client deactivated successfully!", fg="yellow"))
                 return 0
         except Exception as e:
             return handle_error(ctx, e)
 
     @mqtt.command('configure')
-    @click.option('--broker-host', required=True, help='Broker hostname or IP address')
-    @click.option('--broker-port', type=int, default=1883, help='Broker port number')
-    @click.option('--broker-username', help='Broker authentication username')
-    @click.option('--broker-password', help='Broker authentication password')
-    @click.option('--keep-alive', type=int, default=60, help='Keep alive interval in seconds')
+    @click.option('--broker-address', '-b', envvar='AX_DEVIL_MQTT_BROKER_ADDR',
+                  show_envvar=True, required=True, help='Broker hostname or IP address')
+    @click.option('--broker-port', '-P', type=int, default=1883, show_default=True, help='Broker port number')
+    @click.option('--broker-username', '-U', help='Broker authentication username')
+    @click.option('--broker-password', '-W', envvar='AX_DEVIL_MQTT_BROKER_PASS',
+                  show_envvar=True, help='Broker authentication password')
+    @click.option('--keep-alive', type=int, default=60, show_default=True, help='Keep alive interval in seconds')
     @click.option('--use-tls', is_flag=True, help='Use TLS encryption')
     @click.pass_context
-    def configure(ctx, broker_host, broker_port, broker_username, broker_password,
+    def configure(ctx, broker_address, broker_port, broker_username, broker_password,
                  keep_alive, use_tls):
         """Configure MQTT broker settings."""
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
                 client.mqtt_client.configure(
-                    host=broker_host,
+                    host=broker_address,
                     port=broker_port,
                     username=broker_username,
                     password=broker_password,
@@ -64,7 +66,7 @@ def create_mqtt_group():
                     
                 click.echo(click.style("MQTT broker configuration updated successfully!", fg="green"))
                 click.echo("\nBroker Configuration:")
-                click.echo(f"  Host: {broker_host}")
+                click.echo(f"  Host: {broker_address}")
                 click.echo(f"  Port: {broker_port}")
                 click.echo(f"  TLS Enabled: {use_tls}")
                 click.echo(f"  Keep Alive: {keep_alive}s")
@@ -114,4 +116,4 @@ def create_mqtt_group():
         except Exception as e:
             return handle_error(ctx, e)
     
-    return mqtt 
+    return mqtt
