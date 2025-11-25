@@ -2,7 +2,7 @@
 """Main CLI entry point for ax-devil-device-api - Unified interface for Axis device APIs."""
 
 import click
-from .cli_core import common_options
+from .clis.cli_core import common_options
 
 # Import version from package metadata
 from importlib.metadata import version
@@ -35,17 +35,17 @@ def cli(ctx, device_ip, username, password, port, protocol, no_verify_ssl, debug
 def register_subcommands():
     """Register all subcommand groups."""
     # Import subgroups - delayed import to avoid circular dependencies
-    from .device_info_cli import create_device_group
-    from .network_cli import create_network_group
-    from .media_cli import create_media_group
-    from .mqtt_client_cli import create_mqtt_group
-    from .ssh_cli import create_ssh_group
-    from .geocoordinates_cli import create_geocoordinates_group
-    from .analytics_mqtt_cli import create_analytics_group
-    from .api_discovery_cli import create_discovery_group
-    from .feature_flags_cli import create_features_group
-    from .device_debug_cli import create_debug_group
-    from .analytics_metadata_cli import create_analytics_metadata_group
+    from .clis.device_info_cli import create_device_group
+    from .clis.network_cli import create_network_group
+    from .clis.media_cli import create_media_group
+    from .clis.mqtt_client_cli import create_mqtt_group
+    from .clis.ssh_cli import create_ssh_group
+    from .clis.geocoordinates_cli import create_geocoordinates_group
+    from .clis.analytics_mqtt_cli import create_analytics_group
+    from .clis.api_discovery_cli import create_discovery_group
+    from .clis.feature_flags_cli import create_features_group
+    from .clis.device_debug_cli import create_debug_group
+    from .clis.analytics_metadata_cli import create_analytics_metadata_group
     
     # Register subcommands
     cli.add_command(create_device_group(), name='device')
