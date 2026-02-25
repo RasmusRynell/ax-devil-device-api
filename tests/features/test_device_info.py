@@ -19,6 +19,31 @@ class TestDeviceInfoFeature:
         assert info.get("build_date"), "Build date should not be empty"
         assert isinstance(info.get("ptz_support"), list), "PTZ support should be a list"
         assert isinstance(info.get("analytics_support"), bool), "Analytics support should be a boolean"
+        assert isinstance(info.get("metadata_support"), bool), "Metadata support should be a boolean"
+        assert isinstance(info.get("Onvif Replay Extention"), bool), "Onvif Replay Extension support should be a boolean"
+
+    @pytest.mark.integration
+    def test_get_info_no_auth(self, client):
+        """Test unauthenticated device info retrieval via basicdeviceinfo.cgi."""
+        info = client.device.get_info_no_auth()
+        assert isinstance(info, dict), "Response should be a dictionary"
+        assert len(info) > 0, "Response should contain at least one property"
+
+    @pytest.mark.integration
+    def test_get_info_auth(self, client):
+        """Test authenticated device info retrieval via basicdeviceinfo.cgi."""
+        info = client.device.get_info_auth()
+        assert isinstance(info, dict), "Response should be a dictionary"
+        assert len(info) > 0, "Response should contain at least one property"
+
+    @pytest.mark.integration
+    def test_get_info_auth_has_more_than_no_auth(self, client):
+        """Authenticated info should return at least as many properties as unauthenticated."""
+        no_auth_info = client.device.get_info_no_auth()
+        auth_info = client.device.get_info_auth()
+        assert len(auth_info) >= len(no_auth_info), (
+            "Authenticated response should have at least as many properties as unauthenticated"
+        )
     
     @pytest.mark.skip_health_check
     @pytest.mark.integration

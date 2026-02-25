@@ -23,3 +23,7 @@ class FeatureClient(Generic[T]):
     def request(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
         """Make a request to the device API."""
         return self.device.request(endpoint, **kwargs)
+
+    def request_no_auth(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
+        """Make an unauthenticated request to the device API."""
+        return self.device.request_no_auth(endpoint, **kwargs)

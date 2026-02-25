@@ -60,6 +60,39 @@ def create_client(device_ip, device_username, device_password, port, protocol='h
     return Client(config).__enter__() # Return context manager
 
 
+def create_client_no_auth(device_ip, port, protocol='https', no_verify_ssl=False) -> Client:
+    """Create a Client that only supports unauthenticated requests.
+
+    Credentials are not required.  Only ``request_no_auth`` calls will
+    work on the returned client; authenticated endpoints will fail.
+    """
+    assert protocol in ['http', 'https'], "Invalid protocol"
+    assert port is None or isinstance(port, int), "\n\tInvalid port"
+    assert device_ip is not None, (
+        "\n\tDevice IP is required, use --device-ip/-a option or set AX_DEVIL_TARGET_ADDR environment variable"
+    )
+    assert no_verify_ssl is False or protocol == 'https', "\n\tSSL verification can only be disabled for HTTPS connections"
+
+    # Empty credentials — auth handler is never invoked for no-auth requests.
+    if protocol == 'https':
+        config = DeviceConfig.https(
+            host=device_ip,
+            username="",
+            password="",
+            port=port,
+            verify_ssl=not no_verify_ssl,
+        )
+    else:
+        config = DeviceConfig.http(
+            host=device_ip,
+            username="",
+            password="",
+            port=port,
+        )
+
+    return Client(config).__enter__()
+
+
 def show_debug_info(ctx, error=None):
     """Show detailed debug information if debug mode is enabled."""
     if error is not None:
@@ -294,9 +327,9 @@ def common_options(f):
     f = click.option('--device-ip', '-a', envvar='AX_DEVIL_TARGET_ADDR',
                      required=True, show_envvar=True, help='Device IP address or hostname')(f)
     f = click.option('--device-username', '-u', envvar='AX_DEVIL_TARGET_USER',
-                     required=True, show_envvar=True, help='Username for authentication')(f)
+                     required=False, default=None, show_envvar=True, help='Username for authentication')(f)
     f = click.option('--device-password', '-p', envvar='AX_DEVIL_TARGET_PASS',
-                     required=True, show_envvar=True, help='Password for authentication')(f)
+                     required=False, default=None, show_envvar=True, help='Password for authentication')(f)
     f = click.option('--port', type=int, required=False, help='Port number')(f)
     f = click.option('--protocol', type=click.Choice(['http', 'https']),
                      default='https',

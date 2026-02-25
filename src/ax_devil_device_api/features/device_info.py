@@ -1,11 +1,11 @@
 import requests
-from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Dict
 from .base import FeatureClient
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 
-def get_device_info_from_params(params: Dict[str, str]) -> Dict[str, any]:
+
+def get_device_info_from_params(params: Dict[str, str]) -> Dict[str, Any]:
     """Create device info dictionary from parameter dictionary.
     
     Args:
@@ -25,7 +25,7 @@ def get_device_info_from_params(params: Dict[str, str]) -> Dict[str, any]:
     """
     def get_param(key: str, default: str = "unknown") -> str:
         return params.get(f"root.{key}", params.get(key, default))
-    
+
     ptz_modes = get_param("Properties.PTZ.DriverModeList", "").split(",")
     ptz_support = [mode.strip() for mode in ptz_modes if mode.strip()]
     
@@ -43,13 +43,16 @@ def get_device_info_from_params(params: Dict[str, str]) -> Dict[str, any]:
         "firmware_version": get_param("Properties.Firmware.Version"),
         "build_date": get_param("Properties.Firmware.BuildDate"),
         "ptz_support": ptz_support,
-        "analytics_support": analytics_support
+        "analytics_support": analytics_support,
+        "metadata_support": get_param("Properties.API.Metadata.Metadata") == "yes",
+        "Onvif Replay Extention": get_param("Properties.API.Onvif.ReplayExtension") == "yes",
     }
     
 
 class DeviceInfoClient(FeatureClient):
     """Client for basic device operations."""
     
+    BASIC_DEVICE_INFO_ENDPOINT = TransportEndpoint("POST", "/axis-cgi/basicdeviceinfo.cgi")
     PARAMS_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/param.cgi")
     RESTART_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/restart.cgi")
     
@@ -70,7 +73,7 @@ class DeviceInfoClient(FeatureClient):
         params = dict(line.split('=', 1) for line in lines if '=' in line)
         return params
 
-    def get_info(self) -> Dict[str, any]:
+    def get_info(self) -> Dict[str, Any]:
         """Get basic device information."""
         param_groups = ["Properties", "Brand"]
         params = {}
@@ -121,3 +124,41 @@ class DeviceInfoClient(FeatureClient):
             )
             
         return True
+
+    def _get_basic_device_info(self, method: str, *, authenticated: bool = True) -> Dict[str, Any]:
+        """Fetch device info via basicdeviceinfo.cgi.
+
+        Args:
+            method: The VAPIX JSON-RPC method name
+                (e.g. "getAllUnrestrictedProperties" or "getAllProperties").
+            authenticated: If False the request bypasses the auth handler.
+        """
+        request_fn = self.request if authenticated else self.request_no_auth
+        response = request_fn(
+            self.BASIC_DEVICE_INFO_ENDPOINT,
+            headers={"Accept": "application/json"},
+            json={"apiVersion": "1.3", "method": method},
+        )
+
+        if response.status_code != 200:
+            raise FeatureError(
+                "fetch_failed",
+                f"Failed to get basic device info: HTTP {response.status_code}",
+            )
+
+        data = response.json().get("data", {}).get("propertyList", {})
+        if not data:
+            raise FeatureError(
+                "fetch_failed",
+                "No device information found in response",
+            )
+        return data
+
+    def get_info_no_auth(self) -> Dict[str, Any]:
+        """Get device info without authentication using basicdeviceinfo.cgi."""
+        return self._get_basic_device_info("getAllUnrestrictedProperties", authenticated=False)
+
+    def get_info_auth(self) -> Dict[str, Any]:
+        """Get device info with authentication using basicdeviceinfo.cgi."""
+        return self._get_basic_device_info("getAllProperties")
+
