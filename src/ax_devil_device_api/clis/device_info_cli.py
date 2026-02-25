@@ -3,7 +3,7 @@
 
 import click
 from .cli_core import (
-    create_client, handle_error, get_client_args
+    create_client, create_client_no_auth, handle_error, get_client_args
 )
 
 
@@ -23,6 +23,40 @@ def create_device_group():
             with create_client(**get_client_args(ctx.obj)) as client:
                 info = client.device.get_info()
                 click.echo("Device Information:")
+                for key, value in info.items():
+                    click.echo(f"   {key}: {value}")
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
+        
+    @device.command('info-no-auth')
+    @click.pass_context
+    def get_info_no_auth(ctx):
+        """Get basic device information without authentication."""
+        try:
+            args = get_client_args(ctx.obj)
+            with create_client_no_auth(
+                device_ip=args["device_ip"],
+                port=args.get("port"),
+                protocol=args.get("protocol", "https"),
+                no_verify_ssl=args.get("no_verify_ssl", False),
+            ) as client:
+                info = client.device.get_info_no_auth()
+                click.echo("Basic Device Information (Unauthenticated):")
+                for key, value in info.items():
+                    click.echo(f"   {key}: {value}")
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
+
+    @device.command('info-auth')
+    @click.pass_context
+    def get_info_auth(ctx):
+        """Get basic device information with authentication."""
+        try:
+            with create_client(**get_client_args(ctx.obj)) as client:
+                info = client.device.get_info_auth()
+                click.echo("Basic Device Information (Authenticated):")
                 for key, value in info.items():
                     click.echo(f"   {key}: {value}")
                 return 0

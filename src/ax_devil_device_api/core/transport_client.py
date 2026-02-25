@@ -1,13 +1,10 @@
-from typing import Any, Dict
 import requests
-from requests.auth import AuthBase
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 
 from .config import DeviceConfig
 from .auth import AuthHandler
 from .endpoints import TransportEndpoint
-from ..utils.errors import NetworkError, AuthenticationError
+from ..utils.errors import NetworkError, SecurityError
 
 
 class TransportClient:
@@ -74,6 +71,7 @@ class TransportClient:
         finally:
             self._session.close()
             self._session = old_session
+
     def clear_session(self):
         """Clear and reset the current session.
         
@@ -98,7 +96,6 @@ class TransportClient:
         try:
             return self.auth.send_request(self._session, endpoint, headers, kwargs)
 
-            
         except requests.exceptions.Timeout as e:
             raise NetworkError(
                 "request_timeout",
@@ -110,4 +107,36 @@ class TransportClient:
                 "request_failed",
                 "Request failed",
                 str(e)
+            )
+
+    def request_no_auth(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
+        """Make an unauthenticated request to the device API.
+
+        Bypasses the authentication handler, useful for endpoints that
+        do not require credentials (e.g. basicdeviceinfo.cgi unrestricted).
+        """
+        url = endpoint.build_url(self.config.get_base_url(), kwargs.pop("params", None))
+        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
+
+        try:
+            return self._session.request(
+                method=endpoint.method,
+                url=url,
+                headers=headers,
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+                **kwargs,
+            )
+
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(
+                "request_timeout",
+                f"Request timed out after {self.config.timeout}s",
+            )
+
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(
+                "request_failed",
+                "Request failed",
+                str(e),
             )
