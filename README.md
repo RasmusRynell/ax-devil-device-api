@@ -41,6 +41,8 @@ Set environment variables to avoid repeating credentials and broker details:
 - Feature flags – list/get/set; CLI `features`; Python `client.feature_flags`
 - Geocoordinates – location/orientation get/set/apply; CLI `geocoordinates`; Python `client.geocoordinates`
 - SSH users – add/list/show/modify/remove; CLI `ssh`; Python `client.ssh`
+- jq transformer – list topics, list/create/remove transforms; CLI `jq-transformer`; Python `client.jq_transformer`
+- Systemready – check device readiness (no auth), supported API versions; CLI `systemready`; Python `client.systemready`
 - Debug – server/crash reports, network traces, pings, port checks, core dumps; CLI `debug`; Python `client.device_debug`
 
 ---
@@ -129,6 +131,23 @@ ax-devil-device-api features set my_flag=true other_flag=false --force
 ```bash
 ax-devil-device-api discovery list
 ax-devil-device-api discovery info analytics-mqtt --docs-html-link
+```
+
+- jq transformer:
+
+```bash
+ax-devil-device-api jq-transformer topics
+ax-devil-device-api jq-transformer list
+ax-devil-device-api jq-transformer create "input/topic" "output/topic" '.key'
+ax-devil-device-api jq-transformer remove "output/topic"
+```
+
+- Check device readiness (no authentication required):
+
+```bash
+ax-devil-device-api systemready check --device-ip <device-ip>
+ax-devil-device-api systemready check --timeout 30
+ax-devil-device-api systemready versions
 ```
 
 - Manage SSH users or collect diagnostics:
