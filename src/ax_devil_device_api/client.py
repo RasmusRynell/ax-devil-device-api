@@ -17,6 +17,7 @@ from .features.ssh import SSHClient
 from .features.device_debug import DeviceDebugClient
 from .features.analytics_metadata import AnalyticsMetadataClient
 from .features.jq_transformer import JqTransformerClient
+from .features.systemready import SystemReadyClient
 
 class Client:
     """Main client interface for a device.
@@ -55,6 +56,7 @@ class Client:
         self._device_debug: Optional[DeviceDebugClient] = None
         self._analytics_metadata: Optional[AnalyticsMetadataClient] = None
         self._jq_transformer: Optional[JqTransformerClient] = None
+        self._systemready: Optional[SystemReadyClient] = None
     
     def __del__(self):
         """Attempt to clean up if user forgets to close.
@@ -209,3 +211,10 @@ class Client:
         if not self._jq_transformer:
             self._jq_transformer = JqTransformerClient(self._core)
         return self._jq_transformer
+
+    @property
+    def systemready(self) -> SystemReadyClient:
+        """Get the systemready client for checking device readiness."""
+        if not self._systemready:
+            self._systemready = SystemReadyClient(self._core)
+        return self._systemready
