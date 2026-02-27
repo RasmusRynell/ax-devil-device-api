@@ -29,6 +29,20 @@ def create_device_group():
         except Exception as e:
             return handle_error(ctx, e)
         
+    @device.command('info-detailed')
+    @click.pass_context
+    def get_info_detailed(ctx):
+        """Get detailed device information including all parameters."""
+        try:
+            with create_client(**get_client_args(ctx.obj)) as client:
+                info = client.device.get_info_detailed()
+                click.echo("Detailed Device Information:")
+                for key, value in info.items():
+                    click.echo(f"   {key}: {value}")
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
+
     @device.command('info-no-auth')
     @click.pass_context
     def get_info_no_auth(ctx):

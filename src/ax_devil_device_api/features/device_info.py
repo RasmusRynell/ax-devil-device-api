@@ -75,6 +75,11 @@ class DeviceInfoClient(FeatureClient):
 
     def get_info(self) -> Dict[str, Any]:
         """Get basic device information."""
+        return get_device_info_from_params(self.get_info_detailed())
+
+    def get_info_detailed(self) -> Dict[str, Any]:
+        """Get detailed device information"""
+
         param_groups = ["Properties", "Brand"]
         params = {}
         
@@ -94,9 +99,9 @@ class DeviceInfoClient(FeatureClient):
                 )
             
             params.update(parsed)
-        
-        return get_device_info_from_params(params)
-            
+
+        return params
+
     def restart(self) -> bool:
         """Restart the device."""
         response = self.request(self.RESTART_ENDPOINT)
