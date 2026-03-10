@@ -180,7 +180,7 @@ with Client(config) as client:
     info = client.device.get_info()
     print(json.dumps(info, indent=2))
 
-    snapshot = client.media.get_snapshot(resolution="1280x720")
+    snapshot = client.media.get_snapshot(resolution="1280x720", compression=50, camera_head=1)
     mqtt_state = client.mqtt_client.get_state()
 ```
 
