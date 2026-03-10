@@ -82,9 +82,6 @@ class TransportClient:
 
     def request(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
         """Make a request to the device API using the session."""
-        url = self.config.get_base_url()
-        url = endpoint.build_url(url, kwargs.get("params"))
-
         headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
 
         if self.config.protocol.is_secure and self.config.verify_ssl:

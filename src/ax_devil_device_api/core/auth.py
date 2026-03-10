@@ -91,9 +91,11 @@ class AuthHandler:
         def make_request(auth: Optional[AuthBase]) -> requests.Response:
             """Perform a request using the provided authentication."""
 
+            # Pop params so they aren't passed twice (once in the URL, once as kwarg)
+            params = kwargs.pop("params", None)
             request_args = {
                 "method": endpoint.method,
-                "url": endpoint.build_url(self.config.get_base_url(), kwargs.get("params")),
+                "url": endpoint.build_url(self.config.get_base_url(), params),
                 "headers": headers,
                 "timeout": self.config.timeout,
                 "auth": auth,  # Auth will be None if cookies are enough
