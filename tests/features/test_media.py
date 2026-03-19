@@ -8,13 +8,9 @@ class TestMediaFeature:
     """Test suite for media feature."""
     
     @pytest.mark.integration
-    def test_get_snapshot_default(self, client):
-        """Test snapshot capture with default settings."""
-        response = client.media.get_snapshot(
-            resolution="1920x1080",
-            compression=0,
-            camera_head=0
-        )
+    def test_get_snapshot_without_optional_parameters(self, client):
+        """Test snapshot capture without providing optional parameters."""
+        response = client.media.get_snapshot()
         self._verify_snapshot_data(response)
         
     @pytest.mark.integration
@@ -32,6 +28,14 @@ class TestMediaFeature:
         """Test error handling for invalid compression value."""
         with pytest.raises(FeatureError) as e:
             client.media.get_snapshot(resolution="1920x1080", compression=101, camera_head=0)
+        assert e.value.code == "invalid_parameter"
+        assert "Compression" in e.value.message
+
+    @pytest.mark.unit
+    def test_invalid_compression_type(self, client):
+        """Test error handling for invalid compression type."""
+        with pytest.raises(FeatureError) as e:
+            client.media.get_snapshot(compression="bad")
         assert e.value.code == "invalid_parameter"
         assert "Compression" in e.value.message
         

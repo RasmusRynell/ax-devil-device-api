@@ -15,9 +15,9 @@ def create_media_group():
         pass
 
     @media.command('snapshot')
-    @click.option('--resolution', help='Image resolution (WxH format, e.g., "1920x1080")', default="1920x1080")
-    @click.option('--compression', type=int, help='JPEG compression level (1-100)', default=0)
-    @click.option('--device', type=int, help='Camera head identifier for multi-sensor devices', default=0)
+    @click.option('--resolution', help='Optional image resolution (WxH format, e.g., "1920x1080")')
+    @click.option('--compression', type=int, help='Optional JPEG compression level (0-100)')
+    @click.option('--device', type=int, help='Optional camera head identifier for multi-sensor devices')
     @click.option('--output', '-o', type=click.Path(dir_okay=False), default="snapshot.jpg",
                   help='Output file path')
     @click.pass_context

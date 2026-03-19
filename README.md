@@ -33,7 +33,7 @@ Set environment variables to avoid repeating credentials and broker details:
 
 - Device info & health – model/firmware, health, restart; CLI `device`; Python `client.device`
 - Network – interface details; CLI `network info`; Python `client.network`
-- Media – snapshots with resolution/compression; CLI `media snapshot`; Python `client.media`
+- Media – snapshots with optional resolution/compression/camera selection; CLI `media snapshot`; Python `client.media`
 - MQTT client – configure/activate/deactivate/status/config; CLI `mqtt`; Python `client.mqtt_client`
 - Analytics MQTT publishers – list/create/remove; CLI `analytics`; Python `client.analytics_mqtt`
 - Analytics metadata producers – list/enable/disable/sample/versions; CLI `analytics-metadata`; Python `client.analytics_metadata`
@@ -72,8 +72,10 @@ ax-devil-device-api media snapshot \
   --device-ip <device-ip> \
   --device-username <username> \
   --device-password <password> \
-  --resolution 1920x1080 \
   --output snapshot.jpg
+
+# Optional snapshot tuning:
+ax-devil-device-api media snapshot --resolution 1920x1080 --compression 50 --device 1
 ```
 
 - Configure and inspect the device MQTT client:
@@ -180,7 +182,8 @@ with Client(config) as client:
     info = client.device.get_info()
     print(json.dumps(info, indent=2))
 
-    snapshot = client.media.get_snapshot(resolution="1280x720", compression=50, camera_head=1)
+    snapshot = client.media.get_snapshot()
+    tuned_snapshot = client.media.get_snapshot(resolution="1280x720", compression=50, camera_head=1)
     mqtt_state = client.mqtt_client.get_state()
 ```
 
@@ -204,4 +207,3 @@ This project is an independent, community-driven implementation and is **not** a
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-

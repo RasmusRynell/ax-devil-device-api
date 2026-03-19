@@ -15,36 +15,45 @@ class MediaClient(FeatureClient):
     # Endpoint definitions
     SNAPSHOT_ENDPOINT = TransportEndpoint("GET", "/axis-cgi/jpg/image.cgi")
     
-    def get_snapshot(self, resolution: str, compression: int, camera_head: int) -> bytes:
+    def get_snapshot(
+        self,
+        resolution: str | None = None,
+        compression: int | None = None,
+        camera_head: int | None = None,
+    ) -> bytes:
         """Capture a JPEG snapshot from the camera.
         
         Args:
-            config: Optional media configuration parameters
+            resolution: Optional image resolution in WxH format
+            compression: Optional JPEG compression level between 0 and 100
+            camera_head: Optional camera head identifier for multi-sensor devices
             
         Returns:
             bytes containing the image data on success
         """
-        if not isinstance(compression, int):
+        if compression is not None and not isinstance(compression, int):
             raise FeatureError(
                 "invalid_parameter", 
                 "Compression must be an integer between 0 and 100"
             )
             
-        if not (0 <= compression <= 100):
+        if compression is not None and not (0 <= compression <= 100):
             raise FeatureError(
                 "invalid_parameter",
                 "Compression must be between 0 and 100"
             )
             
-        params = {
-            "resolution": resolution,
-            "compression": compression,
-            "camera": camera_head
-        }
+        params = {}
+        if resolution is not None:
+            params["resolution"] = resolution
+        if compression is not None:
+            params["compression"] = compression
+        if camera_head is not None:
+            params["camera"] = camera_head
 
         response = self.request(
             self.SNAPSHOT_ENDPOINT,
-            params=params,
+            params=params or None,
             headers={"Accept": "image/jpeg"}
         )
             
