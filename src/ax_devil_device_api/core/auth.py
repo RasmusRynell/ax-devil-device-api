@@ -2,6 +2,7 @@ from typing import Optional, Callable
 from requests import Response as RequestsResponse
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth, AuthBase
 from .config import DeviceConfig, AuthMethod
+from .debug import emit_request_debug_info
 from ..utils.errors import AuthenticationError
 import requests
 from .endpoints import TransportEndpoint
@@ -93,15 +94,29 @@ class AuthHandler:
 
             # Pop params so they aren't passed twice (once in the URL, once as kwarg)
             params = kwargs.pop("params", None)
+            url = endpoint.build_url(self.config.get_base_url(), params)
             request_args = {
                 "method": endpoint.method,
-                "url": endpoint.build_url(self.config.get_base_url(), params),
+                "url": url,
                 "headers": headers,
                 "timeout": self.config.timeout,
                 "auth": auth,  # Auth will be None if cookies are enough
                 "verify": self.config.verify_ssl,
                 **kwargs
             }
+
+            emit_request_debug_info(
+                self.config.debug_request_callback,
+                method=endpoint.method,
+                url=url,
+                headers=headers,
+                timeout=self.config.timeout,
+                verify_ssl=self.config.verify_ssl,
+                params=params,
+                json_body=kwargs.get("json"),
+                data=kwargs.get("data"),
+            )
+
             return session.request(**request_args)
 
         return self.authenticate_request(session, make_request)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Callable, Optional
 from ..utils.errors import ConfigurationError, SecurityError
 
 
@@ -39,6 +39,7 @@ class DeviceConfig:
     timeout: float = 10.0
     verify_ssl: bool = False  # Always False not implemented, set to True will raise an error
     allow_insecure: bool = False
+    debug_request_callback: Optional[Callable[[dict], None]] = None
 
     def __post_init__(self) -> None:
         """Validate configuration."""
@@ -69,7 +70,14 @@ class DeviceConfig:
             warnings.filterwarnings('ignore', category=urllib3.exceptions.InsecureRequestWarning)
 
     @classmethod
-    def http(cls, host: str, username: str, password: str, port: Optional[int] = None) -> 'DeviceConfig':
+    def http(
+        cls,
+        host: str,
+        username: str,
+        password: str,
+        port: Optional[int] = None,
+        debug_request_callback: Optional[Callable[[dict], None]] = None,
+    ) -> 'DeviceConfig':
         """Create configuration for HTTP-only device."""
         return cls(
             host=host,
@@ -77,13 +85,21 @@ class DeviceConfig:
             password=password,
             protocol=Protocol.HTTP,
             port=port,
-            allow_insecure=True
+            allow_insecure=True,
+            debug_request_callback=debug_request_callback,
         )
 
     @classmethod
-    def https(cls, host: str, username: str, password: str, *, 
-              verify_ssl: bool = False, 
-              port: Optional[int] = None) -> 'DeviceConfig':
+    def https(
+        cls,
+        host: str,
+        username: str,
+        password: str,
+        *,
+        verify_ssl: bool = False,
+        port: Optional[int] = None,
+        debug_request_callback: Optional[Callable[[dict], None]] = None,
+    ) -> 'DeviceConfig':
         """Create configuration for HTTPS device."""
         return cls(
             host=host,
@@ -91,7 +107,8 @@ class DeviceConfig:
             password=password,
             protocol=Protocol.HTTPS,
             port=port,
-            verify_ssl=verify_ssl
+            verify_ssl=verify_ssl,
+            debug_request_callback=debug_request_callback,
         )
 
     def get_base_url(self) -> str:

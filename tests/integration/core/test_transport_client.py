@@ -85,6 +85,77 @@ class TestTransportClient:
         assert response.status_code == 201
         data = response.json()
         assert data["status"] == "created"
+
+    @pytest.mark.http
+    @pytest.mark.basic_operation
+    @pytest.mark.unit
+    def test_request_debug_callback_includes_request_details(self, mock_server):
+        """Test that authenticated requests emit request details to the debug callback."""
+        captured_requests = []
+        _, port = mock_server
+
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=5.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+
+        endpoint = TransportEndpoint("POST", "/api/data")
+        payload = {"name": "test_device", "value": 42}
+
+        response = client.request(
+            endpoint,
+            params={"mode": "fast"},
+            json=payload,
+            headers={"X-Debug-Test": "true"},
+        )
+
+        assert response.status_code == 201
+        assert len(captured_requests) == 1
+        assert captured_requests[0]["request"]["method"] == "POST"
+        assert captured_requests[0]["request"]["url"] == f"http://localhost:{port}/api/data?mode=fast"
+        assert captured_requests[0]["request"]["params"] == {"mode": "fast"}
+        assert captured_requests[0]["request"]["json"] == payload
+        assert captured_requests[0]["request"]["headers"]["X-Debug-Test"] == "true"
+        assert captured_requests[0]["settings"] == {"timeout": 5.0, "ssl_verify": False}
+
+    @pytest.mark.http
+    @pytest.mark.basic_operation
+    @pytest.mark.unit
+    def test_request_debug_callback_for_no_auth_requests(self, mock_server):
+        """Test that unauthenticated requests emit request details to the debug callback."""
+        captured_requests = []
+        _, port = mock_server
+        MockDeviceHandler.auth_required = False
+
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="",
+            password="",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=5.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+
+        endpoint = TransportEndpoint("GET", "/api/info")
+        response = client.request_no_auth(endpoint, params={"detail": "short"})
+
+        assert response.status_code == 200
+        assert len(captured_requests) == 1
+        assert captured_requests[0]["request"]["method"] == "GET"
+        assert captured_requests[0]["request"]["url"] == f"http://localhost:{port}/api/info?detail=short"
+        assert captured_requests[0]["request"]["params"] == {"detail": "short"}
+        assert captured_requests[0]["request"]["json"] is None
+        assert captured_requests[0]["settings"] == {"timeout": 5.0, "ssl_verify": False}
     
     @pytest.mark.http
     @pytest.mark.basic_operation

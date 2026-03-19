@@ -16,7 +16,13 @@ class OperationCancelled(Exception):
     pass
 
 
-def create_client(device_ip, device_username, device_password, port, protocol='https', no_verify_ssl=False) -> Client:
+def show_request_debug_info(request_info: dict) -> None:
+    """Show outgoing request details if debug mode is enabled."""
+    click.secho("\nOutgoing Request:", fg='blue', err=True)
+    click.echo(format_json(request_info), err=True)
+
+
+def create_client(device_ip, device_username, device_password, port, protocol='https', no_verify_ssl=False, debug=False) -> Client:
     """Create and return a Client instance within a context manager.
     
     Returns:
@@ -43,7 +49,8 @@ def create_client(device_ip, device_username, device_password, port, protocol='h
             username=device_username,
             password=device_password,
             port=port,
-            verify_ssl=not no_verify_ssl
+            verify_ssl=not no_verify_ssl,
+            debug_request_callback=show_request_debug_info if debug else None,
         )
     else:
         if os.getenv('AX_DEVIL_USAGE_CLI', "safe") == "safe":
@@ -54,13 +61,14 @@ def create_client(device_ip, device_username, device_password, port, protocol='h
             host=device_ip,
             username=device_username,
             password=device_password,
-            port=port
+            port=port,
+            debug_request_callback=show_request_debug_info if debug else None,
         )
 
     return Client(config).__enter__() # Return context manager
 
 
-def create_client_no_auth(device_ip, port, protocol='https', no_verify_ssl=False) -> Client:
+def create_client_no_auth(device_ip, port, protocol='https', no_verify_ssl=False, debug=False) -> Client:
     """Create a Client that only supports unauthenticated requests.
 
     Credentials are not required.  Only ``request_no_auth`` calls will
@@ -81,6 +89,7 @@ def create_client_no_auth(device_ip, port, protocol='https', no_verify_ssl=False
             password="",
             port=port,
             verify_ssl=not no_verify_ssl,
+            debug_request_callback=show_request_debug_info if debug else None,
         )
     else:
         config = DeviceConfig.http(
@@ -88,6 +97,7 @@ def create_client_no_auth(device_ip, port, protocol='https', no_verify_ssl=False
             username="",
             password="",
             port=port,
+            debug_request_callback=show_request_debug_info if debug else None,
         )
 
     return Client(config).__enter__()
@@ -253,7 +263,7 @@ def get_client_args(ctx_obj: dict) -> dict:
     """Extract client-specific arguments from context object."""
     return {k: v for k, v in ctx_obj.items()
             if k in ['device_ip', 'device_username', 'device_password', 'port',
-                     'protocol', 'no_verify_ssl']}
+                     'protocol', 'no_verify_ssl', 'debug']}
 
 
 def format_list(data: list) -> str:

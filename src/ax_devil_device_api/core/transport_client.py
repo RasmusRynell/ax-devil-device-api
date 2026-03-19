@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 from .config import DeviceConfig
 from .auth import AuthHandler
+from .debug import emit_request_debug_info
 from .endpoints import TransportEndpoint
 from ..utils.errors import NetworkError, SecurityError
 
@@ -112,8 +113,21 @@ class TransportClient:
         Bypasses the authentication handler, useful for endpoints that
         do not require credentials (e.g. basicdeviceinfo.cgi unrestricted).
         """
-        url = endpoint.build_url(self.config.get_base_url(), kwargs.pop("params", None))
+        params = kwargs.pop("params", None)
+        url = endpoint.build_url(self.config.get_base_url(), params)
         headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
+
+        emit_request_debug_info(
+            self.config.debug_request_callback,
+            method=endpoint.method,
+            url=url,
+            headers=headers,
+            timeout=self.config.timeout,
+            verify_ssl=self.config.verify_ssl,
+            params=params,
+            json_body=kwargs.get("json"),
+            data=kwargs.get("data"),
+        )
 
         try:
             return self._session.request(

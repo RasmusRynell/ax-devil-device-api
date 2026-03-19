@@ -42,6 +42,7 @@ def create_systemready_group():
                 port=args.get("port"),
                 protocol=args.get("protocol", "https"),
                 no_verify_ssl=args.get("no_verify_ssl", False),
+                debug=args.get("debug", False),
             ) as client:
                 data = client.systemready.systemready(timeout=timeout)
 
@@ -68,6 +69,7 @@ def create_systemready_group():
                 port=args.get("port"),
                 protocol=args.get("protocol", "https"),
                 no_verify_ssl=args.get("no_verify_ssl", False),
+                debug=args.get("debug", False),
             ) as client:
                 api_versions = client.systemready.get_supported_versions()
                 click.echo("Supported API versions:")

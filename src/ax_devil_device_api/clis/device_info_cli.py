@@ -54,6 +54,7 @@ def create_device_group():
                 port=args.get("port"),
                 protocol=args.get("protocol", "https"),
                 no_verify_ssl=args.get("no_verify_ssl", False),
+                debug=args.get("debug", False),
             ) as client:
                 info = client.device.get_info_no_auth()
                 click.echo("Basic Device Information (Unauthenticated):")
