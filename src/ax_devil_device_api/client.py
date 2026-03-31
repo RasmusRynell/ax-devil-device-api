@@ -18,6 +18,7 @@ from .features.device_debug import DeviceDebugClient
 from .features.analytics_metadata import AnalyticsMetadataClient
 from .features.jq_transformer import JqTransformerClient
 from .features.systemready import SystemReadyClient
+from .features.system_settings import SystemSettingsClient
 
 class Client:
     """Main client interface for a device.
@@ -57,6 +58,7 @@ class Client:
         self._analytics_metadata: Optional[AnalyticsMetadataClient] = None
         self._jq_transformer: Optional[JqTransformerClient] = None
         self._systemready: Optional[SystemReadyClient] = None
+        self._system_settings: Optional[SystemSettingsClient] = None
     
     def __del__(self):
         """Attempt to clean up if user forgets to close.
@@ -218,3 +220,10 @@ class Client:
         if not self._systemready:
             self._systemready = SystemReadyClient(self._core)
         return self._systemready
+
+    @property
+    def system_settings(self) -> SystemSettingsClient:
+        """Access system settings (users, factory default, logs, firmware)."""
+        if not self._system_settings:
+            self._system_settings = SystemSettingsClient(self._core)
+        return self._system_settings
