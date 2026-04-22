@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for managing jq transformers."""
+"""CLI for managing data transformations."""
 
 import click
 from .cli_core import (
@@ -7,21 +7,21 @@ from .cli_core import (
 )
 
 
-def create_jq_transformer_group():
-    """Create and return the jq transformer command group."""
+def create_data_transformation_group():
+    """Create and return the data transformation command group."""
     @click.group()
     @click.pass_context
-    def jq_transformer(ctx):
-        """Manage jq transformers."""
+    def data_transformation(ctx):
+        """Manage data transformations (jq expression-based transforms)."""
         pass
 
-    @jq_transformer.command('topics')
+    @data_transformation.command('topics')
     @click.pass_context
     def list_topics(ctx):
         """List available topics."""
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
-                result = client.jq_transformer.get_available_topics()
+                result = client.data_transformation.get_available_topics()
 
                 if not result:
                     click.echo("No topics available")
@@ -34,13 +34,13 @@ def create_jq_transformer_group():
         except Exception as e:
             return handle_error(ctx, e)
 
-    @jq_transformer.command('list')
+    @data_transformation.command('list')
     @click.pass_context
     def list_transforms(ctx):
         """List configured transforms."""
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
-                result = client.jq_transformer.list_transforms()
+                result = client.data_transformation.list_transforms()
 
                 if not result:
                     click.echo("No transforms configured")
@@ -63,16 +63,16 @@ def create_jq_transformer_group():
         except Exception as e:
             return handle_error(ctx, e)
 
-    @jq_transformer.command('create')
+    @data_transformation.command('create')
     @click.argument('input-topic')
     @click.argument('output-topic')
     @click.argument('jq-expression')
     @click.pass_context
     def create_publisher(ctx, input_topic, output_topic, jq_expression):
-        """Create a new jq transform."""
+        """Create a new data transform with a jq expression."""
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
-                client.jq_transformer.create_transform(
+                client.data_transformation.create_transform(
                     input_topic=input_topic,
                     output_topic=output_topic,
                     jq_expression=jq_expression
@@ -87,7 +87,7 @@ def create_jq_transformer_group():
         except Exception as e:
             return handle_error(ctx, e)
 
-    @jq_transformer.command('remove')
+    @data_transformation.command('remove')
     @click.argument('output-topic')
     @click.option('--force', is_flag=True, help='Skip confirmation')
     @click.pass_context
@@ -101,11 +101,11 @@ def create_jq_transformer_group():
                     return 0
 
             with create_client(**get_client_args(ctx.obj)) as client:
-                client.jq_transformer.remove_transform(output_topic=output_topic)
+                client.data_transformation.remove_transform(output_topic=output_topic)
 
                 click.echo(click.style(f"Transform '{output_topic}' removed successfully!", fg="green"))
                 return 0
         except Exception as e:
             return handle_error(ctx, e)
     
-    return jq_transformer
+    return data_transformation

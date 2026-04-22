@@ -46,7 +46,7 @@ def register_subcommands():
     from .clis.feature_flags_cli import create_features_group
     from .clis.device_debug_cli import create_debug_group
     from .clis.analytics_metadata_cli import create_analytics_metadata_group
-    from .clis.jq_transformer_cli import create_jq_transformer_group
+    from .clis.data_transformation_cli import create_data_transformation_group
     from .clis.systemready_cli import create_systemready_group
     
     # Register subcommands
@@ -61,7 +61,7 @@ def register_subcommands():
     cli.add_command(create_features_group(), name='features')
     cli.add_command(create_debug_group(), name='debug')
     cli.add_command(create_analytics_metadata_group(), name='analytics-metadata')
-    cli.add_command(create_jq_transformer_group(), name='jq-transformer')
+    cli.add_command(create_data_transformation_group(), name='data-transformation')
     cli.add_command(create_systemready_group(), name='systemready')
 
 

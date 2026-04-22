@@ -1,4 +1,4 @@
-"""Axis jq transformer configuration client."""
+"""Axis data transformation configuration client."""
 
 from typing import Any, ClassVar, List
 from .base import FeatureClient
@@ -6,12 +6,16 @@ from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
 from urllib.parse import quote
 
-class JqTransformerClient(FeatureClient):
-    """Client for jq transformer operations."""
+class DataTransformationClient(FeatureClient):
+    """Client for data transformation operations.
+
+    Manages data transforms that apply jq expressions to transform
+    data from an input topic to an output topic.
+    """
     
     # API version and endpoints
     API_VERSION: ClassVar[str] = "v0alpha"
-    BASE_PATH: ClassVar[str] = "/config/rest/jq-transformer/v0alpha"
+    BASE_PATH: ClassVar[str] = "/config/rest/data-transformation/v0alpha"
     
     # Endpoint definitions
     AVAILABLE_TOPICS_ENDPOINT = TransportEndpoint("GET", f"{BASE_PATH}/availableTopics/topics")

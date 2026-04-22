@@ -16,7 +16,7 @@ from .features.feature_flags import FeatureFlagClient
 from .features.ssh import SSHClient
 from .features.device_debug import DeviceDebugClient
 from .features.analytics_metadata import AnalyticsMetadataClient
-from .features.jq_transformer import JqTransformerClient
+from .features.data_transformation import DataTransformationClient
 from .features.systemready import SystemReadyClient
 
 class Client:
@@ -55,7 +55,7 @@ class Client:
         self._ssh: Optional[SSHClient] = None
         self._device_debug: Optional[DeviceDebugClient] = None
         self._analytics_metadata: Optional[AnalyticsMetadataClient] = None
-        self._jq_transformer: Optional[JqTransformerClient] = None
+        self._data_transformation: Optional[DataTransformationClient] = None
         self._systemready: Optional[SystemReadyClient] = None
     
     def __del__(self):
@@ -206,11 +206,11 @@ class Client:
         return self._analytics_metadata
 
     @property
-    def jq_transformer(self) -> JqTransformerClient:
-        """Get the jq transformer client."""
-        if not self._jq_transformer:
-            self._jq_transformer = JqTransformerClient(self._core)
-        return self._jq_transformer
+    def data_transformation(self) -> DataTransformationClient:
+        """Get the data transformation client."""
+        if not self._data_transformation:
+            self._data_transformation = DataTransformationClient(self._core)
+        return self._data_transformation
 
     @property
     def systemready(self) -> SystemReadyClient:
