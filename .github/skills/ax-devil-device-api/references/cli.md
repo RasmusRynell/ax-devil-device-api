@@ -35,6 +35,7 @@ The CLI reads these when the corresponding flag is not supplied:
 | `--device-password` | `-p` | `AX_DEVIL_TARGET_PASS` | Device password |
 | `--protocol` | — | — | `http` or `https` (default: `https`) |
 | `--port` | — | — | Override default port |
+| `--ca-bundle` | — | — | PEM CA bundle used to verify HTTPS certificates |
 | `--no-verify-ssl` | — | — | Skip SSL verification |
 | `--debug` | — | — | Show outgoing request details |
 
@@ -168,6 +169,8 @@ ax-devil-device-api systemready check                    # No credentials needed
 ax-devil-device-api systemready check -t 30              # Custom timeout
 ax-devil-device-api systemready versions
 ```
+
+The global options above must appear before the command, for example `ax-devil-device-api --device-ip <device-ip> systemready check`. HTTP prompts for confirmation unless `AX_DEVIL_USAGE_CLI=unsafe` exactly.
 
 ### `debug` — Diagnostics and reports
 

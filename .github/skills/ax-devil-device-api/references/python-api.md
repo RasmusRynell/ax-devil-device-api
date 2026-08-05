@@ -12,14 +12,14 @@ Public exports from `ax_devil_device_api`:
 ```python
 from ax_devil_device_api import DeviceConfig
 
-# HTTPS (default — self-signed certs, verify_ssl=False)
+# HTTPS (default — certificate verification enabled)
 config = DeviceConfig.https(host="<device-ip>", username="<user>", password="<pass>")
 
 # HTTP (explicit insecure opt-in)
 config = DeviceConfig.http(host="<device-ip>", username="<user>", password="<pass>")
 ```
 
-- `verify_ssl=True` is not implemented yet — always use `False` (default).
+- `verify_ssl` defaults to `True`; pass a PEM CA bundle path to verify a private device CA, or `False` only when verification is intentionally disabled.
 - `config.get_base_url()` returns `"https://<host>"` or `"http://<host>"`.
 
 ## Client

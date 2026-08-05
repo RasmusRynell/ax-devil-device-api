@@ -62,6 +62,6 @@ The CLI reads these when the corresponding flag is not supplied:
 
 ## Key Concepts
 
-- **DeviceConfig**: Connection config. Use `DeviceConfig.https(...)` (default) or `DeviceConfig.http(...)` (insecure, explicit opt-in). SSL verification is not yet implemented — always `verify_ssl=False`.
+- **DeviceConfig**: Connection config. Use `DeviceConfig.https(...)` (default, certificate verification enabled) or `DeviceConfig.http(...)` (insecure, explicit opt-in). Pass a PEM CA bundle path through `verify_ssl` when needed.
 - **Client**: Main entry point. Lazy-loads feature clients via properties. Use as context manager for proper cleanup.
-- **CLI global options**: `-a/--device-ip`, `-u/--device-username`, `-p/--device-password`, `--protocol`, `--port`, `--no-verify-ssl`, `--debug`.
+- **CLI global options**: `-a/--device-ip`, `-u/--device-username`, `-p/--device-password`, `--protocol`, `--port`, `--ca-bundle`, `--no-verify-ssl`, `--debug`. HTTP prompts for confirmation unless `AX_DEVIL_USAGE_CLI=unsafe` exactly.

@@ -3,7 +3,6 @@
 
 import click
 from .cli_core import (
-    create_client,
     create_client_no_auth,
     handle_error,
     get_client_args,
@@ -42,6 +41,7 @@ def create_systemready_group():
                 port=args.get("port"),
                 protocol=args.get("protocol", "https"),
                 no_verify_ssl=args.get("no_verify_ssl", False),
+                ca_bundle=args.get("ca_bundle"),
                 debug=args.get("debug", False),
             ) as client:
                 data = client.systemready.systemready(timeout=timeout)
@@ -69,6 +69,7 @@ def create_systemready_group():
                 port=args.get("port"),
                 protocol=args.get("protocol", "https"),
                 no_verify_ssl=args.get("no_verify_ssl", False),
+                ca_bundle=args.get("ca_bundle"),
                 debug=args.get("debug", False),
             ) as client:
                 api_versions = client.systemready.get_supported_versions()

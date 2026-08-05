@@ -2,8 +2,6 @@
 
 import pytest
 
-from src.ax_devil_device_api.features.systemready import SystemReadyClient
-
 
 class TestSystemReadyFeature:
     """Test suite for the systemready feature."""

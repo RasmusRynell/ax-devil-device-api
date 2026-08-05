@@ -3,19 +3,23 @@
 
 import click
 from .cli_core import (
-    create_client, create_client_no_auth, handle_error, get_client_args
+    create_client,
+    create_client_no_auth,
+    handle_error,
+    get_client_args,
 )
 
 
 def create_device_group():
     """Create and return the device command group."""
+
     @click.group()
     @click.pass_context
     def device(ctx):
         """Manage device operations."""
         pass
 
-    @device.command('info')
+    @device.command("info")
     @click.pass_context
     def get_info(ctx):
         """Get device information including model, firmware, and capabilities."""
@@ -28,8 +32,8 @@ def create_device_group():
                 return 0
         except Exception as e:
             return handle_error(ctx, e)
-        
-    @device.command('info-detailed')
+
+    @device.command("info-detailed")
     @click.pass_context
     def get_info_detailed(ctx):
         """Get detailed device information including all parameters."""
@@ -43,7 +47,7 @@ def create_device_group():
         except Exception as e:
             return handle_error(ctx, e)
 
-    @device.command('info-no-auth')
+    @device.command("info-no-auth")
     @click.pass_context
     def get_info_no_auth(ctx):
         """Get basic device information without authentication."""
@@ -54,6 +58,7 @@ def create_device_group():
                 port=args.get("port"),
                 protocol=args.get("protocol", "https"),
                 no_verify_ssl=args.get("no_verify_ssl", False),
+                ca_bundle=args.get("ca_bundle"),
                 debug=args.get("debug", False),
             ) as client:
                 info = client.device.get_info_no_auth()
@@ -64,7 +69,7 @@ def create_device_group():
         except Exception as e:
             return handle_error(ctx, e)
 
-    @device.command('info-auth')
+    @device.command("info-auth")
     @click.pass_context
     def get_info_auth(ctx):
         """Get basic device information with authentication."""
@@ -78,30 +83,32 @@ def create_device_group():
         except Exception as e:
             return handle_error(ctx, e)
 
-    @device.command('health')
+    @device.command("health")
     @click.pass_context
     def check_health(ctx):
         """Check if the device is responsive and healthy."""
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
                 result = client.device.check_health()
-                
+
                 if not result:
                     return handle_error(ctx, "Device is not healthy")
-                    
+
                 click.echo(click.style("Device is healthy!", fg="green"))
                 return 0
         except Exception as e:
             return handle_error(ctx, e)
 
-    @device.command('restart')
-    @click.option('--force', is_flag=True, help='Force restart without confirmation')
+    @device.command("restart")
+    @click.option("--force", is_flag=True, help="Force restart without confirmation")
     @click.pass_context
     def restart(ctx, force):
         """Restart the device (requires confirmation unless --force is used)."""
         try:
-            if not force and not click.confirm('Are you sure you want to restart the device?'):
-                click.echo('Restart cancelled.')
+            if not force and not click.confirm(
+                "Are you sure you want to restart the device?"
+            ):
+                click.echo("Restart cancelled.")
                 return 0
 
             with create_client(**get_client_args(ctx.obj)) as client:
@@ -109,13 +116,15 @@ def create_device_group():
 
                 if not result:
                     return handle_error(ctx, "Failed to restart device")
-                    
-                click.echo(click.style(
-                    "Device restart initiated. The device will be unavailable for a few minutes.",
-                    fg="yellow"
-                ))
+
+                click.echo(
+                    click.style(
+                        "Device restart initiated. The device will be unavailable for a few minutes.",
+                        fg="yellow",
+                    )
+                )
                 return 0
         except Exception as e:
             return handle_error(ctx, e)
-    
+
     return device

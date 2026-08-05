@@ -6,30 +6,44 @@ from .clis.cli_core import common_options
 
 # Import version from package metadata
 from importlib.metadata import version
-__version__ = version('ax-devil-device-api')
+
+__version__ = version("ax-devil-device-api")
 
 
 @click.group()
 @common_options
-@click.version_option(version=__version__, prog_name='ax-devil-device-api')
+@click.version_option(version=__version__, prog_name="ax-devil-device-api")
 @click.pass_context
-def cli(ctx, device_ip, device_username, device_password, port, protocol, no_verify_ssl, debug):
+def cli(
+    ctx,
+    device_ip,
+    device_username,
+    device_password,
+    port,
+    protocol,
+    no_verify_ssl,
+    ca_bundle,
+    debug,
+):
     """ax-devil-device-api - Unified CLI for Axis device APIs.
-    
+
     Manage Axis network devices through a comprehensive command-line interface.
-    Supports device management, network configuration, media streaming, 
+    Supports device management, network configuration, media streaming,
     MQTT communication, SSH access, and more.
     """
     ctx.ensure_object(dict)
-    ctx.obj.update({
-        'device_ip': device_ip,
-        'device_username': device_username,
-        'device_password': device_password,
-        'port': port,
-        'protocol': protocol,
-        'no_verify_ssl': no_verify_ssl,
-        'debug': debug
-    })
+    ctx.obj.update(
+        {
+            "device_ip": device_ip,
+            "device_username": device_username,
+            "device_password": device_password,
+            "port": port,
+            "protocol": protocol,
+            "no_verify_ssl": no_verify_ssl,
+            "ca_bundle": ca_bundle,
+            "debug": debug,
+        }
+    )
 
 
 def register_subcommands():
@@ -48,26 +62,26 @@ def register_subcommands():
     from .clis.analytics_metadata_cli import create_analytics_metadata_group
     from .clis.data_transformation_cli import create_data_transformation_group
     from .clis.systemready_cli import create_systemready_group
-    
+
     # Register subcommands
-    cli.add_command(create_device_group(), name='device')
-    cli.add_command(create_network_group(), name='network')
-    cli.add_command(create_media_group(), name='media')
-    cli.add_command(create_mqtt_group(), name='mqtt')
-    cli.add_command(create_ssh_group(), name='ssh')
-    cli.add_command(create_geocoordinates_group(), name='geocoordinates')
-    cli.add_command(create_analytics_group(), name='analytics')
-    cli.add_command(create_discovery_group(), name='discovery')
-    cli.add_command(create_features_group(), name='features')
-    cli.add_command(create_debug_group(), name='debug')
-    cli.add_command(create_analytics_metadata_group(), name='analytics-metadata')
-    cli.add_command(create_data_transformation_group(), name='data-transformation')
-    cli.add_command(create_systemready_group(), name='systemready')
+    cli.add_command(create_device_group(), name="device")
+    cli.add_command(create_network_group(), name="network")
+    cli.add_command(create_media_group(), name="media")
+    cli.add_command(create_mqtt_group(), name="mqtt")
+    cli.add_command(create_ssh_group(), name="ssh")
+    cli.add_command(create_geocoordinates_group(), name="geocoordinates")
+    cli.add_command(create_analytics_group(), name="analytics")
+    cli.add_command(create_discovery_group(), name="discovery")
+    cli.add_command(create_features_group(), name="features")
+    cli.add_command(create_debug_group(), name="debug")
+    cli.add_command(create_analytics_metadata_group(), name="analytics-metadata")
+    cli.add_command(create_data_transformation_group(), name="data-transformation")
+    cli.add_command(create_systemready_group(), name="systemready")
 
 
 # Register subcommands when module is imported
 register_subcommands()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()

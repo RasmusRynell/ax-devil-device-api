@@ -2,15 +2,15 @@ import requests
 from contextlib import contextmanager
 
 from .config import DeviceConfig
-from .auth import AuthHandler
+from .auth import AuthHandler, _NoAuth
 from .debug import emit_request_debug_info
 from .endpoints import TransportEndpoint
-from ..utils.errors import NetworkError, SecurityError
+from ..utils.errors import NetworkError
 
 
 class TransportClient:
     """Core client for device API communication.
-    
+
     This class handles the low-level communication with the device API,
     including transport, authentication, and protocol handling. It is part
     of Layer 1 (Communications Layer) and should not contain any feature-specific
@@ -28,7 +28,7 @@ class TransportClient:
         "Accept": "application/json",
         "User-Agent": "ax-devil-device-api/1.0",
         "Content-Type": "application/json",
-        "Accept-Encoding": "gzip, deflate"
+        "Accept-Encoding": "gzip, deflate",
     }
 
     def __init__(self, config: DeviceConfig) -> None:
@@ -40,17 +40,17 @@ class TransportClient:
     def _create_session(self) -> requests.Session:
         """Create and configure a requests Session with proper pooling."""
         session = requests.Session()
-        
+
         adapter = requests.adapters.HTTPAdapter(
             pool_connections=10,  # Number of connection pools to cache
-            pool_maxsize=100,     # Max connections per pool
-            max_retries=0,        # We handle retries at a higher level
-            pool_block=False      # Don't block when pool is full
+            pool_maxsize=100,  # Max connections per pool
+            max_retries=0,  # We handle retries at a higher level
+            pool_block=False,  # Don't block when pool is full
         )
-        
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        
+
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
         session.headers.update(self._TRANSPORT_HEADERS)
         return session
 
@@ -62,7 +62,7 @@ class TransportClient:
     @contextmanager
     def new_session(self):
         """Context manager for creating a temporary new session.
-        
+
         Useful for operations that need a clean session state.
         """
         old_session = self._session
@@ -75,7 +75,7 @@ class TransportClient:
 
     def clear_session(self):
         """Clear and reset the current session.
-        
+
         Useful when you want to clear any stored cookies or connection state.
         """
         self._session.close()
@@ -85,37 +85,44 @@ class TransportClient:
         """Make a request to the device API using the session."""
         headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
 
-        if self.config.protocol.is_secure and self.config.verify_ssl:
-            raise SecurityError(
-                "ssl_not_implemented",
-                "Secure SSL verification is not implemented. Use verify_ssl=False for insecure connections."
-            )
-
         try:
             return self.auth.send_request(self._session, endpoint, headers, kwargs)
 
-        except requests.exceptions.Timeout as e:
+        except requests.exceptions.Timeout:
             raise NetworkError(
-                "request_timeout",
-                f"Request timed out after {self.config.timeout}s"
+                "request_timeout", f"Request timed out after {self.config.timeout}s"
             )
 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.SSLError as error:
+            raise NetworkError(
+                "ssl_verification_failed",
+                "TLS certificate verification failed",
+                str(error),
+            ) from error
+        except requests.exceptions.RequestException as error:
             raise NetworkError(
                 "request_failed",
                 "Request failed",
-                str(e)
-            )
+                str(error),
+            ) from error
 
-    def request_no_auth(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
+    def request_no_auth(
+        self, endpoint: TransportEndpoint, **kwargs
+    ) -> requests.Response:
         """Make an unauthenticated request to the device API.
 
         Bypasses the authentication handler, useful for endpoints that
         do not require credentials (e.g. basicdeviceinfo.cgi unrestricted).
         """
         params = kwargs.pop("params", None)
+        kwargs.pop("auth", None)
         url = endpoint.build_url(self.config.get_base_url(), params)
         headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
+        headers = {
+            key: value
+            for key, value in headers.items()
+            if key.lower() not in {"authorization", "cookie"}
+        }
 
         emit_request_debug_info(
             self.config.debug_request_callback,
@@ -129,25 +136,35 @@ class TransportClient:
             data=kwargs.get("data"),
         )
 
+        no_auth_session = self._create_session()
         try:
-            return self._session.request(
+            return no_auth_session.request(
                 method=endpoint.method,
                 url=url,
                 headers=headers,
                 timeout=self.config.timeout,
                 verify=self.config.verify_ssl,
+                auth=_NoAuth(),
                 **kwargs,
             )
 
-        except requests.exceptions.Timeout as e:
+        except requests.exceptions.Timeout:
             raise NetworkError(
                 "request_timeout",
                 f"Request timed out after {self.config.timeout}s",
             )
 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.SSLError as error:
+            raise NetworkError(
+                "ssl_verification_failed",
+                "TLS certificate verification failed",
+                str(error),
+            ) from error
+        except requests.exceptions.RequestException as error:
             raise NetworkError(
                 "request_failed",
                 "Request failed",
-                str(e),
-            )
+                str(error),
+            ) from error
+        finally:
+            no_auth_session.close()

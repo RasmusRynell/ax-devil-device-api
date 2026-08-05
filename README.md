@@ -29,7 +29,7 @@ Set environment variables to avoid repeating credentials and broker details:
 - `AX_DEVIL_TARGET_PASS` – Device password
 - `AX_DEVIL_MQTT_BROKER_ADDR` – MQTT broker address
 - `AX_DEVIL_MQTT_BROKER_PASS` – MQTT broker password
-- `AX_DEVIL_USAGE_CLI` – Set to `unsafe` to allow `--no-verify-ssl` without prompts (defaults to `safe`)
+- `AX_DEVIL_USAGE_CLI` – Set to `unsafe` to skip the HTTP confirmation prompt (defaults to `safe`)
 
 ---
 
@@ -53,7 +53,9 @@ Set environment variables to avoid repeating credentials and broker details:
 
 ## CLI
 
-`ax-devil-device-api --help` lists all subcommands. Global options: `--device-ip/-a`, `--device-username/-u`, `--device-password/-p`, `--protocol [http|https]`, `--port`, and `--no-verify-ssl`.
+`ax-devil-device-api --help` lists all subcommands. Global options: `--device-ip/-a`, `--device-username/-u`, `--device-password/-p`, `--protocol [http|https]`, `--port`, `--ca-bundle`, and `--no-verify-ssl`.
+
+HTTPS is the default and verifies certificates by default. Use `--ca-bundle PATH` for a PEM CA bundle accepted by Requests. Use `--no-verify-ssl` only when certificate verification is intentionally disabled. HTTP must be explicitly selected and is never secure; the CLI prompts before using it unless `AX_DEVIL_USAGE_CLI=unsafe`. The default port is 443 for HTTPS and 80 for HTTP; an explicit non-default port is included in the URL.
 
 Common flows:
 
@@ -187,7 +189,7 @@ config = DeviceConfig.https(
     host="192.168.1.81",
     username="root",
     password="pass",
-    verify_ssl=False,  # leave True in production
+    verify_ssl=True,
 )
 
 with Client(config) as client:
@@ -200,6 +202,21 @@ with Client(config) as client:
     stream_profiles = client.media.list_stream_profiles()
     mqtt_state = client.mqtt_client.get_state()
 ```
+
+For a private device CA, pass its PEM bundle to `verify_ssl`:
+
+```python
+config = DeviceConfig.https(
+    host="192.168.1.81",
+    username="root",
+    password="pass",
+    verify_ssl="/path/to/device-ca-bundle.pem",
+)
+```
+
+`AuthMethod.AUTO` starts with an unauthenticated challenge request. It selects an advertised Digest or Basic challenge, preferring Digest, and then caches only a successful method. `request_no_auth` bypasses both cached authentication and session-level Authorization.
+
+When debug callbacks or CLI `--debug` output are enabled, credentials and secret-like values are recursively redacted from headers, URLs, query parameters, and nested request bodies.
 
 ---
 
