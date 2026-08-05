@@ -71,7 +71,7 @@ client.device.get_info() -> dict             # Model, firmware, serial
 client.device.get_info_detailed() -> dict     # Extended raw parameters
 client.device.get_info_no_auth() -> dict      # Basic info without credentials (basicdeviceinfo.cgi)
 client.device.get_info_auth() -> dict         # Full info with credentials (basicdeviceinfo.cgi)
-client.device.check_health() -> bool          # Health check
+client.device.check_health() -> bool          # True only when systemready == "yes"
 client.device.restart() -> bool               # Restart device
 ```
 

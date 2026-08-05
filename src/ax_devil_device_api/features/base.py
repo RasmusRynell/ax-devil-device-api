@@ -1,11 +1,12 @@
 """Base classes for feature modules."""
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 import requests
 
 from ..core.endpoints import TransportEndpoint
 from ..core.transport_client import TransportClient
+from ..utils.errors import FeatureError
 
 T = TypeVar("T")
 
@@ -32,3 +33,40 @@ class FeatureClient(Generic[T]):
     ) -> requests.Response:
         """Make an unauthenticated request to the device API."""
         return self.device.request_no_auth(endpoint, **kwargs)
+
+    @staticmethod
+    def parse_json_api_response(
+        response: requests.Response, operation: str, expected_method: str
+    ) -> dict[str, Any]:
+        """Validate a successful JSON API response and its method envelope."""
+        if response.status_code != 200:
+            raise FeatureError(
+                "request_failed", f"{operation} failed: HTTP {response.status_code}"
+            )
+        try:
+            payload = response.json()
+        except ValueError as error:
+            raise FeatureError(
+                "invalid_response", f"{operation} response is not valid JSON"
+            ) from error
+        if not isinstance(payload, dict):
+            raise FeatureError(
+                "invalid_response", f"{operation} response is not an object"
+            )
+        if "error" in payload:
+            error = payload["error"]
+            if not isinstance(error, dict):
+                raise FeatureError(
+                    "api_error", f"{operation} returned a malformed error"
+                )
+            raise FeatureError(
+                "api_error",
+                str(error.get("message", "Unknown API error")),
+                details=error,
+            )
+        if payload.get("method") != expected_method:
+            raise FeatureError(
+                "invalid_response",
+                f"{operation} response has unexpected method; expected {expected_method}",
+            )
+        return payload

@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
 """CLI for managing device operations."""
 
 import click
+
 from .cli_core import (
     create_client,
     create_client_no_auth,
-    handle_error,
     get_client_args,
+    handle_error,
 )
 
 
@@ -17,7 +17,6 @@ def create_device_group():
     @click.pass_context
     def device(ctx):
         """Manage device operations."""
-        pass
 
     @device.command("info")
     @click.pass_context
@@ -30,7 +29,7 @@ def create_device_group():
                 for key, value in info.items():
                     click.echo(f"   {key}: {value}")
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - CLI boundary normalizes all errors
             return handle_error(ctx, e)
 
     @device.command("info-detailed")
@@ -44,7 +43,7 @@ def create_device_group():
                 for key, value in info.items():
                     click.echo(f"   {key}: {value}")
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - CLI boundary normalizes all errors
             return handle_error(ctx, e)
 
     @device.command("info-no-auth")
@@ -66,7 +65,7 @@ def create_device_group():
                 for key, value in info.items():
                     click.echo(f"   {key}: {value}")
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - CLI boundary normalizes all errors
             return handle_error(ctx, e)
 
     @device.command("info-auth")
@@ -80,23 +79,23 @@ def create_device_group():
                 for key, value in info.items():
                     click.echo(f"   {key}: {value}")
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - CLI boundary normalizes all errors
             return handle_error(ctx, e)
 
     @device.command("health")
     @click.pass_context
     def check_health(ctx):
-        """Check if the device is responsive and healthy."""
+        """Check whether the device is ready according to systemready."""
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
                 result = client.device.check_health()
 
                 if not result:
-                    return handle_error(ctx, "Device is not healthy")
+                    return handle_error(ctx, "Device is not ready")
 
-                click.echo(click.style("Device is healthy!", fg="green"))
+                click.echo(click.style("Device is ready.", fg="green"))
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - CLI boundary normalizes all errors
             return handle_error(ctx, e)
 
     @device.command("restart")
@@ -124,7 +123,7 @@ def create_device_group():
                     )
                 )
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - CLI boundary normalizes all errors
             return handle_error(ctx, e)
 
     return device

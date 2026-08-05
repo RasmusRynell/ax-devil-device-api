@@ -35,7 +35,7 @@ Set environment variables to avoid repeating credentials and broker details:
 
 ## Capabilities
 
-- Device info & health – model/firmware, health, restart; CLI `device`; Python `client.device`
+- Device info & readiness – model/firmware, system readiness, restart; CLI `device`; Python `client.device`
 - Network – interface details; CLI `network info`; Python `client.network`
 - Media – video channels, supported codecs/resolutions, saved stream profiles, and snapshots; CLI `media`; Python `client.media`
 - MQTT client – configure/activate/deactivate/status/config; CLI `mqtt`; Python `client.mqtt_client`
@@ -74,7 +74,7 @@ ax-devil-device-api device info \
   --device-username <username> \
   --device-password <password>
 
-ax-devil-device-api device health
+ax-devil-device-api device health  # systemready readiness check
 ax-devil-device-api device restart --force
 ```
 

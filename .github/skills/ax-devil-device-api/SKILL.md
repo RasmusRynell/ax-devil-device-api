@@ -44,7 +44,7 @@ The CLI reads these when the corresponding flag is not supplied:
 
 | Task | CLI command | Python property |
 |------|-------------|-----------------|
-| Get device info / health / restart | `device` | `client.device` |
+| Get device info / readiness / restart | `device` | `client.device` |
 | Take a snapshot | `media snapshot` | `client.media` |
 | Network info | `network info` | `client.network` |
 | Configure/activate MQTT on device | `mqtt` | `client.mqtt_client` |

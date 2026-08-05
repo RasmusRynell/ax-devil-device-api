@@ -8,11 +8,12 @@ API Discovery ID: systemready
 AXIS OS: 9.50 and later
 """
 
-from typing import Any, Dict, List
+import re
+from typing import Any, ClassVar
 
-from .base import FeatureClient
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
+from .base import FeatureClient
 
 
 class SystemReadyClient(FeatureClient):
@@ -29,12 +30,14 @@ class SystemReadyClient(FeatureClient):
     """
 
     SYSTEMREADY_ENDPOINT = TransportEndpoint("POST", "/axis-cgi/systemready.cgi")
-    JSON_HEADERS = {
+    JSON_HEADERS: ClassVar[dict[str, str]] = {
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
 
-    def _request_no_auth_json(self, payload: Dict[str, Any]) -> Any:
+    def _request_no_auth_json(
+        self, payload: dict[str, Any], expected_method: str
+    ) -> Any:
         """Send an unauthenticated JSON request and return the data payload.
 
         Handles HTTP status checks and API-level error responses so that
@@ -52,25 +55,17 @@ class SystemReadyClient(FeatureClient):
             headers=self.JSON_HEADERS,
         )
 
-        if response.status_code != 200:
+        json_response = self.parse_json_api_response(
+            response, "Systemready", expected_method
+        )
+        data = json_response.get("data")
+        if not isinstance(data, dict):
             raise FeatureError(
-                "request_failed",
-                f"Request failed: HTTP {response.status_code}",
+                "invalid_response", "Systemready response has no data object"
             )
+        return data
 
-        json_response = response.json()
-
-        if "error" in json_response:
-            error = json_response["error"]
-            raise FeatureError(
-                "api_error",
-                error.get("message", "Unknown API error"),
-                details={"code": error.get("code")},
-            )
-
-        return json_response.get("data", {})
-
-    def systemready(self, timeout: int = 20) -> Dict[str, Any]:
+    def systemready(self, timeout: int = 20) -> dict[str, Any]:
         """Check if the device is ready for operation.
 
         Makes an unauthenticated request to the systemready endpoint.
@@ -95,15 +90,19 @@ class SystemReadyClient(FeatureClient):
         Raises:
             FeatureError: If the request fails or returns an API error.
         """
-        return self._request_no_auth_json({
-            "apiVersion": "1.1",
-            "method": "systemready",
-            "params": {
-                "timeout": timeout,
+        versions = self.get_supported_versions()
+        return self._request_no_auth_json(
+            {
+                "apiVersion": self._select_supported_version(versions),
+                "method": "systemready",
+                "params": {
+                    "timeout": timeout,
+                },
             },
-        })
+            "systemready",
+        )
 
-    def get_supported_versions(self) -> List[str]:
+    def get_supported_versions(self) -> list[str]:
         """Retrieve supported API versions from the device.
 
         Makes an unauthenticated request.
@@ -114,7 +113,31 @@ class SystemReadyClient(FeatureClient):
         Raises:
             FeatureError: If the request fails or returns an API error.
         """
-        data = self._request_no_auth_json({
-            "method": "getSupportedVersions",
-        })
-        return data.get("apiVersions", [])
+        data = self._request_no_auth_json(
+            {
+                "method": "getSupportedVersions",
+            },
+            "getSupportedVersions",
+        )
+        versions = data.get("apiVersions")
+        if (
+            not isinstance(versions, list)
+            or not versions
+            or not all(isinstance(version, str) for version in versions)
+        ):
+            raise FeatureError(
+                "invalid_response", "Systemready response has no valid API versions"
+            )
+        if not all(re.fullmatch(r"\d+\.\d+", version) for version in versions):
+            raise FeatureError(
+                "invalid_response", "Systemready response has malformed API versions"
+            )
+        return versions
+
+    @staticmethod
+    def _select_supported_version(versions: list[str]) -> str:
+        """Select the highest supported major/minor API version."""
+        return max(
+            versions,
+            key=lambda version: tuple(int(part) for part in version.split(".")),
+        )

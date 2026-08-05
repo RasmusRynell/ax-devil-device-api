@@ -48,7 +48,7 @@ ax-devil-device-api device info              # Model, firmware, serial number
 ax-devil-device-api device info-detailed     # Extended parameters
 ax-devil-device-api device info-no-auth      # Basic info without credentials (basicdeviceinfo.cgi)
 ax-devil-device-api device info-auth         # Auth-required info (basicdeviceinfo.cgi)
-ax-devil-device-api device health            # Is the device responsive?
+ax-devil-device-api device health            # Check device/system readiness through the Systemready API
 ax-devil-device-api device restart --force   # Restart (prompts unless --force)
 ```
 
@@ -191,7 +191,7 @@ ax-devil-device-api debug port-open-test <address> <port>
 
 ## Typical CLI Workflows
 
-### Quick health check
+### System readiness check
 
 ```bash
 ax-devil-device-api device health
