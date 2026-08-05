@@ -3,7 +3,7 @@
 import pytest
 from src.ax_devil_device_api.utils.errors import FeatureError
 
-KNOWN_DATA_SOURCE_KEY = "com.axis.analytics_scene_description.v0.beta#1"
+KNOWN_DATA_SOURCE_KEY = "com.axis.scene.frame.v1#1"
 
 class TestAnalyticsMqttClient:
     """Test suite for analytics MQTT client."""

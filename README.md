@@ -37,7 +37,7 @@ Set environment variables to avoid repeating credentials and broker details:
 
 - Device info & health – model/firmware, health, restart; CLI `device`; Python `client.device`
 - Network – interface details; CLI `network info`; Python `client.network`
-- Media – snapshots with optional resolution/compression/camera selection; CLI `media snapshot`; Python `client.media`
+- Media – video channels, supported codecs/resolutions, saved stream profiles, and snapshots; CLI `media`; Python `client.media`
 - MQTT client – configure/activate/deactivate/status/config; CLI `mqtt`; Python `client.mqtt_client`
 - Analytics MQTT publishers – list/create/remove; CLI `analytics`; Python `client.analytics_mqtt`
 - Analytics metadata producers – list/enable/disable/sample/versions; CLI `analytics-metadata`; Python `client.analytics_metadata`
@@ -80,6 +80,14 @@ ax-devil-device-api media snapshot \
 
 # Optional snapshot tuning:
 ax-devil-device-api media snapshot --resolution 1920x1080 --compression 50 --device 1
+```
+
+- Inspect video channels and saved stream profiles:
+
+```bash
+ax-devil-device-api media channels
+ax-devil-device-api media stream-profiles
+ax-devil-device-api media stream-profiles "Profile name"
 ```
 
 - Configure and inspect the device MQTT client:
@@ -188,6 +196,8 @@ with Client(config) as client:
 
     snapshot = client.media.get_snapshot()
     tuned_snapshot = client.media.get_snapshot(resolution="1280x720", compression=50, camera_head=1)
+    video_channels = client.media.list_video_channels()
+    stream_profiles = client.media.list_stream_profiles()
     mqtt_state = client.mqtt_client.get_state()
 ```
 

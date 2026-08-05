@@ -42,7 +42,7 @@ with Client(config) as client:
 |----------|-------------|
 | `client.device` | Device info, health, restart |
 | `client.network` | Network interface details |
-| `client.media` | Snapshots |
+| `client.media` | Video channels, stream profiles, and snapshots |
 | `client.mqtt_client` | MQTT client configure/activate/deactivate |
 | `client.analytics_mqtt` | Analytics MQTT publishers and data sources |
 | `client.analytics_metadata` | Metadata producer management |
@@ -84,6 +84,8 @@ client.network.get_network_info() -> dict   # Network interface parameters
 ### MediaClient (`client.media`)
 
 ```python
+client.media.list_video_channels() -> list[VideoChannel]
+client.media.list_stream_profiles(names=None) -> list[StreamProfile]
 client.media.get_snapshot(
     resolution="1920x1080",   # Optional
     compression=50,           # Optional (0-100)

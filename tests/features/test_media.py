@@ -1,8 +1,211 @@
 """Tests for media operations."""
 
+from unittest.mock import Mock
+
 import pytest
 
+from src.ax_devil_device_api.features.media import MediaClient
 from src.ax_devil_device_api.utils.errors import FeatureError
+
+
+class TestStreamProfiles:
+    """Tests for saved video stream profiles."""
+
+    def test_list_stream_profiles(self):
+        """Profiles expose names and parsed stream settings."""
+        transport = Mock()
+        response = Mock(status_code=200)
+        response.json.return_value = {
+            "data": {
+                "streamProfile": [
+                    {
+                        "name": "HD",
+                        "description": "Full HD at 25 FPS",
+                        "parameters": "videocodec=h264&resolution=1920x1080&fps=25",
+                    }
+                ],
+                "maxProfiles": 26,
+            }
+        }
+        transport.request.return_value = response
+
+        profiles = MediaClient(transport).list_stream_profiles()
+
+        assert len(profiles) == 1
+        assert profiles[0].name == "HD"
+        assert profiles[0].description == "Full HD at 25 FPS"
+        assert profiles[0].parameters == {
+            "videocodec": "h264",
+            "resolution": "1920x1080",
+            "fps": "25",
+        }
+        _, request = transport.request.call_args
+        assert request["json"] == {
+            "apiVersion": "1.0",
+            "method": "list",
+            "params": {"streamProfileName": []},
+        }
+
+    def test_list_named_stream_profiles(self):
+        """A name filter uses the VAPIX streamProfileName shape."""
+        transport = Mock()
+        response = Mock(status_code=200)
+        response.json.return_value = {"data": {"streamProfile": []}}
+        transport.request.return_value = response
+
+        MediaClient(transport).list_stream_profiles(["HD", "Low bandwidth"])
+
+        _, request = transport.request.call_args
+        assert request["json"]["params"] == {
+            "streamProfileName": [{"name": "HD"}, {"name": "Low bandwidth"}]
+        }
+
+    def test_list_stream_profiles_reports_api_error(self):
+        """VAPIX errors returned with HTTP 200 are not treated as success."""
+        transport = Mock()
+        response = Mock(status_code=200)
+        response.json.return_value = {
+            "error": {"code": 2006, "message": "Profile does not exist"}
+        }
+        transport.request.return_value = response
+
+        with pytest.raises(FeatureError) as error:
+            MediaClient(transport).list_stream_profiles(["missing"])
+
+        assert error.value.code == "stream_profiles_api_error_2006"
+        assert error.value.message == "Profile does not exist"
+
+    def test_list_stream_profiles_falls_back_to_parameter_api(self):
+        """Older devices expose stream profiles through Parameter Management."""
+        transport = Mock()
+        unavailable = Mock(status_code=404, text="Not found")
+        legacy = Mock(status_code=200)
+        legacy.text = """root.StreamProfile.S0.Name=HD
+root.StreamProfile.S0.Description=Full HD
+root.StreamProfile.S0.Parameters=videocodec=h264&resolution=1920x1080
+root.StreamProfile.S1.Name=Low
+root.StreamProfile.S1.Parameters=resolution=640x360
+"""
+        transport.request.side_effect = [unavailable, legacy]
+
+        profiles = MediaClient(transport).list_stream_profiles(["HD"])
+
+        assert len(profiles) == 1
+        assert profiles[0].name == "HD"
+        assert profiles[0].parameters["resolution"] == "1920x1080"
+        _, request = transport.request.call_args
+        assert request["params"] == {"action": "list", "group": "StreamProfile"}
+
+    def test_list_stream_profiles_rejects_malformed_response(self):
+        """Malformed successful JSON uses the feature error model."""
+        transport = Mock()
+        response = Mock(status_code=200)
+        response.json.return_value = {"data": {"streamProfile": [{"description": "No name"}]}}
+        transport.request.return_value = response
+
+        with pytest.raises(FeatureError) as error:
+            MediaClient(transport).list_stream_profiles()
+
+        assert error.value.code == "invalid_response"
+
+    @pytest.mark.integration
+    def test_list_stream_profiles_on_device(self, client):
+        """Probe stream profile support and response shape on a real device."""
+        profiles = client.media.list_stream_profiles()
+
+        assert isinstance(profiles, list)
+        for profile in profiles:
+            assert profile.name
+            assert isinstance(profile.description, str)
+            assert isinstance(profile.parameters, dict)
+
+
+class TestVideoChannels:
+    """Tests for configured video channel discovery."""
+
+    def test_list_video_channels(self):
+        """Channel defaults and codec-specific capabilities are kept distinct."""
+        transport = Mock()
+        response = Mock(status_code=200)
+        response.text = """root.Image.NbrOfConfigs=2
+root.Image.I0.Name=Overview
+root.Image.I0.Enabled=yes
+root.Image.I0.Source=0
+root.Image.I0.Type=Source
+root.Image.I0.Appearance.Resolution=1920x1080
+root.Image.I0.Stream.FPS=30
+root.Image.I1.Name=Crop
+root.Image.I1.Enabled=no
+root.Image.I1.Source=0
+root.Image.I1.Type=Viewarea,Thermal
+root.Image.I1.Appearance.Resolution=640x360
+root.Image.I1.Stream.FPS=15
+root.Properties.Image.Format=jpeg,h264,h265
+root.Properties.Image.I0.Resolution=1920x1080,1280x720
+root.Properties.Image.I0.H264.Resolution=1920x1080,1280x720
+root.Properties.Image.I0.H265.Resolution=1920x1080
+root.Properties.Image.I1.Resolution=640x360,320x180
+root.Properties.Image.I1.JPEG.Resolution=640x360,320x180
+"""
+        transport.request.return_value = response
+
+        channels = MediaClient(transport).list_video_channels()
+
+        assert [channel.channel for channel in channels] == [1, 2]
+        assert channels[0].name == "Overview"
+        assert channels[0].enabled is True
+        assert channels[0].default_resolution == "1920x1080"
+        assert channels[0].default_fps == "30"
+        assert channels[0].supported_codecs == ("jpeg", "h264", "h265")
+        assert channels[0].supported_resolutions == ("1920x1080", "1280x720")
+        assert channels[0].resolutions_by_codec["h265"] == ("1920x1080",)
+        assert channels[1].enabled is False
+        assert channels[1].channel_types == ("Viewarea", "Thermal")
+        assert channels[1].resolutions_by_codec == {"jpeg": ("640x360", "320x180")}
+
+        _, request = transport.request.call_args
+        assert request["params"] == {"action": "list", "group": "Image,Properties.Image"}
+
+    def test_list_video_channels_uses_legacy_global_resolutions(self):
+        """Older devices can expose one global resolution list."""
+        transport = Mock()
+        response = Mock(status_code=200)
+        response.text = """root.Image.NbrOfConfigs=1
+root.Image.I0.Name=Camera
+root.Image.I0.Enabled=yes
+root.Properties.Image.Format=jpeg,h264
+root.Properties.Image.Resolution=1280x720,640x360
+"""
+        transport.request.return_value = response
+
+        channel = MediaClient(transport).list_video_channels()[0]
+
+        assert channel.supported_resolutions == ("1280x720", "640x360")
+        assert channel.resolutions_by_codec == {}
+
+    def test_list_video_channels_reports_parameter_error(self):
+        """Parameter API errors use the feature error model."""
+        transport = Mock()
+        response = Mock(status_code=200, text="# Error: Requested group does not exist")
+        transport.request.return_value = response
+
+        with pytest.raises(FeatureError) as error:
+            MediaClient(transport).list_video_channels()
+
+        assert error.value.code == "video_channels_failed"
+
+    @pytest.mark.integration
+    def test_list_video_channels_on_device(self, client):
+        """Probe video channel discovery on a real device."""
+        channels = client.media.list_video_channels()
+
+        assert channels
+        for channel in channels:
+            assert channel.channel >= 1
+            assert channel.name
+            assert channel.supported_codecs
+            assert channel.supported_resolutions
+
 
 class TestMediaFeature:
     """Test suite for media feature."""

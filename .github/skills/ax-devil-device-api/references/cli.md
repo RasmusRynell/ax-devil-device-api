@@ -51,9 +51,11 @@ ax-devil-device-api device health            # Is the device responsive?
 ax-devil-device-api device restart --force   # Restart (prompts unless --force)
 ```
 
-### `media` — Snapshots
+### `media` — Video channels, stream profiles, and snapshots
 
 ```bash
+ax-devil-device-api media channels
+ax-devil-device-api media stream-profiles [<profile-name> ...]
 ax-devil-device-api media snapshot -o snapshot.jpg
 ax-devil-device-api media snapshot --resolution 1920x1080 --compression 50 --device 1
 ```

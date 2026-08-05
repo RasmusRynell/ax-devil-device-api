@@ -38,5 +38,41 @@ def create_media_group():
                     return handle_error(ctx, f"Failed to save snapshot: {e}")
         except Exception as e:
             return handle_error(ctx, e)
+
+    @media.command('channels')
+    @click.pass_context
+    def channels(ctx):
+        """List configured video channels and streaming capabilities."""
+        try:
+            with create_client(**get_client_args(ctx.obj)) as client:
+                for channel in client.media.list_video_channels():
+                    state = "enabled" if channel.enabled else "disabled"
+                    click.echo(f"{channel.channel}: {channel.name} ({state})")
+                    click.echo(f"  type: {', '.join(channel.channel_types) or '-'}")
+                    click.echo(f"  source: {channel.source or '-'}")
+                    click.echo(f"  default resolution: {channel.default_resolution or '-'}")
+                    click.echo(f"  default fps: {channel.default_fps or '-'}")
+                    click.echo(f"  codecs: {', '.join(channel.supported_codecs) or '-'}")
+                    click.echo(f"  resolutions: {', '.join(channel.supported_resolutions) or '-'}")
+                    for codec, resolutions in channel.resolutions_by_codec.items():
+                        click.echo(f"  {codec} resolutions: {', '.join(resolutions)}")
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
+
+    @media.command('stream-profiles')
+    @click.argument('names', nargs=-1)
+    @click.pass_context
+    def stream_profiles(ctx, names):
+        """List saved stream profiles, optionally filtered by name."""
+        try:
+            with create_client(**get_client_args(ctx.obj)) as client:
+                for profile in client.media.list_stream_profiles(list(names) or None):
+                    click.echo(f"{profile.name}: {profile.description}")
+                    for key, value in profile.parameters.items():
+                        click.echo(f"  {key}: {value}")
+                return 0
+        except Exception as e:
+            return handle_error(ctx, e)
     
     return media
