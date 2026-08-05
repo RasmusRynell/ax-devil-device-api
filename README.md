@@ -45,7 +45,14 @@ Set environment variables to avoid repeating credentials and broker details:
 - Feature flags – list/get/set; CLI `features`; Python `client.feature_flags`
 - Geocoordinates – location/orientation get/set/apply; CLI `geocoordinates`; Python `client.geocoordinates`
 - SSH users – add/list/show/modify/remove; CLI `ssh`; Python `client.ssh`
-- Data transformation – list topics, list/create/remove jq expression-based transforms; CLI `data-transformation`; Python `client.data_transformation`
+- Data transformation (v1beta) – list topics, list/create/remove jq expression-based transforms; CLI `data-transformation`; Python `client.data_transformation`
+
+Analytics MQTT and data transformation availability depends on device firmware. Data transformation is a beta API.
+The implementation follows the official [Data transformation API](https://developer.axis.com/vapix/device-configuration/data-transformation/):
+`outputTopic` is the transform collection key, and dotted topic components are
+sent as URL path segments for DELETE. A slash inside a component is percent-encoded.
+MQTT protocol values follow the official [MQTT client API](https://developer.axis.com/vapix/network-video/mqtt-client-api/):
+`tcp`, `ssl`, `ws`, and `wss`.
 - Systemready – check device readiness (no auth), supported API versions; CLI `systemready`; Python `client.systemready`
 - Debug – server/crash reports, network traces, pings, port checks, core dumps; CLI `debug`; Python `client.device_debug`
 
@@ -101,7 +108,7 @@ ax-devil-device-api mqtt configure \
   --device-password <password> \
   --broker-address <broker-ip> \
   --broker-port 1883 \
-  --use-tls
+  --protocol ssl
 
 ax-devil-device-api mqtt status
 ax-devil-device-api mqtt config
@@ -155,7 +162,7 @@ ax-devil-device-api discovery info analytics-mqtt --docs-html-link
 ax-devil-device-api data-transformation topics
 ax-devil-device-api data-transformation list
 ax-devil-device-api data-transformation create "input/topic" "output/topic" '.key'
-ax-devil-device-api data-transformation remove "output/topic"
+ax-devil-device-api data-transformation remove "com.axis.dt.output.topic"
 ```
 
 - Check device readiness (no authentication required):

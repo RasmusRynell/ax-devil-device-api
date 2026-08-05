@@ -101,7 +101,7 @@ client.mqtt_client.configure(
     port=1883,                        # Default
     username=None,                    # Optional broker auth
     password=None,                    # Optional broker auth
-    protocol="tcp",                   # "tcp" or "ssl"
+    protocol="tcp",                   # "tcp", "ssl", "ws", or "wss"
     keep_alive_interval=60,           # Seconds
     client_id="client1",
     clean_session=True,
@@ -111,10 +111,12 @@ client.mqtt_client.configure(
 client.mqtt_client.activate() -> dict       # Start MQTT client
 client.mqtt_client.deactivate() -> dict     # Stop MQTT client
 client.mqtt_client.get_state() -> dict      # {"status": {...}, "config": {...}}
-client.mqtt_client.set_state(state) -> dict # Set state (same shape as get_state)
+client.mqtt_client.set_state("active" | "inactive") -> dict # Activate or deactivate the client
 ```
 
 ### AnalyticsMqttClient (`client.analytics_mqtt`)
+
+Uses the device REST analytics MQTT API (`v1`). Availability depends on firmware support; unsupported devices return an HTTP/API error.
 
 ```python
 client.analytics_mqtt.get_data_sources() -> list[dict]
@@ -127,6 +129,8 @@ client.analytics_mqtt.remove_publisher(publisher_id)
 ```
 
 ### AnalyticsMetadataClient (`client.analytics_metadata`)
+
+Controls analytics metadata producer availability per video channel. `list_producers()` reports current enabled states; selective CLI changes preserve unrelated states.
 
 ```python
 client.analytics_metadata.list_producers() -> list
@@ -183,7 +187,10 @@ api.get_model() -> dict                       # JSON model
 api.get_openapi_spec() -> dict                # OpenAPI specification
 ```
 
-### DataTransformationClient (`client.data_transformation`)
+### DataTransformationClient (`client.data_transformation`, v1beta)
+
+Configures jq-based transforms. This is a beta API and may be unavailable on older firmware.
+See the [official Data transformation API](https://developer.axis.com/vapix/device-configuration/data-transformation/).
 
 ```python
 client.data_transformation.get_available_topics() -> list[dict]

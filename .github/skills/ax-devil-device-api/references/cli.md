@@ -76,12 +76,12 @@ Configures the MQTT client **on the device** (broker address, credentials, activ
 ax-devil-device-api mqtt status              # Current MQTT state
 ax-devil-device-api mqtt config              # Current MQTT config
 ax-devil-device-api mqtt configure --broker-address <ip> --broker-port 1883
-ax-devil-device-api mqtt configure -b <ip> -P 1883 -U <user> -W <pass> --keep-alive 60 --use-tls
+ax-devil-device-api mqtt configure -b <ip> -P 1883 -U <user> -W <pass> --keep-alive 60 --protocol ssl
 ax-devil-device-api mqtt activate
 ax-devil-device-api mqtt deactivate
 ```
 
-`configure` options: `--broker-address`/`-b` (required, env `AX_DEVIL_MQTT_BROKER_ADDR`), `--broker-port`/`-P` (default 1883), `--broker-username`/`-U`, `--broker-password`/`-W` (env `AX_DEVIL_MQTT_BROKER_PASS`), `--keep-alive` (default 60), `--use-tls`.
+`configure` options: `--broker-address`/`-b` (required, env `AX_DEVIL_MQTT_BROKER_ADDR`), `--broker-port`/`-P` (default 1883), `--broker-username`/`-U`, `--broker-password`/`-W` (env `AX_DEVIL_MQTT_BROKER_PASS`), `--keep-alive` (default 60), and `--protocol` (`tcp`, `ssl`, `ws`, or `wss`). `--use-tls` remains a backwards-compatible alias for `ssl`.
 
 ### `analytics` — Analytics MQTT publishers
 
@@ -97,6 +97,7 @@ ax-devil-device-api analytics remove <id> [--force]
 ### `analytics-metadata` — Metadata producer configuration
 
 Enable/disable analytics metadata producers on specific channels.
+The commands preserve existing channel states outside the selected changes.
 
 ```bash
 ax-devil-device-api analytics-metadata list [--format table|json]
@@ -154,6 +155,7 @@ ax-devil-device-api ssh remove <user>
 ### `data-transformation` — jq-based data transforms
 
 Create transforms that apply jq expressions to analytics data topics.
+This uses the device's beta `v1beta` API and is not available on every firmware.
 
 ```bash
 ax-devil-device-api data-transformation topics           # Available input topics
@@ -161,6 +163,10 @@ ax-devil-device-api data-transformation list             # Current transforms
 ax-devil-device-api data-transformation create <input-topic> <output-topic> '<jq-expr>'
 ax-devil-device-api data-transformation remove <output-topic> [--force]
 ```
+
+The official [Data transformation API](https://developer.axis.com/vapix/device-configuration/data-transformation/)
+uses `outputTopic` as the collection key. DELETE represents dotted topic
+components as path segments; a slash inside one component must be percent-encoded.
 
 ### `systemready` — Device readiness (no auth required)
 
