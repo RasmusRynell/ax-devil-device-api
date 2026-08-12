@@ -321,8 +321,11 @@ class AuthHandler:
     ) -> Callable[[AuthBase | None], RequestsResponse]:
         """Build a one-attempt request function for the configured transport."""
         params = kwargs.get("params")
+        timeout = kwargs.get("timeout", self.config.timeout)
         request_kwargs = {
-            key: value for key, value in kwargs.items() if key != "params"
+            key: value
+            for key, value in kwargs.items()
+            if key not in {"params", "timeout"}
         }
         body = request_kwargs.get("data")
         body_position: int | None = None
@@ -351,7 +354,7 @@ class AuthHandler:
                 "method": endpoint.method,
                 "url": url,
                 "headers": dict(headers),
-                "timeout": self.config.timeout,
+                "timeout": timeout,
                 "auth": auth if auth is not None else _NoAuth(),
                 "verify": self.config.verify_ssl,
             }
@@ -361,7 +364,7 @@ class AuthHandler:
                 method=endpoint.method,
                 url=url,
                 headers=headers,
-                timeout=self.config.timeout,
+                timeout=timeout,
                 verify_ssl=self.config.verify_ssl,
                 params=params,
                 json_body=kwargs.get("json"),

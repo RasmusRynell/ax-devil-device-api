@@ -7,9 +7,10 @@ simulates actual device behavior.
 
 import concurrent.futures
 import json
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
+import requests
 from requests.adapters import HTTPAdapter
 
 from src.ax_devil_device_api.core.config import AuthMethod, DeviceConfig, Protocol
@@ -170,6 +171,201 @@ class TestTransportClient:
         assert captured_requests[0]["request"]["params"] == {"detail": "short"}
         assert captured_requests[0]["request"]["json"] is None
         assert captured_requests[0]["settings"] == {"timeout": 5.0, "ssl_verify": False}
+
+    @pytest.mark.http
+    @pytest.mark.basic_operation
+    @pytest.mark.unit
+    def test_explicit_timeout_is_passed_to_authenticated_request(self, mock_server):
+        """An explicit timeout reaches the underlying authenticated session request."""
+        _, port = mock_server
+        captured_requests = []
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=10.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+        response = Mock(status_code=200)
+
+        with patch.object(client._session, "request", return_value=response) as request:
+            result = client.request(TransportEndpoint("GET", "/api/info"), timeout=2.5)
+
+        assert result is response
+        assert request.call_args.kwargs["timeout"] == 2.5
+        assert captured_requests[0]["settings"]["timeout"] == 2.5
+
+    @pytest.mark.http
+    @pytest.mark.basic_operation
+    @pytest.mark.unit
+    def test_explicit_timeout_is_passed_to_challenge_retry(self, mock_server):
+        """An explicit timeout reaches the authenticated challenge retry."""
+        _, port = mock_server
+        captured_requests = []
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=10.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+        challenge_response = Mock(
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="Device API"'},
+        )
+        response = Mock(status_code=200)
+
+        with patch.object(client._session, "request", return_value=response) as request:
+            result = client.request_after_challenge(
+                TransportEndpoint("GET", "/api/info"),
+                challenge_response,
+                timeout=2.5,
+            )
+
+        assert result is response
+        assert request.call_args.kwargs["timeout"] == 2.5
+        assert captured_requests[0]["settings"]["timeout"] == 2.5
+        challenge_response.close.assert_called_once()
+
+    @pytest.mark.http
+    @pytest.mark.basic_operation
+    @pytest.mark.unit
+    def test_explicit_timeout_is_passed_to_no_auth_request(self, mock_server):
+        """An explicit timeout reaches the temporary no-auth session request."""
+        _, port = mock_server
+        captured_requests = []
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="",
+            password="",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=10.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+        response = Mock(status_code=200)
+
+        with patch.object(
+            requests.Session, "request", return_value=response
+        ) as request:
+            result = client.request_no_auth(
+                TransportEndpoint("GET", "/api/info"), timeout=2.5
+            )
+
+        assert result is response
+        assert request.call_args.kwargs["timeout"] == 2.5
+        assert captured_requests[0]["settings"]["timeout"] == 2.5
+
+    @pytest.mark.http
+    @pytest.mark.error
+    @pytest.mark.unit
+    def test_explicit_timeout_is_reported_for_authenticated_timeout(self, mock_server):
+        """Authenticated timeout errors use the explicit effective timeout."""
+        _, port = mock_server
+        captured_requests = []
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=10.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+
+        with (
+            patch.object(
+                client._session, "request", side_effect=requests.exceptions.Timeout
+            ) as request,
+            pytest.raises(NetworkError, match="Request timed out after 2.5s"),
+        ):
+            client.request(TransportEndpoint("GET", "/api/info"), timeout=2.5)
+
+        assert request.call_args.kwargs["timeout"] == 2.5
+        assert captured_requests[0]["settings"]["timeout"] == 2.5
+
+    @pytest.mark.http
+    @pytest.mark.error
+    @pytest.mark.unit
+    def test_explicit_timeout_is_reported_for_challenge_retry_timeout(
+        self, mock_server
+    ):
+        """Challenge-retry timeout errors use the explicit effective timeout."""
+        _, port = mock_server
+        captured_requests = []
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=10.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+        challenge_response = Mock(
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="Device API"'},
+        )
+
+        with (
+            patch.object(
+                client._session, "request", side_effect=requests.exceptions.Timeout
+            ) as request,
+            pytest.raises(NetworkError, match="Request timed out after 2.5s"),
+        ):
+            client.request_after_challenge(
+                TransportEndpoint("GET", "/api/info"),
+                challenge_response,
+                timeout=2.5,
+            )
+
+        assert request.call_args.kwargs["timeout"] == 2.5
+        assert captured_requests[0]["settings"]["timeout"] == 2.5
+        challenge_response.close.assert_called_once()
+
+    @pytest.mark.http
+    @pytest.mark.error
+    @pytest.mark.unit
+    def test_explicit_timeout_is_reported_for_no_auth_timeout(self, mock_server):
+        """No-auth timeout errors use the explicit effective timeout."""
+        _, port = mock_server
+        captured_requests = []
+        config = DeviceConfig(
+            host=f"localhost:{port}",
+            username="",
+            password="",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.BASIC,
+            timeout=10.0,
+            allow_insecure=True,
+            debug_request_callback=captured_requests.append,
+        )
+        client = TransportClient(config)
+
+        with (
+            patch.object(
+                requests.Session, "request", side_effect=requests.exceptions.Timeout
+            ) as request,
+            pytest.raises(NetworkError, match="Request timed out after 2.5s"),
+        ):
+            client.request_no_auth(TransportEndpoint("GET", "/api/info"), timeout=2.5)
+
+        assert request.call_args.kwargs["timeout"] == 2.5
+        assert captured_requests[0]["settings"]["timeout"] == 2.5
 
     @pytest.mark.http
     @pytest.mark.basic_operation

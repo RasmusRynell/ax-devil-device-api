@@ -89,15 +89,14 @@ class TransportClient:
 
     def request(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
         """Make a request to the device API using the session."""
+        timeout = kwargs.get("timeout", self.config.timeout)
         headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
 
         try:
             return self.auth.send_request(self._session, endpoint, headers, kwargs)
 
         except requests.exceptions.Timeout:
-            raise NetworkError(
-                "request_timeout", f"Request timed out after {self.config.timeout}s"
-            )
+            raise NetworkError("request_timeout", f"Request timed out after {timeout}s")
 
         except requests.exceptions.SSLError as error:
             raise NetworkError(
@@ -119,6 +118,7 @@ class TransportClient:
         **kwargs,
     ) -> requests.Response:
         """Make one authenticated request from a previously received challenge."""
+        timeout = kwargs.get("timeout", self.config.timeout)
         headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
 
         try:
@@ -127,9 +127,7 @@ class TransportClient:
             )
 
         except requests.exceptions.Timeout:
-            raise NetworkError(
-                "request_timeout", f"Request timed out after {self.config.timeout}s"
-            )
+            raise NetworkError("request_timeout", f"Request timed out after {timeout}s")
 
         except requests.exceptions.SSLError as error:
             raise NetworkError(
@@ -154,6 +152,7 @@ class TransportClient:
         Bypasses the authentication handler, useful for endpoints that
         do not require credentials (e.g. basicdeviceinfo.cgi unrestricted).
         """
+        timeout = kwargs.pop("timeout", self.config.timeout)
         params = kwargs.pop("params", None)
         kwargs.pop("auth", None)
         url = endpoint.build_url(self.config.get_base_url(), params)
@@ -169,7 +168,7 @@ class TransportClient:
             method=endpoint.method,
             url=url,
             headers=headers,
-            timeout=self.config.timeout,
+            timeout=timeout,
             verify_ssl=self.config.verify_ssl,
             params=params,
             json_body=kwargs.get("json"),
@@ -182,7 +181,7 @@ class TransportClient:
                 method=endpoint.method,
                 url=url,
                 headers=headers,
-                timeout=self.config.timeout,
+                timeout=timeout,
                 verify=self.config.verify_ssl,
                 auth=_NoAuth(),
                 **kwargs,
@@ -191,7 +190,7 @@ class TransportClient:
         except requests.exceptions.Timeout:
             raise NetworkError(
                 "request_timeout",
-                f"Request timed out after {self.config.timeout}s",
+                f"Request timed out after {timeout}s",
             )
 
         except requests.exceptions.SSLError as error:
