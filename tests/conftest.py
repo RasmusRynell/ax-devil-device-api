@@ -1,20 +1,22 @@
 """Test configuration and shared fixtures."""
 
-import pytest
-import os
-import ssl
-import socket
-import threading
 import datetime
+import os
+import socket
+import ssl
+import threading
 from functools import partial
+
+import pytest
 from cryptography import x509
-from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+
 from src.ax_devil_device_api import Client, DeviceConfig
+from src.ax_devil_device_api.core.config import AuthMethod, Protocol
 from src.ax_devil_device_api.core.transport_client import TransportClient
-from src.ax_devil_device_api.core.config import Protocol, AuthMethod
-from tests.mocks.http_server import ThreadedHTTPServer, MockDeviceHandler
+from tests.mocks.http_server import MockDeviceHandler, ThreadedHTTPServer
 from tests.mocks.mock_api_routes import get_standard_routes
 
 
@@ -125,6 +127,8 @@ def mock_server():
         MockDeviceHandler.use_fixed_session_token = False
         MockDeviceHandler.request_records = []
         MockDeviceHandler.advertised_auth_methods = None
+        MockDeviceHandler.www_authenticate_header = None
+        MockDeviceHandler.reject_authenticated = False
 
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
@@ -159,8 +163,11 @@ def mock_https_server(tmp_path):
         .issuer_name(issuer)
         .public_key(private_key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.utcnow())
-        .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=10))
+        .not_valid_before(datetime.datetime.now(tz=datetime.timezone.utc))
+        .not_valid_after(
+            datetime.datetime.now(tz=datetime.timezone.utc)
+            + datetime.timedelta(days=10)
+        )
         .add_extension(
             x509.SubjectAlternativeName([x509.DNSName("localhost")]),
             critical=False,
@@ -209,6 +216,8 @@ def mock_https_server(tmp_path):
         MockDeviceHandler.use_fixed_session_token = False
         MockDeviceHandler.request_records = []
         MockDeviceHandler.advertised_auth_methods = None
+        MockDeviceHandler.www_authenticate_header = None
+        MockDeviceHandler.reject_authenticated = False
 
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
@@ -246,7 +255,7 @@ def http_client(mock_server):
 @pytest.fixture
 def https_client(mock_https_server):
     """Create a client for HTTPS testing."""
-    port, cert_path = mock_https_server
+    port, _cert_path = mock_https_server
 
     # Reset session tokens to ensure clean test state
     MockDeviceHandler.session_tokens = set()

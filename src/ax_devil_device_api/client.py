@@ -1,22 +1,22 @@
 """Main client interface for the ax-devil-device-api package."""
 
-from typing import Optional, ContextManager
-from contextlib import contextmanager
 import warnings
-from .core.transport_client import TransportClient
+from contextlib import AbstractContextManager, contextmanager
+
 from .core.config import DeviceConfig
-from .features.device_info import DeviceInfoClient
-from .features.network import NetworkClient
-from .features.media import MediaClient
-from .features.geocoordinates import GeoCoordinatesClient
-from .features.mqtt_client import MqttClient
-from .features.analytics_mqtt import AnalyticsMqttClient
-from .features.api_discovery import DiscoveryClient
-from .features.feature_flags import FeatureFlagClient
-from .features.ssh import SSHClient
-from .features.device_debug import DeviceDebugClient
+from .core.transport_client import TransportClient
 from .features.analytics_metadata import AnalyticsMetadataClient
+from .features.analytics_mqtt import AnalyticsMqttClient
+from .features.api_discovery import ClassicAPIDiscoveryClient, DiscoveryClient
 from .features.data_transformation import DataTransformationClient
+from .features.device_debug import DeviceDebugClient
+from .features.device_info import DeviceInfoClient
+from .features.feature_flags import FeatureFlagClient
+from .features.geocoordinates import GeoCoordinatesClient
+from .features.media import MediaClient
+from .features.mqtt_client import MqttClient
+from .features.network import NetworkClient
+from .features.ssh import SSHClient
 from .features.systemready import SystemReadyClient
 
 
@@ -45,19 +45,20 @@ class Client:
         self._closed = False
 
         # Lazy-loaded feature clients
-        self._device: Optional[DeviceInfoClient] = None
-        self._network: Optional[NetworkClient] = None
-        self._media: Optional[MediaClient] = None
-        self._geocoordinates: Optional[GeoCoordinatesClient] = None
-        self._mqtt_client: Optional[MqttClient] = None
-        self._analytics_mqtt: Optional[AnalyticsMqttClient] = None
-        self._discovery: Optional[DiscoveryClient] = None
-        self._feature_flags: Optional[FeatureFlagClient] = None
-        self._ssh: Optional[SSHClient] = None
-        self._device_debug: Optional[DeviceDebugClient] = None
-        self._analytics_metadata: Optional[AnalyticsMetadataClient] = None
-        self._data_transformation: Optional[DataTransformationClient] = None
-        self._systemready: Optional[SystemReadyClient] = None
+        self._device: DeviceInfoClient | None = None
+        self._network: NetworkClient | None = None
+        self._media: MediaClient | None = None
+        self._geocoordinates: GeoCoordinatesClient | None = None
+        self._mqtt_client: MqttClient | None = None
+        self._analytics_mqtt: AnalyticsMqttClient | None = None
+        self._discovery: DiscoveryClient | None = None
+        self._classic_discovery: ClassicAPIDiscoveryClient | None = None
+        self._feature_flags: FeatureFlagClient | None = None
+        self._ssh: SSHClient | None = None
+        self._device_debug: DeviceDebugClient | None = None
+        self._analytics_metadata: AnalyticsMetadataClient | None = None
+        self._data_transformation: DataTransformationClient | None = None
+        self._systemready: SystemReadyClient | None = None
 
     def __del__(self):
         """Attempt to clean up if user forgets to close.
@@ -73,11 +74,11 @@ class Client:
             )
             try:
                 self.close()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110 - destructor cleanup boundary
                 # Suppress errors during interpreter shutdown
                 pass
 
-    def __enter__(self) -> "Client":
+    def __enter__(self) -> "Client":  # noqa: PYI034 - supports Python 3.10
         """Enter context manager."""
         return self
 
@@ -98,7 +99,7 @@ class Client:
             self._closed = True
 
     @contextmanager
-    def new_session(self) -> ContextManager["Client"]:
+    def new_session(self) -> AbstractContextManager["Client"]:
         """Create a temporary session for sensitive operations.
 
         This context manager creates a new session that will be used
@@ -113,13 +114,8 @@ class Client:
             # Back to the original session
             ```
         """
-        old_session = self._core._session
-        self._core._session = self._core._create_session()
-        try:
+        with self._core.new_session():
             yield self
-        finally:
-            self._core._session.close()
-            self._core._session = old_session
 
     def clear_session(self) -> None:
         """Clear and reset the current session.
@@ -173,10 +169,17 @@ class Client:
 
     @property
     def discovery(self) -> DiscoveryClient:
-        """Access API discovery features."""
+        """Access Device Configuration API discovery."""
         if not self._discovery:
             self._discovery = DiscoveryClient(self._core)
         return self._discovery
+
+    @property
+    def classic_discovery(self) -> ClassicAPIDiscoveryClient:
+        """Access classic VAPIX API Discovery."""
+        if not self._classic_discovery:
+            self._classic_discovery = ClassicAPIDiscoveryClient(self._core)
+        return self._classic_discovery
 
     @property
     def feature_flags(self) -> FeatureFlagClient:

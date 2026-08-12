@@ -41,7 +41,8 @@ Set environment variables to avoid repeating credentials and broker details:
 - MQTT client – configure/activate/deactivate/status/config; CLI `mqtt`; Python `client.mqtt_client`
 - Analytics MQTT publishers – list/create/remove; CLI `analytics`; Python `client.analytics_mqtt`
 - Analytics metadata producers – list/enable/disable/sample/versions; CLI `analytics-metadata`; Python `client.analytics_metadata`
-- API discovery – list APIs, inspect docs/models/openapi; CLI `discovery`; Python `client.discovery`
+- Device Configuration API discovery – list API definitions, inspect docs/models/OpenAPI; CLI `discovery`; Python `client.discovery`
+- Classic VAPIX API Discovery – query `getApiList`/`getSupportedVersions`; Python `client.classic_discovery`
 - Feature flags – list/get/set; CLI `features`; Python `client.feature_flags`
 - Geocoordinates – location/orientation get/set/apply; CLI `geocoordinates`; Python `client.geocoordinates`
 - SSH users – add/list/show/modify/remove; CLI `ssh`; Python `client.ssh`
@@ -155,6 +156,23 @@ ax-devil-device-api features set my_flag=true other_flag=false --force
 ax-devil-device-api discovery list
 ax-devil-device-api discovery info analytics-mqtt --docs-html-link
 ```
+
+`discovery` uses the authenticated `GET /config/discover` Device Configuration
+discovery endpoint. With no explicit version, it selects the highest SemVer
+entry whose state is `released`; if none is released, selection fails with
+`FeatureError` and an explicit version is required. It is distinct from classic
+VAPIX API Discovery, whose documented security level is anonymous and which uses
+`POST /axis-cgi/apidiscovery.cgi` JSON requests:
+
+```python
+client.classic_discovery.get_api_list()
+client.classic_discovery.get_supported_versions()
+```
+
+For the documented legacy exception on AXIS OS 9.80 and 10.12, classic
+discovery retries only a `401` response that advertises Basic or Digest
+authentication. Other responses remain anonymous and are not retried with
+credentials.
 
 - Data transformation:
 

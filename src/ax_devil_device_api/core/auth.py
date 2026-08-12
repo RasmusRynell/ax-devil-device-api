@@ -1,5 +1,5 @@
 import re
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import requests
 from requests import Response as RequestsResponse
@@ -20,38 +20,45 @@ class _NoAuth(AuthBase):
         return request
 
 
-class _PreemptiveDigestAuth(HTTPDigestAuth):
-    """Use a previously received Digest challenge on the next request."""
+class _OneShotDigestAuth(AuthBase):
+    """Attach one Digest header without installing Requests' 401 retry hook."""
 
     def __init__(self, username: str, password: str, challenge: str) -> None:
-        super().__init__(username, password)
-        self._challenge = challenge
+        self._digest_auth = HTTPDigestAuth(username, password)
+        self._challenge = _parse_supported_digest_challenge(challenge)
 
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
-        # AUTO already made the challenge request, so prime Requests' auth
-        # object and send the authenticated retry directly.
-        self.init_per_thread_state()
-        self._thread_local.chal = parse_dict_header(self._challenge)
-        self._thread_local.last_nonce = self._thread_local.chal.get("nonce", "")
-        self._thread_local.nonce_count = 0
-        return super().__call__(request)
+        """Build the Authorization header from the received challenge."""
+        digest_auth = self._digest_auth
+        digest_auth.init_per_thread_state()
+        digest_auth._thread_local.chal = self._challenge
+        digest_auth._thread_local.last_nonce = ""
+        digest_auth._thread_local.nonce_count = 0
+        authorization = digest_auth.build_digest_header(request.method, request.url)
+        if authorization is None:
+            raise AuthenticationError(
+                "unsupported_digest_challenge",
+                "Device advertised an unsupported Digest challenge",
+            )
+        request.headers["Authorization"] = authorization
+        return request
 
 
 class AuthHandler:
     """Handle device authentication and cache only verified auth methods."""
 
-    _AUTH_SCHEME_RE = re.compile(r"(?i)(?<![A-Za-z0-9_-])(basic|digest)(?=\s|$)")
+    _AUTH_TOKEN_RE = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
 
     def __init__(self, config: DeviceConfig) -> None:
         """Initialize with device configuration."""
         self.config = config
-        self._detected_method: Optional[AuthMethod] = None
-        self._auth_object: Optional[AuthBase] = None
+        self._detected_method: AuthMethod | None = None
+        self._auth_object: AuthBase | None = None
 
     def authenticate_request(
         self,
         session: requests.Session,
-        request_func: Callable[[Optional[AuthBase]], RequestsResponse],
+        request_func: Callable[[AuthBase | None], RequestsResponse],
     ) -> RequestsResponse:
         """Send a request using configured or challenge-selected authentication."""
         if not self.config.username or not self.config.password:
@@ -85,7 +92,9 @@ class AuthHandler:
                     f"Authentication failed using {self.config.auth_method.value}",
                 )
             if self._is_accepted_success(response):
-                self._cache_auth(auth_object, self.config.auth_method, session)
+                self._cache_auth_if_reusable(
+                    auth_object, self.config.auth_method, session
+                )
             return response
 
         # Do not send Basic credentials before the device has advertised an
@@ -111,7 +120,7 @@ class AuthHandler:
             # A 403/5xx response is an endpoint or server failure, not proof
             # that the selected credentials are valid.
             if self._is_accepted_success(response):
-                self._cache_auth(auth_object, method, session)
+                self._cache_auth_if_reusable(auth_object, method, session)
             return response
 
         raise AuthenticationError(
@@ -123,15 +132,18 @@ class AuthHandler:
     ) -> list[tuple[AuthMethod, str]]:
         """Extract supported auth challenges, preferring Digest when offered."""
         header = response.headers.get("WWW-Authenticate", "")
-        matches = list(self._AUTH_SCHEME_RE.finditer(header))
+        matches = self._find_challenge_boundaries(header)
         challenges: list[tuple[AuthMethod, str]] = []
 
-        for index, match in enumerate(matches):
-            method = AuthMethod(match.group(1).lower())
-            end = (
-                matches[index + 1].start() if index + 1 < len(matches) else len(header)
-            )
-            challenge = header[match.end() : end].strip(" ,")
+        for index, (method_name, start, _) in enumerate(matches):
+            if method_name.lower() not in {
+                AuthMethod.BASIC.value,
+                AuthMethod.DIGEST.value,
+            }:
+                continue
+            method = AuthMethod(method_name.lower())
+            end = matches[index + 1][1] if index + 1 < len(matches) else len(header)
+            challenge = header[start + len(method_name) : end].strip(" ,")
             challenges.append((method, challenge))
 
         # Digest avoids sending a reusable password in clear text when both
@@ -143,6 +155,42 @@ class AuthHandler:
             )
         return selected
 
+    @classmethod
+    def _find_challenge_boundaries(cls, header: str) -> list[tuple[str, int, int]]:
+        """Find scheme tokens only at actual challenge boundaries."""
+        boundaries: list[tuple[str, int, int]] = []
+        in_quotes = False
+        escaped = False
+        for index, character in enumerate(header + ","):
+            if escaped:
+                escaped = False
+                continue
+            if in_quotes and character == "\\":
+                escaped = True
+                continue
+            if character == '"':
+                in_quotes = not in_quotes
+                continue
+            if in_quotes or character != ",":
+                continue
+            start = index + 1
+            while start < len(header) and header[start].isspace():
+                start += 1
+            token = cls._AUTH_TOKEN_RE.match(header, start)
+            if token is not None and (
+                token.end() == len(header) or header[token.end()].isspace()
+            ):
+                boundaries.append((token.group(), start, token.end()))
+
+        if in_quotes:
+            return []
+        token = cls._AUTH_TOKEN_RE.match(header)
+        if token is not None and (
+            token.end() == len(header) or header[token.end()].isspace()
+        ):
+            boundaries.insert(0, (token.group(), 0, token.end()))
+        return boundaries
+
     @staticmethod
     def _is_accepted_success(response: RequestsResponse) -> bool:
         """Return whether a 2xx response proves that authentication worked."""
@@ -150,7 +198,7 @@ class AuthHandler:
 
     def _challenge_for_method(
         self, response: RequestsResponse, method: AuthMethod
-    ) -> Optional[str]:
+    ) -> str | None:
         """Return the advertised challenge for one explicitly selected method."""
         return next(
             (
@@ -169,6 +217,13 @@ class AuthHandler:
         self._detected_method = None
         session.auth = None
 
+    def reset_session_state(self, *sessions: requests.Session) -> None:
+        """Clear cached authentication when transport session state changes."""
+        self._auth_object = None
+        self._detected_method = None
+        for session in sessions:
+            session.auth = None
+
     def _cache_auth(
         self, auth_obj: AuthBase, method: AuthMethod, session: requests.Session
     ) -> None:
@@ -177,15 +232,24 @@ class AuthHandler:
         self._detected_method = method
         session.auth = auth_obj
 
+    def _cache_auth_if_reusable(
+        self, auth_obj: AuthBase, method: AuthMethod, session: requests.Session
+    ) -> None:
+        """Cache only authentication objects that are safe to reuse."""
+        if method == AuthMethod.DIGEST and isinstance(auth_obj, _OneShotDigestAuth):
+            self._clear_cached_auth(session)
+            return
+        self._cache_auth(auth_obj, method, session)
+
     def _create_auth(
-        self, method: AuthMethod, challenge: Optional[str] = None
+        self, method: AuthMethod, challenge: str | None = None
     ) -> AuthBase:
         """Create an auth object for a configured or advertised method."""
         if method == AuthMethod.BASIC:
             return HTTPBasicAuth(self.config.username, self.config.password)
         if method == AuthMethod.DIGEST:
             if challenge:
-                return _PreemptiveDigestAuth(
+                return _OneShotDigestAuth(
                     self.config.username, self.config.password, challenge
                 )
             return HTTPDigestAuth(self.config.username, self.config.password)
@@ -201,12 +265,67 @@ class AuthHandler:
         kwargs: dict,
     ) -> requests.Response:
         """Send a request while preserving its URL, headers, and body on retries."""
+        request_func = self._make_request_func(session, endpoint, headers, kwargs)
+        return self.authenticate_request(session, request_func)
+
+    def send_request_after_challenge(
+        self,
+        session: requests.Session,
+        endpoint: TransportEndpoint,
+        headers: dict,
+        kwargs: dict,
+        challenge_response: RequestsResponse,
+    ) -> requests.Response:
+        """Send exactly one authenticated request using an existing challenge."""
+        if not self.config.username or not self.config.password:
+            raise AuthenticationError(
+                "username_password_required", "Username and password are required"
+            )
+        if challenge_response.status_code != 401:
+            raise AuthenticationError(
+                "authentication_failed",
+                "Authenticated retry requires an HTTP 401 challenge response",
+            )
+
+        challenges = self._advertised_challenges(challenge_response)
+        if not challenges:
+            raise AuthenticationError(
+                "authentication_failed",
+                "Device returned HTTP 401 without a supported Basic or Digest challenge",
+            )
+
+        if self.config.auth_method == AuthMethod.AUTO:
+            method, challenge = challenges[0]
+        else:
+            method = self.config.auth_method
+            challenge = self._challenge_for_method(challenge_response, method)
+            if challenge is None:
+                raise AuthenticationError(
+                    "authentication_failed",
+                    f"Device did not advertise {method.value} authentication",
+                )
+        auth_object = self._create_auth(method, challenge)
+        response = self._make_request_func(session, endpoint, headers, kwargs)(
+            auth_object
+        )
+        if self._is_accepted_success(response):
+            self._cache_auth_if_reusable(auth_object, method, session)
+        return response
+
+    def _make_request_func(
+        self,
+        session: requests.Session,
+        endpoint: TransportEndpoint,
+        headers: dict,
+        kwargs: dict,
+    ) -> Callable[[AuthBase | None], RequestsResponse]:
+        """Build a one-attempt request function for the configured transport."""
         params = kwargs.get("params")
         request_kwargs = {
             key: value for key, value in kwargs.items() if key != "params"
         }
         body = request_kwargs.get("data")
-        body_position: Optional[int] = None
+        body_position: int | None = None
         if body is not None and hasattr(body, "tell") and hasattr(body, "seek"):
             try:
                 body_position = body.tell()
@@ -218,7 +337,7 @@ class AuthHandler:
                 "Authentication challenge requires a rewindable request body",
             )
 
-        def make_request(auth: Optional[AuthBase]) -> requests.Response:
+        def make_request(auth: AuthBase | None) -> requests.Response:
             """Perform one attempt with a fresh request argument mapping."""
             if body_position is not None:
                 try:
@@ -251,11 +370,59 @@ class AuthHandler:
 
             return session.request(**request_args)
 
-        return self.authenticate_request(session, make_request)
+        return make_request
 
     @staticmethod
-    def _is_replayable_body(body: object, body_position: Optional[int]) -> bool:
+    def _is_replayable_body(body: object, body_position: int | None) -> bool:
         """Return whether Requests can send the body again after a challenge."""
         if isinstance(body, (bytes, bytearray, memoryview, str, dict, list, tuple)):
             return True
         return body_position is not None
+
+
+def _parse_supported_digest_challenge(challenge: str) -> dict[str, str]:
+    """Validate the Digest policy supported by Requests and Axis devices."""
+    try:
+        parameters = parse_dict_header(challenge)
+    except (TypeError, ValueError) as error:
+        raise AuthenticationError(
+            "invalid_digest_challenge", "Device returned a malformed Digest challenge"
+        ) from error
+
+    realm = parameters.get("realm")
+    nonce = parameters.get("nonce")
+    if (
+        not isinstance(realm, str)
+        or not realm
+        or not isinstance(nonce, str)
+        or not nonce
+    ):
+        raise AuthenticationError(
+            "invalid_digest_challenge",
+            "Device returned a Digest challenge without a valid realm and nonce",
+        )
+
+    algorithm = parameters.get("algorithm", "MD5")
+    if not isinstance(algorithm, str) or algorithm.upper() not in {
+        "MD5",
+        "MD5-SESS",
+        "SHA",
+        "SHA-256",
+        "SHA-512",
+    }:
+        raise AuthenticationError(
+            "unsupported_digest_challenge",
+            "Device advertised an unsupported Digest algorithm",
+        )
+
+    qop = parameters.get("qop")
+    if qop is not None and (
+        not isinstance(qop, str)
+        or "auth" not in {value.strip().lower() for value in qop.split(",")}
+    ):
+        raise AuthenticationError(
+            "unsupported_digest_challenge",
+            "Device advertised an unsupported Digest quality of protection",
+        )
+
+    return {key: value for key, value in parameters.items() if isinstance(value, str)}

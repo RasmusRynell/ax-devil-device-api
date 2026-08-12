@@ -1,11 +1,12 @@
-import requests
 from contextlib import contextmanager
 
-from .config import DeviceConfig
+import requests
+
+from ..utils.errors import NetworkError
 from .auth import AuthHandler, _NoAuth
+from .config import DeviceConfig
 from .debug import emit_request_debug_info
 from .endpoints import TransportEndpoint
-from ..utils.errors import NetworkError
 
 
 class TransportClient:
@@ -24,7 +25,7 @@ class TransportClient:
     """
 
     # Transport-level headers that are part of Layer 1's responsibility
-    _TRANSPORT_HEADERS = {
+    _TRANSPORT_HEADERS = {  # noqa: RUF012 - immutable by convention
         "Accept": "application/json",
         "User-Agent": "ax-devil-device-api/1.0",
         "Content-Type": "application/json",
@@ -66,20 +67,25 @@ class TransportClient:
         Useful for operations that need a clean session state.
         """
         old_session = self._session
+        self.auth.reset_session_state(old_session)
         self._session = self._create_session()
         try:
             yield self
         finally:
-            self._session.close()
+            new_session = self._session
+            new_session.close()
             self._session = old_session
+            self.auth.reset_session_state(new_session, old_session)
 
     def clear_session(self):
         """Clear and reset the current session.
 
         Useful when you want to clear any stored cookies or connection state.
         """
-        self._session.close()
+        old_session = self._session
+        old_session.close()
         self._session = self._create_session()
+        self.auth.reset_session_state(old_session, self._session)
 
     def request(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
         """Make a request to the device API using the session."""
@@ -105,6 +111,40 @@ class TransportClient:
                 "Request failed",
                 str(error),
             ) from error
+
+    def request_after_challenge(
+        self,
+        endpoint: TransportEndpoint,
+        challenge_response: requests.Response,
+        **kwargs,
+    ) -> requests.Response:
+        """Make one authenticated request from a previously received challenge."""
+        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
+
+        try:
+            return self.auth.send_request_after_challenge(
+                self._session, endpoint, headers, kwargs, challenge_response
+            )
+
+        except requests.exceptions.Timeout:
+            raise NetworkError(
+                "request_timeout", f"Request timed out after {self.config.timeout}s"
+            )
+
+        except requests.exceptions.SSLError as error:
+            raise NetworkError(
+                "ssl_verification_failed",
+                "TLS certificate verification failed",
+                str(error),
+            ) from error
+        except requests.exceptions.RequestException as error:
+            raise NetworkError(
+                "request_failed",
+                "Request failed",
+                str(error),
+            ) from error
+        finally:
+            challenge_response.close()
 
     def request_no_auth(
         self, endpoint: TransportEndpoint, **kwargs

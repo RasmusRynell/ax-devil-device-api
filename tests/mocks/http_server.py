@@ -4,16 +4,19 @@ This module provides a threaded HTTP server and request handler that simulates
 an Axis device API for integration testing.
 """
 
-import json
 import base64
+import binascii
+import json
+import logging
 import threading
 import time
-import logging
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-from urllib.parse import urlparse, parse_qs
+from typing import ClassVar
+from urllib.parse import parse_qs, urlparse
 
 logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -34,16 +37,16 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
         from traceback import format_exc
 
         # Get exception info
-        exc_type, exc_value, exc_traceback = sys.exc_info()
+        exc_type, exc_value, _exc_traceback = sys.exc_info()
 
         # Only log connection resets and broken pipes as info, not as errors
         if issubclass(
             exc_type, (ConnectionResetError, BrokenPipeError, ConnectionAbortedError)
         ):
-            logging.info(f"Connection error with {client_address}: {exc_value}")
+            logger.info(f"Connection error with {client_address}: {exc_value}")
         else:
-            logging.info(f"Error handling request from {client_address}:")
-            logging.info(format_exc())
+            logger.info(f"Error handling request from {client_address}:")
+            logger.info(format_exc())
 
 
 class MockDeviceHandler(BaseHTTPRequestHandler):
@@ -55,13 +58,15 @@ class MockDeviceHandler(BaseHTTPRequestHandler):
     simulate_timeout = False
     simulate_connection_error = False
     request_count = 0
-    session_tokens = set()
+    session_tokens: ClassVar[set[str]] = set()
     session_lock = threading.Lock()  # Add lock for thread safety
     use_fixed_session_token = (
         False  # Whether to use a fixed token or generate sequential ones
     )
-    request_records = []
+    request_records: ClassVar[list[dict[str, object]]] = []
     advertised_auth_methods = None
+    www_authenticate_header = None
+    reject_authenticated = False
 
     def __init__(self, *args, **kwargs):
         self.routes = kwargs.pop("routes", {})
@@ -111,26 +116,28 @@ class MockDeviceHandler(BaseHTTPRequestHandler):
             )
 
         # Check authentication if required
-        if MockDeviceHandler.auth_required:
-            if not self._check_auth():
-                self.send_response(401)
+        if MockDeviceHandler.auth_required and not self._check_auth():
+            self.send_response(401)
+            challenge = MockDeviceHandler.www_authenticate_header
+            if challenge is None:
                 advertised_methods = MockDeviceHandler.advertised_auth_methods or [
                     MockDeviceHandler.auth_method
                 ]
                 challenges = []
-                for method in advertised_methods:
-                    if method == "basic":
+                for auth_method in advertised_methods:
+                    if auth_method == "basic":
                         challenges.append('Basic realm="Device API"')
-                    elif method == "digest":
+                    elif auth_method == "digest":
                         challenges.append('Digest realm="Device API", nonce="abc123"')
-                if challenges:
-                    self.send_header("WWW-Authenticate", ", ".join(challenges))
-                self.end_headers()
-                return
+                challenge = ", ".join(challenges)
+            if challenge:
+                self.send_header("WWW-Authenticate", challenge)
+            self.end_headers()
+            return
 
         # Enhanced thread-safe session handling
         cookie_header = self.headers.get("Cookie", "")
-        logging.info(f"Thread {thread_id}: Received cookie header: {cookie_header}")
+        logger.info(f"Thread {thread_id}: Received cookie header: {cookie_header}")
         session_token = None
 
         # Use a single lock acquisition to check and update session tokens
@@ -146,25 +153,24 @@ class MockDeviceHandler(BaseHTTPRequestHandler):
                             # Only use the token if it's valid
                             if token in MockDeviceHandler.session_tokens:
                                 session_token = token
-                                logging.info(
+                                logger.info(
                                     f"Thread {thread_id}: Found valid session token: {token}"
                                 )
                                 break
                             else:
-                                logging.info(
+                                logger.info(
                                     f"Thread {thread_id}: Found invalid session token: {token}"
                                 )
                 except (IndexError, ValueError) as e:
                     # If parsing fails, we'll create a new token
-                    logging.info(f"Thread {thread_id}: Error parsing cookie: {e}")
-                    pass
+                    logger.info(f"Thread {thread_id}: Error parsing cookie: {e}")
 
             # If no valid session token was found, create a new one
             if not session_token:
                 if MockDeviceHandler.use_fixed_session_token:
                     # Always use a fixed token name for concurrent tests
                     session_token = "mock-session-0"
-                    logging.info(
+                    logger.info(
                         f"Thread {thread_id}: Creating new fixed session token: {session_token}"
                     )
                 else:
@@ -172,7 +178,7 @@ class MockDeviceHandler(BaseHTTPRequestHandler):
                     session_token = (
                         f"mock-session-{len(MockDeviceHandler.session_tokens)}"
                     )
-                    logging.info(
+                    logger.info(
                         f"Thread {thread_id}: Creating new sequential session token: {session_token}"
                     )
 
@@ -184,7 +190,7 @@ class MockDeviceHandler(BaseHTTPRequestHandler):
             status_code, headers, response_data = self.routes[route_key](self, query)
         else:
             # Log that route was not found for debugging
-            logging.info(
+            logger.info(
                 f"[MockDeviceHandler] No route found for '{route_key}'. Available routes: {list(self.routes.keys())}"
             )
             status_code, headers, response_data = (
@@ -208,6 +214,8 @@ class MockDeviceHandler(BaseHTTPRequestHandler):
 
     def _check_auth(self):
         """Check if request has valid authentication."""
+        if MockDeviceHandler.reject_authenticated:
+            return False
         auth_header = self.headers.get("Authorization")
         if not auth_header:
             return False
@@ -220,7 +228,7 @@ class MockDeviceHandler(BaseHTTPRequestHandler):
                 credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
                 username, password = credentials.split(":")
                 return username == "test" and password == "password"
-            except Exception:
+            except (binascii.Error, UnicodeDecodeError, ValueError):
                 return False
 
         elif MockDeviceHandler.auth_method == "digest":

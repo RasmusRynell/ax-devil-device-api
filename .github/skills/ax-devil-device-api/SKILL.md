@@ -53,7 +53,8 @@ The CLI reads these when the corresponding flag is not supplied:
 | Get/set feature flags | `features` | `client.feature_flags` |
 | Manage SSH users | `ssh` | `client.ssh` |
 | Set geocoordinates / orientation | `geocoordinates` | `client.geocoordinates` |
-| Discover device APIs | `discovery` | `client.discovery` |
+| Discover Device Configuration APIs | `discovery` | `client.discovery` |
+| Discover classic VAPIX APIs anonymously | — | `client.classic_discovery` |
 | Data transforms (jq expressions) | `data-transformation` | `client.data_transformation` |
 | Check device readiness (no auth) | `systemready check` | `client.systemready` |
 | Debug: reports, traces, ping | `debug` | `client.device_debug` |

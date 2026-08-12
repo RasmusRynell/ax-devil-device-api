@@ -130,9 +130,14 @@ ax-devil-device-api geocoordinates orientation apply
 
 `orientation set` requires at least one of: `--heading`, `--tilt`, `--roll`, `--height`.
 
-### `discovery` — API discovery
+### `discovery` — Device Configuration API discovery
 
 List and inspect APIs available on the device.
+
+This command uses authenticated `GET /config/discover`. With no explicit
+version, it selects the highest SemVer whose state is `released`; if none is
+released, the command reports an error and requires `--version`. It does not call the
+classic VAPIX `POST /axis-cgi/apidiscovery.cgi` service.
 
 ```bash
 ax-devil-device-api discovery list

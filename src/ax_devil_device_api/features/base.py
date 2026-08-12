@@ -34,6 +34,17 @@ class FeatureClient(Generic[T]):
         """Make an unauthenticated request to the device API."""
         return self.device.request_no_auth(endpoint, **kwargs)
 
+    def request_after_challenge(
+        self,
+        endpoint: TransportEndpoint,
+        challenge_response: requests.Response,
+        **kwargs,
+    ) -> requests.Response:
+        """Make one authenticated request using a received challenge."""
+        return self.device.request_after_challenge(
+            endpoint, challenge_response, **kwargs
+        )
+
     @staticmethod
     def parse_json_api_response(
         response: requests.Response, operation: str, expected_method: str

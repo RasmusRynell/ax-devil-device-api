@@ -167,16 +167,18 @@ client.ssh.modify_user("myuser", password="newpass")
 client.ssh.remove_user("myuser")
 ```
 
-### DiscoveryClient (`client.discovery`)
+### Device Configuration discovery (`client.discovery`)
 
 ```python
 collection = client.discovery.discover()
 
 # DiscoveredAPICollection methods
 apis = collection.get_all_apis()              # All discovered APIs (flat list)
-api = collection.get_api("api-name")          # Latest version of a specific API
+api = collection.get_api("api-name")          # Highest released SemVer
 api = collection.get_api("api-name", "v1")    # Specific version
 versions = collection.get_apis_by_name("api-name")  # All versions of an API
+
+# Without a released version, get_api("api-name") raises FeatureError.
 
 # DiscoveredAPI properties and methods
 api.rest_api_url                              # REST API endpoint URL
@@ -185,6 +187,18 @@ api.get_documentation() -> str                # Markdown documentation
 api.get_documentation_html() -> str           # HTML documentation
 api.get_model() -> dict                       # JSON model
 api.get_openapi_spec() -> dict                # OpenAPI specification
+```
+
+### Classic VAPIX API Discovery (`client.classic_discovery`)
+
+Uses anonymous `POST /axis-cgi/apidiscovery.cgi` JSON requests. On the
+documented AXIS OS 9.80 and 10.12 exception, a `401` response advertising
+Basic or Digest triggers one authenticated retry. Other responses are never
+retried with credentials.
+
+```python
+client.classic_discovery.get_api_list(api_id="basic-device-info")
+client.classic_discovery.get_supported_versions()
 ```
 
 ### DataTransformationClient (`client.data_transformation`, v1beta)

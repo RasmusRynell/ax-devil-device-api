@@ -5,18 +5,23 @@ session management, authentication, and error conditions using a mock server tha
 simulates actual device behavior.
 """
 
-import pytest
 import concurrent.futures
 import json
 from unittest.mock import Mock
+
+import pytest
 from requests.adapters import HTTPAdapter
 
-from src.ax_devil_device_api.core.transport_client import TransportClient
-from src.ax_devil_device_api.core.config import DeviceConfig, Protocol, AuthMethod
-from src.ax_devil_device_api.core.endpoints import TransportEndpoint
-from src.ax_devil_device_api.utils.errors import NetworkError, AuthenticationError
+from src.ax_devil_device_api.core.config import AuthMethod, DeviceConfig, Protocol
 from src.ax_devil_device_api.core.debug import emit_request_debug_info
-
+from src.ax_devil_device_api.core.endpoints import TransportEndpoint
+from src.ax_devil_device_api.core.transport_client import TransportClient
+from src.ax_devil_device_api.features.api_discovery import ClassicAPIDiscoveryClient
+from src.ax_devil_device_api.utils.errors import (
+    AuthenticationError,
+    FeatureError,
+    NetworkError,
+)
 from tests.mocks.http_server import MockDeviceHandler
 
 
@@ -369,6 +374,114 @@ class TestTransportClient:
             "Authorization"
         ].startswith("Digest ")
 
+    @pytest.mark.parametrize("auth_method", ["basic", "digest"])
+    def test_auto_auth_failed_fallback_sends_exactly_two_requests(
+        self, mock_server, auth_method
+    ):
+        """A rejected fallback must not trigger an auth-library retry."""
+        MockDeviceHandler.auth_method = auth_method
+        MockDeviceHandler.reject_authenticated = True
+        config = DeviceConfig(
+            host=f"localhost:{mock_server[1]}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.AUTO,
+            timeout=5.0,
+            allow_insecure=True,
+        )
+        client = TransportClient(config)
+
+        with pytest.raises(AuthenticationError):
+            client.request(TransportEndpoint("GET", "/api/info"))
+
+        assert len(MockDeviceHandler.request_records) == 2
+        assert "Authorization" not in MockDeviceHandler.request_records[0]["headers"]
+        assert "Authorization" in MockDeviceHandler.request_records[1]["headers"]
+
+    def test_classic_combined_challenge_fallback_sends_exactly_two_requests(
+        self, mock_server
+    ):
+        """Challenge-triggered classic fallback uses one preferred retry."""
+        MockDeviceHandler.advertised_auth_methods = ["basic", "digest"]
+        MockDeviceHandler.reject_authenticated = True
+        config = DeviceConfig(
+            host=f"localhost:{mock_server[1]}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.AUTO,
+            timeout=5.0,
+            allow_insecure=True,
+        )
+        client = TransportClient(config)
+
+        with pytest.raises(FeatureError):
+            ClassicAPIDiscoveryClient(client).get_supported_versions()
+
+        assert len(MockDeviceHandler.request_records) == 2
+        assert MockDeviceHandler.request_records[1]["headers"][
+            "Authorization"
+        ].startswith("Digest ")
+
+    @pytest.mark.parametrize(
+        "challenge",
+        [
+            'Bearer realm="basic realm"',
+            'Bearer realm="Device", note="Digest value"',
+        ],
+    )
+    def test_auto_auth_ignores_basic_digest_words_in_quoted_parameters(
+        self, mock_server, challenge
+    ):
+        """Quoted parameter text must not cause an authenticated retry."""
+        MockDeviceHandler.www_authenticate_header = challenge
+        config = DeviceConfig(
+            host=f"localhost:{mock_server[1]}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.AUTO,
+            timeout=5.0,
+            allow_insecure=True,
+        )
+        client = TransportClient(config)
+
+        with pytest.raises(AuthenticationError):
+            client.request(TransportEndpoint("GET", "/api/info"))
+
+        assert len(MockDeviceHandler.request_records) == 1
+
+    @pytest.mark.parametrize("session_operation", ["clear", "new"])
+    def test_session_reset_does_not_reuse_cached_auth(
+        self, mock_server, session_operation
+    ):
+        """Replacing a session also clears the cached method and credentials."""
+        MockDeviceHandler.auth_method = "digest"
+        config = DeviceConfig(
+            host=f"localhost:{mock_server[1]}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.AUTO,
+            timeout=5.0,
+            allow_insecure=True,
+        )
+        client = TransportClient(config)
+        endpoint = TransportEndpoint("GET", "/api/info")
+        assert client.request(endpoint).status_code == 200
+        assert len(MockDeviceHandler.request_records) == 2
+
+        if session_operation == "clear":
+            client.clear_session()
+            client.request(endpoint)
+        else:
+            with client.new_session():
+                client.request(endpoint)
+
+        assert len(MockDeviceHandler.request_records) == 4
+        assert "Authorization" not in MockDeviceHandler.request_records[2]["headers"]
+
     @pytest.mark.http
     @pytest.mark.auth
     @pytest.mark.unit
@@ -423,6 +536,81 @@ class TestTransportClient:
         assert first["path"] == second["path"] == "/api/data?mode=fast"
         assert first["body"] == second["body"] == b'{"value": 42}'
         assert second["headers"]["X-Retry-Test"] == "yes"
+
+    @pytest.mark.parametrize("auth_method", ["basic", "digest"])
+    def test_classic_discovery_legacy_fallback_is_exactly_one_retry(
+        self, mock_server, auth_method
+    ):
+        """Classic fallback reuses the received challenge and sends exactly two requests."""
+        MockDeviceHandler.auth_method = auth_method
+        config = DeviceConfig(
+            host=f"localhost:{mock_server[1]}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=AuthMethod.AUTO,
+            timeout=5.0,
+            allow_insecure=True,
+        )
+
+        client = TransportClient(config)
+        try:
+            result = ClassicAPIDiscoveryClient(client).get_supported_versions()
+
+            assert result == ("1.0",)
+            assert len(MockDeviceHandler.request_records) == 2
+            first, second = MockDeviceHandler.request_records
+            assert first["method"] == second["method"] == "POST"
+            assert first["path"] == second["path"] == "/axis-cgi/apidiscovery.cgi"
+            assert "Authorization" not in first["headers"]
+            assert "Cookie" not in first["headers"]
+            assert "Authorization" in second["headers"]
+            assert first["body"] == second["body"]
+
+            subsequent = client.request(
+                TransportEndpoint("POST", "/axis-cgi/apidiscovery.cgi"),
+                json={"method": "getSupportedVersions"},
+            )
+            assert subsequent.status_code == 200
+            if auth_method == "digest":
+                assert len(MockDeviceHandler.request_records) == 4
+                third, fourth = MockDeviceHandler.request_records[2:]
+                assert "Authorization" not in third["headers"]
+                assert fourth["headers"]["Authorization"].startswith("Digest ")
+            else:
+                assert len(MockDeviceHandler.request_records) == 3
+                assert MockDeviceHandler.request_records[2]["headers"][
+                    "Authorization"
+                ].startswith("Basic ")
+        finally:
+            client._session.close()
+
+    @pytest.mark.parametrize("auth_method", [AuthMethod.BASIC, AuthMethod.DIGEST])
+    def test_classic_discovery_fallback_honors_explicit_auth_method(
+        self, mock_server, auth_method
+    ):
+        """Classic fallback uses the explicitly configured challenge scheme."""
+        MockDeviceHandler.auth_method = auth_method.value
+        MockDeviceHandler.advertised_auth_methods = ["basic", "digest"]
+        config = DeviceConfig(
+            host=f"localhost:{mock_server[1]}",
+            username="test",
+            password="password",
+            protocol=Protocol.HTTP,
+            auth_method=auth_method,
+            timeout=5.0,
+            allow_insecure=True,
+        )
+
+        result = ClassicAPIDiscoveryClient(
+            TransportClient(config)
+        ).get_supported_versions()
+
+        assert result == ("1.0",)
+        assert len(MockDeviceHandler.request_records) == 2
+        assert MockDeviceHandler.request_records[1]["headers"][
+            "Authorization"
+        ].startswith(f"{auth_method.value.title()} ")
 
     @pytest.mark.http
     @pytest.mark.auth
