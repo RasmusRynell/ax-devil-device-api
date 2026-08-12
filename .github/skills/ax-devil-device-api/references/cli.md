@@ -104,10 +104,11 @@ ax-devil-device-api analytics-metadata list [--format table|json]
 ax-devil-device-api analytics-metadata versions [--format table|json]
 ax-devil-device-api analytics-metadata enable <producer> --channel 1 --channel 2
 ax-devil-device-api analytics-metadata disable <producer> --channel 1
-ax-devil-device-api analytics-metadata sample <producer1> [<producer2> ...] --format xml|json [-o output.xml]
+ax-devil-device-api analytics-metadata sample [<producer1> ...] --format xml|json [-o output.xml]
 ```
 
 `sample` format default is `xml`.
+Omit producer arguments to request samples for all producers.
 
 ### `features` — Feature flags
 

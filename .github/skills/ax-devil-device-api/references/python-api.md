@@ -135,9 +135,11 @@ Controls analytics metadata producer availability per video channel. `list_produ
 ```python
 client.analytics_metadata.list_producers() -> list
 client.analytics_metadata.set_enabled_producers(producers)
-client.analytics_metadata.get_supported_metadata(producer_names) -> list
+client.analytics_metadata.get_supported_metadata(producer_names=None) -> list
 client.analytics_metadata.get_supported_versions() -> list[str]
 ```
+
+Omit `producer_names` to request samples for all metadata producers.
 
 ### FeatureFlagClient (`client.feature_flags`)
 

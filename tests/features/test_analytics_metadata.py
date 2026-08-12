@@ -1,13 +1,14 @@
 """Tests for analytics metadata operations."""
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from src.ax_devil_device_api.features.analytics_metadata import (
     AnalyticsMetadataClient,
+    MetadataSample,
     Producer,
     VideoChannel,
-    MetadataSample,
 )
 from src.ax_devil_device_api.utils.errors import FeatureError
 
@@ -21,8 +22,7 @@ class TestAnalyticsMetadataDataClasses:
         assert channel.channel == 1
         assert channel.enabled is True
 
-    def test_producer_from_api_data(self):
-        """Test Producer creation from API response data."""
+    def test_producer_from_official_api_data(self):
         api_data = {
             "name": "AnalyticsSceneDescription",
             "niceName": "Analytics Scene Description",
@@ -40,63 +40,63 @@ class TestAnalyticsMetadataDataClasses:
         assert producer.video_channels[0].enabled is True
         assert producer.video_channels[1].channel == 2
         assert producer.video_channels[1].enabled is False
+        assert not hasattr(producer, "api_versions")
 
-    def test_producer_parses_official_optional_fields(self):
+    def test_producer_allows_missing_optional_nice_name(self):
         producer = Producer.from_api_data(
             {
                 "name": "Producer",
                 "videochannels": [{"channel": 1, "enabled": True}],
-                "apiVersions": ["1.0"],
             }
         )
 
         assert producer.nice_name is None
-        assert producer.api_versions == ["1.0"]
 
-    @pytest.mark.parametrize("api_versions", ["1.0", [1.0]])
-    def test_producer_rejects_malformed_versions(self, api_versions):
-        with pytest.raises(FeatureError, match="versions"):
-            Producer.from_api_data({"name": "Producer", "apiVersions": api_versions})
+    @pytest.mark.parametrize("nice_name", [None, 1, []])
+    def test_producer_rejects_non_string_nice_name(self, nice_name):
+        with pytest.raises(FeatureError, match="niceName"):
+            Producer.from_api_data(
+                {
+                    "name": "Producer",
+                    "niceName": nice_name,
+                    "videochannels": [],
+                }
+            )
 
     @pytest.mark.parametrize(
         "data",
-        [{"videochannels": []}, {"name": "Producer", "videochannels": "bad"}],
+        [
+            {"name": "Producer"},
+            {"name": "Producer", "videoChannels": []},
+            {"name": "Producer", "videochannels": "bad"},
+        ],
     )
-    def test_producer_rejects_invalid_api_shape(self, data):
-        with pytest.raises(FeatureError, match="Metadata producer"):
+    def test_producer_requires_official_videochannels(self, data):
+        with pytest.raises(FeatureError, match="channels must be an array"):
             Producer.from_api_data(data)
 
     def test_metadata_sample_from_api_data(self):
-        """Test MetadataSample creation from API response data."""
+        """Test MetadataSample creation from official API response data."""
         api_data = {
+            "name": "TestProducer",
             "sampleFrameXML": "<xml>sample</xml>",
-            "schemaXML": "<schema>definition</schema>",
         }
 
-        sample = MetadataSample.from_api_data("TestProducer", api_data)
+        sample = MetadataSample.from_api_data(api_data)
         assert sample.producer_name == "TestProducer"
         assert sample.sample_frame_xml == "<xml>sample</xml>"
-        assert sample.schema_xml == "<schema>definition</schema>"
+        assert not hasattr(sample, "schema_xml")
 
-    def test_metadata_sample_without_schema(self):
-        """Test MetadataSample creation without schema."""
-        api_data = {"sampleFrameXML": "<xml>sample</xml>"}
-
-        sample = MetadataSample.from_api_data("TestProducer", api_data)
-        assert sample.producer_name == "TestProducer"
-        assert sample.sample_frame_xml == "<xml>sample</xml>"
-        assert sample.schema_xml is None
-
-    def test_metadata_sample_rejects_missing_xml(self):
-        with pytest.raises(FeatureError, match="Metadata sample"):
-            MetadataSample.from_api_data("Producer", {})
-
-    @pytest.mark.parametrize("schema_xml", [1, [], {}])
-    def test_metadata_sample_rejects_malformed_schema(self, schema_xml):
-        with pytest.raises(FeatureError, match="schemaXML"):
-            MetadataSample.from_api_data(
-                "Producer", {"sampleFrameXML": "<xml />", "schemaXML": schema_xml}
-            )
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"producerName": "TestProducer", "sampleFrameXML": "<xml />"},
+            {"name": "TestProducer"},
+        ],
+    )
+    def test_metadata_sample_requires_official_fields(self, data):
+        with pytest.raises(FeatureError, match="sample"):
+            MetadataSample.from_api_data(data)
 
 
 class TestAnalyticsMetadataClient:
@@ -140,9 +140,12 @@ class TestAnalyticsMetadataClient:
 
         # Verify request was made correctly
         client.request.assert_called_once()
-        args, kwargs = client.request.call_args
-        assert kwargs["json"]["method"] == "listProducers"
-        assert kwargs["json"]["apiVersion"] == "1.0"
+        _args, kwargs = client.request.call_args
+        assert kwargs["json"] == {
+            "context": "cli",
+            "method": "listProducers",
+            "apiVersion": "1.0",
+        }
 
     def test_list_producers_empty_response(self, client):
         """Test listing producers with empty response."""
@@ -173,8 +176,9 @@ class TestAnalyticsMetadataClient:
 
         # Verify request was made correctly
         client.request.assert_called_once()
-        args, kwargs = client.request.call_args
+        _args, kwargs = client.request.call_args
         assert kwargs["json"]["method"] == "setEnabledProducers"
+        assert kwargs["json"]["apiVersion"] == "1.0"
         expected_params = {
             "producers": [
                 {
@@ -184,6 +188,19 @@ class TestAnalyticsMetadataClient:
             ]
         }
         assert kwargs["json"]["params"] == expected_params
+
+    def test_set_enabled_producers_requires_data_object(self, client):
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {"data": []}
+        client.request = Mock(return_value=mock_response)
+        producer = Producer(
+            name="TestProducer",
+            nice_name=None,
+            video_channels=[VideoChannel(channel=1, enabled=True)],
+        )
+
+        with pytest.raises(FeatureError, match="data must be an object"):
+            client.set_enabled_producers([producer])
 
     def test_set_enabled_producers_empty_list(self, client):
         """Test error when trying to set empty producer list."""
@@ -198,13 +215,14 @@ class TestAnalyticsMetadataClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "data": [
-                {
-                    "producerName": "TestProducer",
-                    "sampleFrameXML": "<xml>sample</xml>",
-                    "schemaXML": "<schema>definition</schema>",
-                }
-            ]
+            "data": {
+                "producers": [
+                    {
+                        "name": "TestProducer",
+                        "sampleFrameXML": "<xml>sample</xml>",
+                    }
+                ]
+            }
         }
         client.request = Mock(return_value=mock_response)
 
@@ -213,50 +231,57 @@ class TestAnalyticsMetadataClient:
         assert len(samples) == 1
         assert samples[0].producer_name == "TestProducer"
         assert samples[0].sample_frame_xml == "<xml>sample</xml>"
-        assert samples[0].schema_xml == "<schema>definition</schema>"
+        assert not hasattr(samples[0], "schema_xml")
 
         # Verify request was made correctly
         client.request.assert_called_once()
-        args, kwargs = client.request.call_args
+        _args, kwargs = client.request.call_args
         assert kwargs["json"]["method"] == "getSupportedMetadata"
+        assert kwargs["json"]["apiVersion"] == "1.0"
         assert kwargs["json"]["params"] == {"producers": ["TestProducer"]}
 
-    def test_get_supported_metadata_rejects_undocumented_object_shape(self, client):
+    def test_get_supported_metadata_rejects_direct_array_data(self, client):
         mock_response = Mock(status_code=200)
         mock_response.json.return_value = {
-            "data": {"TestProducer": {"sampleFrameXML": "<xml />"}}
+            "data": [{"name": "TestProducer", "sampleFrameXML": "<xml />"}]
         }
         client.request = Mock(return_value=mock_response)
 
-        with pytest.raises(FeatureError, match="must be an array"):
+        with pytest.raises(FeatureError, match="data must be an object"):
             client.get_supported_metadata(["TestProducer"])
 
-    def test_get_supported_metadata_accepts_official_producers_envelope(self, client):
+    def test_get_supported_metadata_rejects_producer_name_alias(self, client):
         mock_response = Mock(status_code=200)
         mock_response.json.return_value = {
             "data": {
-                "producers": [{"name": "TestProducer", "sampleFrameXML": "<xml />"}]
+                "producers": [
+                    {"producerName": "TestProducer", "sampleFrameXML": "<xml />"}
+                ]
             }
         }
         client.request = Mock(return_value=mock_response)
 
-        samples = client.get_supported_metadata(["TestProducer"])
+        with pytest.raises(FeatureError, match="sample entry"):
+            client.get_supported_metadata(["TestProducer"])
 
-        assert samples[0].producer_name == "TestProducer"
+    def test_get_supported_metadata_omits_optional_producers(self, client):
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {"data": {"producers": []}}
+        client.request = Mock(return_value=mock_response)
 
-    def test_get_supported_metadata_empty_list(self, client):
-        """Test error when requesting metadata for empty producer list."""
-        with pytest.raises(FeatureError) as exc_info:
-            client.get_supported_metadata([])
-
-        assert exc_info.value.code == "invalid_parameter"
-        assert "At least one producer name" in exc_info.value.message
+        assert client.get_supported_metadata() == []
+        _, kwargs = client.request.call_args
+        assert kwargs["json"] == {
+            "context": "cli",
+            "method": "getSupportedMetadata",
+            "apiVersion": "1.0",
+        }
 
     def test_get_supported_versions_success(self, client):
         """Test successful version retrieval."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"data": {"versions": ["1.0", "1.1"]}}
+        mock_response.json.return_value = {"data": {"apiVersions": ["1.0", "1.1"]}}
         client.request = Mock(return_value=mock_response)
 
         versions = client.get_supported_versions()
@@ -265,17 +290,30 @@ class TestAnalyticsMetadataClient:
 
         # Verify request was made correctly
         client.request.assert_called_once()
-        args, kwargs = client.request.call_args
-        assert kwargs["json"]["method"] == "getSupportedVersions"
-        assert "apiVersion" not in kwargs["json"]
+        _args, kwargs = client.request.call_args
+        assert kwargs["json"] == {
+            "context": "cli",
+            "method": "getSupportedVersions",
+        }
+
+    def test_get_supported_versions_rejects_legacy_versions_field(self, client):
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {"data": {"versions": ["1.0"]}}
+        client.request = Mock(return_value=mock_response)
+
+        with pytest.raises(FeatureError, match="apiVersions"):
+            client.get_supported_versions()
 
     def test_api_error_response(self, client):
         """Test handling of API error responses."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "error": {"code": 2000, "message": "Invalid request"}
+        error = {
+            "code": 2000,
+            "message": "Invalid request",
+            "details": {"field": "producers"},
         }
+        mock_response.json.return_value = {"error": error}
         client.request = Mock(return_value=mock_response)
 
         with pytest.raises(FeatureError) as exc_info:
@@ -283,6 +321,7 @@ class TestAnalyticsMetadataClient:
 
         assert exc_info.value.code == "api_error_2000"
         assert exc_info.value.message == "Invalid request"
+        assert exc_info.value.details == error
 
     @pytest.mark.parametrize("error", [None, "bad", [], {"code": 2000}])
     def test_api_error_normalizes_malformed_error_objects(self, client, error):
@@ -322,10 +361,10 @@ class TestAnalyticsMetadataClient:
     @pytest.mark.parametrize("versions", [["1.0", 2], "bad", None])
     def test_supported_versions_rejects_malformed_values(self, client, versions):
         mock_response = Mock(status_code=200)
-        mock_response.json.return_value = {"data": {"versions": versions}}
+        mock_response.json.return_value = {"data": {"apiVersions": versions}}
         client.request = Mock(return_value=mock_response)
 
-        with pytest.raises(FeatureError, match="versions"):
+        with pytest.raises(FeatureError, match="apiVersions"):
             client.get_supported_versions()
 
 

@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
 """CLI for managing analytics metadata producer configuration."""
 
 import json
 
 import click
-from .cli_core import create_client, handle_error, get_client_args
+
+from .cli_core import create_client, get_client_args, handle_error
 
 
 def create_analytics_metadata_group():
@@ -14,7 +14,6 @@ def create_analytics_metadata_group():
     @click.pass_context
     def analytics_metadata(ctx):
         """Manage analytics metadata producer configuration."""
-        pass
 
     @analytics_metadata.command("list")
     @click.option(
@@ -41,8 +40,7 @@ def create_analytics_metadata_group():
                             {
                                 "name": producer.name,
                                 "niceName": producer.nice_name,
-                                "apiVersions": producer.api_versions,
-                                "videoChannels": channels,
+                                "videochannels": channels,
                             }
                         )
                     click.echo(json.dumps(output, indent=2))
@@ -66,7 +64,7 @@ def create_analytics_metadata_group():
                         )
 
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return handle_error(ctx, e)
 
     @analytics_metadata.command("enable")
@@ -129,7 +127,6 @@ def create_analytics_metadata_group():
                     name=target_producer.name,
                     nice_name=target_producer.nice_name,
                     video_channels=updated_channels,
-                    api_versions=target_producer.api_versions,
                 )
 
                 client.analytics_metadata.set_enabled_producers([updated_producer])
@@ -142,7 +139,7 @@ def create_analytics_metadata_group():
                     )
                 )
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return handle_error(ctx, e)
 
     @analytics_metadata.command("disable")
@@ -205,7 +202,6 @@ def create_analytics_metadata_group():
                     name=target_producer.name,
                     nice_name=target_producer.nice_name,
                     video_channels=updated_channels,
-                    api_versions=target_producer.api_versions,
                 )
 
                 client.analytics_metadata.set_enabled_producers([updated_producer])
@@ -217,11 +213,11 @@ def create_analytics_metadata_group():
                     )
                 )
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return handle_error(ctx, e)
 
     @analytics_metadata.command("sample")
-    @click.argument("producer_names", nargs=-1, required=True)
+    @click.argument("producer_names", nargs=-1)
     @click.option(
         "--format",
         type=click.Choice(["xml", "json"]),
@@ -236,7 +232,7 @@ def create_analytics_metadata_group():
     )
     @click.pass_context
     def get_sample(ctx, producer_names, format, output):
-        """Get sample metadata frames from specified producers."""
+        """Get sample metadata frames from specified producers, or all producers."""
         try:
             with create_client(**get_client_args(ctx.obj)) as client:
                 samples = client.analytics_metadata.get_supported_metadata(
@@ -247,11 +243,9 @@ def create_analytics_metadata_group():
                     output_data = []
                     for sample in samples:
                         sample_data = {
-                            "producerName": sample.producer_name,
+                            "name": sample.producer_name,
                             "sampleFrameXML": sample.sample_frame_xml,
                         }
-                        if sample.schema_xml:
-                            sample_data["schemaXML"] = sample.schema_xml
                         output_data.append(sample_data)
 
                     content = json.dumps(output_data, indent=2)
@@ -263,11 +257,6 @@ def create_analytics_metadata_group():
                             f"<!-- Producer: {sample.producer_name} -->"
                         )
                         content_parts.append(sample.sample_frame_xml)
-                        if sample.schema_xml:
-                            content_parts.append(
-                                f"<!-- Schema for {sample.producer_name} -->"
-                            )
-                            content_parts.append(sample.schema_xml)
                         content_parts.append("")  # Empty line for separation
 
                     content = "\n".join(content_parts)
@@ -281,13 +270,13 @@ def create_analytics_metadata_group():
                                 f"Sample metadata saved to {output}", fg="green"
                             )
                         )
-                    except IOError as e:
+                    except OSError as e:
                         return handle_error(ctx, f"Failed to save sample: {e}")
                 else:
                     click.echo(content)
 
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return handle_error(ctx, e)
 
     @analytics_metadata.command("versions")
@@ -316,7 +305,7 @@ def create_analytics_metadata_group():
                         click.echo(f"  • {version}")
 
                 return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return handle_error(ctx, e)
 
     return analytics_metadata

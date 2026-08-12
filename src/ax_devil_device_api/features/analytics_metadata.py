@@ -1,11 +1,11 @@
 """Axis analytics metadata producer configuration client."""
 
-from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
-from .base import FeatureClient
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
+from .base import FeatureClient
 
 
 def _video_channel_from_api_data(producer_name: str, data: Any) -> "VideoChannel":
@@ -41,24 +41,6 @@ def _version_list(value: Any, context: str) -> list[str]:
     return value
 
 
-def _api_error_details(error: Any) -> tuple[str, str]:
-    """Normalize an API error object without assuming its advertised shape."""
-    if not isinstance(error, dict):
-        return "unknown", str(error) if error is not None else "Unknown API error"
-    return str(error.get("code", "unknown")), str(
-        error.get("message", "Unknown API error")
-    )
-
-
-def _optional_string(value: Any, field_name: str) -> str | None:
-    """Validate an optional string field in a device response."""
-    if value is not None and not isinstance(value, str):
-        raise FeatureError(
-            "invalid_response", f"Metadata field '{field_name}' must be a string"
-        )
-    return value
-
-
 @dataclass(frozen=True)
 class VideoChannel:
     """Represents a video channel configuration for a producer.
@@ -84,8 +66,7 @@ class Producer:
 
     name: str
     nice_name: str | None
-    video_channels: List[VideoChannel]
-    api_versions: list[str] = field(default_factory=list)
+    video_channels: list[VideoChannel]
 
     @classmethod
     def from_api_data(cls, data: dict[str, Any]) -> "Producer":
@@ -94,7 +75,7 @@ class Producer:
             raise FeatureError(
                 "invalid_response", "Metadata producer entry must contain a name"
             )
-        raw_channels = data.get("videochannels", data.get("videoChannels", []))
+        raw_channels = data.get("videochannels")
         if not isinstance(raw_channels, list):
             raise FeatureError(
                 "invalid_response",
@@ -103,11 +84,15 @@ class Producer:
         channels = [
             _video_channel_from_api_data(data["name"], ch) for ch in raw_channels
         ]
+        nice_name = data.get("niceName")
+        if "niceName" in data and not isinstance(nice_name, str):
+            raise FeatureError(
+                "invalid_response", "Metadata field 'niceName' must be a string"
+            )
         return cls(
             name=data["name"],
-            nice_name=_optional_string(data.get("niceName"), "niceName"),
+            nice_name=nice_name,
             video_channels=channels,
-            api_versions=_version_list(data.get("apiVersions", []), data["name"]),
         )
 
 
@@ -118,32 +103,30 @@ class MetadataSample:
     Attributes:
         producer_name: Name of the producer that generated this sample
         sample_frame_xml: XML content of the sample frame
-        schema_xml: XML schema for the metadata (if available)
     """
 
     producer_name: str
     sample_frame_xml: str
-    schema_xml: Optional[str] = None
 
     @classmethod
-    def from_api_data(
-        cls, producer_name: str, data: dict[str, Any]
-    ) -> "MetadataSample":
+    def from_api_data(cls, data: dict[str, Any]) -> "MetadataSample":
         """Create MetadataSample from API response data."""
-        if not isinstance(data, dict) or not isinstance(
-            data.get("sampleFrameXML"), str
-        ):
+        if not isinstance(data, dict) or not isinstance(data.get("name"), str):
             raise FeatureError(
-                "invalid_response", f"Metadata sample for '{producer_name}' is invalid"
+                "invalid_response", "Analytics metadata sample entry is invalid"
+            )
+        if not isinstance(data.get("sampleFrameXML"), str):
+            raise FeatureError(
+                "invalid_response",
+                f"Metadata sample for '{data['name']}' is invalid",
             )
         return cls(
-            producer_name=producer_name,
+            producer_name=data["name"],
             sample_frame_xml=data.get("sampleFrameXML", ""),
-            schema_xml=_optional_string(data.get("schemaXML"), "schemaXML"),
         )
 
 
-class AnalyticsMetadataClient(FeatureClient[List[Producer]]):
+class AnalyticsMetadataClient(FeatureClient[list[Producer]]):
     """Client for analytics metadata producer configuration.
 
     Provides functionality for:
@@ -159,14 +142,13 @@ class AnalyticsMetadataClient(FeatureClient[List[Producer]]):
 
     def _make_request(
         self, method: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any] | list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Make a JSON-RPC style request to the analytics metadata API."""
-        if params is None:
-            params = {}
-
-        payload = {"context": "cli", "method": method, "params": params}
+        payload: dict[str, Any] = {"context": "cli", "method": method}
         if method != "getSupportedVersions":
             payload["apiVersion"] = "1.0"
+            if params is not None:
+                payload["params"] = params
 
         response = self.request(
             self.ANALYTICS_METADATA_ENDPOINT,
@@ -193,15 +175,26 @@ class AnalyticsMetadataClient(FeatureClient[List[Producer]]):
             )
 
         if "error" in result:
-            error_code, error_message = _api_error_details(result["error"])
+            error = result["error"]
+            if not isinstance(error, dict):
+                raise FeatureError(
+                    "api_error_unknown",
+                    str(error) if error is not None else "Unknown API error",
+                )
             raise FeatureError(
-                f"api_error_{error_code}",
-                error_message,
+                f"api_error_{error.get('code', 'unknown')}",
+                str(error.get("message", "Unknown API error")),
+                details=error,
             )
 
-        return result.get("data", {})
+        data = result.get("data")
+        if not isinstance(data, dict):
+            raise FeatureError(
+                "invalid_response", "Analytics metadata response data must be an object"
+            )
+        return data
 
-    def list_producers(self) -> List[Producer]:
+    def list_producers(self) -> list[Producer]:
         """List all available metadata producers.
 
         Returns:
@@ -213,7 +206,7 @@ class AnalyticsMetadataClient(FeatureClient[List[Producer]]):
                 "invalid_response", "Analytics metadata producers must be an object"
             )
 
-        producers = []
+        producers: list[Producer] = []
         raw_producers = data.get("producers")
         if not isinstance(raw_producers, list):
             raise FeatureError(
@@ -224,7 +217,7 @@ class AnalyticsMetadataClient(FeatureClient[List[Producer]]):
 
         return producers
 
-    def set_enabled_producers(self, producers: List[Producer]) -> None:
+    def set_enabled_producers(self, producers: list[Producer]) -> None:
         """Enable or disable producers on specific video channels.
 
         Args:
@@ -246,26 +239,20 @@ class AnalyticsMetadataClient(FeatureClient[List[Producer]]):
         params = {"producers": producer_configs}
         self._make_request("setEnabledProducers", params)
 
-    def get_supported_metadata(self, producer_names: List[str]) -> List[MetadataSample]:
-        """Get sample metadata frames for specified producers.
+    def get_supported_metadata(
+        self, producer_names: list[str] | None = None
+    ) -> list[MetadataSample]:
+        """Get sample metadata frames for specified producers or all producers.
 
         Args:
-            producer_names: List of producer names to get samples for
+            producer_names: Optional list of producer names. Omit to request all.
 
         Returns:
             List of MetadataSample objects containing sample frames
         """
-        if not producer_names:
-            raise FeatureError(
-                "invalid_parameter", "At least one producer name must be specified"
-            )
-
-        params = {"producers": producer_names}
+        params = {"producers": producer_names} if producer_names else None
         data = self._make_request("getSupportedMetadata", params)
-        if isinstance(data, dict):
-            raw_samples = data.get("producers")
-        else:
-            raw_samples = data
+        raw_samples = data.get("producers")
         if not isinstance(raw_samples, list):
             raise FeatureError(
                 "invalid_response", "Analytics metadata samples must be an array"
@@ -277,29 +264,14 @@ class AnalyticsMetadataClient(FeatureClient[List[Producer]]):
                 raise FeatureError(
                     "invalid_response", "Analytics metadata sample entry is invalid"
                 )
-            producer_name = sample.get("producerName", sample.get("name"))
-            if not isinstance(producer_name, str):
-                raise FeatureError(
-                    "invalid_response", "Analytics metadata sample entry is invalid"
-                )
-            samples.append(MetadataSample.from_api_data(producer_name, sample))
+            samples.append(MetadataSample.from_api_data(sample))
         return samples
 
-    def get_supported_versions(self) -> List[str]:
+    def get_supported_versions(self) -> list[str]:
         """Get supported API versions.
 
         Returns:
             List of supported version strings
         """
         data = self._make_request("getSupportedVersions")
-
-        if isinstance(data, list):
-            return _version_list(data, "response")
-        if isinstance(data, dict) and "supportedVersions" in data:
-            return _version_list(data["supportedVersions"], "supportedVersions")
-        if isinstance(data, dict) and "versions" in data:
-            return _version_list(data["versions"], "versions")
-        raise FeatureError(
-            "invalid_response",
-            "Analytics metadata supported versions must be an array or version envelope",
-        )
+        return _version_list(data.get("apiVersions"), "apiVersions")
