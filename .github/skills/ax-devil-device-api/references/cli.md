@@ -152,11 +152,17 @@ ax-devil-device-api discovery versions <api-name>
 
 ```bash
 ax-devil-device-api ssh list
-ax-devil-device-api ssh add <user> <password> --comment "Service account"
+ax-devil-device-api ssh add <user> --comment "Service account"
 ax-devil-device-api ssh show <user>
-ax-devil-device-api ssh modify <user> --password <new-pass> --comment <new-comment>
+ax-devil-device-api ssh modify <user> --password --comment <new-comment>
 ax-devil-device-api ssh remove <user>
 ```
+
+SSH commands use the released SSH Management API discovered through
+authenticated `GET /config/discover` and require HTTPS. `add` always prompts
+for a hidden confirmed password. `modify --password` is a flag that prompts
+for a hidden confirmed replacement password. Do not put SSH passwords in
+command arguments. Successful SSH operations return HTTP 200.
 
 ### `data-transformation` — jq-based data transforms
 

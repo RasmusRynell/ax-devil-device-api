@@ -194,13 +194,20 @@ ax-devil-device-api systemready versions
 - Manage SSH users or collect diagnostics:
 
 ```bash
-ax-devil-device-api ssh add new-user password123 --comment "Service account"
+ax-devil-device-api ssh add new-user --comment "Service account"
 ax-devil-device-api ssh list
-ax-devil-device-api ssh modify new-user --password new-pass
+ax-devil-device-api ssh modify new-user --password
 ax-devil-device-api debug download-server-report report.tar.gz
 ax-devil-device-api debug download-crash-report crash.tar.gz
 ax-devil-device-api debug ping-test example.com
 ```
+
+SSH management uses the released SSH Management API discovered through the
+authenticated Device Configuration API discovery endpoint. It requires HTTPS;
+there is no beta or hardcoded endpoint fallback. The API returns HTTP 200 for
+successful add, list, show, modify, and remove operations. `ssh add` prompts
+for a hidden confirmed password. `ssh modify --password` does the same; never
+place an SSH password in command arguments.
 
 ---
 

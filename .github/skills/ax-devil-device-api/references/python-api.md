@@ -161,6 +161,12 @@ client.geocoordinates.apply_settings() -> bool
 
 ### SSHClient (`client.ssh`)
 
+SSH management requires HTTPS. The client resolves the released SSH
+Management API through authenticated Device Configuration discovery, caches
+its discovered REST API path, and does not fall back to beta or hardcoded
+paths. Successful mutations return `None`; reads validate strict DCA success
+envelopes and typed data.
+
 ```python
 client.ssh.get_users() -> list[dict]
 client.ssh.add_user("myuser", "mypass", comment="Service account")
