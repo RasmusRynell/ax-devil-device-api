@@ -190,16 +190,25 @@ ax-devil-device-api systemready versions
 
 The global options above must appear before the command, for example `ax-devil-device-api --device-ip <device-ip> systemready check`. HTTP prompts for confirmation unless `AX_DEVIL_USAGE_CLI=unsafe` exactly.
 
-### `debug` — Diagnostics and reports
+### `debug` — Legacy CGI diagnostics and reports
 
 ```bash
-ax-devil-device-api debug download-server-report report.tar.gz
-ax-devil-device-api debug download-crash-report crash.tar.gz
+ax-devil-device-api debug download-server-report report.zip [--mode zip]
+ax-devil-device-api debug download-crash-report crash.tgz
 ax-devil-device-api debug download-network-trace trace.pcap --duration 30 [--interface eth0]
 ax-devil-device-api debug collect-core-dump coredump.bin
 ax-devil-device-api debug ping-test example.com
 ax-devil-device-api debug port-open-test <address> <port>
 ```
+
+These are legacy CGI diagnostics. The CLI defaults to portable `zip` server
+reports; `zip_with_image` remains available when an image-inclusive report is
+needed. The ZIP content-type and leading signature are representation guards,
+not full archive validation. Network trace `--duration` is the capture time;
+the Requests inactivity timeout also includes capture-duration grace and is
+not a hard deadline. `--interface`, when supplied, must be nonempty.
+Core-dump collection is legacy buffered, non-streaming I/O and may remain
+active for a long time.
 
 ## Typical CLI Workflows
 

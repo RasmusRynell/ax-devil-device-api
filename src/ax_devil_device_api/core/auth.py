@@ -15,9 +15,35 @@ from .endpoints import TransportEndpoint
 class _NoAuth(AuthBase):
     """Prevent a session-level auth handler from adding Authorization."""
 
+    def __init__(self, headers_to_remove: frozenset[str] = frozenset()) -> None:
+        self._headers_to_remove = headers_to_remove
+
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         request.headers.pop("Authorization", None)
+        _remove_headers(request, self._headers_to_remove)
         return request
+
+
+class _HeaderRemovingAuth(AuthBase):
+    """Apply authentication, then remove headers from the prepared request."""
+
+    def __init__(self, auth: AuthBase, headers_to_remove: frozenset[str]) -> None:
+        self._auth = auth
+        self._headers_to_remove = headers_to_remove
+
+    def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
+        request = self._auth(request)
+        _remove_headers(request, self._headers_to_remove)
+        return request
+
+
+def _remove_headers(
+    request: requests.PreparedRequest, headers_to_remove: frozenset[str]
+) -> None:
+    """Remove headers case-insensitively from a prepared Requests request."""
+    for key in list(request.headers):
+        if key.lower() in headers_to_remove:
+            del request.headers[key]
 
 
 class _OneShotDigestAuth(AuthBase):
@@ -263,9 +289,12 @@ class AuthHandler:
         endpoint: TransportEndpoint,
         headers: dict,
         kwargs: dict,
+        headers_to_remove: frozenset[str] = frozenset(),
     ) -> requests.Response:
         """Send a request while preserving its URL, headers, and body on retries."""
-        request_func = self._make_request_func(session, endpoint, headers, kwargs)
+        request_func = self._make_request_func(
+            session, endpoint, headers, kwargs, headers_to_remove
+        )
         return self.authenticate_request(session, request_func)
 
     def send_request_after_challenge(
@@ -275,6 +304,7 @@ class AuthHandler:
         headers: dict,
         kwargs: dict,
         challenge_response: RequestsResponse,
+        headers_to_remove: frozenset[str] = frozenset(),
     ) -> requests.Response:
         """Send exactly one authenticated request using an existing challenge."""
         if not self.config.username or not self.config.password:
@@ -305,9 +335,9 @@ class AuthHandler:
                     f"Device did not advertise {method.value} authentication",
                 )
         auth_object = self._create_auth(method, challenge)
-        response = self._make_request_func(session, endpoint, headers, kwargs)(
-            auth_object
-        )
+        response = self._make_request_func(
+            session, endpoint, headers, kwargs, headers_to_remove
+        )(auth_object)
         if self._is_accepted_success(response):
             self._cache_auth_if_reusable(auth_object, method, session)
         return response
@@ -318,6 +348,7 @@ class AuthHandler:
         endpoint: TransportEndpoint,
         headers: dict,
         kwargs: dict,
+        headers_to_remove: frozenset[str],
     ) -> Callable[[AuthBase | None], RequestsResponse]:
         """Build a one-attempt request function for the configured transport."""
         params = kwargs.get("params")
@@ -349,13 +380,17 @@ class AuthHandler:
                     pass
 
             url = endpoint.build_url(self.config.get_base_url(), params)
+            request_auth = auth if auth is not None else _NoAuth()
+            if headers_to_remove:
+                request_auth = _HeaderRemovingAuth(request_auth, headers_to_remove)
+
             request_args = {
                 **request_kwargs,
                 "method": endpoint.method,
                 "url": url,
                 "headers": dict(headers),
                 "timeout": timeout,
-                "auth": auth if auth is not None else _NoAuth(),
+                "auth": request_auth,
                 "verify": self.config.verify_ssl,
             }
 

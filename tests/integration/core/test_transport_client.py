@@ -84,6 +84,27 @@ class TestTransportClient:
     @pytest.mark.http
     @pytest.mark.basic_operation
     @pytest.mark.unit
+    def test_none_header_overrides_remove_defaults_from_wire_request(self, http_client):
+        """None header overrides are absent from the prepared request on the wire."""
+        endpoint = TransportEndpoint("GET", "/api/info")
+
+        http_client.request(
+            endpoint,
+            headers={"Accept": None, "Content-Type": None},
+        )
+
+        removed_headers = MockDeviceHandler.request_records[-1]["headers"]
+        assert "Accept" not in removed_headers
+        assert "Content-Type" not in removed_headers
+
+        http_client.request(endpoint)
+        default_headers = MockDeviceHandler.request_records[-1]["headers"]
+        assert default_headers["Accept"] == "application/json"
+        assert default_headers["Content-Type"] == "application/json"
+
+    @pytest.mark.http
+    @pytest.mark.basic_operation
+    @pytest.mark.unit
     def test_post_request_with_json(self, http_client):
         """Test POST request with JSON payload."""
         endpoint = TransportEndpoint("POST", "/api/data")

@@ -224,13 +224,28 @@ client.data_transformation.remove_transform(output_topic)
 ### DeviceDebugClient (`client.device_debug`)
 
 ```python
-client.device_debug.download_server_report() -> bytes
+client.device_debug.download_server_report(mode="zip_with_image") -> bytes
 client.device_debug.download_crash_report() -> bytes
 client.device_debug.download_network_trace(duration=30, interface=None) -> bytes
 client.device_debug.collect_core_dump() -> bytes
 client.device_debug.ping_test("example.com") -> str
 client.device_debug.port_open_test("10.0.0.1", 8080) -> str
 ```
+
+These are legacy CGI diagnostics. Server report `mode` is limited to `zip` and
+`zip_with_image`. The Python API keeps `zip_with_image` as its compatibility
+default; use `mode="zip"` for broad product support. Both return
+`application/zip`. The ZIP content-type and leading signature are
+representation guards, not full archive validation. Crash reports are
+nonempty gzip data, and network traces are nonempty classic PCAP or PCAPNG
+data. Network trace duration must be a positive integer. If supplied,
+`interface` must be a nonempty string. Its timeout is Requests' inactivity
+timeout plus grace for capture duration, not a hard deadline. Ping and TCP
+tests return raw text; TCP ports must be integers from 1 through 65535.
+
+`collect_core_dump()` is a legacy CGI operation that uses buffered,
+non-streaming I/O. It may remain active for a long time and buffers the full
+artifact before returning.
 
 ### SystemReadyClient (`client.systemready`)
 

@@ -90,10 +90,12 @@ class TransportClient:
     def request(self, endpoint: TransportEndpoint, **kwargs) -> requests.Response:
         """Make a request to the device API using the session."""
         timeout = kwargs.get("timeout", self.config.timeout)
-        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
+        headers, headers_to_remove = self._merge_headers(kwargs.pop("headers", {}))
 
         try:
-            return self.auth.send_request(self._session, endpoint, headers, kwargs)
+            return self.auth.send_request(
+                self._session, endpoint, headers, kwargs, headers_to_remove
+            )
 
         except requests.exceptions.Timeout:
             raise NetworkError("request_timeout", f"Request timed out after {timeout}s")
@@ -119,11 +121,16 @@ class TransportClient:
     ) -> requests.Response:
         """Make one authenticated request from a previously received challenge."""
         timeout = kwargs.get("timeout", self.config.timeout)
-        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
+        headers, headers_to_remove = self._merge_headers(kwargs.pop("headers", {}))
 
         try:
             return self.auth.send_request_after_challenge(
-                self._session, endpoint, headers, kwargs, challenge_response
+                self._session,
+                endpoint,
+                headers,
+                kwargs,
+                challenge_response,
+                headers_to_remove,
             )
 
         except requests.exceptions.Timeout:
@@ -156,7 +163,7 @@ class TransportClient:
         params = kwargs.pop("params", None)
         kwargs.pop("auth", None)
         url = endpoint.build_url(self.config.get_base_url(), params)
-        headers = {**self._TRANSPORT_HEADERS, **kwargs.pop("headers", {})}
+        headers, headers_to_remove = self._merge_headers(kwargs.pop("headers", {}))
         headers = {
             key: value
             for key, value in headers.items()
@@ -183,7 +190,7 @@ class TransportClient:
                 headers=headers,
                 timeout=timeout,
                 verify=self.config.verify_ssl,
-                auth=_NoAuth(),
+                auth=_NoAuth(headers_to_remove),
                 **kwargs,
             )
 
@@ -207,3 +214,22 @@ class TransportClient:
             ) from error
         finally:
             no_auth_session.close()
+
+    @classmethod
+    def _merge_headers(
+        cls, overrides: dict[str, object]
+    ) -> tuple[dict[str, object], frozenset[str]]:
+        """Merge defaults and record headers to remove after Requests prepares."""
+        headers = dict(cls._TRANSPORT_HEADERS)
+        headers_to_remove: set[str] = set()
+        for key, value in overrides.items():
+            headers = {
+                existing_key: existing_value
+                for existing_key, existing_value in headers.items()
+                if existing_key.lower() != key.lower()
+            }
+            if value is not None:
+                headers[key] = value
+            else:
+                headers_to_remove.add(key.lower())
+        return headers, frozenset(headers_to_remove)

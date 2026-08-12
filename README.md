@@ -55,7 +55,7 @@ sent as URL path segments for DELETE. A slash inside a component is percent-enco
 MQTT protocol values follow the official [MQTT client API](https://developer.axis.com/vapix/network-video/mqtt-client-api/):
 `tcp`, `ssl`, `ws`, and `wss`.
 - Systemready – check device readiness (no auth), supported API versions; CLI `systemready`; Python `client.systemready`
-- Debug – server/crash reports, network traces, pings, port checks, core dumps; CLI `debug`; Python `client.device_debug`
+- Legacy CGI diagnostics – server/crash reports, network traces, pings, port checks, core dumps; CLI `debug`; Python `client.device_debug`
 
 ---
 
@@ -197,10 +197,26 @@ ax-devil-device-api systemready versions
 ax-devil-device-api ssh add new-user --comment "Service account"
 ax-devil-device-api ssh list
 ax-devil-device-api ssh modify new-user --password
-ax-devil-device-api debug download-server-report report.tar.gz
-ax-devil-device-api debug download-crash-report crash.tar.gz
+ax-devil-device-api debug download-server-report report.zip
+ax-devil-device-api debug download-server-report report.zip --mode zip_with_image
+ax-devil-device-api debug download-crash-report crash.tgz
+ax-devil-device-api debug download-network-trace trace.pcap --duration 30 --interface eth0
 ax-devil-device-api debug ping-test example.com
+ax-devil-device-api debug port-open-test example.com 443
 ```
+
+These are legacy CGI diagnostics. Debug downloads require HTTP 200 and apply
+representation guards: the server report must be `application/zip` with a ZIP
+leading signature, but this is not full archive validation. The CLI defaults to
+portable `zip`, recommended for broad product support. The Python API preserves
+its compatibility default of `zip_with_image`; pass `mode="zip"` explicitly for
+the portable mode. Both return `application/zip`. Crash reports must be gzip
+data. Network traces use `cmd=pcapdump` and accept classic PCAP or PCAPNG data;
+`--duration` must be a positive integer, and a supplied interface must be a
+nonempty string. The Requests timeout is an inactivity timeout plus capture
+duration grace, not a hard deadline. Ping and TCP tests return raw text.
+Core-dump collection is legacy buffered, non-streaming I/O and may remain
+active for a long time.
 
 SSH management uses the released SSH Management API discovered through the
 authenticated Device Configuration API discovery endpoint. It requires HTTPS;
