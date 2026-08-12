@@ -126,13 +126,57 @@ class TestGeoCoordinatesOrientation:
         assert info["tilt"] == 45.0
         assert info["roll"] == 0.0
         assert info["installation_height"] == 2.5
-        
+
         # Test with missing parameters (should be None)
         empty_info = GeoCoordinatesParser.orientation_from_params({})
         assert empty_info["heading"] is None
         assert empty_info["tilt"] is None
         assert empty_info["roll"] is None
         assert empty_info["installation_height"] is None
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        ("heading", "expected_heading", "expected_valid"),
+        [
+            ("0.0", 0.0, True),
+            ("180.0", 180.0, True),
+            (None, None, False),
+            ("", None, False),
+            ("not-a-number", None, False),
+        ],
+    )
+    def test_orientation_info_from_params_heading_validity(
+        self, heading, expected_heading, expected_valid
+    ):
+        """Heading validity is based on successful numeric parsing."""
+        params = {} if heading is None else {"GeoOrientation.Heading": heading}
+
+        info = GeoCoordinatesParser.orientation_from_params(params)
+
+        assert info["heading"] == expected_heading
+        assert info["is_valid"] is expected_valid
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        ("valid_heading", "expected_valid"), [("true", True), ("false", False)]
+    )
+    def test_orientation_info_from_xml_preserves_valid_heading_for_zero(
+        self, valid_heading, expected_valid
+    ):
+        """XML validity remains controlled by ValidHeading for a zero heading."""
+        xml = f"""
+            <Response>
+                <GetSuccess>
+                    <Heading>0.0</Heading>
+                    <ValidHeading>{valid_heading}</ValidHeading>
+                </GetSuccess>
+            </Response>
+        """
+
+        info = GeoCoordinatesParser.orientation_from_xml(xml)
+
+        assert info["heading"] == 0.0
+        assert info["is_valid"] is expected_valid
         
     @pytest.mark.integration
     def test_apply_settings_success(self, client):

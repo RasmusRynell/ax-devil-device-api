@@ -107,7 +107,7 @@ class GeoCoordinatesParser:
             "tilt": try_float(params.get('GeoOrientation.Tilt')),
             "roll": try_float(params.get('GeoOrientation.Roll')),
             "installation_height": try_float(params.get('GeoOrientation.InstallationHeight')),
-            "is_valid": bool(heading)
+            "is_valid": heading is not None
         }
 
     @staticmethod
