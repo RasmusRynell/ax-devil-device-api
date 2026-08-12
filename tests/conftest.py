@@ -5,7 +5,6 @@ import os
 import socket
 import ssl
 import threading
-from collections.abc import Mapping
 from functools import partial
 
 import pytest
@@ -70,30 +69,6 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_slow)
 
 
-def get_device_credentials(
-    environment: Mapping[str, str],
-) -> tuple[str, str, str] | None:
-    """Select one complete camera credential environment-variable family."""
-    axis_credentials = tuple(
-        environment.get(name, "")
-        for name in ("AXIS_TARGET_ADDR", "AXIS_TARGET_USER", "AXIS_TARGET_PASS")
-    )
-    legacy_credentials = tuple(
-        environment.get(name, "")
-        for name in (
-            "AX_DEVIL_TARGET_ADDR",
-            "AX_DEVIL_TARGET_USER",
-            "AX_DEVIL_TARGET_PASS",
-        )
-    )
-
-    if all(axis_credentials):
-        return axis_credentials
-    if all(legacy_credentials):
-        return legacy_credentials
-    return None
-
-
 @pytest.fixture(scope="session")
 def protocol(request):
     """Get the protocol to use for tests."""
@@ -103,15 +78,12 @@ def protocol(request):
 @pytest.fixture(scope="session")
 def client(protocol):
     """Create a client instance that persists for the entire test session."""
-    credentials = get_device_credentials(os.environ)
+    device_ip = os.getenv("AX_DEVIL_TARGET_ADDR")
+    device_user = os.getenv("AX_DEVIL_TARGET_USER")
+    device_pass = os.getenv("AX_DEVIL_TARGET_PASS")
 
-    if credentials is None:
-        pytest.skip(
-            "Set a complete AXIS_TARGET_ADDR/USER/PASS or "
-            "AX_DEVIL_TARGET_ADDR/USER/PASS environment-variable family"
-        )
-
-    device_ip, device_user, device_pass = credentials
+    if not all([device_ip, device_user, device_pass]):
+        pytest.skip("Required environment variables not set")
 
     if protocol == "http":
         config = DeviceConfig.http(
