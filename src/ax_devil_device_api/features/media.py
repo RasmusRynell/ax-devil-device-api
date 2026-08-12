@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from urllib.parse import parse_qsl
 
-from .base import FeatureClient
 from ..core.endpoints import TransportEndpoint
 from ..utils.errors import FeatureError
+from .base import FeatureClient
 
 
 @dataclass(frozen=True)
@@ -240,7 +240,7 @@ class MediaClient(FeatureClient):
         """Capture a JPEG snapshot from the camera.
         
         Args:
-            resolution: Optional image resolution in WxH format
+            resolution: Optional device-supported image resolution
             compression: Optional JPEG compression level between 0 and 100
             camera_head: Optional camera head identifier for multi-sensor devices
             
@@ -257,6 +257,12 @@ class MediaClient(FeatureClient):
             raise FeatureError(
                 "invalid_parameter",
                 "Compression must be between 0 and 100"
+            )
+
+        if camera_head is not None and camera_head < 1:
+            raise FeatureError(
+                "invalid_parameter",
+                "Camera head must be at least 1"
             )
             
         params = {}
@@ -277,6 +283,14 @@ class MediaClient(FeatureClient):
             raise FeatureError(
                 "snapshot_failed",
                 f"Failed to capture snapshot: HTTP {response.status_code}, {response.text}"
+            )
+
+        content_type = response.headers.get("Content-Type", "")
+        media_type = content_type.split(";", 1)[0].strip().lower()
+        if media_type != "image/jpeg":
+            raise FeatureError(
+                "invalid_response",
+                f"Snapshot response has invalid Content-Type: {content_type or 'missing'}"
             )
             
         return response.content

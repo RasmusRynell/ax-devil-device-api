@@ -209,7 +209,87 @@ root.Properties.Image.Resolution=1280x720,640x360
 
 class TestMediaFeature:
     """Test suite for media feature."""
-    
+
+    def test_get_snapshot_accepts_jpeg_content_type(self):
+        """A successful snapshot with the JPEG media type returns its content."""
+        transport = Mock()
+        response = Mock(
+            status_code=200,
+            headers={"Content-Type": "IMAGE/JPEG"},
+            content=b"snapshot",
+        )
+        transport.request.return_value = response
+
+        assert MediaClient(transport).get_snapshot() == b"snapshot"
+
+    def test_get_snapshot_accepts_content_type_parameters(self):
+        """A JPEG Content-Type may include parameters."""
+        transport = Mock()
+        response = Mock(
+            status_code=200,
+            headers={"Content-Type": "image/jpeg; charset=binary"},
+            content=b"snapshot",
+        )
+        transport.request.return_value = response
+
+        assert MediaClient(transport).get_snapshot() == b"snapshot"
+
+    @pytest.mark.parametrize("headers", [{"Content-Type": "image/png"}, {}])
+    def test_get_snapshot_rejects_wrong_or_missing_content_type(self, headers):
+        """A successful snapshot must identify itself as JPEG."""
+        transport = Mock()
+        transport.request.return_value = Mock(status_code=200, headers=headers)
+
+        with pytest.raises(FeatureError) as error:
+            MediaClient(transport).get_snapshot()
+
+        assert error.value.code == "invalid_response"
+
+    def test_get_snapshot_sends_exact_optional_query_parameters(self):
+        """Snapshot tuning parameters map to the documented query names."""
+        transport = Mock()
+        transport.request.return_value = Mock(
+            status_code=200,
+            headers={"Content-Type": "image/jpeg"},
+            content=b"snapshot",
+        )
+
+        MediaClient(transport).get_snapshot(
+            resolution="1280x720",
+            compression=75,
+            camera_head=1,
+        )
+
+        _, request = transport.request.call_args
+        assert request["params"] == {
+            "resolution": "1280x720",
+            "compression": 75,
+            "camera": 1,
+        }
+
+    def test_get_snapshot_preserves_http_failure_behavior(self):
+        """Non-200 snapshot responses retain the snapshot_failed error."""
+        transport = Mock()
+        transport.request.return_value = Mock(
+            status_code=503,
+            text="Service unavailable",
+        )
+
+        with pytest.raises(FeatureError) as error:
+            MediaClient(transport).get_snapshot()
+
+        assert error.value.code == "snapshot_failed"
+
+    def test_get_snapshot_rejects_camera_head_before_request(self):
+        """Camera heads are one-based without imposing a device-specific maximum."""
+        transport = Mock()
+
+        with pytest.raises(FeatureError) as error:
+            MediaClient(transport).get_snapshot(camera_head=0)
+
+        assert error.value.code == "invalid_parameter"
+        transport.request.assert_not_called()
+
     @pytest.mark.integration
     def test_get_snapshot_without_optional_parameters(self, client):
         """Test snapshot capture without providing optional parameters."""
@@ -222,7 +302,7 @@ class TestMediaFeature:
         response = client.media.get_snapshot(
             resolution="1280x720",
             compression=75,
-            camera_head=0
+            camera_head=1
         )
         self._verify_snapshot_data(response)
         
@@ -230,7 +310,7 @@ class TestMediaFeature:
     def test_invalid_compression(self, client):
         """Test error handling for invalid compression value."""
         with pytest.raises(FeatureError) as e:
-            client.media.get_snapshot(resolution="1920x1080", compression=101, camera_head=0)
+            client.media.get_snapshot(resolution="1920x1080", compression=101, camera_head=1)
         assert e.value.code == "invalid_parameter"
         assert "Compression" in e.value.message
 
