@@ -26,6 +26,9 @@ dependencies = [
     "pydantic>=2.14",
 ]
 
+[project.scripts]
+ax-devil = "ax_devil_device_api.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/rasmusrynell/ax-devil-device-api"
 Repository = "https://github.com/rasmusrynell/ax-devil-device-api.git"

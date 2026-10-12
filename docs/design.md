@@ -36,8 +36,8 @@ VAPIX docs ──monitor (external repo)──▶ specs/apis/**/*.yaml     (plan
    _protocols/  base (Model, Operation, ApiInfo, flows), state (DeviceState), jsonrpc, dca, cgi   sans-IO
                 planned modules: param (typed groups), service_json, soap, rest, ws, rtsp
    _runtime/    driver (sync/async flow drivers, stream results, retries), capabilities (identity, probes, support)
-   features/    (planned) hand-written convenience built only on generated APIs
-   cli/         (planned) generic `call` command from specs + hand-written commands
+   features/    hand-written convenience built only on generated APIs (implemented)
+   cli/         generic `call` command from specs + hand-written commands (implemented)
 ```
 
 The 0.x code (`client.py`, `cli.py`, `clis/`, `core/`, `features/`, `utils/`) is being removed and is not part of this design.
@@ -101,7 +101,7 @@ Sessions (WebSocket event and Device Data Hub streams) are *planned*. They are n
   - Two auth states: *candidate* (built from a challenge, used for the retry) and *verified* (promoted only after an authenticated 2xx). Only verified state is used pre-emptively on later requests. Digest state holds the challenge and a nonce counter, so later requests take one round trip; a 401 demotes it, and `stale=true` gets one more attempt with the fresh challenge.
   - State updates are a single swap of an immutable state object under a `threading.Lock` (never held across an await).
   - `anonymous`: never adds credentials. `if_challenged`: like `required` but never pre-emptive, so a device that allows anonymous access is used anonymously (classic API discovery needs this).
-  - A request with `replayable=False` is never retried: if it would need a challenge round trip (no verified state, or a 401 after being sent with verified state), it fails with `AuthError` and the caller must re-supply the body.
+  - A request with `replayable=False` is never retried: if it would need a challenge round trip (no verified state, or a 401 after being sent with verified state), it fails with `AuthError` and the caller must re-supply the body. To avoid that for password credentials, the transport sends an authenticated preflight `GET /axis-cgi/usergroup.cgi` before a non-replayable body when no verified state exists (`needs_verification`), so the body itself is sent once with a verified credential.
   - `BearerToken` (static string or callable) is sent on every non-anonymous request. A callable is called for every request and once more after a 401 (if the body is replayable); a second 401 raises `AuthError`. `ConnectionConfig` rejects Bearer over HTTP.
 - `ConnectionConfig` is frozen and validated at construction; its fields are listed in section 6. `Credentials` redacts the password in `repr`; `_http/debug.py` redacts secrets in `on_request` records.
 - The per-device concurrency limits (section 6) and the error classes (section 7) are applied here; the retry loop is in the driver (section 7).
@@ -383,3 +383,5 @@ Settled on 2026-10-12 after an API-shape review (Codex `gpt-6-astra` and Claude 
 | User testing | `testing.MockCamera` on top of transport injection. |
 | Auth and routing | `BearerToken`, `base_path`, `proxy`; ACAP routes are ordinary absolute paths under the base path. |
 
+| Uploads | One argument type, `UploadSource` (`bytes`, `Path` or `Upload(stream, size)`), for cgi and jsonrpc; always sent with `Content-Length`; content up to 8 MiB is read into memory so it stays replayable; larger content is streamed and, being non-replayable, is preceded by a credential-priming `GET /axis-cgi/usergroup.cgi`. |
+| CGI argument placement | `encoding` query/form/multipart/body plus per-argument `x-in`; `{name}` placeholders in paths and wire names are filled from required scalar arguments; bare query keys are `null` values. |
