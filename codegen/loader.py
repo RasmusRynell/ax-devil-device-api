@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -68,6 +69,29 @@ def validate(data: Any, *, limit: int = 8) -> list[str]:
     return out
 
 
+_LOOKAROUND = re.compile(r"\(\?<?[=!]")
+
+
+def regex_problems(node: Any, path: str = "") -> list[str]:
+    """Patterns the generated code cannot use: pydantic's regex engine has no lookarounds."""
+    out: list[str] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            where = f"{path}/{key}"
+            if key == "pattern" and isinstance(value, str):
+                if _LOOKAROUND.search(value):
+                    out.append(
+                        f"{where}: pattern {value!r} uses a lookahead or lookbehind, which pydantic's regex engine does not support; "
+                        "rewrite it without lookarounds (or drop it and describe the rule in `description`)"
+                    )
+            else:
+                out += regex_problems(value, where)
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            out += regex_problems(value, f"{path}/{i}")
+    return out
+
+
 def load_patch_ops(spec_id: str, patches_dir: Path = PATCHES_DIR) -> tuple[list[dict[str, Any]], list[str]]:
     path = patches_dir / f"{spec_id}.yaml"
     if not path.exists():
@@ -93,6 +117,8 @@ def load_spec(path: Path, *, patches_dir: Path = PATCHES_DIR, do_validate: bool 
         data = yaml.safe_load(path.read_text())
     except yaml.YAMLError as error:
         raise SpecError(f"invalid YAML: {str(error).splitlines()[0] if str(error) else error}") from error
+    except (OSError, UnicodeDecodeError) as error:
+        raise SpecError(f"cannot read the file: {error}") from error
     if not isinstance(data, dict):
         raise SpecError("the file is not a YAML mapping")
     spec = LoadedSpec(path, data)
@@ -104,7 +130,7 @@ def load_spec(path: Path, *, patches_dir: Path = PATCHES_DIR, do_validate: bool 
         except PatchError as error:
             raise SpecError(f"patch failed: {error}") from error
     if do_validate:
-        problems = validate(spec.data)
+        problems = validate(spec.data) or regex_problems(spec.data)
         if problems:
             raise SpecError("schema validation failed:\n    " + "\n    ".join(problems))
     return spec

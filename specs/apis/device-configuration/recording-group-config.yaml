@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: recording-group-config
 name: Recording group API
-summary: The VAPIX® Recording group API makes it possible to create, update, delete and retrieve information about
-  recording groups.
+summary: Create, update, delete and retrieve recording groups, which hold the configuration for recordings stored on remote object storage.
 section: device-configuration
 family: dca
 status: released
@@ -14,60 +12,84 @@ docs:
 - https://developer.axis.com/vapix/device-configuration/recording-group/
 access: admin
 discovery:
-- dca: {api: recording-group, version: v2}
-
-binding: {root: /config/rest/recording-group/v2}
-
+- dca:
+    api: recording-group
+    version: v2
+binding:
+  root: /config/rest/recording-group/v2
 types:
-  ContainerFormatEnum:
+  ContainerFormat:
     type: string
-    enum: [matroska, mp4, cmaf, none, tar]
-    description: Recording container format.
+    enum:
+    - matroska
+    - mp4
+    - cmaf
+    - none
+    - tar
+    description: Recording container format. streamOptions recordings use matroska, mp4 or cmaf; dataProducerOptions recordings use none or tar.
   ContentEncryption:
     type: object
-    description: Indicates that a fixed key should be used to encrypt the recordings. Setting this means that only
-      the provided key in the key field will be used to encrypt recordings.
     properties:
-      key: {$ref: '#/types/HexadecimalEncryptionKey128Bit'}
-      keyId: {$ref: '#/types/Uuid'}
+      key:
+        $ref: '#/types/HexadecimalEncryptionKey128Bit'
+      keyId:
+        $ref: '#/types/Uuid'
+    description: 'Fixed-key encryption: only the given key is used to encrypt recordings.'
   DataProducerOptions:
     type: object
-    description: Contains the data options to use for recording. The possible producers and their configuration
-      can be retrieved from the Recording Data Producer Registry.
-    x-nullable: [dataDuration, dataSize, producerConfiguration]
+    description: Contains the data options to use for recording. The possible producers and their configuration can be retrieved from the Recording
+      Data Producer Registry.
+    x-nullable:
+    - dataDuration
+    - dataSize
+    - producerConfiguration
     properties:
       dataDuration:
-        $ref: '#/types/TargetAndMaxPositiveInteger'
-        description: The target and max duration in seconds of data items stored in the archive. Only applicable
-          when `containerFormat` is `tar`.
+        $ref: '#/types/TargetAndMax'
+        description: The target and max duration in seconds of data items stored in the archive. Only applicable when `containerFormat` is `tar`.
       dataSize:
-        $ref: '#/types/TargetAndMaxPositiveInteger'
-        description: The target and max size in bytes of data items stored in the archive. Only applicable when
-          `containerFormat` is `tar`.
-      producerConfiguration: {description: The producer specific configuration.}
-      producerId: {$ref: '#/types/IdString', description: The id of the recording data producer to use.}
+        $ref: '#/types/TargetAndMax'
+        description: The target and max size in bytes of data items stored in the archive. Only applicable when `containerFormat` is `tar`.
+      producerConfiguration:
+        description: The producer specific configuration (free-form JSON).
+      producerId:
+        $ref: '#/types/IdString'
+        description: The id of the recording data producer to use.
+    required:
+    - producerId
   Destination:
     type: object
     description: The destination to save recordings to.
-    x-nullable: [remoteObjectStorage]
+    x-nullable:
+    - remoteObjectStorage
     properties:
-      remoteObjectStorage: {$ref: '#/types/RemoteObjectStorage'}
+      remoteObjectStorage:
+        $ref: '#/types/RemoteObjectStorage'
   DestinationsArray:
     type: array
-    items: {$ref: '#/types/Destination'}
-    description: An array for destinations. Can contain only one destination. (minItems=1, maxItems=1)
+    items:
+      $ref: '#/types/Destination'
+    description: An array for destinations. Can contain only one destination.
+    minItems: 1
+    maxItems: 1
   Encryption:
     type: object
-    description: Contains data describing the encryption method and parameters to use on recordings.
-    x-nullable: [contentEncryption, keyEncryption]
+    description: Encryption method and parameters. Set exactly one of contentEncryption (fixed key) or keyEncryption (rotating key); omit encryption
+      entirely for no encryption. Only cmaf recordings can be encrypted.
+    x-nullable:
+    - contentEncryption
+    - keyEncryption
     properties:
-      contentEncryption: {$ref: '#/types/ContentEncryption'}
-      keyEncryption: {$ref: '#/types/KeyEncryption'}
-      protectionScheme: {$ref: '#/types/ProtectionSchemeEnum'}
+      contentEncryption:
+        $ref: '#/types/ContentEncryption'
+      keyEncryption:
+        $ref: '#/types/KeyEncryption'
+      protectionScheme:
+        $ref: '#/types/ProtectionSchemeEnum'
   HexadecimalEncryptionKey128Bit:
     type: string
-    pattern: '''(^[a-fA-F0-9]{32}$)|(^*\*\*$)'
-    description: A 128-bit hexadecimal encryption key.
+    pattern: ^([a-fA-F0-9]{32}|\*\*\*)$
+    description: A 128-bit hexadecimal encryption key (32 hex characters).
   IdString:
     type: string
     minLength: 1
@@ -76,22 +98,36 @@ types:
     description: Identification string.
   KeyEncryption:
     type: object
-    description: Indicates that generated/rotating keys are used to encrypt the recordings.
-    x-nullable: [certificateIds, publicKeys]
+    description: 'Rotating-key encryption: generated keys are encrypted for the given certificates and public keys (RSA only).'
     properties:
-      certificateIds: {$ref: '#/types/StringArray'}
-      keyRotationDuration: {$ref: '#/types/PositiveInteger'}
-      publicKeys: {$ref: '#/types/PublicKeysArray'}
-  KeyValue:
+      certificateIds:
+        $ref: '#/types/StringArray'
+      keyRotationDuration:
+        $ref: '#/types/PositiveInteger'
+      publicKeys:
+        $ref: '#/types/PublicKeysArray'
+    x-nullable:
+    - certificateIds
+    - publicKeys
+  ObjectAttribute:
     type: object
     description: A key-value pair.
     properties:
-      key: {$ref: '#/types/ObjectAttributeKeyString', description: The key string.}
-      value: {$ref: '#/types/ObjectAttributeValueString', description: The value string.}
-  ObjectAttributeArray:
+      key:
+        $ref: '#/types/ObjectAttributeKeyString'
+        description: The key string.
+      value:
+        $ref: '#/types/ObjectAttributeValueString'
+        description: The value string.
+    required:
+    - key
+    - value
+  ObjectAttributes:
     type: array
-    items: {$ref: '#/types/KeyValue'}
-    description: An array of key-value string pairs. (maxItems=3)
+    items:
+      $ref: '#/types/ObjectAttribute'
+    description: An array of key-value string pairs.
+    maxItems: 3
   ObjectAttributeKeyString:
     type: string
     minLength: 1
@@ -104,51 +140,69 @@ types:
     maxLength: 200
     pattern: ^[^\x00-\x1F\x7F]*$
     description: A value for an object attribute.
-  PositiveInteger: {type: integer, minimum: 0, description: Positive integer value.}
-  ProtectionSchemeEnum: {type: string, enum: [CENC], description: The encryption scheme to use.}
+  PositiveInteger:
+    type: integer
+    minimum: 0
+    description: Integer greater than or equal to 0.
+  ProtectionSchemeEnum:
+    type: string
+    enum:
+    - CENC
+    description: The encryption scheme to use.
   PublicKey:
     type: object
     description: Type for storing a public key and its id.
     properties:
-      key: {type: string}
-      keyId: {$ref: '#/types/Uuid'}
+      key:
+        type: string
+      keyId:
+        $ref: '#/types/Uuid'
   PublicKeysArray:
     type: array
-    items: {$ref: '#/types/PublicKey'}
+    items:
+      $ref: '#/types/PublicKey'
     description: Array of RSA public keys and their key ids.
   RemoteObjectStorage:
     type: object
     description: Describes a remote object storage such as an Azure or Amazon S3 cloud server.
     properties:
-      id: {$ref: '#/types/IdString'}
-      postfix: {type: string}
-      prefix: {type: string}
+      id:
+        $ref: '#/types/IdString'
+      postfix:
+        type: string
+      prefix:
+        type: string
   StringArray:
     type: array
-    items: {type: string}
+    items:
+      type: string
     description: Array of strings.
-  TargetAndMaxPositiveInteger:
+  TargetAndMax:
     type: object
     description: A type for holding a target and max positive integer values.
     properties:
-      max: {$ref: '#/types/PositiveInteger'}
-      target: {$ref: '#/types/PositiveInteger'}
+      max:
+        $ref: '#/types/PositiveInteger'
+      target:
+        $ref: '#/types/PositiveInteger'
   Uuid:
     type: string
     minLength: 36
     maxLength: 36
     pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
     description: RFC Universally Unique Identifier (UUID) format.
-  RecordingGroup:
+  RecordingGroupTree:
     type: object
     description: The whole API tree.
     properties:
       recordingGroups:
         type: array
-        items: {$ref: '#/types/RecordingGroupRecordingGroup'}
-  RecordingGroupRecordingGroup:
+        items:
+          $ref: '#/types/RecordingGroup'
+        default: []
+  RecordingGroup:
     type: object
-    description: Recording group collection.
+    description: 'A recording group: configuration for the recordings that belong to it.'
     x-nullable:
     - containerFormat
     - dataProducerOptions
@@ -164,105 +218,128 @@ types:
     - spanDuration
     - streamOptions
     properties:
+      id:
+        $ref: '#/types/IdString'
+        description: ID for the recording group.
+      destinations:
+        $ref: '#/types/DestinationsArray'
+        description: Remote object storage destinations array. The recordings in this group will be stored on all destinations in this field if
+          possible.
       containerFormat:
-        $ref: '#/types/ContainerFormatEnum'
+        $ref: '#/types/ContainerFormat'
         description: 'The output format of the recordings. Default: matroska.'
       dataProducerOptions:
         $ref: '#/types/DataProducerOptions'
-        description: Options for recording data from the specified producer. This option cannot be used together
-          with streamOptions, only one of them can be set.
-      description: {type: string, description: Description for the recording group.}
-      destinations:
-        $ref: '#/types/DestinationsArray'
-        description: Remote object storage destinations array. The recordings in this group will be stored on all
-          destinations in this field if possible.
+        description: Options for recording data from the specified producer. This option cannot be used together with streamOptions, only one
+          of them can be set.
+      description:
+        type: string
+        description: Description for the recording group.
       encryption:
         $ref: '#/types/Encryption'
         description: 'The encryption options to use for encrypting recording segments. Default: no encryption.'
-      id: {$ref: '#/types/IdString', description: ID for the recording group.}
       maxRetentionTime:
         $ref: '#/types/PositiveInteger'
         description: 'Max number of hours the recordings in the group will be stored for. Default: 0 (unlimited).'
-      niceName: {type: string, description: User friendly name for the recording group.}
+      niceName:
+        type: string
+        description: User friendly name for the recording group.
       objectAttributes:
-        $ref: '#/types/ObjectAttributeArray'
+        $ref: '#/types/ObjectAttributes'
         description: Optional, fixed, extra attributes to set on stored objects.
-      postDuration: {$ref: '#/types/PositiveInteger', description: 'Post-trigger time in milliseconds. Default:
-          0.'}
-      preDuration: {$ref: '#/types/PositiveInteger', description: 'Pre-trigger time in milliseconds. Default: 0.'}
+      postDuration:
+        $ref: '#/types/PositiveInteger'
+        description: 'Post-trigger time in milliseconds. Default: 0.'
+      preDuration:
+        $ref: '#/types/PositiveInteger'
+        description: 'Pre-trigger time in milliseconds. Default: 0.'
       segmentDuration:
-        $ref: '#/types/TargetAndMaxPositiveInteger'
-        description: 'The segment (recording files) duration in seconds. Target value may not be reached depending
-          on segmentSize. Default: target/max = 15/30.'
+        $ref: '#/types/TargetAndMax'
+        description: 'The segment (recording files) duration in seconds. Target value may not be reached depending on segmentSize. Default: target/max
+          = 15/30.'
       segmentSize:
-        $ref: '#/types/TargetAndMaxPositiveInteger'
-        description: 'The target/max segment size in bytes. Target value may not be reached depending on segmentDuration.
-          Default: target/max = 15728640/26214400 (15MiB/25MiB).'
+        $ref: '#/types/TargetAndMax'
+        description: 'The target/max segment size in bytes. Target value may not be reached depending on segmentDuration. Default: target/max
+          = 15728640/26214400 (15MiB/25MiB).'
       spanDuration:
         $ref: '#/types/PositiveInteger'
-        description: 'The span duration in seconds. A recording is logically made up of one or more spans. Default:
-          3600.'
+        description: 'The span duration in seconds. A recording is logically made up of one or more spans. Default: 3600.'
       streamOptions:
         type: string
-        description: The stream options to use for recordings in the group. This option can't be used together with
-          `dataProducerOptions`, only one of them can be set.
+        description: The stream options to use for recordings in the group. This option can't be used together with `dataProducerOptions`, only
+          one of them can be set.
+    required:
+    - id
+    - destinations
   AddRecordingGroupRequest:
     type: object
     description: Arguments of ``add_recording_group``.
-    required: [destinations]
+    required:
+    - destinations
     properties:
       destinations:
         $ref: '#/types/DestinationsArray'
-        description: Remote object storage destinations array. The recordings in this group will be stored on all
-          destinations in this field if possible.
-      id: {$ref: '#/types/IdString', description: ID for the recording group.}
-      niceName: {type: string, description: User friendly name for the recording group.}
-      description: {type: string, description: Description for the recording group.}
+        description: Remote object storage destinations array. The recordings in this group will be stored on all destinations in this field if
+          possible.
+      id:
+        $ref: '#/types/IdString'
+        description: ID for the recording group.
+      niceName:
+        type: string
+        description: User friendly name for the recording group.
+      description:
+        type: string
+        description: Description for the recording group.
       maxRetentionTime:
         $ref: '#/types/PositiveInteger'
         description: 'Max number of hours the recordings in the group will be stored for. Default: 0 (unlimited).'
       containerFormat:
-        $ref: '#/types/ContainerFormatEnum'
+        $ref: '#/types/ContainerFormat'
         description: 'The output format of the recordings. Default: matroska.'
       spanDuration:
         $ref: '#/types/PositiveInteger'
-        description: 'The span duration in seconds. A recording is logically made up of one or more spans. Default:
-          3600.'
+        description: 'The span duration in seconds. A recording is logically made up of one or more spans. Default: 3600.'
       segmentDuration:
-        $ref: '#/types/TargetAndMaxPositiveInteger'
-        description: 'The segment (recording files) duration in seconds. Target value may not be reached depending
-          on segmentSize. Default: target/max = 15/30.'
+        $ref: '#/types/TargetAndMax'
+        description: 'The segment (recording files) duration in seconds. Target value may not be reached depending on segmentSize. Default: target/max
+          = 15/30.'
       segmentSize:
-        $ref: '#/types/TargetAndMaxPositiveInteger'
-        description: 'The target/max segment size in bytes. Target value may not be reached depending on segmentDuration.
-          Default: target/max = 15728640/26214400 (15MiB/25MiB).'
-      preDuration: {$ref: '#/types/PositiveInteger', description: 'Pre-trigger time in milliseconds. Default: 0.'}
-      postDuration: {$ref: '#/types/PositiveInteger', description: 'Post-trigger time in milliseconds. Default:
-          0.'}
+        $ref: '#/types/TargetAndMax'
+        description: 'The target/max segment size in bytes. Target value may not be reached depending on segmentDuration. Default: target/max
+          = 15728640/26214400 (15MiB/25MiB).'
+      preDuration:
+        $ref: '#/types/PositiveInteger'
+        description: 'Pre-trigger time in milliseconds. Default: 0.'
+      postDuration:
+        $ref: '#/types/PositiveInteger'
+        description: 'Post-trigger time in milliseconds. Default: 0.'
       streamOptions:
         type: string
-        description: The stream options to use for recordings in the group. This option can't be used together with
-          `dataProducerOptions`, only one of them can be set.
+        description: The stream options to use for recordings in the group. This option can't be used together with `dataProducerOptions`, only
+          one of them can be set.
       encryption:
         $ref: '#/types/Encryption'
         description: 'The encryption options to use for encrypting recording segments. Default: no encryption.'
       dataProducerOptions:
         $ref: '#/types/DataProducerOptions'
-        description: Options for recording data from the specified producer. This option cannot be used together
-          with streamOptions, only one of them can be set.
+        description: Options for recording data from the specified producer. This option cannot be used together with streamOptions, only one
+          of them can be set.
       objectAttributes:
-        $ref: '#/types/ObjectAttributeArray'
+        $ref: '#/types/ObjectAttributes'
         description: Optional, fixed, extra attributes to set on stored objects.
-
 operations:
   get_all:
-    summary: All data of the Recording group API API.
+    summary: The whole API tree (all recording groups).
     effect: read
-    binding: {method: GET, path: ''}
-    result: {$ref: '#/types/RecordingGroup'}
+    binding:
+      method: GET
+      path: ''
+    result:
+      $ref: '#/types/RecordingGroupTree'
     examples:
     - title: Get root entity
-      request: {path: ''}
+      request:
+        path: ''
       response:
         status: 200
         body:
@@ -271,14 +348,21 @@ operations:
             - containerFormat: matroska
               description: A group with parameters perfected for observing fast moving fish
               destinations:
-              - remoteObjectStorage: {id: aws1, prefix: camera1, postfix: location1}
+              - remoteObjectStorage:
+                  id: aws1
+                  prefix: camera1
+                  postfix: location1
               id: SD_DISK_20230920_081416_196C2182
               maxRetentionTime: 168
               niceName: Nemo Finder
               postDuration: 0
               preDuration: 1000
-              segmentDuration: {max: 20, target: 15}
-              segmentSize: {max: 5000000, target: 4000000}
+              segmentDuration:
+                max: 20
+                target: 15
+              segmentSize:
+                max: 5000000
+                target: 4000000
               spanDuration: 3600
               streamOptions: camera=1&videocodec=h264&fps=60&resolution=1920x1080&compression=30&audio=1
           status: success
@@ -286,13 +370,17 @@ operations:
   list_recording_groups:
     summary: List the recording groups.
     effect: read
-    binding: {method: GET, path: /recordingGroups}
+    binding:
+      method: GET
+      path: /recordingGroups
     result:
       type: array
-      items: {$ref: '#/types/RecordingGroupRecordingGroup'}
+      items:
+        $ref: '#/types/RecordingGroup'
     examples:
     - title: Get All Recording Groups
-      request: {path: /recordingGroups}
+      request:
+        path: /recordingGroups
       response:
         status: 200
         body:
@@ -300,14 +388,21 @@ operations:
           - containerFormat: matroska
             description: A group with parameters perfected for observing fast moving fish
             destinations:
-            - remoteObjectStorage: {id: aws1, prefix: camera1, postfix: location1}
+            - remoteObjectStorage:
+                id: aws1
+                prefix: camera1
+                postfix: location1
             id: SD_DISK_20230920_081416_196C2182
             maxRetentionTime: 168
             niceName: Nemo Finder
             postDuration: 0
             preDuration: 1000
-            segmentDuration: {max: 20, target: 15}
-            segmentSize: {max: 5000000, target: 4000000}
+            segmentDuration:
+              max: 20
+              target: 15
+            segmentSize:
+              max: 5000000
+              target: 4000000
             spanDuration: 3600
             streamOptions: camera=1&videocodec=h264&fps=60&resolution=1920x1080&compression=30&audio=1
           status: success
@@ -315,20 +410,29 @@ operations:
   get_recording_group:
     summary: Get one recording group.
     effect: read
-    binding: {method: GET, path: '/recordingGroups/{ID}'}
+    binding:
+      method: GET
+      path: /recordingGroups/{id}
     params:
       type: object
-      x-name: RecordingGroupRecordingGroupIDRequest
-      required: [ID]
+      x-name: RecordingGroupIdRequest
+      required:
+      - id
       properties:
-        ID: {type: string}
-    result: {$ref: '#/types/RecordingGroupRecordingGroup'}
+        id:
+          $ref: '#/types/IdString'
+    result:
+      $ref: '#/types/RecordingGroup'
   add_recording_group:
-    summary: Add a recording group.
+    summary: Create a recording group. Only destinations is required; the device generates an id when none is given.
     effect: write
     write: create
-    binding: {method: POST, path: /recordingGroups, body: object}
-    params: {$ref: '#/types/AddRecordingGroupRequest'}
+    binding:
+      method: POST
+      path: /recordingGroups
+      body: object
+    params:
+      $ref: '#/types/AddRecordingGroupRequest'
     examples:
     - title: No Encryption
       request:
@@ -338,18 +442,26 @@ operations:
             containerFormat: cmaf
             description: A group with parameters perfected for observing fast moving fish
             destinations:
-            - remoteObjectStorage: {id: aws1, prefix: camera1, postfix: location1}
+            - remoteObjectStorage:
+                id: aws1
+                prefix: camera1
+                postfix: location1
             maxRetentionTime: 168
             niceName: Nemo Finder
             postDuration: 0
             preDuration: 1000
-            segmentDuration: {max: 20, target: 15}
-            segmentSize: {max: 5000000, target: 4000000}
+            segmentDuration:
+              max: 20
+              target: 15
+            segmentSize:
+              max: 5000000
+              target: 4000000
             spanDuration: 3600
             streamOptions: camera=1&videocodec=h264&fps=60&resolution=1920x1080&compression=30&audio=1
       response:
-        status: 200
-        body: {status: success}
+        status: 201
+        body:
+          status: success
       source: https://developer.axis.com/vapix/device-configuration/recording-group/
     - title: Fixed Key Encryption
       request:
@@ -359,21 +471,31 @@ operations:
             containerFormat: cmaf
             description: A group with parameters perfected for observing fast moving fish
             destinations:
-            - remoteObjectStorage: {id: aws1, prefix: camera1, postfix: location1}
+            - remoteObjectStorage:
+                id: aws1
+                prefix: camera1
+                postfix: location1
             encryption:
-              contentEncryption: {key: 00112233445566778899AABBCCDDEEFF, keyId: aaaaaaaa-bbbb-cccc-dddd-ef0123456789}
+              contentEncryption:
+                key: 00112233445566778899AABBCCDDEEFF
+                keyId: aaaaaaaa-bbbb-cccc-dddd-ef0123456789
               protectionScheme: CENC
             maxRetentionTime: 168
             niceName: Nemo Finder
             postDuration: 0
             preDuration: 1000
-            segmentDuration: {max: 20, target: 15}
-            segmentSize: {max: 5000000, target: 4000000}
+            segmentDuration:
+              max: 20
+              target: 15
+            segmentSize:
+              max: 5000000
+              target: 4000000
             spanDuration: 3600
             streamOptions: camera=1&videocodec=h264&fps=60&resolution=1920x1080&compression=30&audio=1
       response:
-        status: 200
-        body: {status: success}
+        status: 201
+        body:
+          status: success
       source: https://developer.axis.com/vapix/device-configuration/recording-group/
     - title: Rotating Key Encryption
       request:
@@ -383,15 +505,21 @@ operations:
             containerFormat: cmaf
             description: A group with parameters perfected for observing fast moving fish
             destinations:
-            - remoteObjectStorage: {id: aws1, prefix: camera1, postfix: location1}
+            - remoteObjectStorage:
+                id: aws1
+                prefix: camera1
+                postfix: location1
             encryption:
               keyEncryption:
-                certificateIds: [certid1, certid2]
+                certificateIds:
+                - certid1
+                - certid2
                 publicKeys:
-                - key: |-
-                    -----BEGIN PUBLIC KEY-----
+                - key: '-----BEGIN PUBLIC KEY-----
+
                     MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArzbhy/mdpIYlSaPd07jXNsQEtJ+MX2UvlxsmUxn9yG/fFI2I7eOP4eL2NhsOKscYEvdI0aKhflk8SluwNzsXuFOnOWZ1u4yN3sCNS4CW0Qqs7i6NWAxj4EVDiwWiK00evzdzg7fiJMHi+aNHzw/qE1lVC9PYhVRkMVohFyuaRMqYCwnvK6IDDKDbc3h0dS4MbKgt2AILtdJImpexZvUQ1GzOPfKx9wC08rPYSmuPKvhtri8UJ1Moqc1IZpoodHWfOxG0CG9eUo5gt+U/t+sNtDYjPTcQqhK0MV02QVCWSqWI+1auhCzMseKGZShZxWyHkGjBeKtTf0ibTxZlXVU1XwIDAQAB
-                    -----END PUBLIC KEY-----
+
+                    -----END PUBLIC KEY-----'
                   keyId: aaaaaaaa-bbbb-cccc-dddd-ef0123456789
                 keyRotationDuration: 86400
               protectionScheme: CENC
@@ -399,78 +527,104 @@ operations:
             niceName: Nemo Finder
             postDuration: 0
             preDuration: 1000
-            segmentDuration: {max: 20, target: 15}
-            segmentSize: {max: 5000000, target: 4000000}
+            segmentDuration:
+              max: 20
+              target: 15
+            segmentSize:
+              max: 5000000
+              target: 4000000
             spanDuration: 3600
             streamOptions: camera=1&videocodec=h264&fps=60&resolution=1920x1080&compression=30&audio=1
       response:
-        status: 200
-        body: {status: success}
+        status: 201
+        body:
+          status: success
       source: https://developer.axis.com/vapix/device-configuration/recording-group/
+    round_trip:
+      from: RecordingGroup
   remove_recording_group:
-    summary: Remove a recording group.
+    summary: Delete a recording group.
     effect: write
     write: delete
-    binding: {method: DELETE, path: '/recordingGroups/{ID}'}
+    binding:
+      method: DELETE
+      path: /recordingGroups/{id}
     params:
       type: object
-      x-name: RecordingGroupRecordingGroupIDRequest
-      required: [ID]
+      x-name: RecordingGroupIdRequest
+      required:
+      - id
       properties:
-        ID: {type: string}
+        id:
+          $ref: '#/types/IdString'
     examples:
     - title: Delete a Recording Group
-      request: {path: /recordingGroups/SD_DISK_20230920_081416_196C2182}
+      request:
+        path: /recordingGroups/SD_DISK_20230920_081416_196C2182
       response:
         status: 200
-        body: {status: success}
+        body:
+          status: success
       source: https://developer.axis.com/vapix/device-configuration/recording-group/
   set_recording_group_data_producer_options:
-    summary: Set the data producer options of a recording group.
+    summary: Replace the data producer options of a recording group.
     effect: write
-    write: patch
+    write: replace
     binding:
       method: PATCH
-      path: /recordingGroups/{ID}/dataProducerOptions
+      path: /recordingGroups/{id}/dataProducerOptions
       body_field: dataProducerOptions
       body: value
     params:
       type: object
-      required: [ID, dataProducerOptions]
+      required:
+      - id
+      - dataProducerOptions
       properties:
-        ID: {type: string}
         dataProducerOptions:
           $ref: '#/types/DataProducerOptions'
-          description: Options for recording data from the specified producer. This option cannot be used together
-            with streamOptions, only one of them can be set.
+        id:
+          $ref: '#/types/IdString'
+      x-name: SetRecordingGroupDataProducerOptionsRequest
+    positional:
+    - id
+    - dataProducerOptions
   set_recording_group_object_attributes:
-    summary: Set the object attributes of a recording group.
+    summary: Replace the object attributes of a recording group.
     effect: write
-    write: patch
+    write: replace
     binding:
       method: PATCH
-      path: /recordingGroups/{ID}/objectAttributes
+      path: /recordingGroups/{id}/objectAttributes
       body_field: objectAttributes
       body: value
     params:
       type: object
-      required: [ID, objectAttributes]
+      required:
+      - id
+      - objectAttributes
       properties:
-        ID: {type: string}
         objectAttributes:
-          $ref: '#/types/ObjectAttributeArray'
-          description: Optional, fixed, extra attributes to set on stored objects.
-
+          $ref: '#/types/ObjectAttributes'
+        id:
+          $ref: '#/types/IdString'
+      x-name: SetRecordingGroupObjectAttributesRequest
+    positional:
+    - id
+    - objectAttributes
 sources:
 - url: https://developer.axis.com/vapix/device-configuration/recording-group/
   sha256_md: 90900e8eba37d3767f27bb6a5a3ee57fa1587a664c9f2cbee21e89f5de3f1cb8
   retrieved_at: '2026-10-11'
-
 provenance:
   completeness: complete
   open_questions:
-  - 'migration: dropped-property-gets: 15 per-property GET operations dropped'
-  - 'migration: module-collision: module name recording_group collides with another spec; kept recording_group_config'
-  - 'migration: dropped-keywords: x-doc x9, x-notes x20'
+  - The docs give the hexadecimal key pattern as (^[a-fA-F0-9]{32}$)|(^*\*\*$), which is not a valid regex; read here as 32 hex characters or
+    the literal mask ***.
+  - The docs mark remoteObjectStorage fields and other nested fields as not gettable, yet the GET examples return remoteObjectStorage with id,
+    prefix and postfix; nested fields of these types (encryption, destinations, segment sizes) are therefore all optional so that responses parse either way.
+  - Only dataProducerOptions and objectAttributes have SET; every other property is read-only after creation. The docs do not say whether PATCH
+    on the whole recording group is accepted.
+  - The docs do not list error codes for this API.
   migrated_from: v1
-  curated: false
+  curated: true

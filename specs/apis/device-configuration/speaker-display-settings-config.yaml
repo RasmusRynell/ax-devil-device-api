@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: speaker-display-settings-config
 name: Speaker display settings
@@ -45,7 +44,7 @@ types:
     type: string
     enum: [alwaysOn, alwaysOff, presenceDetection, schedule]
     description: String enumeration for power save modes.
-  PowerSaveTimerMinutes: {type: integer, minimum: null, maximum: 60, description: Power save timeout in minutes.}
+  PowerSaveTimerMinutes: {type: integer, minimum: 1, maximum: 60, description: Power save timeout in minutes.}
   PresenceDetection:
     type: object
     description: Parameters belonging to the power save mode `"presenceDetection"`.
@@ -72,6 +71,7 @@ types:
   SpeakerDisplaySettings:
     type: object
     description: The whole API tree.
+    required: [appearance, brightness, powerSave]
     properties:
       appearance: {$ref: '#/types/Appearance'}
       brightness: {$ref: '#/types/Brightness'}
@@ -79,6 +79,7 @@ types:
   Appearance:
     type: object
     description: Speaker Display Appearance Entity.
+    required: [backgroundColor, fontColor, language, showDate, showSeconds, use24HourClock]
     properties:
       backgroundColor: {$ref: '#/types/ColorFormat', description: Color of the background.}
       fontColor: {$ref: '#/types/ColorFormat', description: Color of the text when idle.}
@@ -92,6 +93,7 @@ types:
   Brightness:
     type: object
     description: Speaker Display Brightness Entity.
+    required: [adaptiveBrightness, manualLevel, maxAdaptiveLevel, minAdaptiveLevel]
     properties:
       adaptiveBrightness:
         type: boolean
@@ -106,6 +108,7 @@ types:
   PowerSave:
     type: object
     description: Speaker Display Power Save Entity.
+    required: [mode, presenceDetection, schedule]
     properties:
       mode:
         $ref: '#/types/PowerSaveModes'
@@ -118,8 +121,11 @@ types:
         description: Parameters belonging to the power save mode `schedule`.
   UpdateAllRequest:
     type: object
-    description: Arguments of ``update_all``.
-    properties: {}
+    description: Arguments of ``update_all``. Only the given entities and fields change.
+    properties:
+      appearance: {$ref: '#/types/UpdateAppearanceRequest'}
+      brightness: {$ref: '#/types/UpdateBrightnessRequest'}
+      powerSave: {$ref: '#/types/UpdatePowerSaveRequest'}
   UpdateAppearanceRequest:
     type: object
     description: Arguments of ``update_appearance``.
@@ -189,7 +195,7 @@ operations:
               schedule: {invert: false, scheduleId: com.axis.schedules.office_hours}
       source: https://developer.axis.com/vapix/device-configuration/speaker-display-settings/
   update_all:
-    summary: Update the Speaker display settings settings.
+    summary: Update appearance, brightness and power save settings in one call.
     effect: write
     write: patch
     binding: {method: PATCH, path: '', body: object}
@@ -205,6 +211,8 @@ operations:
     write: patch
     binding: {method: PATCH, path: /appearance, body: object}
     params: {$ref: '#/types/UpdateAppearanceRequest'}
+    round_trip:
+      from: Appearance
     examples:
     - title: Set appearance settings
       request:
@@ -303,6 +311,8 @@ operations:
     write: patch
     binding: {method: PATCH, path: /brightness, body: object}
     params: {$ref: '#/types/UpdateBrightnessRequest'}
+    round_trip:
+      from: Brightness
     examples:
     - title: Set brightness settings
       request:
@@ -384,6 +394,8 @@ operations:
     write: patch
     binding: {method: PATCH, path: /powerSave, body: object}
     params: {$ref: '#/types/UpdatePowerSaveRequest'}
+    round_trip:
+      from: PowerSave
     examples:
     - title: Set power saving settings
       request:
@@ -445,6 +457,7 @@ sources:
 
 provenance:
   completeness: complete
-  open_questions: ['migration: dropped-property-gets: 13 per-property GET operations dropped']
+  open_questions:
+  - Per-property GET endpoints are not modelled; get_appearance, get_brightness and get_power_save return the same data.
   migrated_from: v1
-  curated: false
+  curated: true

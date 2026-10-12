@@ -153,6 +153,12 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "compare": {
+                    "enum": [
+                      "==",
+                      ">="
+                    ]
                   }
                 },
                 "additionalProperties": false,
@@ -170,6 +176,33 @@
             },
             "required": [
               "param"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "acap": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "patternProperties": {
+                  "^x-": {}
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "acap"
             ]
           }
         ]
@@ -491,6 +524,15 @@
                     },
                     "body_field": {
                       "type": "string"
+                    },
+                    "key_styles": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "enum": [
+                          "segment",
+                          "dots_to_slashes"
+                        ]
+                      }
                     }
                   },
                   "additionalProperties": false,
@@ -973,8 +1015,18 @@
         "multipleOf": {},
         "minLength": {},
         "maxLength": {},
-        "minItems": {},
-        "maxItems": {},
+        "minItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "since": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$"
+        },
         "pattern": {},
         "readOnly": {},
         "writeOnly": {}
@@ -1068,7 +1120,17 @@
         "examples": {
           "type": "array",
           "items": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+              "x-contract": {
+                "type": "object",
+                "properties": {
+                  "template": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
           }
         },
         "support": {

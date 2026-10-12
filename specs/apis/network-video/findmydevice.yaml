@@ -1,8 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: findmydevice
 name: Find my device
-summary: Locate an Axis device by e.g.
+summary: Locate an Axis device, for instance by playing a sound or flashing a status LED.
 section: network-video
 family: jsonrpc
 status: released
@@ -37,8 +36,9 @@ errors:
 
 operations:
   find:
-    summary: Initiates the mechanism that locates the device.
-    effect: unknown
+    summary: Start the mechanism that locates the device.
+    description: The identification methods (sound, LED) depend on the device. Using them while another API uses the same functions can cause unexpected behavior.
+    effect: action
     binding: {method: find}
     params:
       type: object
@@ -46,7 +46,7 @@ operations:
         duration:
           type: integer
           maximum: 3600
-          description: How long the search sequence shall last, in seconds, upper limit 3600 seconds. (unit=s)
+          description: "How long the search sequence lasts, in seconds, at most 3600."
     examples:
     - title: Find
       request:
@@ -54,8 +54,14 @@ operations:
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/find-my-device/#find
+    - title: Find fails
+      request:
+        params: {duration: 10}
+      response:
+        error: {code: 1100, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/find-my-device/#find
   stop:
-    summary: Halts the mechanism that locates the device during a duration period set by find.
+    summary: Halt the mechanism that locates the device during a duration period set by find.
     effect: action
     binding: {method: stop}
     examples:
@@ -64,6 +70,12 @@ operations:
         params: {}
       response:
         data: {}
+      source: https://developer.axis.com/vapix/network-video/find-my-device/#stop
+    - title: Stop fails
+      request:
+        params: {}
+      response:
+        error: {code: 1100, message: Internal error}
       source: https://developer.axis.com/vapix/network-video/find-my-device/#stop
 
 sources:
@@ -74,11 +86,8 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Default duration when params.duration is omitted, and minimum value, are not documented.
-  - Examples use apiVersion 1.0 (find), 1.1 (stop) and 2.1 (getSupportedVersions returning [1.3, 2.1]) — no version
-    history/differences documented.
-  - AXIS OS minimum version not stated.
-  - 'migration: effect-unknown: effect could not be inferred from the method name: find'
-  - 'migration: dropped-keywords: maxProperties x2'
+  - The default duration when params.duration is omitted, and the minimum duration, are not documented.
+  - The examples use apiVersion 1.0 (find), 1.1 (stop) and 2.1 (getSupportedVersions returning ["1.3", "2.1"]); no version history is documented, so versions 1.0 and 1.1 are listed for major 1.
+  - The minimum AXIS OS version is not stated.
   migrated_from: v1
-  curated: false
+  curated: true

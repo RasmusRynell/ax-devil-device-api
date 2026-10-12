@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: api-discovery
 name: API Discovery service
@@ -13,7 +12,7 @@ docs:
 - https://developer.axis.com/vapix/network-video/api-discovery-service/
 access: anonymous
 discovery:
-- param: {name: Properties.ApiDiscovery.ApiDiscovery, value: '"yes"'}
+- param: {name: Properties.ApiDiscovery.ApiDiscovery, value: "yes"}
 - {api_discovery: api-discovery}
 requires:
   firmware: '8.50'
@@ -36,15 +35,18 @@ errors:
   8000: {description: Internal error. Refer to message field or logs., kind: internal}
 
 types:
+  ApiStatus:
+    type: string
+    enum: [released, alpha, beta, deprecated]
+    description: The API status.
   ApiEntry:
     type: object
+    description: One public API supported by the device.
+    required: [id, version, status]
     properties:
       id: {type: string, description: 'The API id, that together with the version forms an unique id.'}
       version: {type: string, description: The current API version.}
-      status:
-        type: string
-        enum: [released, alpha, beta, deprecated]
-        description: The API status.
+      status: {$ref: '#/types/ApiStatus'}
       docLink: {type: string, description: HTTP link to documentation.}
       name: {type: string, description: The name of the API.}
 
@@ -59,17 +61,17 @@ operations:
         id:
           type: string
           pattern: ^[A-Za-z0-9_*?-]+$
-          default: '*'
-          description: Provides the API id, that together with version forms a unique id. Supports globing. If omitted,
+          description: Provides the API id, that together with version forms a unique id. Supports globbing (* matches a string, ? one character). If omitted,
             the id filter defaults to no filtering (same as GLOB pattern *).
         version:
           type: string
           pattern: ^[A-Za-z0-9_.*?-]+$
-          default: '*'
           description: Provides the API version. Supports globing. If omitted, defaults to no filtering (same as
             GLOB pattern *). If both params.id and params.version are omitted, params need not be provided.
     result:
       type: object
+      x-name: ApiList
+      required: [apiList]
       properties:
         apiList:
           type: array
@@ -130,11 +132,11 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - params.version description says 'If this parameter is omitted, the API id filter defaults to no filtering' —
-    likely means the version filter (copy/paste).
+  - params.version description says 'If this parameter is omitted, the API id filter defaults to no filtering'; read as the version filter (copy/paste).
+  - Which entry fields are always present is not stated; id, version and status are treated as always present, docLink and name as optional.
   - The 'Get API information' curl example passes --user although no authentication is required (except AXIS OS
     9.80/10.12); the exact error returned on 9.80/10.12 without auth is not documented.
   - Example responses list api-discovery version 2.0, but the only apiVersion shown in examples/getSupportedVersions
     is 1.0; no 2.0 method differences are documented.
   migrated_from: v1
-  curated: false
+  curated: true

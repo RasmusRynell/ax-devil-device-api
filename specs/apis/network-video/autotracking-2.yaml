@@ -1,4 +1,4 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+# Curated against the PTZ Autotracker API documentation.
 format: 2
 id: autotracking-2
 name: PTZ Autotracker API
@@ -29,7 +29,7 @@ binding:
 
 errors:
   1001: {description: The provided JSON input was invalid., kind: invalid_argument}
-  1002: {description: No Method name tag found in request.}
+  1002: {description: No Method name tag found in request., kind: invalid_argument}
   1003: {description: Method not supported., kind: unsupported}
   1004: {description: 'Parameter tag ("params") required, but missing.', kind: invalid_argument}
   1005: {description: Required parameter missing., kind: invalid_argument}
@@ -70,7 +70,7 @@ types:
         type: array
         items:
           type: object
-          x-name: TrackerSupportSupportedItem
+          x-name: TrackerInfo
           properties:
             trackerId: {type: integer, description: Tracker id.}
             trackerName: {type: string, description: 'e.g. MOTE, VOD2, RadarFusion.'}
@@ -78,6 +78,7 @@ types:
       activeTrackerId: {type: integer, description: Currently active trackerId.}
   Profile:
     type: object
+    required: [id, name, preset, enabled]
     properties:
       id: {type: integer, description: Profile ID.}
       name: {type: string, description: Profile name.}
@@ -92,8 +93,31 @@ types:
         type: array
         items: {type: number}
         description: Flat [x0,y0,x1,y1,...] polygon in the current viewport; 3-10 points.
+  ProfileSummary:
+    type: object
+    properties:
+      id: {type: integer, description: ID of the profile.}
+      name: {type: string, description: Name of the profile.}
+      preset: {type: integer, description: Connected preset number; -1 if none.}
   TrackingRequirement: {type: string, enum: [requireRadarTrigger, requireRadarTrack, requireAny]}
+  VideoObjectClassification: {type: string, enum: [human, bus, car, truck, motorcycle_bicycle, vehicle_other]}
   RadarProfile:
+    type: object
+    required: [id, radarScenarioUuid, name, enabled, priority, videoObjectClassifications, trackingRequirement]
+    properties:
+      id: {type: integer, description: Profile ID.}
+      radarScenarioUuid: {type: string, description: Unique ID of the radar scenario (Radar Configuration CGI).}
+      name: {type: string, description: Profile name.}
+      enabled: {type: boolean, description: Profile enabled.}
+      priority: {type: integer, description: 'Profile priority (capabilities: 1-20).'}
+      videoObjectClassifications:
+        type: array
+        items: {$ref: '#/types/VideoObjectClassification'}
+      trackingRequirement: {$ref: '#/types/TrackingRequirement'}
+      vodConfirmationTime:
+        type: number
+        description: Seconds allowed for VOD confirmation of a radar track before blocking (5-15, default 5).
+  RadarProfileSettings:
     type: object
     properties:
       id: {type: integer, description: Profile ID.}
@@ -103,11 +127,25 @@ types:
       priority: {type: integer, description: 'Profile priority (capabilities: 1-20).'}
       videoObjectClassifications:
         type: array
-        items: {type: string, enum: [human, bus, car, truck, motorcycle_bicycle, vehicle_other]}
+        items: {$ref: '#/types/VideoObjectClassification'}
       trackingRequirement: {$ref: '#/types/TrackingRequirement'}
       vodConfirmationTime:
         type: number
         description: Seconds allowed for VOD confirmation of a radar track before blocking (5-15, default 5).
+  RadarPtzAlignment:
+    type: object
+    properties:
+      radarPanOffset: {type: number, description: Pan offset in degrees aligning radar and PTZ.}
+  NumberRange:
+    type: object
+    properties:
+      min: {type: number}
+      max: {type: number}
+  IntegerRange:
+    type: object
+    properties:
+      min: {type: integer}
+      max: {type: integer}
   ObjectPriority:
     type: object
     properties:
@@ -115,7 +153,7 @@ types:
         type: string
         enum: [first, last, periodic, closest, furthest, slowest, fastest]
         description: Object priority when multiple objects.
-      periodicTimeSeconds: {type: number, description: Period for "periodic" (min 0.1).}
+      periodicTimeSeconds: {type: number, minimum: 0.1, description: Period for "periodic" (min 0.1).}
 
 operations:
   get_application_settings:
@@ -125,16 +163,18 @@ operations:
     binding: {method: getApplicationSettings, path: /axis-cgi/ptz-autotracking/viewer.cgi}
     result:
       type: object
+      required: [service]
       properties:
         service:
           type: object
-          x-name: GetApplicationSettingsResultService
+          x-name: ServiceState
+          required: [active]
           properties:
             active: {type: boolean, description: Whether the autotracking service is active.}
             version: {type: string, description: Optional service version.}
         apiSupport:
           type: object
-          x-name: GetApplicationSettingsResultApiSupport
+          x-name: ApiSupport
           properties:
             aoa: {type: boolean, description: Optional. AOA API supported.}
             radar: {type: boolean, description: Optional. Radar API supported.}
@@ -158,7 +198,7 @@ operations:
       properties:
         service:
           type: object
-          x-name: SetApplicationSettingsRequestService
+          x-name: ServiceUpdate
           description: Container for active state.
           properties:
             active:
@@ -179,6 +219,7 @@ operations:
     binding: {method: getAutotrackingSettings, path: /axis-cgi/ptz-autotracking/viewer.cgi}
     result:
       type: object
+      required: [minObjectSize, minObjectLifespan, profiles]
       properties:
         minObjectSize: {$ref: '#/types/MinObjectSize'}
         minObjectLifespan: {$ref: '#/types/MinObjectLifespan'}
@@ -246,26 +287,26 @@ operations:
         minObjectLifespan: {$ref: '#/types/MinObjectLifespan', description: Optional. Min lifespan filter.}
         trackerSupport:
           type: object
-          x-name: SetAutotrackingSettingsRequestTrackerSupport
+          x-name: ActiveTrackerUpdate
           description: Optional. Change activeTrackerId (supported list is read-only).
           properties:
             activeTrackerId: {type: integer}
         trackingParams: {$ref: '#/types/TrackingParams', description: Optional. Tracker-related settings.}
     errors:
       1101: {description: Invalid profile ID, kind: invalid_argument}
-      1102: {description: Max number of profiles reached}
+      1102: {description: Max number of profiles reached, kind: unavailable}
       1103:
         description: Invalid number of coordinates in zone (not equal x/y for example)
         kind: invalid_argument
-      1104: {description: Too many coordinates in zone}
-      1105: {description: Too few coordinates in zone}
-      1106: {description: Profile name empty}
+      1104: {description: Too many coordinates in zone, kind: invalid_argument}
+      1105: {description: Too few coordinates in zone, kind: invalid_argument}
+      1106: {description: Profile name empty, kind: invalid_argument}
       1107: {description: Invalid preset, kind: invalid_argument}
       1108: {description: Could not update zone}
-      1109: {description: No zone included}
-      1110: {description: Tracker not active}
+      1109: {description: No zone included, kind: invalid_argument}
+      1110: {description: Tracker not active, kind: unavailable}
       1201: {description: Invalid color ID, kind: invalid_argument}
-      1202: {description: No colors configured}
+      1202: {description: No colors configured, kind: unavailable}
       1301: {description: Invalid min object size width, kind: invalid_argument}
       1302: {description: Invalid min object size height, kind: invalid_argument}
       1401: {description: Invalid lifespan time, kind: invalid_argument}
@@ -304,6 +345,7 @@ operations:
     binding: {method: getViewportConfig, path: /axis-cgi/ptz-autotracking/viewer.cgi}
     result:
       type: object
+      required: [rotation]
       properties:
         rotation: {type: integer, description: -1 if not initialized; 0 or 180 otherwise.}
     examples:
@@ -331,7 +373,7 @@ operations:
           default: true
           description: Whether metadata should be enabled (default true).
     errors:
-      1101: {description: Unsupported rotation value, kind: unsupported}
+      1101: {description: Unsupported rotation value, kind: invalid_argument}
     examples:
     - title: Set current viewport
       request:
@@ -352,6 +394,7 @@ operations:
     binding: {method: getAutotrackingTarget, path: /axis-cgi/ptz-autotracking/viewer.cgi}
     result:
       type: object
+      required: [targetId]
       properties:
         targetId: {type: integer, description: Tracked object ID; -1 when not tracking.}
     examples:
@@ -387,6 +430,7 @@ operations:
     binding: {method: getAutotrackingState, path: /axis-cgi/ptz-autotracking/viewer.cgi}
     result:
       type: object
+      required: [enabled]
       properties:
         enabled: {type: boolean, description: Automatic triggering in zones enabled.}
     examples:
@@ -425,9 +469,10 @@ operations:
       properties:
         name: {type: string, description: Name of the profile.}
         preset: {type: integer, description: Connected preset number; -1 if none.}
-        enabled: {type: boolean, description: Profile/zone enabled (default true).}
+        enabled: {type: boolean, default: true, description: Profile/zone enabled (default true).}
         timeoutToHome:
           type: integer
+          default: -1
           description: Local timeout in seconds overriding global timeoutToHome; -1 = global (default -1).
         aoaId:
           type: string
@@ -438,18 +483,21 @@ operations:
           description: 'Conditional: either aoaId or px_polygon. Flat [x0,y0,...] floats; max ten points.'
     result:
       type: object
+      required: [id]
       properties:
         id: {type: integer, description: ID of the new profile.}
         name: {type: string, description: Optional profile name.}
     errors:
-      1102: {description: Max number of profiles reached}
+      1102: {description: Max number of profiles reached, kind: unavailable}
       1103:
         description: Invalid number of coordinates in zone (not equal x/y for example)
         kind: invalid_argument
-      1104: {description: Too many coordinates in zone}
-      1105: {description: Too few coordinates in zone}
+      1104: {description: Too many coordinates in zone, kind: invalid_argument}
+      1105: {description: Too few coordinates in zone, kind: invalid_argument}
     examples:
     - title: addProfile
+      x-contract: {skip: 'The documented request shows empty params, but the parameter table makes preset mandatory and
+          requires aoaId or px_polygon.'}
       request:
         params: {}
       response:
@@ -483,6 +531,14 @@ operations:
     effect: write
     write: patch
     binding: {method: updateProfile}
+    errors:
+      1101: {description: Invalid profile ID, kind: invalid_argument}
+      1103:
+        description: Invalid number of coordinates in zone (not equal x/y for example)
+        kind: invalid_argument
+      1104: {description: Too many coordinates in zone, kind: invalid_argument}
+      1105: {description: Too few coordinates in zone, kind: invalid_argument}
+      1109: {description: No zone included, kind: invalid_argument}
     params:
       type: object
       required: [id]
@@ -501,7 +557,7 @@ operations:
           type: array
           items: {type: number}
           description: 'Conditional: either aoaId or px_polygon. Flat [x0,y0,...] floats; max ten points.'
-    result: {$ref: '#/types/Profile'}
+    result: {$ref: '#/types/ProfileSummary'}
     examples:
     - title: updateProfile
       request:
@@ -519,6 +575,8 @@ operations:
     effect: write
     write: delete
     binding: {method: deleteProfile}
+    errors:
+      1101: {description: Invalid profile ID, kind: invalid_argument}
     params:
       type: object
       required: [id]
@@ -533,17 +591,15 @@ operations:
       source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#deleteprofile
   set_temp_zone:
     summary: Create a temporary zone for automatic detection and tracking.
-    effect: write
-    write: patch
+    effect: action
     binding: {method: setTempZone}
     params:
       type: object
       properties:
         zoneType:
           type: string
-          enum: [fullscreen]
           default: fullscreen
-          description: Zone type (default "fullscreen", only supported value).
+          description: Zone type (default "fullscreen").
         timeout:
           type: integer
           minimum: 5
@@ -565,11 +621,7 @@ operations:
     result:
       type: object
       properties:
-        radarPTZAlignment:
-          type: object
-          x-name: GetRadarAutotrackingSettingsResultRadarPTZAlignment
-          properties:
-            radarPanOffset: {type: number, description: Pan offset in degrees aligning radar and PTZ.}
+        radarPTZAlignment: {$ref: '#/types/RadarPtzAlignment'}
         radarProfiles:
           type: array
           items: {$ref: '#/types/RadarProfile'}
@@ -617,15 +669,10 @@ operations:
     params:
       type: object
       properties:
-        radarPTZAlignment:
-          type: object
-          x-name: SetRadarAutotrackingSettingsRequestRadarPTZAlignment
-          description: Optional. Degrees to align radar and PTZ.
-          properties:
-            radarPanOffset: {type: number}
+        radarPTZAlignment: {$ref: '#/types/RadarPtzAlignment', description: Optional. Degrees to align radar and PTZ.}
         radarProfiles:
           type: array
-          items: {$ref: '#/types/RadarProfile'}
+          items: {$ref: '#/types/RadarProfileSettings'}
           description: Optional. Radar profile options.
         objectPriority: {$ref: '#/types/ObjectPriority', description: Optional. Object priority for multiple objects.}
     examples:
@@ -662,36 +709,26 @@ operations:
       properties:
         radarPTZAlignment:
           type: object
-          x-name: GetRadarAutotrackingCapabilitiesResultRadarPTZAlignment
+          x-name: RadarPtzAlignmentCapabilities
           properties:
-            radarPanOffset:
-              type: object
-              x-name: GetRadarAutotrackingCapabilitiesResultRadarPTZAlignmentRadarPanOffset
-              properties:
-                min: {type: number}
-                max: {type: number}
+            radarPanOffset: {$ref: '#/types/NumberRange'}
         objectPriority:
           type: object
-          x-name: GetRadarAutotrackingCapabilitiesResultObjectPriority
+          x-name: ObjectPriorityCapabilities
           properties:
             objectPriorities:
               type: array
               items: {type: string}
             periodicTimeSeconds:
               type: object
-              x-name: GetRadarAutotrackingCapabilitiesResultObjectPriorityPeriodicTimeSeconds
+              x-name: MinimumNumber
               properties:
                 min: {type: number}
         radarProfiles:
           type: object
-          x-name: GetRadarAutotrackingCapabilitiesResultRadarProfiles
+          x-name: RadarProfileCapabilities
           properties:
-            priority:
-              type: object
-              x-name: GetRadarAutotrackingCapabilitiesResultRadarProfilesPriority
-              properties:
-                min: {type: integer}
-                max: {type: integer}
+            priority: {$ref: '#/types/IntegerRange'}
             videoObjectClassifications:
               type: array
               items: {type: string}
@@ -700,7 +737,7 @@ operations:
               items: {type: string}
             vodConfirmationTime:
               type: object
-              x-name: GetRadarAutotrackingCapabilitiesResultRadarProfilesVodConfirmationTime
+              x-name: NumberRangeWithDefault
               properties:
                 min: {type: number}
                 default: {type: number}
@@ -761,12 +798,9 @@ operations:
         priority: {type: integer, description: profile priority.}
         videoObjectClassifications:
           type: array
-          items: {type: string}
+          items: {$ref: '#/types/VideoObjectClassification'}
           description: object types to track.
-        trackingRequirement:
-          type: string
-          enum: [requireRadarTrigger, requireRadarTrack, requireAny]
-          description: strategy for how to track an object.
+        trackingRequirement: {$ref: '#/types/TrackingRequirement'}
         vodConfirmationTime: {type: number, description: seconds allowed for VOD confirmation of a radar track.}
     examples:
     - title: addRadarProfile
@@ -824,12 +858,9 @@ operations:
         priority: {type: integer, description: New profile priority.}
         videoObjectClassifications:
           type: array
-          items: {type: string}
+          items: {$ref: '#/types/VideoObjectClassification'}
           description: New object types to track.
-        trackingRequirement:
-          type: string
-          enum: [requireRadarTrigger, requireRadarTrack, requireAny]
-          description: New strategy for how to track an object.
+        trackingRequirement: {$ref: '#/types/TrackingRequirement'}
         vodConfirmationTime: {type: number, description: New seconds allowed for VOD confirmation of a radar track.}
     examples:
     - title: updateRadarProfile
@@ -898,13 +929,11 @@ provenance:
   - setViewportConfig description says values "between 0 and 180" but only 0 and 180 are supported; listed as Viewer
     level for a set method.
   - Version history lists params (maxObjectSpeed, minObjectSizeDegrees, svgFrameColours) not documented elsewhere.
-  - addProfile request syntax shows empty params; fields from table.
+  - The docs show response apiVersion 1.8 but the version history only lists 1.0; binding.versions may need 1.8.
+  - addProfile request syntax shows empty params; fields come from the parameter table.
   - SetTemporaryZone event timeout range 3..120 vs setTempZone 5..120 and action 5..120.
   - Error codes 1201/1202 (color IDs) reference color combinations not otherwise documented.
+  - The docs do not say whether radarProfiles items in setRadarAutotrackingSettings add or update profiles.
   - Events and actions are delivered via the VAPIX event service (spec id not linked).
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_application_settings=write/patch,
-    set_autotracking_settings=write/patch, set_viewport_config=write/patch, set_autotracking_target=write/patch,
-    set_autotracking_state=write/patch, update_profile=write/patch, set_temp_zone=write/patch, set_radar_autotracking_settings=write/patch,
-    update_radar_profile=write/patch'
   migrated_from: v1
-  curated: false
+  curated: true

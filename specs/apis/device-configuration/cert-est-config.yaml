@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: cert-est-config
 name: Enrollment over secure transport
-summary: The VAPIX® Enrollment over secure transport API makes it possible to configure the device for automatic
-  certificate enrollment.
+summary: Configure EST profiles so the device enrolls and renews certificates automatically.
 section: device-configuration
 family: dca
 status: released
@@ -55,11 +53,13 @@ types:
     description: Subject Alternative Name list
   SubjectAlternativeName:
     type: string
+    pattern: '^(IP|DNS):.+$'
     description: The Subject Alternative Name is used to specify additional domain names and IP addresses for which
       the certificate is issued.
   CertEst:
     type: object
     description: The whole API tree.
+    required: [supportedServices]
     properties:
       supportedServices:
         $ref: '#/types/ServiceList'
@@ -94,6 +94,7 @@ types:
     type: object
     description: Arguments of ``update_profile``.
     required: [id]
+    x-nullable: [caCertificates, certificate, server, services, subject, subjectAlternativeNames]
     properties:
       id: {$ref: '#/types/Alias'}
       caCertificates: {$ref: '#/types/CertificateList', description: EST server CA certificates}
@@ -108,6 +109,7 @@ types:
     type: object
     description: Arguments of ``add_profile``.
     required: [id]
+    x-nullable: [caCertificates, certificate, server, services, subject, subjectAlternativeNames]
     properties:
       id: {$ref: '#/types/Alias', description: EST profile identifier.}
       server: {type: string, description: EST server hostname.}
@@ -121,10 +123,16 @@ types:
 
 operations:
   get_all:
-    summary: All data of the Enrollment over secure transport API.
+    summary: Supported services and all EST profiles.
     effect: read
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/CertEst'}
+  get_supported_services:
+    summary: Services that can be assigned an enrolled certificate.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /supportedServices}
+    result: {$ref: '#/types/ServiceList'}
   list_profiles:
     summary: List the profiles.
     effect: read
@@ -149,15 +157,9 @@ operations:
     write: patch
     binding: {method: PATCH, path: '/profiles/{id}', body: object}
     params: {$ref: '#/types/UpdateProfileRequest'}
+    round_trip:
+      from: Profile
     examples:
-    - title: Set EST server
-      request:
-        path: /profiles/EST
-        body: {data: 'www.example.com:8443'}
-      response:
-        status: 200
-        body: {status: success}
-      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
     - title: Set EST server CA certificates
       request:
         path: /profiles/EST
@@ -172,15 +174,6 @@ operations:
         path: /profiles/EST
         body:
           data: {certificate: client_cert}
-      response:
-        status: 200
-        body: {status: success}
-      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
-    - title: Set subject field of CSR
-      request:
-        path: /profiles/EST
-        body:
-          data: {cn: Common Name of certificate}
       response:
         status: 200
         body: {status: success}
@@ -200,6 +193,8 @@ operations:
     write: create
     binding: {method: POST, path: /profiles, body: object}
     params: {$ref: '#/types/AddProfileRequest'}
+    round_trip:
+      from: Profile
     examples:
     - title: Set an EST profile
       request:
@@ -272,16 +267,6 @@ operations:
       properties:
         id: {$ref: '#/types/Alias'}
         certificate: {$ref: '#/types/Alias', description: Existing certificate to base CSR on}
-  set_profile_id:
-    summary: Set the id of a profile.
-    effect: write
-    write: patch
-    binding: {method: PATCH, path: '/profiles/{id}/id', body_field: id, body: value}
-    params:
-      type: object
-      required: [id, id]
-      properties:
-        id: {$ref: '#/types/Alias', description: EST profile identifier.}
   set_profile_server:
     summary: Set the server of a profile.
     effect: write
@@ -293,6 +278,15 @@ operations:
       properties:
         id: {$ref: '#/types/Alias'}
         server: {type: string, description: EST server hostname.}
+    examples:
+    - title: Set EST server
+      request:
+        path: /profiles/EST/server
+        body: {data: 'www.example.com:8443'}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
   set_profile_services:
     summary: Set the services of a profile.
     effect: write
@@ -315,6 +309,16 @@ operations:
       properties:
         id: {$ref: '#/types/Alias'}
         subject: {$ref: '#/types/Subject', description: x509 subject of the enrolled certificate}
+    examples:
+    - title: Set subject field of CSR
+      request:
+        path: /profiles/EST/subject
+        body:
+          data: {cn: Common Name of certificate}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
   set_profile_subject_alternative_names:
     summary: Set the subject alternative names of a profile.
     effect: write
@@ -341,13 +345,9 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'Example ''Client WS handshake request'' uses GET /vapix/ws-data-stream, which does not map to an operation
-    documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/'
-  - 'Response example under ''Failure handshake response'' has no parseable request block (not attached). Source:
-    https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/'
-  - 'The tnsaxis namespace URI is not given on the page; http://www.axis.com/2009/event/topics is the standard Axis
-    value (assumed). Source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/'
-  - 'migration: dropped-property-gets: 9 per-property GET operations dropped'
-  - 'migration: dropped-keywords: x-notes x1'
+  - 'The error events (tnsaxis:CertificateManagement/EST/Error over the /vapix/ws-data-stream WebSocket, codes 0-7) are not modeled; they belong to the event streaming APIs.'
+  - 'The docs give no per-property permissions for the profiles collection; operations inherit the admin default except get_supported_services (viewer).'
+  - 'set_profile_id (PATCH /profiles/{id}/id) is documented as a property SET but renames the key; not generated.'
+  - 'The docs example "Set EST server" PATCHes /profiles/EST with a bare string body; the property endpoint /profiles/EST/server is used instead (doc typo). The "Set subject field" example likewise sends {cn} to the profile path; the subject endpoint is used.'
   migrated_from: v1
-  curated: false
+  curated: true

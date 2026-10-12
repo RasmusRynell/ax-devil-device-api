@@ -49,21 +49,28 @@ class Fake:
 
 
 def build_jsonrpc(op, request: dict) -> Any:
-    params = request.get("params") or {}
+    params = request.get("params")
+    field = getattr(op.binding, "params_field", None)
+    if field is not None and op.params is not None:
+        # Array or free-form params: the whole value is one wrapped field.
+        info = op.params.model_fields[field]
+        return op.params.model_validate({info.serialization_alias or field: params})
+    params = params or {}
     if op.params is None:
         assert not params, f"{op.id} takes no params but example has {params}"
         return None
     return op.params.model_validate(params)
 
 
-def _template_regex(template: str) -> tuple[re.Pattern[str], list[str]]:
+def _template_regex(template: str, multi: frozenset[str] = frozenset()) -> tuple[re.Pattern[str], list[str]]:
+    """Regex for a path template. Placeholders in ``multi`` may span several segments."""
     names: list[str] = []
     out = ""
     for literal, name, _, _ in string.Formatter().parse(template):
         out += re.escape(literal)
         if name:
             names.append(name)
-            out += "([^/]+)"
+            out += "(.+)" if name in multi else "([^/]+)"
     return re.compile(out + "$"), names
 
 
@@ -81,15 +88,31 @@ def build_dca(op, request: dict, root: str) -> tuple[Any, str]:
         path = template
     else:
         candidate = given if given.startswith(root) else root + given
-        pattern, names = _template_regex(template)
+        styles = dict(getattr(op.binding, "key_styles", ()) or ())
+        dotted = frozenset(n for n, s in styles.items() if s == "dots_to_slashes")
+        pattern, names = _template_regex(template, dotted)
         match = pattern.match(candidate)
         assert match, f"example path {given!r} does not match template {rel!r}"
         from urllib.parse import unquote
 
-        values = {n: unquote(v) for n, v in zip(names, match.groups())}
+        values = {}
+        for n, v in zip(names, match.groups()):
+            # dots_to_slashes: the key is written as nested segments, the model holds the dotted key.
+            values[n] = ".".join(unquote(s) for s in v.split("/")) if n in dotted else unquote(v)
         path = candidate
-    body = (request.get("body") or {}).get("data") or {}
-    data = {**values, **(body if isinstance(body, dict) else {})}
+    raw_body = request.get("body")
+    # {"data": <value>}: the value may be any JSON type (string, number, boolean, array, null).
+    body = raw_body.get("data") if isinstance(raw_body, dict) and "data" in raw_body else {}
+    if op.binding.body == "value" and op.binding.body_field:
+        # Property setters: the whole {"data": value} is one field.
+        from ax_devil_device_api._protocols.dca import _field_for
+
+        name = _field_for(op.params, op.binding.body_field) if op.params else None
+        field = op.params.model_fields[name] if op.params and name else None
+        wire_name = (field.serialization_alias if field else None) or op.binding.body_field
+        data = {**values, wire_name: body}
+    else:
+        data = {**values, **(body if isinstance(body, dict) else {})}
     if op.params is None:
         assert not data
         return None, path
@@ -134,10 +157,30 @@ def build_cgi(op, request: dict) -> tuple[Any, dict[str, str]]:
 # -- result checking ------------------------------------------------------------
 
 
+def check_response_only(op, family: str, response: dict) -> None:
+    """Validate a documented response against the result model without building a request."""
+    from ax_devil_device_api._protocols.base import parse_result
+
+    if family == "jsonrpc":
+        data = response.get("data", {})
+    elif family == "dca":
+        body = response.get("body")
+        data = body.get("data") if isinstance(body, dict) else None
+    else:
+        raise AssertionError(f"{family}: response-only validation is not supported")
+    check_result(op, parse_result(op, data) if op.result is not None else None)
+
+
 def check_result(op, result: Any) -> None:
     expected = op.result
     if expected is None:
         assert result is None
         return
     cls = get_origin(expected) or expected
-    assert isinstance(result, cls), f"{op.id}: expected {expected}, got {type(result)}"
+    if isinstance(cls, type):
+        assert isinstance(result, cls), f"{op.id}: expected {expected}, got {type(result)}"
+    else:
+        # Literal, Annotated and union aliases: the value must validate as the result type.
+        from ax_devil_device_api._protocols.base import RESPONSE_CONTEXT, adapter
+
+        adapter(expected).validate_python(result, context={RESPONSE_CONTEXT: True})

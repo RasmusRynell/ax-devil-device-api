@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: thermometry
 name: Thermometry
-summary: 'Configure temperature monitoring on temperature-calibrated thermal cameras: isotherm levels, detection
-  areas, spot meter, area groups, guard tour, overlay...'
+summary: "Configure temperature monitoring on temperature-calibrated thermal cameras: isotherm levels, detection areas, spot meter, area groups, guard tour and overlays."
 section: network-video
 family: jsonrpc
 status: released
@@ -25,96 +23,387 @@ binding:
   params_placement: params
 
 errors:
-  1100: {description: Internal error (also out-of-memory)., kind: internal}
-  2100: {description: API version not supported., kind: unsupported}
-  2101: {description: Invalid JSON format., kind: invalid_argument}
-  2102: {description: Method not supported., kind: unsupported}
-  2103: {description: Required parameter missing., kind: invalid_argument}
-  2104: {description: Invalid parameter value specified., kind: invalid_argument}
-  2105: {description: Invalid arguments, kind: invalid_argument}
-  2106: {description: Invalid request method, kind: invalid_argument}
-  2107: {description: Invalid content length, kind: invalid_argument}
-  2108: {description: Invalid content type, kind: invalid_argument}
-  2109: {description: Authorization failed, kind: access_denied}
-  2110: {description: Authentication failed}
+  1100: {description: "Internal error (also out of memory)", kind: internal}
+  1101: {description: "Request is denied - not a thermal camera", kind: unsupported}
+  2100: {description: "API version not supported", kind: unsupported}
+  2101: {description: "Invalid JSON format", kind: invalid_argument}
+  2102: {description: "Method not supported", kind: unsupported}
+  2103: {description: "Required parameter missing", kind: invalid_argument}
+  2104: {description: "Invalid parameter value specified", kind: invalid_argument}
+  2105: {description: "Invalid arguments", kind: invalid_argument}
+  2106: {description: "Invalid request method", kind: invalid_argument}
+  2107: {description: "Invalid content length", kind: invalid_argument}
+  2108: {description: "Invalid content type", kind: invalid_argument}
+  2109: {description: "Authorization failed", kind: access_denied}
+  2110: {description: "Authentication failed", kind: access_denied}
 
 types:
+  TemperatureScale:
+    enum: [celsius, fahrenheit]
+
+  DetectionType:
+    enum: [above, below, increase, decrease]
+    description: "``above``/``below`` trigger when the value goes above/below the threshold. ``increase``/``decrease`` trigger when the temperature changes faster than threshold divided by delay."
+
+  AreaMeasurement:
+    enum: [maximum, minimum, average]
+    description: Whether the alarm depends on the maximum, minimum or average temperature in the area.
+
+  GroupMeasurement:
+    enum: [maximum, minimum, average, inherit]
+    description: "The value per area used for group analysis. ``inherit`` lets each area's own setting decide."
+
+  AreaOverlay:
+    enum: [none, always, if_triggered]
+    description: If and when the area is included in the video stream. The overlay turns from green to red when triggered.
+
+  CoordinateSystem:
+    enum: [coord_neg1_1, coord_0_1]
+    description: "``coord_neg1_1``: origin in the middle of the image, -1..1, increasing left to right and bottom to top. ``coord_0_1``: origin in the upper left corner, 0..1."
+
+  Vertex:
+    type: array
+    items: {type: number, minimum: -1, maximum: 1}
+    description: "An [x, y] coordinate normalized to -1..1 for an unrotated, unmirrored image (upper right [1, 1], lower left [-1, -1])."
+
+  Capabilities:
+    type: object
+    description: Thermometric limits and configuration values.
+    required: [currentTemperatureScale, minTemperature, maxTemperature, maxNumberOfAreas, maxNumberOfVertices, maxDelayTime, defaultDelayTime, maxNameLength]
+    properties:
+      currentTemperatureScale: {$ref: "#/types/TemperatureScale", description: The current temperature scale.}
+      minTemperature: {type: integer, description: Minimum measurable temperature in the current scale.}
+      maxTemperature: {type: integer, description: Maximum measurable temperature in the current scale.}
+      maxNumberOfAreas: {type: integer, description: Maximum number of areas that can be defined (per preset on PTZ cameras).}
+      maxNumberOfVertices: {type: integer, description: Maximum number of vertices of an alarm area.}
+      maxDelayTime: {type: integer, description: Maximum delay time in seconds.}
+      defaultDelayTime: {type: integer, description: Default delay time in seconds.}
+      maxNameLength: {type: integer, description: Maximum number of characters of an area name.}
+      maxGroups: {type: integer, description: Maximum number of area groups per preset. Added in API 1.2.}
+      imagesources:
+        type: array
+        items: {type: integer}
+        description: Valid image sources that are active as thermal input channels. Added in API 1.3.
+      overlayChannels:
+        type: array
+        items: {type: integer}
+        description: Channels that can have area overlays enabled. Added in API 1.3.
+
+  IsothermLevels:
+    type: object
+    description: The isotherm levels of the temperature color scale. Only meaningful with isothermal palettes (names starting with ``Iso-``).
+    required: [high, middle, low]
+    properties:
+      high: {type: integer, description: The highest temperature level.}
+      middle: {type: integer, description: The middle temperature level.}
+      low: {type: integer, description: The lowest temperature colored by the palette. Temperatures between low and min appear in grayscale.}
+      min: {type: integer, description: The lowest temperature that can be shown in the image. Available from API 1.2.}
+      renderOverlay: {type: boolean, description: "True if the palette, with the three levels marked, is included in the video stream."}
+
   Area:
     type: object
+    description: A temperature detection area as listed by the device.
+    required: [id, enabled, name, detectionType, measurement, threshold, delay, vertices]
     properties:
-      id: {type: integer}
-      imagesource: {type: integer}
-      enabled: {type: boolean}
+      id: {type: integer, description: The area ID.}
+      imagesource: {type: integer, description: The image source for the area. Added in API 1.3.}
+      enabled: {type: boolean, description: True if area monitoring is enabled.}
       name: {type: string}
-      detectionType: {type: string, enum: [above, below, increase, decrease]}
-      measurement: {type: string, enum: [maximum, minimum, average]}
+      detectionType: {$ref: "#/types/DetectionType"}
+      measurement: {$ref: "#/types/AreaMeasurement"}
       threshold: {type: integer}
-      delay: {type: integer}
+      delay: {type: integer, description: Seconds the trigger condition must be true before an alarm.}
       vertices:
         type: array
-        items:
-          type: array
-          items: {type: number}
-      areaOverlay: {type: string, enum: [none, always, if_triggered]}
+        items: {$ref: "#/types/Vertex"}
+      areaOverlay: {$ref: "#/types/AreaOverlay"}
+      temperatureOverlay: {type: boolean, description: Show the chosen measurement value while the area overlay is visible.}
+      presetNbr: {type: integer, description: Preset number of the area.}
+
+  AreaList:
+    type: object
+    required: [areaList]
+    properties:
+      areaList:
+        type: array
+        items: {$ref: "#/types/Area"}
+
+  AreaStatus:
+    type: object
+    required: [id, avg, min, max, triggered]
+    properties:
+      id: {type: integer, description: The area ID.}
+      avg: {type: integer, description: Average temperature of the area.}
+      min: {type: integer, description: Minimum temperature of the area.}
+      max: {type: integer, description: Maximum temperature of the area.}
+      minCoordinates:
+        type: array
+        items: {type: number}
+        description: Coordinates of the first pixel found with the minimum temperature.
+      maxCoordinates:
+        type: array
+        items: {type: number}
+        description: Coordinates of the first pixel found with the maximum temperature.
+      triggered: {type: boolean, description: True if the area alarm has been triggered.}
+      imagesource: {type: integer, description: The image source of the area. Added in API 1.3.}
+
+  AreaStatusList:
+    type: object
+    required: [areaList]
+    properties:
+      areaList:
+        type: array
+        items: {$ref: "#/types/AreaStatus"}
+
+  AddedArea:
+    type: object
+    required: [id]
+    properties:
+      id: {type: integer, description: The ID of the new area.}
+
+  AddAreaRequest:
+    type: object
+    description: Arguments of ``add_area``. The docs do not say which fields are required; the fields that define the alarm are required here.
+    required: [name, detectionType, measurement, threshold, vertices]
+    properties:
+      imagesource: {type: integer, description: The image source for the area. Area overlays default to the image source they were created on.}
+      enabled: {type: boolean, description: Enables area monitoring if true.}
+      name: {type: string, description: "The area name; must be unique. Maximum length is given by ``get_configuration_capabilities``."}
+      detectionType: {$ref: "#/types/DetectionType"}
+      measurement: {$ref: "#/types/AreaMeasurement"}
+      threshold:
+        type: integer
+        description: The temperature value that activates the trigger; for increase/decrease the temperature change during the delay time, which must be positive. The allowed range is given by ``get_configuration_capabilities``.
+      delay:
+        type: integer
+        minimum: 0
+        description: Seconds the trigger condition must be true before an alarm (0 triggers immediately). For increase/decrease, the time during which the temperature must change by the threshold. Maximum and default are given by ``get_configuration_capabilities``.
+      vertices:
+        type: array
+        items: {$ref: "#/types/Vertex"}
+        description: Polygon vertices; at least 3, at most ``maxNumberOfVertices``. All vertices must be unique and edges may not cross.
+      areaOverlay: {$ref: "#/types/AreaOverlay"}
+      temperatureOverlay: {type: boolean, description: Show the chosen measurement value while the area overlay is visible.}
+      presetNbr: {type: integer, description: Preset number of the area. Ignored on non-PTZ cameras; must be an existing preset on PTZ cameras.}
+
+  UpdateAreaRequest:
+    type: object
+    description: Arguments of ``update_area``. Only the given fields change.
+    required: [id]
+    properties:
+      id: {type: integer, description: The ID of the area to update.}
+      imagesource: {type: integer, description: The image source for the area.}
+      enabled: {type: boolean}
+      name: {type: string, description: "The area name; must be unique. Maximum length is given by ``get_configuration_capabilities``."}
+      detectionType: {$ref: "#/types/DetectionType"}
+      measurement: {$ref: "#/types/AreaMeasurement"}
+      threshold: {type: integer}
+      delay: {type: integer, minimum: 0, description: Seconds the trigger condition must be true before an alarm.}
+      vertices:
+        type: array
+        items: {$ref: "#/types/Vertex"}
+      areaOverlay: {$ref: "#/types/AreaOverlay"}
       temperatureOverlay: {type: boolean}
-      presetNbr: {type: integer}
+      presetNbr: {type: integer, description: Preset number of the area. Ignored on non-PTZ cameras; must be an existing preset on PTZ cameras.}
+
+  SpotTemperature:
+    type: object
+    required: [spotTemperature, spotCoordinates]
+    properties:
+      spotTemperature: {type: number, description: The current temperature at the spot.}
+      spotCoordinates:
+        type: array
+        items: {type: number}
+        description: The x and y coordinates of the spot.
+      renderOverlay: {type: boolean, description: Whether the spot meter overlay is activated.}
+
+  TgtConfiguration:
+    type: object
+    description: Thermometric guard tour configuration (PTZ cameras).
+    properties:
+      pauseOnAlarm: {type: boolean, description: The guard tour pauses on the preset while an event is active.}
+      autoResume: {type: boolean, description: "Only valid if ``pauseOnAlarm`` is true. The tour resumes automatically when the event becomes inactive; otherwise it must be restarted manually."}
+
   Group:
     type: object
+    description: An area group that monitors temperature deviation across areas.
+    required: [id, enabled, name, measurement, threshold, delay, areaIds]
     properties:
-      id: {type: integer}
+      id: {type: integer, description: The group ID.}
       enabled: {type: boolean}
       name: {type: string}
-      measurement: {type: string, enum: [maximum, minimum, average, inherit]}
-      threshold: {type: integer}
-      delay: {type: integer}
+      measurement: {$ref: "#/types/GroupMeasurement"}
+      threshold: {type: integer, description: The allowed temperature difference in the group before an alarm.}
+      delay: {type: integer, description: Seconds the trigger condition must be true before an alarm.}
       areaIds:
         type: array
         items: {type: integer}
-      groupOverlay: {type: boolean}
+      groupOverlay: {type: boolean, description: Whether an area overlay is displayed when the group is triggered.}
       presetNbr: {type: integer}
+
+  GroupList:
+    type: object
+    required: [grouplist]
+    properties:
+      grouplist:
+        type: array
+        items: {$ref: "#/types/Group"}
+
+  AddGroupRequest:
+    type: object
+    description: Arguments of ``add_group``. The docs do not say which fields are required; name, measurement and threshold are required here.
+    required: [name, measurement, threshold]
+    properties:
+      enabled: {type: boolean, description: Enables group monitoring if true. The real value is returned in the response (locked to false until the group has at least 2 areas).}
+      name: {type: string, description: "The group name; must be unique. Maximum length is given by ``get_configuration_capabilities`` (too long gives 2104, not unique gives 1200)."}
+      measurement: {$ref: "#/types/GroupMeasurement"}
+      threshold: {type: integer, minimum: 1, description: The allowed temperature difference in the group before an alarm. A positive value of at least 1.}
+      delay: {type: integer, minimum: 0, description: Seconds the trigger condition must be true before an alarm (0 triggers immediately). Maximum is given by ``get_configuration_capabilities``.}
+      areaIds:
+        type: array
+        items: {type: integer}
+        description: IDs of the areas in the group. At least 2 are needed to start analysis; fewer (or none) are allowed but lock ``enabled`` to false.
+      groupOverlay: {type: boolean, description: Whether to display an area overlay when the group is triggered.}
+      presetNbr: {type: integer, description: Preset number of the group. Cannot be changed by ``update_group``. Ignored on non-PTZ cameras.}
+
+  AddedGroup:
+    type: object
+    required: [id, enabled]
+    properties:
+      id: {type: integer, description: "The new group ID, starting at 1."}
+      enabled: {type: boolean, description: The status of the new group; false if its configuration is incomplete.}
+
+  UpdateGroupRequest:
+    type: object
+    description: Arguments of ``update_group``. Only the given fields change; ``areaIds`` replaces the whole list.
+    required: [id]
+    properties:
+      id: {type: integer, description: The ID of the group to update.}
+      enabled: {type: boolean, description: The requested enabled state; the actual state is returned.}
+      name: {type: string}
+      measurement: {$ref: "#/types/GroupMeasurement"}
+      threshold: {type: integer, minimum: 1}
+      delay: {type: integer, minimum: 0}
+      areaIds:
+        type: array
+        items: {type: integer}
+        description: Fully replaces the area IDs in the group. May be empty.
+      groupOverlay: {type: boolean}
+
+  UpdatedGroup:
+    type: object
+    required: [enabled]
+    properties:
+      enabled: {type: boolean, description: The actual enabled state after the update. A group may become disabled without being asked to.}
+
+  MemberArea:
+    type: object
+    properties:
+      areaId: {type: integer}
+      areaName: {type: string}
+
+  DeviationArea:
+    type: object
+    description: The most or least deviating area. The device returns two entries, one with the max* fields and one with the min* fields.
+    properties:
+      maxAreaId: {type: integer, description: ID of the most deviating area.}
+      maxAreaTemp: {type: number, description: Temperature of the most deviating area.}
+      minAreaId: {type: integer, description: ID of the least deviating area.}
+      minAreaTemp: {type: number, description: Temperature of the least deviating area.}
+
+  GroupStatusDetails:
+    type: object
+    description: Current status data of a group. The contents may change in the future and may be empty.
+    properties:
+      name: {type: string}
+      currentDeviation: {type: number, description: The current maximum deviation within the group.}
+      threshold: {type: integer, description: The maximum total deviation to monitor.}
+      memberAreas:
+        type: array
+        items: {$ref: "#/types/MemberArea"}
+      maxDeviationAreas:
+        type: array
+        items: {$ref: "#/types/DeviationArea"}
+
+  GroupStatus:
+    type: object
+    required: [id, triggered]
+    properties:
+      id: {type: integer, description: The group ID.}
+      triggered: {type: boolean, description: True if the group alarm has been triggered.}
+      details: {$ref: "#/types/GroupStatusDetails"}
+
+  GroupStatusList:
+    type: object
+    required: [grouplist]
+    properties:
+      grouplist:
+        type: array
+        items: {$ref: "#/types/GroupStatus"}
+
+  OverlayChannelEntry:
+    type: object
+    required: [imagesource, overlayChannels]
+    properties:
+      imagesource: {type: integer, description: A channel a thermal image can originate from. Product dependent.}
+      overlayChannels:
+        type: array
+        items: {type: integer}
+        description: Channels where overlays, such as area and spot meter overlays, can appear. Different from the image source.
+
+  OverlayChannelList:
+    type: object
+    required: [overlayList]
+    properties:
+      overlayList:
+        type: array
+        items: {$ref: "#/types/OverlayChannelEntry"}
+
+  OverlayChannelRequest:
+    type: object
+    required: [imagesource, overlayChannel]
+    properties:
+      imagesource: {type: integer, description: The image source whose area overlays are shown.}
+      overlayChannel: {type: integer, description: "The channel that displays (or, when removing, stops displaying) area overlays."}
+
+  SpotMeterEntry:
+    type: object
+    required: [imagesource, active]
+    properties:
+      imagesource: {type: integer, description: A channel where the spot meter can be enabled.}
+      active: {type: boolean, description: True if the spot meter is enabled.}
+
+  SpotMeterList:
+    type: object
+    required: [spotmeters]
+    properties:
+      spotmeters:
+        type: array
+        items: {$ref: "#/types/SpotMeterEntry"}
 
 operations:
   get_configuration_capabilities:
     summary: Retrieve the thermometric limits and configuration values.
     effect: read
     binding: {method: getConfigurationCapabilities}
-    result:
-      type: object
-      properties:
-        currentTemperatureScale: {type: string, enum: [celsius, fahrenheit]}
-        minTemperature: {type: integer, description: Minimum measurable temperature in the current scale.}
-        maxTemperature: {type: integer}
-        maxNumberOfAreas: {type: integer, description: Per preset on PTZ cameras.}
-        maxNumberOfVertices: {type: integer}
-        maxDelayTime: {type: integer, description: seconds}
-        defaultDelayTime: {type: integer, description: seconds}
-        maxNameLength: {type: integer}
-        maxGroups: {type: integer, description: Max area groups per preset. Added in 1.2.}
-        imagesources:
-          type: array
-          items: {type: integer}
-          description: Valid image sources active as thermal input channels. Added in 1.3.
-        overlayChannels:
-          type: array
-          items: {type: integer}
-          description: Channels that can have area overlays enabled. Added in 1.3.
+    result: {$ref: "#/types/Capabilities"}
     examples:
-    - title: List thermometry configuration capabilities
-      request:
-        params: {}
-      response:
-        data:
-          currentTemperatureScale: celsius
-          minTemperature: -40
-          maxTemperature: 350
-          maxNumberOfAreas: 10
-          maxNumberOfVertices: 10
-          maxDelayTime: 300
-          defaultDelayTime: 5
-          maxNameLength: 60
-      source: https://developer.axis.com/vapix/network-video/thermometry/#list-thermometry-configuration-capabilities
+      - title: List thermometry configuration capabilities
+        request: {params: {}}
+        response:
+          data:
+            currentTemperatureScale: celsius
+            minTemperature: -40
+            maxTemperature: 350
+            maxNumberOfAreas: 10
+            maxNumberOfVertices: 10
+            maxDelayTime: 300
+            defaultDelayTime: 5
+            maxNameLength: 60
+        source: https://developer.axis.com/vapix/network-video/thermometry/#list-thermometry-configuration-capabilities
+
   set_temperature_scale:
-    summary: Set the temperature scale (Celsius default or Fahrenheit).
+    summary: Set the temperature scale (Celsius is the default).
     effect: write
     write: patch
     binding: {method: setTemperatureScale}
@@ -122,41 +411,29 @@ operations:
       type: object
       required: [unit]
       properties:
-        unit: {type: string, enum: [celsius, fahrenheit], description: Temperature scale.}
+        unit: {$ref: "#/types/TemperatureScale", description: The temperature scale to use.}
     examples:
-    - title: Set temperature scale
-      request:
-        params: {unit: fahrenheit}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#set-temperature-scale
+      - title: Set temperature scale
+        request: {params: {unit: fahrenheit}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#set-temperature-scale
+
   get_isotherm_levels:
-    summary: Retrieve the isotherm levels (for Iso- palettes) and whether the palette overlay is rendered.
-    description: Only meaningful with isothermal palettes (names begin with 'Iso-'); palette selected via Image.I0.Appearance.Palette
-      (param.cgi).
+    summary: Retrieve the isotherm levels and whether the palette overlay is rendered.
+    description: "Only meaningful with isothermal palettes (names beginning with ``Iso-``), selected with the ``Image.I0.Appearance.Palette`` parameter."
     effect: read
     binding: {method: getIsothermLevels}
-    result:
-      type: object
-      properties:
-        high: {type: integer}
-        middle: {type: integer}
-        low:
-          type: integer
-          description: Lowest temperature colored by the palette; between low and min appear in grayscale.
-        min: {type: integer, description: Lowest temperature shown in the image. API 1.2+.}
-        renderOverlay:
-          type: boolean
-          description: true if the palette (with the three levels marked) is included in the video stream.
+    result: {$ref: "#/types/IsothermLevels"}
     examples:
-    - title: List isotherm levels
-      request:
-        params: {}
-      response:
-        data: {high: 100, middle: 50, low: 10, renderOverlay: true}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#list-isotherm-levels
+      - title: List isotherm levels
+        request: {params: {}}
+        response:
+          data: {high: 100, middle: 50, low: 10, renderOverlay: true}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#list-isotherm-levels
+
   set_isotherm_levels:
-    summary: Set the isotherm levels (unique, rising order) and palette overlay.
+    summary: Set the isotherm levels and whether the palette overlay is rendered.
+    description: The levels must be unique and in rising order from low to high.
     effect: write
     write: patch
     binding: {method: setIsothermLevels}
@@ -164,187 +441,85 @@ operations:
       type: object
       required: [high, middle, low]
       properties:
-        high:
-          type: integer
-          description: Range [minTemperature+3, maxTemperature] (getConfigurationCapabilities).
-        middle: {type: integer, description: 'Range [minTemperature+2, maxTemperature-1].'}
-        low: {type: integer, description: 'Range [minTemperature+1, maxTemperature-2].'}
-        min:
-          type: integer
-          description: Optional, API 1.2+. If omitted set to the lowest possible temperature. Range [minTemperature,
-            maxTemperature-3].
-        renderOverlay: {type: boolean, description: Include the color palette (levels marked) in the video stream.}
-    since_fields: {params.min: '1.2'}
+        high: {type: integer, description: "Range [minTemperature + 3, maxTemperature] from ``get_configuration_capabilities``."}
+        middle: {type: integer, description: "Range [minTemperature + 2, maxTemperature - 1]."}
+        low: {type: integer, description: "Range [minTemperature + 1, maxTemperature - 2]."}
+        min: {type: integer, description: "Optional, API 1.2 and later. Defaults to the lowest possible temperature. Range [minTemperature, maxTemperature - 3]."}
+        renderOverlay: {type: boolean, description: "Include the color palette, with the levels marked, in the video stream."}
+    since_fields: {params.min: "1.2"}
     examples:
-    - title: Set isotherm levels
-      request:
-        params: {high: 100, middle: 50, low: 10, renderOverlay: true}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#set-isotherm-levels
+      - title: Set isotherm levels
+        request: {params: {high: 100, middle: 50, low: 10, renderOverlay: true}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#set-isotherm-levels
+
   add_area:
-    summary: Add a temperature detection area (polygon) with alarm conditions.
+    summary: Add a temperature detection area (a polygon) with alarm conditions.
     access: admin
     effect: write
     write: create
     binding: {method: addArea}
-    params:
-      type: object
-      properties:
-        imagesource:
-          type: integer
-          description: The image source for the area. Area overlays default to the image source they were created
-            on.
-        enabled: {type: boolean, description: Enables the area monitoring if true.}
-        name:
-          type: string
-          description: The area name; must be unique. Maximum length from getConfigurationCapabilities.maxNameLength.
-        detectionType:
-          type: string
-          enum: [above, below, increase, decrease]
-          description: 'above/below: alarm if the value goes above/below the threshold. increase/decrease: alarm
-            if the temperature increases/decreases faster than threshold divided by delay time.'
-        measurement:
-          type: string
-          enum: [maximum, minimum, average]
-          description: Alarm depends on the maximum, minimum or average temperature in the area.
-        threshold:
-          type: integer
-          description: Temperature value that activates the trigger; for increase/decrease the temperature change
-            during the delay time (must be positive). Range from getConfigurationCapabilities.
-        delay:
-          type: integer
-          minimum: 0
-          description: Seconds the trigger condition must be true before alarm (0 = immediately); for increase/decrease
-            the time window. Max/default from getConfigurationCapabilities. (unit=seconds)
-        vertices:
-          type: array
-          items:
-            type: array
-            items: {type: number, minimum: -1, maximum: 1}
-            description: minItems=2, maxItems=2
-          description: Polygon vertices [[x, y],...], normalized -1..1 (upper right [1,1], lower left [-1,-1]) for
-            an unrotated, unmirrored image. (minItems=3)
-        areaOverlay:
-          type: string
-          enum: [none, always, if_triggered]
-          description: If/when the area is included in the video stream (overlay turns from green to red when triggered).
-        temperatureOverlay:
-          type: boolean
-          description: Show the chosen measurement value when the area overlay is visible.
-        presetNbr:
-          type: integer
-          description: Preset number; ignored on non-PTZ cameras, must be an existing preset on PTZ cameras.
-    result:
-      type: object
-      properties:
-        id: {type: integer, description: The area id.}
+    params: {$ref: "#/types/AddAreaRequest"}
+    result: {$ref: "#/types/AddedArea"}
     errors:
-      1200: {description: Preset does not exist., kind: not_found}
-      2104: {description: The specified name is already in use.}
+      1200: {description: "Maximum number of areas in the preset reached, or the preset does not exist", kind: invalid_argument}
+      2104: {description: "The specified name is already in use", kind: invalid_argument}
     examples:
-    - title: Add a temperature detection area
-      request:
-        params:
-          imagesource: 0
-          enabled: true
-          name: Area 1
-          detectionType: above
-          measurement: average
-          threshold: 100
-          delay: 5
-          vertices:
-          - [-0.5, -0.5]
-          - [0.5, -0.5]
-          - [0.5, 0.5]
-          - [-0.5, 0.5]
-          areaOverlay: always
-          temperatureOverlay: true
-          presetNbr: 1
-      response:
-        data: {id: 0}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#add-a-temperature-detection-area
+      - title: Add a temperature detection area
+        request:
+          params:
+            imagesource: 0
+            enabled: true
+            name: Area 1
+            detectionType: above
+            measurement: average
+            threshold: 100
+            delay: 5
+            vertices:
+              - [-0.5, -0.5]
+              - [0.5, -0.5]
+              - [0.5, 0.5]
+              - [-0.5, 0.5]
+            areaOverlay: always
+            temperatureOverlay: true
+            presetNbr: 1
+        response:
+          data: {id: 0}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#add-a-temperature-detection-area
+
   update_area:
     summary: Update an existing temperature detection area.
     access: admin
     effect: write
     write: patch
     binding: {method: updateArea}
-    params:
-      type: object
-      required: [id]
-      properties:
-        id: {type: integer, description: The area ID.}
-        imagesource:
-          type: integer
-          description: The image source for the area. Area overlays default to the image source they were created
-            on.
-        enabled: {type: boolean, description: Enables the area monitoring if true.}
-        name:
-          type: string
-          description: The area name; must be unique. Maximum length from getConfigurationCapabilities.maxNameLength.
-        detectionType:
-          type: string
-          enum: [above, below, increase, decrease]
-          description: 'above/below: alarm if the value goes above/below the threshold. increase/decrease: alarm
-            if the temperature increases/decreases faster than threshold divided by delay time.'
-        measurement:
-          type: string
-          enum: [maximum, minimum, average]
-          description: Alarm depends on the maximum, minimum or average temperature in the area.
-        threshold:
-          type: integer
-          description: Temperature value that activates the trigger; for increase/decrease the temperature change
-            during the delay time (must be positive). Range from getConfigurationCapabilities.
-        delay:
-          type: integer
-          minimum: 0
-          description: Seconds the trigger condition must be true before alarm (0 = immediately); for increase/decrease
-            the time window. Max/default from getConfigurationCapabilities. (unit=seconds)
-        vertices:
-          type: array
-          items:
-            type: array
-            items: {type: number, minimum: -1, maximum: 1}
-            description: minItems=2, maxItems=2
-          description: Polygon vertices [[x, y],...], normalized -1..1 (upper right [1,1], lower left [-1,-1]) for
-            an unrotated, unmirrored image. (minItems=3)
-        areaOverlay:
-          type: string
-          enum: [none, always, if_triggered]
-          description: If/when the area is included in the video stream (overlay turns from green to red when triggered).
-        temperatureOverlay:
-          type: boolean
-          description: Show the chosen measurement value when the area overlay is visible.
-        presetNbr:
-          type: integer
-          description: Preset number; ignored on non-PTZ cameras, must be an existing preset on PTZ cameras.
+    params: {$ref: "#/types/UpdateAreaRequest"}
     errors:
-      1200: {description: Preset does not exist., kind: not_found}
-      2104: {description: The specified name is already in use.}
+      1200: {description: "Maximum number of areas in the preset reached, or the preset does not exist", kind: invalid_argument}
+      2104: {description: "The specified name is already in use", kind: invalid_argument}
     examples:
-    - title: Modify a temperature detection area
-      request:
-        params:
-          id: 0
-          imagesource: 0
-          enabled: true
-          name: Area 1
-          detectionType: below
-          measurement: minimum
-          threshold: 100
-          delay: 5
-          vertices:
-          - [-0.5, -0.5]
-          - [0.5, -0.5]
-          - [0.5, 0.5]
-          - [-0.5, 0.5]
-          areaOverlay: if_triggered
-          temperatureOverlay: true
-          presetNbr: 2
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#modify-a-temperature-detection-area
+      - title: Modify a temperature detection area
+        request:
+          params:
+            id: 0
+            imagesource: 0
+            enabled: true
+            name: Area 1
+            detectionType: below
+            measurement: minimum
+            threshold: 100
+            delay: 5
+            vertices:
+              - [-0.5, -0.5]
+              - [0.5, -0.5]
+              - [0.5, 0.5]
+              - [-0.5, 0.5]
+            areaOverlay: if_triggered
+            temperatureOverlay: true
+            presetNbr: 2
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#modify-a-temperature-detection-area
+
   remove_areas:
     summary: Remove one or several areas.
     access: admin
@@ -358,119 +533,116 @@ operations:
         areas:
           type: array
           items: {type: integer}
-          description: IDs of the areas to remove. Max per request from getConfigurationCapabilities.
+          description: "IDs of the areas to remove. The maximum per request is given by ``get_configuration_capabilities``."
     errors:
-      1200: {description: 'Area [x] could not be found'}
+      1200: {description: "Area [x] could not be found", kind: not_found}
     examples:
-    - title: Remove temperature detection areas
-      request:
-        params: {areas: [0, 1, 3]}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#remove-temperature-detection-areas
+      - title: Remove temperature detection areas
+        request: {params: {areas: [0, 1, 3]}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#remove-temperature-detection-areas
+
   list_areas:
-    summary: List temperature detection areas for a preset (0 = all presets), optionally filtered by image source.
+    summary: List temperature detection areas for a preset (0 lists all presets), optionally for one image source.
     effect: read
     binding: {method: listAreas}
     params:
       type: object
       properties:
-        presetNbr: {type: integer, description: Preset number; 0 returns all areas for all presets.}
-        imagesource: {type: integer, description: Optional filter by image source (API 1.3+).}
-    result:
-      type: object
-      properties:
-        areaList:
-          type: array
-          items: {$ref: '#/types/Area'}
-    since_fields: {params.imagesource: '1.3'}
+        presetNbr: {type: integer, description: The preset number; 0 returns the areas of all presets.}
+        imagesource: {type: integer, description: Only return areas created on this image source. Added in API 1.3.}
+    since_fields: {params.imagesource: "1.3"}
+    result: {$ref: "#/types/AreaList"}
     examples:
-    - title: List temperature detection areas
-      request:
-        params: {presetNbr: 0}
-      response:
-        data:
-          areaList:
-          - id: 0
-            imagesource: 0
-            enabled: true
-            name: Area 1
-            detectionType: below
-            measurement: minimum
-            threshold: 100
-            delay: 5
-            vertices:
-            - [-0.5, -0.5]
-            - [0.5, -0.5]
-            - [0.5, 0.5]
-            - [-0.5, 0.5]
-            areaOverlay: if triggered
-            temperatureOverlay: true
-            presetNbr: 0
-          - id: 1
-            imagesource: 1
-            enabled: true
-            name: Area 2
-            detectionType: below
-            measurement: minimum
-            threshold: 100
-            delay: 5
-            vertices:
-            - [-0.5, -0.5]
-            - [0.5, -0.5]
-            - [0.5, 0.5]
-            - [-0.5, 0.5]
-            areaOverlay: if triggered
-            temperatureOverlay: true
-            presetNbr: 0
-      source: https://developer.axis.com/vapix/network-video/thermometry/#list-temperature-detection-areas
+      - title: List temperature detection areas
+        request: {params: {presetNbr: 0}}
+        response:
+          data:
+            areaList:
+              - id: 0
+                imagesource: 0
+                enabled: true
+                name: Area 1
+                detectionType: below
+                measurement: minimum
+                threshold: 100
+                delay: 5
+                vertices:
+                  - [-0.5, -0.5]
+                  - [0.5, -0.5]
+                  - [0.5, 0.5]
+                  - [-0.5, 0.5]
+                areaOverlay: if_triggered
+                temperatureOverlay: true
+                presetNbr: 0
+              - id: 1
+                imagesource: 1
+                enabled: true
+                name: Area 2
+                detectionType: below
+                measurement: minimum
+                threshold: 100
+                delay: 5
+                vertices:
+                  - [-0.5, -0.5]
+                  - [0.5, -0.5]
+                  - [0.5, 0.5]
+                  - [-0.5, 0.5]
+                areaOverlay: if_triggered
+                temperatureOverlay: true
+                presetNbr: 0
+        source: https://developer.axis.com/vapix/network-video/thermometry/#list-temperature-detection-areas
+      - title: List the areas of one image source
+        request: {params: {presetNbr: 0, imagesource: 1}}
+        response:
+          data:
+            areaList:
+              - id: 1
+                imagesource: 1
+                enabled: true
+                name: Area 2
+                detectionType: below
+                measurement: minimum
+                threshold: 100
+                delay: 5
+                vertices:
+                  - [-0.5, -0.5]
+                  - [0.5, -0.5]
+                  - [0.5, 0.5]
+                  - [-0.5, 0.5]
+                areaOverlay: if_triggered
+                temperatureOverlay: true
+                presetNbr: 0
+        source: https://developer.axis.com/vapix/network-video/thermometry/#list-temperature-settings-for-image-source-area
+
   get_area_status:
-    summary: 'Current temperature and trigger status of active areas (PTZ: current preset, empty if not on a preset).'
+    summary: Current temperature and trigger status of the active areas.
+    description: PTZ cameras return the status of the areas on the current preset, or an empty list when not on a preset.
     effect: read
     binding: {method: getAreaStatus}
-    result:
-      type: object
-      properties:
-        areaList:
-          type: array
-          items:
-            type: object
-            x-name: GetAreaStatusResultAreaListItem
-            properties:
-              id: {type: integer}
-              avg: {type: integer}
-              min: {type: integer}
-              max: {type: integer}
-              minCoordinates:
-                type: array
-                items: {type: number}
-                description: First pixel found with min temperature.
-              maxCoordinates:
-                type: array
-                items: {type: number}
-              triggered: {type: boolean}
-              imagesource: {type: integer, description: Added in 1.3.}
+    result: {$ref: "#/types/AreaStatusList"}
     errors:
-      1200: {description: Could not get status for areas}
+      1200: {description: "Could not get status for areas", kind: internal}
     examples:
-    - title: Check area status
-      request:
-        params: {}
-      response:
-        data:
-          areaList:
-          - id: 0
-            avg: 5
-            min: 0
-            max: 10
-            maxPos: [0.91, 0.12]
-            minPos: [-0.63, -0.31]
-            triggered: true
-      source: https://developer.axis.com/vapix/network-video/thermometry/#check-area-status
+      - title: Check area status
+        request: {params: {}}
+        response:
+          data:
+            areaList:
+              - id: 0
+                avg: 5
+                min: 0
+                max: 10
+                maxCoordinates: [0.91, 0.12]
+                minCoordinates: [-0.63, -0.31]
+                triggered: true
+        source: https://developer.axis.com/vapix/network-video/thermometry/#check-area-status
+
   add_spot_temperature:
-    summary: Activate the (single) spot meter at given coordinates; replaces any existing one.
+    summary: Activate the spot meter at the given coordinates, replacing any existing one.
+    description: When the spot meter is activated on a specific image source, an overlay is enabled on that channel.
     effect: write
-    write: create
+    write: replace
     binding: {method: addSpotTemperature}
     params:
       type: object
@@ -479,54 +651,38 @@ operations:
         spotCoordinates:
           type: array
           items: {type: number}
-          description: Coordinates [x, y] of the pixel of interest.
-        coordinateSystem:
-          type: string
-          enum: [coord_neg1_1, coord_0_1]
-          description: 'coord_neg1_1: origin in the middle, -1..1 increasing left->right and bottom->top. coord_0_1:
-            origin upper left, 0..1.'
-        imagesource: {type: integer, description: Image source channel showing the spot meter. API 1.3+.}
-    since_fields: {params.imagesource: '1.3'}
+          description: The [x, y] coordinates of the pixel of interest.
+        coordinateSystem: {$ref: "#/types/CoordinateSystem"}
+        imagesource: {type: integer, description: The image source channel that shows the spot meter. Added in API 1.3.}
+    since_fields: {params.imagesource: "1.3"}
     errors:
-      2104: {description: Invalid channel number specified., kind: invalid_argument}
+      2104: {description: "Invalid channel number specified", kind: invalid_argument}
     examples:
-    - title: Add a spot temperature
-      request:
-        params: {spotCoordinates: [0.37, -0.95], coordinateSystem: coord_neg1_1}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#add-a-spot-temperature
+      - title: Add a spot temperature
+        request: {params: {spotCoordinates: [0.37, -0.95], coordinateSystem: coord_neg1_1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#add-a-spot-temperature
+
   get_spot_temperature:
-    summary: Get the temperature at the spot set by addSpotTemperature.
+    summary: Get the temperature at the spot set by ``add_spot_temperature``.
     effect: read
     binding: {method: getSpotTemperature}
     params:
       type: object
       properties:
-        coordinateSystem:
-          type: string
-          enum: [coord_neg1_1, coord_0_1]
-          description: 'coord_neg1_1: origin in the middle, -1..1 increasing left->right and bottom->top. coord_0_1:
-            origin upper left, 0..1. Need not match the one used in addSpotTemperature.'
-        imagesource: {type: integer, description: API 1.3+.}
-    result:
-      type: object
-      properties:
-        spotTemperature: {type: number}
-        spotCoordinates:
-          type: array
-          items: {type: number}
-        renderOverlay: {type: boolean, description: Whether the spot meter overlay is activated.}
-    since_fields: {params.imagesource: '1.3'}
+        coordinateSystem: {$ref: "#/types/CoordinateSystem", description: The coordinate system for the returned spot coordinates. It need not match the one used in add_spot_temperature.}
+        imagesource: {type: integer, description: The image source channel that shows the spot meter. Added in API 1.3.}
+    since_fields: {params.imagesource: "1.3"}
+    result: {$ref: "#/types/SpotTemperature"}
     errors:
-      2104: {description: Invalid channel number specified., kind: invalid_argument}
+      2104: {description: "Invalid channel number specified", kind: invalid_argument}
     examples:
-    - title: Check spot temperature
-      request:
-        params: {coordinateSystem: coord_neg1_1}
-      response:
-        data: {spotTemperature: 7, spotCoordinates: [-0.53, 0.45], renderOverlay: true}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#check-spot-temperature
+      - title: Check spot temperature
+        request: {params: {coordinateSystem: coord_neg1_1}}
+        response:
+          data: {spotTemperature: 7, spotCoordinates: [-0.53, 0.45], renderOverlay: true}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#check-spot-temperature
+
   remove_spot_temperature:
     summary: Remove the rendering of the spot meter.
     effect: write
@@ -535,188 +691,105 @@ operations:
     params:
       type: object
       properties:
-        imagesource: {type: integer, description: Image source channel to remove the spot meter from. API 1.3+.}
-    since_fields: {params.imagesource: '1.3'}
+        imagesource: {type: integer, description: The image source channel to remove the spot meter from. Added in API 1.3.}
+    since_fields: {params.imagesource: "1.3"}
     errors:
-      2104: {description: Invalid channel number specified., kind: invalid_argument}
+      2104: {description: "Invalid channel number specified", kind: invalid_argument}
     examples:
-    - title: Remove a spot temperature
-      request:
-        params: {}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#remove-a-spot-temperature
+      - title: Remove a spot temperature
+        request: {params: {}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#remove-a-spot-temperature
+
   get_tgt_configuration:
-    summary: Retrieve the thermometric guard tour configuration (PTZ).
+    summary: Retrieve the thermometric guard tour configuration (PTZ cameras).
     access: admin
     effect: read
-    since: '1.1'
+    since: "1.1"
     binding: {method: getTgtConfiguration}
-    result:
-      type: object
-      properties:
-        pauseOnAlarm: {type: boolean, description: Guard tour paused on the preset when an event is active.}
-        autoResume:
-          type: boolean
-          description: Only valid if pauseOnAlarm; resume automatically after event becomes inactive.
+    result: {$ref: "#/types/TgtConfiguration"}
     errors:
-      1202:
-        description: 'Method not supported: No guard tour settings available since camera is fixed.'
-        kind: unsupported
+      1202: {description: "Method not supported: no guard tour settings available since the camera is fixed", kind: unsupported}
     examples:
-    - title: Get TGT configuration
-      request:
-        params: {}
-      response:
-        data: {pauseOnAlarm: true, autoResume: true}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#get-tgt-configuration
+      - title: Get TGT configuration
+        request: {params: {}}
+        response: {data: {pauseOnAlarm: true, autoResume: true}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#get-tgt-configuration
+
   set_tgt_configuration:
-    summary: Set the thermometric guard tour configuration.
+    summary: Set the thermometric guard tour configuration (PTZ cameras).
     access: admin
     effect: write
     write: patch
-    since: '1.1'
+    since: "1.1"
     binding: {method: setTgtConfiguration}
-    params:
-      type: object
-      properties:
-        pauseOnAlarm: {type: boolean, description: Pause guard tour on the preset while an event is active.}
-        autoResume:
-          type: boolean
-          description: Only valid if pauseOnAlarm is true; otherwise the tour must be restarted manually.
+    params: {$ref: "#/types/TgtConfiguration"}
     errors:
-      1202:
-        description: 'Method not supported: No guard tour settings available since camera is fixed.'
-        kind: unsupported
+      1202: {description: "Method not supported: no guard tour settings available since the camera is fixed", kind: unsupported}
     examples:
-    - title: Set TGT configuration
-      request:
-        params: {pauseOnAlarm: true, autoResume: true}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#set-tgt-configuration
+      - title: Set TGT configuration
+        request: {params: {pauseOnAlarm: true, autoResume: true}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#set-tgt-configuration
+
   add_group:
-    summary: Add an area group to monitor temperature deviation across areas.
+    summary: Add an area group that monitors temperature deviation across areas.
     effect: write
     write: create
-    since: '1.2'
+    since: "1.2"
     binding: {method: addGroup}
-    params:
-      type: object
-      properties:
-        enabled:
-          type: boolean
-          description: Requested enabled state; actual value returned in the response (locked to false until >=2
-            areas).
-        name:
-          type: string
-          description: Group name; max length from getConfigurationCapabilities (too long -> 2104, not unique ->
-            1200).
-        measurement:
-          type: string
-          enum: [maximum, minimum, average, inherit]
-          description: Value per area used for analysis; inherit lets each area's own setting decide.
-        threshold:
-          type: integer
-          minimum: 1
-          description: Allowed temperature difference in the group before alarm; positive, >= 1.
-        delay:
-          type: integer
-          minimum: 0
-          description: Seconds the trigger condition must be true before alarm (0 = immediately). Max from getConfigurationCapabilities.
-            (unit=seconds)
-        areaIds:
-          type: array
-          items: {type: integer}
-          description: Area IDs in the group (fully replaces on update). At least 2 to start analysis; fewer (or
-            0) allowed but locks enabled=false.
-        groupOverlay:
-          type: boolean
-          description: Whether to display an area overlay when the group is triggered.
-        presetNbr:
-          type: integer
-          description: Preset number for the group; ignored for non-PTZ cameras. Cannot be changed by updateGroup.
-    result:
-      type: object
-      properties:
-        id: {type: integer}
-        enabled: {type: boolean, description: Actual status; false if configuration incomplete.}
+    params: {$ref: "#/types/AddGroupRequest"}
+    result: {$ref: "#/types/AddedGroup"}
     errors:
-      1200:
-        description: Group area configuration is invalid (area(s) disabled, not existing, not in valid preset, or
-          area limit reached).
-        kind: invalid_argument
+      1200: {description: "Group name not unique, maximum number of groups for the preset reached, preset does not exist, or invalid group area configuration (areas disabled, missing, not in the preset, or area limit reached)", kind: invalid_argument}
+    examples:
+      - title: Add a group
+        request:
+          params:
+            enabled: true
+            name: Group 1
+            measurement: average
+            threshold: 5
+            delay: 5
+            areaIds: [0, 1, 2]
+            groupOverlay: true
+            presetNbr: 1
+        response:
+          data: {id: 1, enabled: true}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#add-a-group
+
   update_group:
     summary: Update an existing group (presetNbr cannot be changed).
     access: admin
     effect: write
     write: patch
-    since: '1.2'
+    since: "1.2"
     binding: {method: updateGroup}
-    params:
-      type: object
-      required: [id]
-      properties:
-        id: {type: integer, description: The ID of the group to update.}
-        enabled:
-          type: boolean
-          description: Requested enabled state; actual value returned in the response (locked to false until >=2
-            areas).
-        name:
-          type: string
-          description: Group name; max length from getConfigurationCapabilities (too long -> 2104, not unique ->
-            1200).
-        measurement:
-          type: string
-          enum: [maximum, minimum, average, inherit]
-          description: Value per area used for analysis; inherit lets each area's own setting decide.
-        threshold:
-          type: integer
-          minimum: 1
-          description: Allowed temperature difference in the group before alarm; positive, >= 1.
-        delay:
-          type: integer
-          minimum: 0
-          description: Seconds the trigger condition must be true before alarm (0 = immediately). Max from getConfigurationCapabilities.
-            (unit=seconds)
-        areaIds:
-          type: array
-          items: {type: integer}
-          description: Area IDs in the group (fully replaces on update). At least 2 to start analysis; fewer (or
-            0) allowed but locks enabled=false.
-        groupOverlay:
-          type: boolean
-          description: Whether to display an area overlay when the group is triggered.
-    result:
-      type: object
-      properties:
-        enabled: {type: boolean, description: Actual enabled state after update.}
+    params: {$ref: "#/types/UpdateGroupRequest"}
+    result: {$ref: "#/types/UpdatedGroup"}
     errors:
-      1200:
-        description: Group area configuration is invalid (area(s) disabled, not existing, not in valid preset, or
-          area limit reached).
-        kind: invalid_argument
+      1200: {description: "Group ID invalid, group name not unique, or invalid group area configuration", kind: invalid_argument}
     examples:
-    - title: Modify a group
-      request:
-        params:
-          id: 2
-          enabled: true
-          name: Group 1
-          measurement: minimum
-          threshold: 10
-          delay: 5
-          areaIds: [3, 4]
-          groupOverlay: true
-      response:
-        data: {enabled: true}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#modify-a-group
+      - title: Modify a group
+        request:
+          params:
+            id: 2
+            enabled: true
+            name: Group 1
+            measurement: minimum
+            threshold: 10
+            delay: 5
+            areaIds: [3, 4]
+            groupOverlay: true
+        response: {data: {enabled: true}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#modify-a-group
+
   remove_group:
-    summary: Remove one group, or all groups (id 0).
+    summary: Remove one group, or all groups with ID 0.
     access: admin
     effect: write
     write: delete
-    since: '1.2'
+    since: "1.2"
     binding: {method: removeGroup}
     params:
       type: object
@@ -725,209 +798,130 @@ operations:
         id:
           type: integer
           minimum: 0
-          description: Group ID; 0 removes all groups for all presets. Non-existing group -> error.
+          description: The group ID. 0 removes all groups for all presets. A group that does not exist gives an error.
     errors:
-      1200: {description: Group ID is invalid., kind: invalid_argument}
+      1200: {description: "Group ID is invalid", kind: not_found}
     examples:
-    - title: Remove a group
-      request:
-        params: {id: 1}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#remove-a-group
+      - title: Remove a group
+        request: {params: {id: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#remove-a-group
+
   list_groups:
-    summary: List groups for a preset (0 or omitted = all presets).
+    summary: List groups for a preset (0 or omitted lists all presets).
     effect: read
-    since: '1.2'
+    since: "1.2"
     binding: {method: listGroups}
     params:
       type: object
       properties:
-        presetNbr:
-          type: integer
-          description: Optional. 0/omitted = all presets; non-existing preset -> error.
-    result:
-      type: object
-      properties:
-        grouplist:
-          type: array
-          items: {$ref: '#/types/Group'}
+        presetNbr: {type: integer, description: The preset number. 0 or omitted returns the groups of all presets; a preset that does not exist gives an error.}
+    result: {$ref: "#/types/GroupList"}
     errors:
-      1200: {description: Preset does not exist., kind: not_found}
+      1200: {description: "Preset does not exist", kind: not_found}
     examples:
-    - title: List all groups
-      request:
-        params: {presetNbr: 0}
-      response:
-        data:
-          grouplist:
-          - id: 2
-            enabled: true
-            name: Group 2
-            measurement: minimum
-            threshold: 10
-            delay: 5
-            areaIds: [2, 3]
-            groupOverlay: true
-            presetNbr: 0
-      source: https://developer.axis.com/vapix/network-video/thermometry/#list-all-groups
+      - title: List all groups
+        request: {params: {presetNbr: 0}}
+        response:
+          data:
+            grouplist:
+              - id: 2
+                enabled: true
+                name: Group 2
+                measurement: minimum
+                threshold: 10
+                delay: 5
+                areaIds: [2, 3]
+                groupOverlay: true
+                presetNbr: 0
+        source: https://developer.axis.com/vapix/network-video/thermometry/#list-all-groups
+
   get_group_status:
-    summary: 'Current trigger status of active groups (PTZ: current preset, empty if not on a preset).'
+    summary: Current trigger status of the active groups.
+    description: PTZ cameras return the status of the groups on the current preset, or an empty list when not on a preset.
     effect: read
-    since: '1.2'
+    since: "1.2"
     binding: {method: getGroupStatus}
-    result:
-      type: object
-      properties:
-        grouplist:
-          type: array
-          items:
-            type: object
-            x-name: GetGroupStatusResultGrouplistItem
-            properties:
-              id: {type: integer}
-              triggered: {type: boolean}
-              details:
-                type: object
-                x-name: GetGroupStatusResultGrouplistItemDetails
-                description: Dynamic content; may be empty.
-                properties:
-                  name: {type: string}
-                  currentDeviation: {type: number}
-                  threshold: {type: integer}
-                  memberAreas:
-                    type: array
-                    items:
-                      type: object
-                      x-name: GetGroupStatusResultGrouplistItemDetailsMemberAreasItem
-                      properties:
-                        areaId: {type: integer}
-                        areaName: {type: string}
-                  maxDeviationAreas:
-                    type: array
-                    items:
-                      type: object
-                      x-name: GetGroupStatusResultGrouplistItemDetailsMaxDeviationAreasItem
-                      description: 'Two entries: {maxAreaId,maxAreaTemp} and {minAreaId,minAreaTemp}.'
-                      properties:
-                        maxAreaId: {type: integer}
-                        maxAreaTemp: {type: number}
-                        minAreaId: {type: integer}
-                        minAreaTemp: {type: number}
+    result: {$ref: "#/types/GroupStatusList"}
     examples:
-    - title: Retrieve the group status
-      request:
-        params: {}
-      response:
-        data:
-          grouplist:
-          - id: 2
-            triggered: true
-            details:
-              name: Group1
-              currentDeviation: 10.0
-              memberAreas:
-              - {areaId: 1, areaName: Area1}
-              - {areaId: 2, areaName: Area2}
-              - {areaId: 3, areaName: Area3}
-              maxDeviationAreas:
-              - {maxAreaId: 1, maxAreaTemp: 25.3}
-              - {minAreaId: 3, minAreaTemp: 15.3}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#retrieve-the-group-status
+      - title: Retrieve the group status
+        request: {params: {}}
+        response:
+          data:
+            grouplist:
+              - id: 2
+                triggered: true
+                details:
+                  name: Group1
+                  currentDeviation: 10.0
+                  memberAreas:
+                    - {areaId: 1, areaName: Area1}
+                    - {areaId: 2, areaName: Area2}
+                    - {areaId: 3, areaName: Area3}
+                  maxDeviationAreas:
+                    - {maxAreaId: 1, maxAreaTemp: 25.3}
+                    - {minAreaId: 3, minAreaTemp: 15.3}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#retrieve-the-group-status
+
   add_overlay_channel:
-    summary: Add a channel that displays area overlays created on an image source.
+    summary: Add a channel that displays the area overlays created on an image source.
     access: admin
     effect: write
     write: create
-    since: '1.3'
+    since: "1.3"
     binding: {method: addOverlayChannel}
-    params:
-      type: object
-      required: [imagesource, overlayChannel]
-      properties:
-        imagesource: {type: integer, description: The image source.}
-        overlayChannel: {type: integer, description: Channel that displays/enables area overlays.}
+    params: {$ref: "#/types/OverlayChannelRequest"}
     examples:
-    - title: Add an overlay channel
-      request:
-        params: {imagesource: 1, overlayChannel: 2}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#add-an-overlay-channel
+      - title: Add an overlay channel
+        request: {params: {imagesource: 1, overlayChannel: 2}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#add-an-overlay-channel
+
   remove_overlay_channel:
-    summary: Remove an overlay channel.
+    summary: Remove an overlay channel so it no longer shows the area overlays of an image source.
     access: admin
     effect: write
     write: delete
-    since: '1.3'
+    since: "1.3"
     binding: {method: removeOverlayChannel}
-    params:
-      type: object
-      required: [imagesource, overlayChannel]
-      properties:
-        imagesource: {type: integer, description: The image source.}
-        overlayChannel: {type: integer, description: Channel that disables area overlays.}
+    params: {$ref: "#/types/OverlayChannelRequest"}
     examples:
-    - title: Remove overlay channel
-      request:
-        params: {imagesource: 1, overlayChannel: 2}
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#remove-overlay-channel
+      - title: Remove overlay channel
+        request: {params: {imagesource: 1, overlayChannel: 2}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#remove-overlay-channel
+
   list_overlay_channels:
-    summary: List active overlay channels and their image sources.
+    summary: List the active overlay channels and their image sources.
     access: admin
     effect: read
-    since: '1.3'
+    since: "1.3"
     binding: {method: listOverlayChannels}
-    result:
-      type: object
-      properties:
-        overlayList:
-          type: array
-          items:
-            type: object
-            x-name: ListOverlayChannelsResultOverlayListItem
-            properties:
-              imagesource: {type: integer}
-              overlayChannels:
-                type: array
-                items: {type: integer}
+    result: {$ref: "#/types/OverlayChannelList"}
     examples:
-    - title: List overlay channels
-      request:
-        params: {}
-      response:
-        data:
-          overlayList:
-          - {imagesource: 1, overlayChannels: [0, 2]}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#list-overlay-channels
+      - title: List overlay channels
+        request: {params: {}}
+        response:
+          data:
+            overlayList:
+              - {imagesource: 1, overlayChannels: [0, 2]}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#list-overlay-channels
+
   list_spot_meters:
-    summary: List channels with a spot meter and their state.
+    summary: List the channels that have a spot meter, and whether it is active.
     access: admin
     effect: read
-    since: '1.3'
+    since: "1.3"
     binding: {method: listSpotMeters}
-    result:
-      type: object
-      properties:
-        spotmeters:
-          type: array
-          items:
-            type: object
-            x-name: ListSpotMetersResultSpotmetersItem
-            properties:
-              imagesource: {type: integer}
-              active: {type: boolean}
+    result: {$ref: "#/types/SpotMeterList"}
     examples:
-    - title: List spot meter
-      request:
-        params: {}
-      response:
-        data:
-          spotmeters:
-          - {imagesource: 0, active: false}
-      source: https://developer.axis.com/vapix/network-video/thermometry/#list-spot-meter
+      - title: List spot meter
+        request: {params: {}}
+        response:
+          data:
+            spotmeters:
+              - {imagesource: 0, active: false}
+        source: https://developer.axis.com/vapix/network-video/thermometry/#list-spot-meter
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/thermometry/
@@ -937,24 +931,15 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Request syntax blocks miss a comma after "method" in several methods (invalid JSON).
-  - getIsothermLevels response syntax misses a comma after min.
-  - 'Required/optional status of most params is not stated; required=true marked only where inferred (inferred:
-    true).'
-  - addArea/updateArea list error code 1200 for both 'Maximum amount of areas in preset reached' and 'Preset does
-    not exist'.
-  - addGroup security level Operator but updateGroup/removeGroup Administrator.
-  - 'addGroup presetNbr: ''It will be ignored for non PTZ cameras, where it must be an existing preset number''
-    (contradictory wording).'
-  - addOverlayChannel/removeOverlayChannel syntax shows imagesource/overlayChannel as strings ("<int>"), described
-    as <int>; Content-Type written 'application-json'.
-  - listSpotMeters/listOverlayChannels syntax shows values quoted as strings ("<int>", "<boolean>").
-  - getSpotTemperature failure HTTP code is blank in the doc.
-  - Example error 1101 'Request is denied - not a thermal camera' is not in the general error table.
-  - maxDeviationAreas shown as a 2-element array mixing maxAreaId/maxAreaTemp and minAreaId/minAreaTemp objects.
-  - getIsothermLevels refers to parameter 'Image.IO.Appearance.Palette' (letter O instead of zero).
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_temperature_scale=write/patch,
-    set_isotherm_levels=write/patch, update_area=write/patch, set_tgt_configuration=write/patch, update_group=write/patch'
-  - 'migration: dropped-keywords: maxProperties x10'
+    - The docs do not say which parameters of addArea and addGroup are required. name, detectionType, measurement, threshold and vertices (areas), and name, measurement and threshold (groups) are treated as required.
+    - addArea/updateArea list error 1200 for both "maximum number of areas in preset reached" and "preset does not exist".
+    - addGroup is Operator level while updateGroup/removeGroup are Administrator.
+    - 'addGroup presetNbr: "it will be ignored for non PTZ cameras, where it must be an existing preset number" is contradictory wording.'
+    - The listAreas image-source example shows the response key "arealist"; the API specification and other examples use "areaList", which is used here. The same example shows areaOverlay "if triggered"; the enum value if_triggered is used.
+    - The getAreaStatus example shows maxPos/minPos; the parameter table says maxCoordinates/minCoordinates, which are used here.
+    - Error 1101 "Request is denied - not a thermal camera" appears only in an example, not in the general error table.
+    - maxDeviationAreas is a 2-element array mixing max* and min* objects.
+    - The docs refer to the palette parameter as Image.IO.Appearance.Palette (letter O instead of zero).
+    - set_isotherm_levels treats omitted min as "lowest possible"; whether other omitted fields keep their value is not stated (treated as patch).
   migrated_from: v1
-  curated: false
+  curated: true

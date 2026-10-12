@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: radar-properties
 name: Radar Properties
@@ -31,8 +30,8 @@ errors:
   2103: {description: Required parameter missing., kind: invalid_argument}
   2104: {description: Invalid parameter value specified., kind: invalid_argument}
   2105: {description: Authorization failed., kind: access_denied}
-  2106: {description: Authentication failed.}
-  2107: {description: Transport level error.}
+  2106: {description: Authentication failed., kind: access_denied}
+  2107: {description: Transport level error., kind: unavailable}
 
 types:
   RadarProperties:
@@ -55,9 +54,26 @@ operations:
     effect: read
     binding: {method: getRadarProperties}
     result: {$ref: '#/types/RadarProperties'}
-    errors:
-      400: {description: Bad Request}
-      500: {description: Internal server error, kind: internal}
+    examples:
+    - title: Get the radar properties
+      request: {params: {}}
+      response:
+        data:
+          device: D2210-VE
+          minDetectionRange: 10
+          maxDetectionRange: 100
+          minHorizontalAngle: -30
+          maxHorizontalAngle: 30
+          minVerticalAngle: -20
+          maxVerticalAngle: 20
+          maxRadarObjects: 50
+          maxObjectSpeed: 120.5
+          networkPaired: true
+      source: https://developer.axis.com/vapix/radar/radar-properties/#getradarproperties
+    - title: Internal error
+      request: {params: {}}
+      response: {error: {code: 1100, message: Internal error.}}
+      source: https://developer.axis.com/vapix/radar/radar-properties/#getradarproperties
 
 sources:
 - url: https://developer.axis.com/vapix/radar/radar-properties/
@@ -69,8 +85,8 @@ provenance:
   open_questions:
   - Endpoint documented as 'http://<servername>/properties.cgi#getRadarProperties'; the real CGI path (likely under
     /axis-cgi/radar/) is not stated. https://developer.axis.com/vapix/radar/radar-properties/#getradarproperties
-  - Units of detection range (m?), angles (degrees?) and maxObjectSpeed (km/h? m/s?) are not given.
-  - Relationship between HTTP 400/500 text responses and the JSON error body is unclear; access level not stated.
-  - 'migration: discovery: param_property ''Properties.Radar.Properties.Version'' is not a Name=value pair: dropped'
+  - Units of detection range (m?), angles (degrees?) and maxObjectSpeed (km/h? m/s?) are not given; the docs do not say which result fields are always present, so all are optional.
+  - The docs list HTTP 400 and 500 text/plain responses next to the JSON error body; the relationship is unclear, so only the JSON error codes are modelled. Access level not stated (admin assumed).
+  - Parameter discovery by Properties.Radar.Properties.Version is documented without a value, so only API Discovery is used.
   migrated_from: v1
-  curated: false
+  curated: true

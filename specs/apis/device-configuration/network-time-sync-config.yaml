@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: network-time-sync-config
 name: Network time synchronization configuration API
@@ -27,33 +26,42 @@ types:
     type: object
     description: This entity contains properties for the NTP protocol.
     properties:
-      client: {$ref: '#/types/Client'}
-  Client:
+      client: {$ref: '#/types/NtpClient'}
+  NtpClient:
     type: object
-    description: This entity contains the client specific configuration settings for the NTP protocol, such as polling
-      intervals, server sources, and synchronization status.
-    properties: {}
+    description: Client-specific configuration settings for the NTP protocol, such as polling intervals, server sources and synchronization status. Property types are inferred from the docs example.
+    x-read-only: [advertisedServers, synced, timeOffset, timeToNextSync]
+    properties:
+      advertisedServers: {type: array, items: {type: string}, description: 'NTP servers in use, for example advertised by DHCP.'}
+      enabled: {type: boolean, description: Whether the NTP client is enabled (default true).}
+      maximumPoll: {type: integer, description: Maximum polling interval.}
+      minimumPoll: {type: integer, description: Minimum polling interval.}
+      serversSource: {type: string, description: 'Where the servers come from, for example DHCP.'}
+      staticServers: {type: array, items: {type: string}, description: Statically configured NTP servers.}
+      synced: {type: boolean, description: Whether the clock is synchronized.}
+      timeOffset: {type: integer, description: Current time offset.}
+      timeToNextSync: {type: integer, description: Time to the next synchronization.}
   UpdateClientRequest:
     type: object
-    description: Arguments of ``update_client``.
+    description: Arguments of ``update_client``. Only the given settings change.
     properties:
-      enabled: {}
-      maximumPoll: {}
-      minimumPoll: {}
-      serversSource: {}
-      staticServers: {}
+      enabled: {type: boolean, description: Whether the NTP client is enabled (default true).}
+      maximumPoll: {type: integer, description: Maximum polling interval.}
+      minimumPoll: {type: integer, description: Minimum polling interval.}
+      serversSource: {type: string, description: 'Where the servers come from, for example DHCP.'}
+      staticServers: {type: array, items: {type: string}, description: Statically configured NTP servers.}
 
 operations:
   get_client:
-    summary: Get the client settings.
+    summary: Get the NTP client configuration and synchronization status.
     effect: read
     binding: {method: GET, path: /ntp/client}
+    result: {$ref: '#/types/NtpClient'}
     examples:
     - title: Get NTP client configuration
-      request:
-        path: ''
-        body: {operation: GET, path: network-time-sync.v1.ntp.client}
+      request: {path: /ntp/client}
       response:
+        status: 200
         body:
           status: success
           data:
@@ -68,18 +76,18 @@ operations:
             timeToNextSync: 0
       source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#get-ntp-client-configuration
   update_client:
-    summary: Update the client settings.
+    summary: Update the NTP client configuration; only the given settings change.
     effect: write
     write: patch
     binding: {method: PATCH, path: /ntp/client, body: object}
     params: {$ref: '#/types/UpdateClientRequest'}
+    round_trip:
+      from: NtpClient
     examples:
     - title: Enable NTP client configuration
       request:
-        path: ''
+        path: /ntp/client
         body:
-          operation: SET
-          path: network-time-sync.v1.ntp.client
           data:
             enabled: true
             maximumPoll: 10
@@ -87,6 +95,7 @@ operations:
             serversSource: DHCP
             staticServers: [192.168.0.1]
       response:
+        status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#enable-ntp-client-configuration
 
@@ -96,16 +105,11 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: stub
+  completeness: partial
   open_questions:
-  - 'The API definition has no Entities/properties/data types: only two entity names with one-line descriptions.
-    Property names, types, permissions and operations are inferred from the two abstract JSON examples. Source:
-    https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#api-definition'
-  - 'Version conflict: prose refers to network-time-sync.v2.ntp.client while examples and Objects use network-time-sync.v1.
-    Base path v1 used. Source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#use-cases'
-  - '''Disable NTP client: set network-time-sync.v2.ntp.client to false'' presumably means setting the enabled property;
-    not stated precisely. Source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#disable-ntp-client-configuration'
-  - 'Maturity (beta/released), AXIS OS version and permissions are not stated. Source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/'
-  - 'migration: status: v1 status ''unknown'' mapped to released'
+  - 'The API definition lists only two entity names. Property names and types come from the two docs examples; types, units, the serversSource values, which fields are read-only (assumed: advertisedServers, synced, timeOffset, timeToNextSync) and permissions are not documented.'
+  - 'Version conflict: the prose refers to network-time-sync.v2.ntp.client while examples use v1. The v1 path is used.'
+  - 'The docs examples use an abstract {operation, path} form; they are mapped to the framework paths and HTTP methods.'
+  - 'Maturity (beta or released), AXIS OS version and permissions are not stated.'
   migrated_from: v1
   curated: false

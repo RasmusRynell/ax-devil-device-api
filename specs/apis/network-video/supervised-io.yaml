@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: supervised-io
 name: Supervised I/O
@@ -30,265 +29,275 @@ binding:
   params_placement: params
 
 errors:
-  100: {description: Unsupported API version (API version 1.0), kind: unsupported}
-  101: {description: Internal error (API version 1.0), kind: unsupported}
-  102: {description: Mandatory parameter(s) missing (API version 1.0), kind: unsupported}
-  103: {description: Unknown parameter supplied (API version 1.0), kind: unsupported}
-  200: {description: JSON input error (API version 1.0), kind: unsupported}
-  201: {description: Unexpected error (API version 1.0), kind: unsupported}
-  202: {description: Generic error (API version 1.0), kind: unsupported}
-  203: {description: Invalid method (API version 1.0), kind: unsupported}
-  300: {description: Faulty parameter (API version 1.0), kind: unsupported}
-  301: {description: Invalid range (API version 1.0), kind: unsupported}
-  302: {description: Invalid port parameter (API version 1.0), kind: unsupported}
-  303: {description: Port not supervisable (API version 1.0), kind: unsupported}
-  1100: {description: Internal error (API version 2.0), kind: unsupported}
-  2100: {description: Unsupported API version (API version 2.0), kind: unsupported}
-  2101: {description: JSON input error (API version 2.0), kind: unsupported}
-  2102: {description: Invalid method (API version 2.0), kind: unsupported}
-  2103: {description: Mandatory parameter(s) missing (API version 2.0), kind: unsupported}
-  2200: {description: Unknown parameter supplied (API version 2.0), kind: unsupported}
-  2201: {description: Unexpected error (API version 2.0), kind: unsupported}
-  2202: {description: Generic error (API version 2.0), kind: unsupported}
-  2203: {description: Faulty parameter value (API version 2.0), kind: unsupported}
-  2204: {description: Invalid range (API version 2.0), kind: unsupported}
-  2205: {description: Invalid port parameter (API version 2.0), kind: unsupported}
-  2206: {description: Port not supervisable (API version 2.0), kind: unsupported}
+  1100: {description: Internal error, kind: internal}
+  2100: {description: Unsupported API version, kind: unsupported}
+  2101: {description: JSON input error, kind: invalid_argument}
+  2102: {description: Invalid method, kind: unsupported}
+  2103: {description: Mandatory parameter(s) missing, kind: invalid_argument}
+  2200: {description: Unknown parameter supplied, kind: invalid_argument}
+  2201: {description: Unexpected error, kind: internal}
+  2202: {description: Generic error, kind: internal}
+  2203: {description: Faulty parameter value, kind: invalid_argument}
+  2204: {description: Invalid range, kind: invalid_argument}
+  2205: {description: Invalid port parameter, kind: invalid_argument}
+  2206: {description: Port not supervisable, kind: unsupported}
 
 types:
   Range:
     type: object
+    description: Limits of the analog level that correspond to one port state.
+    required: [state, lowerlimit, upperlimit]
     properties:
       state:
         type: string
-        description: The state to set the ranges for / name of the state (e.g. short, close/closed, open, cut).
-      lowerlimit: {type: integer, description: The lower limit (lower voltage range).}
-      upperlimit: {type: integer, description: The upper limit (upper voltage range).}
-  PortSelector:
+        description: Name of the state, for example ``short``, ``close``, ``open`` or ``cut``. The documentation is inconsistent on the exact names; use the ones from ``get_supported_states``.
+      lowerlimit: {type: integer, description: Lower limit of the analog level range.}
+      upperlimit: {type: integer, description: Upper limit of the analog level range.}
+
+  PortQuery:
     type: object
+    description: Selects one I/O port. An empty list of queries, or a query without a port, addresses all ports as described per operation.
+    properties:
+      port: {type: integer, description: The I/O port to address.}
+
+  PortCapability:
+    type: object
+    required: [port, input, output]
+    properties:
+      port: {type: integer, description: The port number.}
+      input: {type: boolean, description: True if a supervised input exists.}
+      output: {type: boolean, description: True if a supervised output exists.}
+
+  PortSupervision:
+    type: object
+    required: [port, supervised, supervisable]
     properties:
       port: {type: integer}
+      supervised: {type: boolean, description: True if the port is supervised.}
+      supervisable: {type: boolean, description: True if the port can be supervised.}
+      state: {type: string, description: The current state of the port.}
+      level: {type: integer, description: The current analog level.}
+
+  PortRanges:
+    type: object
+    required: [port, ranges]
+    properties:
+      port: {type: integer}
+      ranges:
+        type: array
+        description: The ranges of each state. Empty if no ranges are set or the port is not supervisable.
+        items: {$ref: "#/types/Range"}
+
+  State:
+    type: object
+    required: [name]
+    properties:
+      name: {type: string}
+
+  PortStates:
+    type: object
+    required: [port, states]
+    properties:
+      port: {type: integer}
+      states:
+        type: array
+        items: {$ref: "#/types/State"}
+
+  PortSupervisionSetting:
+    type: object
+    description: Supervision settings for one port.
+    required: [supervised]
+    properties:
+      port: {type: integer, description: "The port to configure. If omitted, all ports are configured."}
+      supervised: {type: boolean, description: "True activates supervised I/O for the port, false deactivates it."}
+      ranges:
+        type: array
+        description: The range of limits for each state.
+        items: {$ref: "#/types/Range"}
+
+  SetResult:
+    type: object
+    required: [port, code]
+    properties:
+      port: {type: integer}
+      code: {type: integer, description: "``1`` if the operation succeeded, otherwise one of the error codes."}
+      message: {type: string, description: "Describes the error, if any."}
+
+  NumberOfPorts:
+    type: object
+    required: [inputs, outputs]
+    properties:
+      inputs: {type: integer, description: Number of input ports.}
+      outputs: {type: integer, description: Number of output ports.}
+
+  SupervisableResult:
+    type: object
+    required: [items]
+    properties:
+      items:
+        type: array
+        items: {$ref: "#/types/PortCapability"}
+
+  SupervisedResult:
+    type: object
+    required: [items]
+    properties:
+      items:
+        type: array
+        items: {$ref: "#/types/PortSupervision"}
+
+  SupervisedRangesResult:
+    type: object
+    required: [items]
+    properties:
+      items:
+        type: array
+        items: {$ref: "#/types/PortRanges"}
+
+  SupportedStatesResult:
+    type: object
+    required: [items]
+    properties:
+      items:
+        type: array
+        items: {$ref: "#/types/PortStates"}
+
+  SetSupervisedResult:
+    type: object
+    required: [items]
+    properties:
+      items:
+        type: array
+        items: {$ref: "#/types/SetResult"}
 
 operations:
   get_number_of_ports:
     summary: Return the number of input and output ports.
     effect: read
     binding: {method: getNumberOfPorts}
-    result:
-      type: object
-      properties:
-        inputs: {type: integer}
-        outputs: {type: integer}
+    result: {$ref: "#/types/NumberOfPorts"}
     examples:
-    - title: get_number_of_ports
-      request:
-        params: {}
-      response:
-        data: {inputs: 2, outputs: 2}
-      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+      - title: Get the number of ports
+        request: {params: {}}
+        response:
+          data: {inputs: 2, outputs: 2}
+        source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+
   is_supervisable:
-    summary: Check if an I/O port can be set to supervised.
+    summary: Check which I/O ports can be set to supervised.
+    description: Without port queries, only supervisable ports are returned.
     effect: read
     binding: {method: isSupervisable}
     params:
       type: array
-      items:
-        type: object
-        x-name: IsSupervisableRequestItem
-        properties:
-          port:
-            type: integer
-            description: Which I/O port to check. If left out, only supervisable ports are returned. params is an
-              array of {port} objects.
-    result:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            x-name: IsSupervisableResultItemsItem
-            properties:
-              port: {type: integer}
-              input: {type: boolean}
-              output: {type: boolean}
+      x-arg-name: ports
+      items: {$ref: "#/types/PortQuery"}
+    result: {$ref: "#/types/SupervisableResult"}
     examples:
-    - title: is_supervisable
-      request:
-        params: {}
-      response:
-        data:
-          items:
-          - {port: 0, input: true, output: false}
-          - {port: 1, input: true, output: false}
-      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+      - title: Check which ports are supervisable
+        request: {params: []}
+        response:
+          data:
+            items:
+              - {port: 0, input: true, output: false}
+              - {port: 1, input: true, output: false}
+        source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+
   get_supervised:
-    summary: Check if an I/O port is supervised and its current state and analog level.
+    summary: Check if I/O ports are supervised, with their current state and analog level.
+    description: Without port queries, information about all supervised ports is returned.
     effect: read
     binding: {method: getSupervised}
     params:
       type: array
-      items:
-        type: object
-        x-name: GetSupervisedRequestItem
-        properties:
-          port:
-            type: integer
-            description: Which I/O port to check. If left out, information regarding all supervised ports are returned.
-    result:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            x-name: GetSupervisedResultItemsItem
-            properties:
-              port: {type: integer}
-              supervised: {type: boolean}
-              supervisable: {type: boolean}
-              state: {type: string}
-              level: {type: integer}
+      x-arg-name: ports
+      items: {$ref: "#/types/PortQuery"}
+    result: {$ref: "#/types/SupervisedResult"}
     examples:
-    - title: Read status from supervised ports
-      request:
-        params:
-        - {port: 1}
-        - {port: 2}
-      response:
-        data:
-          items:
-          - {port: 1, supervised: true, supervisable: true, state: short, level: 0}
-          - {port: 2, supervised: true, supervisable: true, state: open, level: 2300}
-      source: https://developer.axis.com/vapix/network-video/supervised-io/#read-status-from-supervised-ports
+      - title: Read status from supervised ports
+        request:
+          params:
+            - {port: 1}
+            - {port: 2}
+        response:
+          data:
+            items:
+              - {port: 1, supervised: true, supervisable: true, state: short, level: 0}
+              - {port: 2, supervised: true, supervisable: true, state: open, level: 2300}
+        source: https://developer.axis.com/vapix/network-video/supervised-io/#read-status-from-supervised-ports
+
   set_supervised:
-    summary: Enable/disable supervision of an I/O port, or configure the ranges for a supervised port.
+    summary: Enable or disable supervision of I/O ports, or configure the ranges of supervised ports.
+    description: Each port is reported separately in the result; a ``code`` of 1 means success.
     effect: write
     write: patch
     binding: {method: setSupervised}
     params:
       type: array
-      items:
-        type: object
-        x-name: SetSupervisedRequestItem
-        required: [supervised]
-        properties:
-          port: {type: integer, description: 'The port to configure. If omitted, all ports are configured.'}
-          supervised:
-            type: boolean
-            description: True activates supervised I/O for the port. False deactivates supervised I/O for the port.
-              (Requiredness not stated.)
-          ranges:
-            type: array
-            items: {$ref: '#/types/Range'}
-            description: Array with range of limits set for each state.
-    result:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            x-name: SetSupervisedResultItemsItem
-            properties:
-              port: {type: integer}
-              code: {type: integer}
-              message: {type: string}
+      x-arg-name: ports
+      items: {$ref: "#/types/PortSupervisionSetting"}
+    result: {$ref: "#/types/SetSupervisedResult"}
     examples:
-    - title: Example 1 - set ranges for ports 0 and 1
-      request:
-        params:
-        - port: 0
-          supervised: true
-          ranges:
-          - {state: short, lowerlimit: 0, upperlimit: 9}
-          - {state: close, lowerlimit: 10, upperlimit: 90}
-          - {state: open, lowerlimit: 91, upperlimit: 200}
-          - {state: cut, lowerlimit: 201, upperlimit: 255}
-        - port: 1
-          supervised: true
-          ranges:
-          - {state: short, lowerlimit: 0, upperlimit: 9}
-          - {state: close, lowerlimit: 10, upperlimit: 90}
-          - {state: open, lowerlimit: 91, upperlimit: 200}
-          - {state: cut, lowerlimit: 201, upperlimit: 255}
-      response:
-        data:
-          items:
-          - {port: 0, code: 1, message: ''}
-          - {port: 1, code: 1, message: ''}
-      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+      - title: Set ranges for ports 0 and 1
+        request:
+          params:
+            - port: 0
+              supervised: true
+              ranges:
+                - {state: short, lowerlimit: 0, upperlimit: 9}
+                - {state: close, lowerlimit: 10, upperlimit: 90}
+                - {state: open, lowerlimit: 91, upperlimit: 200}
+                - {state: cut, lowerlimit: 201, upperlimit: 255}
+            - port: 1
+              supervised: true
+              ranges:
+                - {state: short, lowerlimit: 0, upperlimit: 9}
+                - {state: close, lowerlimit: 10, upperlimit: 90}
+                - {state: open, lowerlimit: 91, upperlimit: 200}
+                - {state: cut, lowerlimit: 201, upperlimit: 255}
+        response:
+          data:
+            items:
+              - {port: 0, code: 1, message: ""}
+              - {port: 1, code: 1, message: ""}
+        source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+
   get_supervised_ranges:
-    summary: Get the ranges corresponding to the states of a port.
+    summary: Get the ranges that correspond to the states of each port.
+    description: Without port queries, information about all ports is returned.
     effect: read
     binding: {method: getSupervisedRanges}
     params:
       type: array
-      items:
-        type: object
-        x-name: GetSupervisedRangesRequestItem
-        properties:
-          port:
-            type: integer
-            description: Which I/O port to check. If it is omitted, information about all ports are returned.
-    result:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            x-name: GetSupervisedRangesResultItemsItem
-            properties:
-              port: {type: integer}
-              ranges:
-                type: array
-                items: {$ref: '#/types/Range'}
+      x-arg-name: ports
+      items: {$ref: "#/types/PortQuery"}
+    result: {$ref: "#/types/SupervisedRangesResult"}
+
   get_supported_states:
-    summary: Retrieve the states supported (open, close, cut, shorted) per port.
+    summary: Retrieve the states supported by each port.
+    description: Without port queries, information about all ports is returned.
     effect: read
     binding: {method: getSupportedStates}
     params:
       type: array
-      items:
-        type: object
-        x-name: GetSupportedStatesRequestItem
-        properties:
-          port:
-            type: integer
-            description: Which I/O port to check. If omitted, information regarding all ports is returned.
-    result:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            x-name: GetSupportedStatesResultItemsItem
-            properties:
-              port: {type: integer}
-              states:
-                type: array
-                items:
-                  type: object
-                  x-name: GetSupportedStatesResultItemsItemStatesItem
-                  properties:
-                    name: {type: string}
+      x-arg-name: ports
+      items: {$ref: "#/types/PortQuery"}
+    result: {$ref: "#/types/SupportedStatesResult"}
     examples:
-    - title: get_supported_states
-      request:
-        params:
-        - {port: 1}
-      response:
-        data:
-          items:
-          - port: 1
-            states:
-            - {name: short}
-            - {name: close}
-            - {name: open}
-            - {name: cut}
-      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+      - title: Get the supported states of port 1
+        request:
+          params:
+            - {port: 1}
+        response:
+          data:
+            items:
+              - port: 1
+                states:
+                  - {name: short}
+                  - {name: close}
+                  - {name: open}
+                  - {name: cut}
+        source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/supervised-io/
@@ -298,28 +307,11 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'State names are inconsistent: the description lists open, close, cut and shorted; getSupportedStates example
-    returns short/close/open/cut; the A9210 example uses ''closed''. Valid enum values for ranges[].state are not
-    documented.'
-  - Version 1.0 OK response for setSupervised is said to differ but is not documented.
-  - 'Range limit units: getSupervisedRanges says ''voltage range'' but values are raw integers (0-255 or 0-4095
-    in examples); unit not stated.'
-  - 'getSupportedStates error section has no HTTP code/content type listed (others: 200 OK, application/json).'
-  - getSupportedVersions success syntax shows '<Major2>.Minor2' (missing brackets) and the error syntax block is
-    missing a closing brace.
-  - setSupervised table writes 'params[].port<integer>' (missing '='); requiredness of params[].supervised not stated.
-  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
-    suffix _v2 for later majors) is needed for the others'
-  - 'migration: params-array: is_supervisable: params is an array of objects (params[].x)'
-  - 'migration: params-array: get_supervised: params is an array of objects (params[].x)'
-  - 'migration: params-array: set_supervised: params is an array of objects (params[].x)'
-  - 'migration: params-array: get_supervised_ranges: params is an array of objects (params[].x)'
-  - 'migration: params-array: get_supported_states: params is an array of objects (params[].x)'
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_supervised=write/patch'
-  - 'migration: params-not-object: is_supervisable: params is not an object schema (generator needs a model)'
-  - 'migration: params-not-object: get_supervised: params is not an object schema (generator needs a model)'
-  - 'migration: params-not-object: set_supervised: params is not an object schema (generator needs a model)'
-  - 'migration: params-not-object: get_supervised_ranges: params is not an object schema (generator needs a model)'
-  - 'migration: params-not-object: get_supported_states: params is not an object schema (generator needs a model)'
+    - 'State names are inconsistent: the description lists open, close, cut and shorted; the getSupportedStates example returns short/close/open/cut; the A9210 example uses "closed". Valid values for ranges[].state are not documented, so state is a free string.'
+    - 'Range limit units: getSupervisedRanges says "voltage range" but values are raw integers (0-255 or 0-4095 in examples); the unit is not stated.'
+    - 'getSupervised.state and level are treated as optional; the docs do not say they are always present.'
+    - 'setSupervised: requiredness of params[].supervised is not explicit; treated as required. Whether it patches or replaces the ranges is not stated; treated as patch.'
+    - 'The docs examples call isSupervisable without params and the descriptions say that omitting port queries returns all ports; the generated client always sends params (an empty list for all ports). Whether the device accepts params: [] is unverified.'
+    - 'API version 1.0 (error codes 100-303 and a different setSupervised OK response) is not covered; a separate spec would be needed.'
   migrated_from: v1
-  curated: false
+  curated: true

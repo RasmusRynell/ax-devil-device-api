@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: directional-audio-detection-config
 name: Directional audio detection API
-summary: The VAPIX® Directional audio detection API makes it possible to configure the directional audio detection,
-  PTZ calibration, PTZ control and fisheye overlays.
+summary: Configure directional audio detection, PTZ calibration, PTZ control and fisheye overlays, and read detected audio events.
 section: device-configuration
 family: dca
 status: released
@@ -22,6 +20,7 @@ types:
   AudioEventData:
     type: object
     description: Audio event data
+    required: [id, level, pan, phi, phiValid, theta, threshold, tilt, timestamp]
     properties:
       id: {type: integer, description: Event ID}
       level: {type: number, description: The audio level when triggered (dB)}
@@ -34,14 +33,9 @@ types:
       threshold: {$ref: '#/types/DetectionThreshold', description: Audio detection threshold value (dB)}
       tilt: {type: integer, description: Tilt angle to audio source that triggered}
       timestamp: {type: integer, description: 'The number of seconds since January 1, 1970 UTC.'}
-  AudioEventsData:
-    type: array
-    items: {$ref: '#/types/AudioEventData'}
-    description: Array of audio event data
   DefaultTilt: {type: number, minimum: -90, maximum: 0, description: Default tilt position value}
   DetectionThreshold: {type: number, minimum: 1, maximum: 20, description: Detection threshold data}
   DwellTime: {type: integer, minimum: 1, maximum: 600, description: Dwell time value (s)}
-  EmptyObject: {type: object, description: Empty object}
   PanOffset: {type: number, minimum: -180, maximum: 180, description: Pan offset value}
   ViewareaTimeout:
     type: integer
@@ -57,10 +51,13 @@ types:
     - fisheyeOverlay_supported
     - ptzControl_supported
     properties:
-      audioEvents: {$ref: '#/types/AudioEventsData', description: Audio events}
-      adm_supported: {type: boolean}
-      fisheyeOverlay_supported: {type: boolean}
-      ptzControl_supported: {type: boolean}
+      audioEvents:
+        type: array
+        items: {$ref: '#/types/AudioEventData'}
+        description: Up to 1000 of the latest detected audio events.
+      adm_supported: {type: boolean, description: Whether the device supports Audio Detection Multiview.}
+      fisheyeOverlay_supported: {type: boolean, description: Whether the device supports fisheye overlays.}
+      ptzControl_supported: {type: boolean, description: Whether the device supports PTZ control.}
       adm: {$ref: '#/types/Adm'}
       baseSettings: {$ref: '#/types/BaseSettings'}
       fisheyeOverlay: {$ref: '#/types/FisheyeOverlay'}
@@ -90,6 +87,7 @@ types:
   PtzControl:
     type: object
     description: Entity for ptz control
+    x-read-only: [calibration]
     properties:
       enabled: {type: boolean, description: Turn ptz control on or off}
       useVisualObjects: {type: boolean, description: Turn use visual objects on or off}
@@ -97,53 +95,139 @@ types:
   Calibration:
     type: object
     description: Calibration of ptz control
+    x-read-only: [defaultTilt, panOffset]
     properties:
-      defaultTilt: {$ref: '#/types/CalibrationDefaultTilt'}
-      panOffset: {$ref: '#/types/CalibrationPanOffset'}
-  CalibrationDefaultTilt:
+      defaultTilt: {$ref: '#/types/DefaultTiltCalibration'}
+      panOffset: {$ref: '#/types/PanOffsetCalibration'}
+  DefaultTiltCalibration:
     type: object
     description: Default tilt value to use when Directional Audio Detection event doesn't contain tilt value
+    x-read-only: [value]
     properties:
       value: {$ref: '#/types/DefaultTilt', description: The default tilt value}
-  CalibrationPanOffset:
+  PanOffsetCalibration:
     type: object
     description: Pan offset to PTZ camera
+    x-read-only: [manuallyCalibrated, preCalibrated, value]
     properties:
       manuallyCalibrated: {type: boolean, description: If panOffset has been manually calibrated}
       preCalibrated: {type: boolean, description: If panOffset is pre-calibrated from factory default}
       value: {$ref: '#/types/PanOffset', description: The pan offset value}
   UpdateAllRequest:
     type: object
-    description: Arguments of ``update_all``.
-    properties: {}
+    description: Arguments of ``update_all``. Only the given settings are changed.
+    properties:
+      adm: {$ref: '#/types/Adm'}
+      baseSettings: {$ref: '#/types/BaseSettings'}
+      fisheyeOverlay: {$ref: '#/types/FisheyeOverlay'}
+      ptzControl: {$ref: '#/types/PtzControl'}
 
 operations:
   get_all:
-    summary: All data of the Directional audio detection API API.
+    summary: All settings of the Directional audio detection API.
     effect: read
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/DirectionalAudioDetection'}
+    examples:
+      - title: Get root entity
+        request:
+          path: ''
+        response:
+          status: 200
+          body: {status: success, data: {audioEvents: [], baseSettings: {detectionThreshold: 3, dwellTime: 2, enabled: false, windDetect: true}, ptzControl: {calibration: {defaultTilt: {value: -25}, panOffset: {manuallyCalibrated: false, preCalibrated: true, value: 35}}, enabled: false, useVisualObjects: false}, adm: {viewareaTimeout: 300}, fisheyeOverlay: {enabled: false}}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
   update_all:
-    summary: Update the Directional audio detection API settings.
+    summary: Update the Directional audio detection settings.
+    description: Only the given settings are changed. Read-only settings such as the calibration are never sent.
     effect: write
     write: patch
     binding: {method: PATCH, path: '', body: object}
     params: {$ref: '#/types/UpdateAllRequest'}
+
+  list_audio_events:
+    summary: Up to 1000 of the latest detected audio events.
+    effect: read
+    binding: {method: GET, path: /audioEvents}
+    result:
+      type: array
+      items: {$ref: '#/types/AudioEventData'}
+    examples:
+      - title: Audio events
+        request:
+          path: /audioEvents
+        response:
+          status: 200
+          body: {status: success, data: [{id: 1, level: 3.610333, pan: -176, phi: 96.511383, phiValid: true, theta: 211.468811, threshold: 3, tilt: -6, timestamp: 1728292599}, {id: 3, level: 3.447409, pan: -149, phi: 0, phiValid: false, theta: 184.536667, threshold: 3, tilt: -25, timestamp: 1728292961}]}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
+  get_adm_supported:
+    summary: Whether the device supports Audio Detection Multiview.
+    access: operator
+    effect: read
+    binding: {method: GET, path: /adm_supported}
+    result: {type: boolean}
+    examples:
+      - title: Check ADM support
+        request:
+          path: /adm_supported
+        response:
+          status: 200
+          body: {status: success, data: true}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
+  get_fisheye_overlay_supported:
+    summary: Whether the device supports fisheye overlays.
+    access: operator
+    effect: read
+    binding: {method: GET, path: /fisheyeOverlay_supported}
+    result: {type: boolean}
+    examples:
+      - title: Check fisheye overlay support
+        request:
+          path: /fisheyeOverlay_supported
+        response:
+          status: 200
+          body: {status: success, data: true}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
+  get_ptz_control_supported:
+    summary: Whether the device supports PTZ control.
+    access: operator
+    effect: read
+    binding: {method: GET, path: /ptzControl_supported}
+    result: {type: boolean}
+    examples:
+      - title: Check PTZ control support
+        request:
+          path: /ptzControl_supported
+        response:
+          status: 200
+          body: {status: success, data: true}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
+
   get_adm:
-    summary: Get the adm settings.
+    summary: Get the Audio Detection Multiview settings.
     effect: read
     binding: {method: GET, path: /adm}
     result: {$ref: '#/types/Adm'}
+    examples:
+      - title: Get ADM settings
+        request:
+          path: /adm
+        response:
+          status: 200
+          body: {status: success, data: {viewareaTimeout: 300}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
   set_adm_viewarea_timeout:
-    summary: Set the viewarea timeout of the adm.
+    summary: Set the time before the contents of a view area is considered obsolete.
     access: operator
     effect: write
     write: patch
-    binding:
-      method: PATCH
-      path: /adm/viewareaTimeout
-      body_field: viewareaTimeout
-      body: value
+    binding: {method: PATCH, path: /adm/viewareaTimeout, body_field: viewareaTimeout, body: value}
+    positional: [viewareaTimeout]
     params:
       type: object
       required: [viewareaTimeout]
@@ -151,52 +235,81 @@ operations:
         viewareaTimeout:
           $ref: '#/types/ViewareaTimeout'
           description: Time (s) before the contents of a view area is considered obsolete
+    examples:
+      - title: Set the ADM view area timeout
+        request:
+          path: /adm/viewareaTimeout
+          body: {data: 300}
+        response:
+          status: 200
+          body: {status: success}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
   get_base_settings:
-    summary: Get the base setting settings.
+    summary: Get the base settings.
     effect: read
     binding: {method: GET, path: /baseSettings}
     result: {$ref: '#/types/BaseSettings'}
   set_base_settings_detection_threshold:
-    summary: Set the detection threshold of the base setting.
+    summary: Set the threshold (dB) for detecting a sound.
     effect: write
     write: patch
-    binding:
-      method: PATCH
-      path: /baseSettings/detectionThreshold
-      body_field: detectionThreshold
-      body: value
+    binding: {method: PATCH, path: /baseSettings/detectionThreshold, body_field: detectionThreshold, body: value}
+    positional: [detectionThreshold]
     params:
       type: object
       required: [detectionThreshold]
       properties:
-        detectionThreshold: {$ref: '#/types/DetectionThreshold', description: The threshold (dB) for detecting a
-            sound}
+        detectionThreshold: {$ref: '#/types/DetectionThreshold', description: The threshold (dB) for detecting a sound}
+    examples:
+      - title: Set the threshold
+        request:
+          path: /baseSettings/detectionThreshold
+          body: {data: 8}
+        response:
+          status: 200
+          body: {status: success}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
   set_base_settings_dwell_time:
-    summary: Set the dwell time of the base setting.
+    summary: Set the minimum time (s) before detecting a new sound.
     effect: write
     write: patch
     binding: {method: PATCH, path: /baseSettings/dwellTime, body_field: dwellTime, body: value}
+    positional: [dwellTime]
     params:
       type: object
       required: [dwellTime]
       properties:
         dwellTime: {$ref: '#/types/DwellTime', description: The minimum time (s) before detecting a new sound}
   set_base_settings_enabled:
-    summary: Set the enabled of the base setting.
+    summary: Turn directional audio detection on or off.
     access: operator
     effect: write
     write: patch
     binding: {method: PATCH, path: /baseSettings/enabled, body_field: enabled, body: value}
+    positional: [enabled]
     params:
       type: object
       required: [enabled]
       properties:
         enabled: {type: boolean, description: Turn on or off the Directional Audio Detection}
+    examples:
+      - title: Enable directional audio detection
+        request:
+          path: /baseSettings/enabled
+          body: {data: true}
+        response:
+          status: 200
+          body: {status: success}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
   set_base_settings_wind_detect:
-    summary: Set the wind detect of the base setting.
+    summary: Turn wind detection on or off.
     effect: write
     write: patch
     binding: {method: PATCH, path: /baseSettings/windDetect, body_field: windDetect, body: value}
+    positional: [windDetect]
     params:
       type: object
       required: [windDetect]
@@ -205,82 +318,148 @@ operations:
           type: boolean
           description: Detects if an audio event is wind or not. Should be on outdoors, and off indoors.
   test_event:
-    summary: Generate a test event
+    summary: Generate a test event.
     effect: action
-    binding: {method: POST, path: /baseSettings/testEvent, body: none}
+    binding: {method: POST, path: /baseSettings/testEvent, body: object}
+
   get_fisheye_overlay:
     summary: Get the fisheye overlay settings.
     effect: read
     binding: {method: GET, path: /fisheyeOverlay}
     result: {$ref: '#/types/FisheyeOverlay'}
+    examples:
+      - title: Get the fisheye overlay settings
+        request:
+          path: /fisheyeOverlay
+        response:
+          status: 200
+          body: {status: success, data: {enabled: false}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
   set_fisheye_overlay_enabled:
-    summary: Set the enabled of the fisheye overlay.
+    summary: Turn fisheye overlays on or off.
     access: operator
     effect: write
     write: patch
     binding: {method: PATCH, path: /fisheyeOverlay/enabled, body_field: enabled, body: value}
+    positional: [enabled]
     params:
       type: object
       required: [enabled]
       properties:
         enabled: {type: boolean, description: Turn fisheye overlays on or off}
+    examples:
+      - title: Enable fisheye overlays
+        request:
+          path: /fisheyeOverlay/enabled
+          body: {data: true}
+        response:
+          status: 200
+          body: {status: success}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
+
   get_ptz_control:
-    summary: Get the ptz control settings.
+    summary: Get the PTZ control settings, including the calibration.
     effect: read
     binding: {method: GET, path: /ptzControl}
     result: {$ref: '#/types/PtzControl'}
+    examples:
+      - title: Get PTZ control
+        request:
+          path: /ptzControl
+        response:
+          status: 200
+          body: {status: success, data: {calibration: {defaultTilt: {value: -25}, panOffset: {manuallyCalibrated: false, preCalibrated: true, value: 35}}, enabled: false, useVisualObjects: false}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
   set_ptz_control_enabled:
-    summary: Set the enabled of the ptz control.
+    summary: Turn PTZ control on or off.
     access: operator
     effect: write
     write: patch
     binding: {method: PATCH, path: /ptzControl/enabled, body_field: enabled, body: value}
+    positional: [enabled]
     params:
       type: object
       required: [enabled]
       properties:
         enabled: {type: boolean, description: Turn ptz control on or off}
   set_ptz_control_use_visual_objects:
-    summary: Set the use visual objects of the ptz control.
+    summary: Turn the use of visual objects on or off.
     effect: write
     write: patch
-    binding:
-      method: PATCH
-      path: /ptzControl/useVisualObjects
-      body_field: useVisualObjects
-      body: value
+    binding: {method: PATCH, path: /ptzControl/useVisualObjects, body_field: useVisualObjects, body: value}
+    positional: [useVisualObjects]
     params:
       type: object
       required: [useVisualObjects]
       properties:
         useVisualObjects: {type: boolean, description: Turn use visual objects on or off}
   get_calibration:
-    summary: Get the calibration settings.
+    summary: Get the PTZ calibration settings.
     effect: read
     binding: {method: GET, path: /ptzControl/calibration}
     result: {$ref: '#/types/Calibration'}
   get_default_tilt:
-    summary: Get the default tilt settings.
+    summary: Get the default tilt calibration.
     effect: read
     binding: {method: GET, path: /ptzControl/calibration/defaultTilt}
-    result: {$ref: '#/types/CalibrationDefaultTilt'}
+    result: {$ref: '#/types/DefaultTiltCalibration'}
   save_default_tilt:
-    summary: Save default tilt value from the PTZ camera
+    summary: Save the current tilt of the PTZ camera as the default tilt.
     effect: action
-    binding: {method: POST, path: /ptzControl/calibration/defaultTilt/save, body: none}
+    binding: {method: POST, path: /ptzControl/calibration/defaultTilt/save, body: object}
+    examples:
+      - title: Save the default tilt
+        request:
+          path: /ptzControl/calibration/defaultTilt/save
+          body: {data: {}}
+        response:
+          status: 200
+          body: {status: success, data: {}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
   get_pan_offset:
-    summary: Get the pan offset settings.
+    summary: Get the pan offset calibration.
     effect: read
     binding: {method: GET, path: /ptzControl/calibration/panOffset}
-    result: {$ref: '#/types/CalibrationPanOffset'}
-  reset:
-    summary: Reset to pre-calibrated value, if manual calibration has been done
+    result: {$ref: '#/types/PanOffsetCalibration'}
+    examples:
+      - title: Get the pan offset
+        request:
+          path: /ptzControl/calibration/panOffset
+        response:
+          status: 200
+          body: {status: success, data: {manuallyCalibrated: false, preCalibrated: true, value: 35}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
+
+  reset_pan_offset:
+    summary: Reset the pan offset to the pre-calibrated value, if a manual calibration has been done.
+    description: Has no effect when preCalibrated is false.
     effect: action
-    binding: {method: POST, path: /ptzControl/calibration/panOffset/reset, body: none}
+    binding: {method: POST, path: /ptzControl/calibration/panOffset/reset, body: object}
+    examples:
+      - title: Reset the pan offset
+        request:
+          path: /ptzControl/calibration/panOffset/reset
+          body: {data: {}}
+        response:
+          status: 200
+          body: {status: success, data: {}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
   save_pan_offset:
-    summary: Save pan offset value from the PTZ camera
+    summary: Save the current pan of the PTZ camera as the pan offset.
     effect: action
-    binding: {method: POST, path: /ptzControl/calibration/panOffset/save, body: none}
+    binding: {method: POST, path: /ptzControl/calibration/panOffset/save, body: object}
+    examples:
+      - title: Save the pan offset
+        request:
+          path: /ptzControl/calibration/panOffset/save
+          body: {data: {}}
+        response:
+          status: 200
+          body: {status: success, data: {}}
+        source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
 
 sources:
 - url: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/
@@ -290,12 +469,7 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'Example ''Pan offset'' uses POST /config/rest/directional-audio-detection/v2/ptzControl/calibration/panOffset/save'',
-    which does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/'
-  - 'Example ''Pan offset'' uses POST /config/rest/directional-audio-detection/v2/ptzControl/calibration/panOffset/reset'',
-    which does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/'
-  - 'The ''Pan offset'' examples end the action path with a stray apostrophe (.../panOffset/save'', .../panOffset/reset''),
-    a doc typo. Source: https://developer.axis.com/vapix/device-configuration/directional-audio-detection-api/'
-  - 'migration: dropped-property-gets: 16 per-property GET operations dropped'
+  - The root example shows baseSettings.envReset, which the entity tables do not list; it is not modelled.
+  - Per-property GET operations (for example baseSettings/enabled) are not modelled; read the entity instead.
   migrated_from: v1
-  curated: false
+  curated: true

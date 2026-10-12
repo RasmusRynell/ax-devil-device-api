@@ -22,13 +22,15 @@ family: jsonrpc                  # jsonrpc | dca | cgi | service_json | soap | r
 status: released                 # released | beta | alpha | deprecated
 python:
   module: mqtt_client            # file and dev.apis attribute; unsuffixed = first major, later majors _v2
-  class: MqttClient              # -> MqttClientApi and AsyncMqttClientApi
+  class: MqttClient              # -> MqttClientApi and AsyncMqttClientApi; a trailing `Api` is dropped (warning)
 docs: [https://developer.axis.com/vapix/network-video/mqtt-client-api/]
 access: admin                    # default access level for operations
 discovery:                       # how Device.supports() recognizes the API; tried in order
   - api_discovery: mqtt-client
   - dca: {api: analytics-mqtt, version: v1}
   - param: {name: Properties.API.HTTP.Version, value: "3"}
+  - param: {name: Properties.EmbeddedDevelopment.Version, value: "1.20", compare: ">="}
+  - acap: {name: loiteringguard}
 requires: {firmware: "11.5", application: null}   # optional
 binding: {...}                   # family-specific, below
 errors: {...}                    # API-wide error codes, below
@@ -37,6 +39,13 @@ operations: {...}                # below
 sources: [...]                   # doc pages, with content hashes (change monitoring)
 provenance: {...}                # completeness, open questions, verification
 ```
+
+### Discovery entries
+
+- `api_discovery: <id>`: listed by API discovery (`apidiscovery.cgi`).
+- `dca: {api, version}`: listed by `/config/discover`.
+- `param: {name, value, compare}`: a `param.cgi` property. Without `value` the property only has to exist. `compare` is `"=="` (default) or `">="`; `">="` compares dotted numbers component by component (`1.20` >= `1.9`), and a value that is not a dotted number never matches.
+- `acap: {name}`: an ACAP application whose `Name` attribute (case-insensitive) appears in `/axis-cgi/applications/list.cgi`. Installed is enough; the application need not be running. The list needs an administrator account, so without one the answer is `UNKNOWN`, not `NO`.
 
 ## Bindings
 
@@ -63,6 +72,9 @@ binding:
 # operation:
   binding: {method: POST, path: /publishers, body: object}   # path relative to root; {key} placeholders
                                                               # body: none | object | value (+ body_field)
+  binding: {method: GET, path: '/topics/{topic}', key_styles: {topic: dots_to_slashes}}
+                                                              # key_styles: per placeholder, `dots_to_slashes` writes
+                                                              # a dotted key as nested segments (a.b -> a/b); default `segment`
 ```
 
 `cgi`:
@@ -131,7 +143,7 @@ errors:
 
 ## Types
 
-Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `default`, `description`, `$ref: "#/types/Name"`, `oneOf`.
+Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `minItems`, `maxItems`, `default`, `description`, `since`, `$ref: "#/types/Name"`, `oneOf`.
 
 - An `object` type becomes a `Model` class. Other types become type aliases (`Annotated[str, Field(...)]`, `Literal[...]`).
 - `required` lists the fields that must be present. In request models they are required arguments. In response models a missing one raises `ResponseFormatError`, so list only what the device always returns.
@@ -139,9 +151,13 @@ Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `it
 - Extensions:
   - `x-nullable: [field, ...]`: may be sent as explicit `null`.
   - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips.
-  - `x-read-only: [field, ...]`: present in responses, never sent.
+  - `x-read-only: [field, ...]`: present in responses, never sent. When a request type is shared with the response, read-only fields stay on the model but are not method arguments.
   - `x-python-name` on a property: overrides the derived name.
   - `x-style` on a property (cgi only): `plain`, `csv`, `axis_bool`, `spread`.
+
+- `pattern` must work in pydantic's regex engine: lookaheads and lookbehinds (`(?=`, `(?!`, `(?<=`, `(?<!`) are rejected by `codegen validate`.
+- `minItems`/`maxItems` on arrays become `Field(min_length=..., max_length=...)` (a point pair is an array of two numbers with both set to 2).
+- `since: "1.9"` on a property (mainly result fields): the field was added in that API version. It is always generated optional (`X | None = None`, whatever `required` says) and its attribute docstring ends with "Available from API version 1.9.". The runtime does not drop it on older devices; the field is `None` when the device does not return it.
 
 Enums are `Literal`s. Responses tolerate new values of the same type, and requests reject them.
 
@@ -171,6 +187,7 @@ operations:
         request: {params: {}}                  # jsonrpc: params; dca: {path, body}; cgi: {query} or {form}
         response: {data: {...}}                # jsonrpc: data or error; dca: status + body; cgi: status + text
         source: https://...#anchor
+        x-contract: {template: true}   # optional: the example is a syntax template, not a literal exchange
     support: docs-only           # docs-only | verified | known-broken
 ```
 
@@ -187,6 +204,8 @@ Signature rule:
 
 - An operation whose params include a nested model, or more than four fields, gets two overloads: keyword arguments, or one positional request object.
 - Smaller operations get one plain signature. `positional` names the arguments taken positionally (DCA path keys are positional by default), and the rest are keyword-only.
+- On an overloaded operation, `positional` makes those arguments positional in the keyword overload (`set_x(value, /, *, ...)`); the request-object form is unchanged. DCA path keys are not positional by default there.
+- A `x-nullable` field accepts an explicit `None` in the signature.
 - Every method takes `request_options`.
 
 ## Patches

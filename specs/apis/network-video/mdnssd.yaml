@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: mdnssd
 name: mDNS-SD API
@@ -36,6 +35,19 @@ errors:
   4004: {description: Invalid parameter(s), kind: invalid_argument}
 
 types:
+  MdnssdInfo:
+    type: object
+    required: [enabled, friendlyName]
+    properties:
+      enabled: {type: boolean, description: Whether the mDNS-SD service is enabled and running.}
+      friendlyName: {type: string, description: The friendly name used when responding to discover queries.}
+  DiscoverResult:
+    type: object
+    required: [devices]
+    properties:
+      devices:
+        type: array
+        items: {$ref: '#/types/DiscoveredDevice'}
   DiscoveredDevice:
     type: object
     properties:
@@ -53,6 +65,7 @@ types:
         items: {$ref: '#/types/Service'}
   Service:
     type: object
+    required: [name, port]
     properties:
       name: {type: string, description: The name of the service.}
       port: {type: integer, description: The port on which the service may be found.}
@@ -64,11 +77,7 @@ operations:
       queries.'
     effect: read
     binding: {method: getMdnssdInfo}
-    result:
-      type: object
-      properties:
-        enabled: {type: boolean}
-        friendlyName: {type: string}
+    result: {$ref: '#/types/MdnssdInfo'}
     examples:
     - title: Get mDNS-SD info
       request:
@@ -119,11 +128,11 @@ operations:
       request:
         params: {enabled: true, friendlyName: Kitchen camera}
       response:
-        error: {code: 4004, message: Invalid parameter(s)}
+        error: {code: 4004, message: Invalid parameter(s), details: {subCode: 2}}
       source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#configure-the-mdns-sd-service-on-the-axis-device
   discover:
     summary: Discover devices on the network exposing the specified mDNS-SD services; returns after the timeout.
-    effect: unknown
+    effect: read
     since: '1.1'
     binding: {method: discover}
     params:
@@ -139,12 +148,7 @@ operations:
           minimum: 1
           maximum: 15
           description: The timeout for the discover services procedure that must be between 1–15 seconds. (unit=seconds)
-    result:
-      type: object
-      properties:
-        devices:
-          type: array
-          items: {$ref: '#/types/DiscoveredDevice'}
+    result: {$ref: '#/types/DiscoverResult'}
     examples:
     - title: Discover devices exposing video services
       request:
@@ -188,7 +192,6 @@ provenance:
   - getMdnssdInfo error table says method "was created" (wording).
   - AXIS OS minimum not stated.
   - discover response syntax contains a trailing comma in ipv6Addresses ([<string>,]) — doc typo.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_mdnssd_configuration=write/patch'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: discover'
+  - discover is classified as a read (it only queries the network); the docs do not state an effect.
   migrated_from: v1
-  curated: false
+  curated: true

@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: m12-lens-selection
 name: M12 Lens Selection API
@@ -32,28 +31,30 @@ errors:
   1000: {description: Invalid parameter value., kind: invalid_argument}
   1001: {description: Invalid sensor., kind: invalid_argument}
   1002: {description: Unsupported lens., kind: unsupported}
-  2000: {description: Out of memory.}
+  2000: {description: Out of memory., kind: internal}
   2001: {description: Access forbidden (similar to HTTP 403)., kind: access_denied}
   2002: {description: HTTP request type not supported. Only POST supported., kind: unsupported}
   2003: {description: The requested API version is not supported., kind: unsupported}
   2004: {description: Method not supported., kind: unsupported}
   4000: {description: The provided JSON input was invalid., kind: invalid_argument}
-  4001: {description: A mandatory input parameter was not found in the input., kind: not_found}
+  4001: {description: A mandatory input parameter was not found in the input., kind: invalid_argument}
   4002: {description: The type of a provided JSON parameter was incorrect., kind: invalid_argument}
   8000: {description: 'Internal error, could not complete request.', kind: internal}
 
 types:
   Lens:
     type: object
+    required: [lensId, lensName]
     properties:
       lensId: {type: integer, description: The lens ID.}
       lensName: {type: string, description: The lens name.}
       sensorIds:
         type: array
         items: {type: integer}
-        description: An array of sensor IDs where the lens is used.
+        description: Sensor IDs where the lens is used; only returned when ``listSensorIds`` was set.
   CurrentLens:
     type: object
+    required: [sensorId, lensId, lensName]
     properties:
       sensorId: {type: integer, description: The sensor ID.}
       lensId: {type: integer, description: The lens ID.}
@@ -158,8 +159,6 @@ provenance:
   - Discovery property Properties.M12LensSelection.Version=1.00 while examples use apiVersion 2.1 / 1.3.
   - getSupportedVersions response syntax omits apiVersion but example includes it.
   - Deprecated prior to release.
-  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
-    suffix _v2 for later majors) is needed for the others'
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_current_lens=write/patch'
+  - API also documents major 1 (example version list ["1.3", "2.1"]); this spec covers major 2 only, major 1 is not documented in detail.
   migrated_from: v1
-  curated: false
+  curated: true

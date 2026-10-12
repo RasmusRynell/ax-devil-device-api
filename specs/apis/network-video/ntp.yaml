@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: ntp
 name: NTP API
@@ -39,8 +38,15 @@ errors:
   4004: {description: Invalid parameter(s), kind: invalid_argument}
 
 types:
+  NtpInfo:
+    type: object
+    description: NTP configuration of the device. The ``client`` section is present only on devices with NTP client support.
+    properties:
+      client: {$ref: '#/types/NtpClient'}
   NtpClient:
     type: object
+    description: State and configuration of the NTP client.
+    x-read-only: [maxSupportedStaticServers, advertisedServers, synced, timeToNextSync, timeOffset]
     properties:
       enabled:
         type: boolean
@@ -93,10 +99,7 @@ operations:
     summary: Retrieve the NTP configuration of the device.
     effect: read
     binding: {method: getNTPInfo}
-    result:
-      type: object
-      properties:
-        client: {$ref: '#/types/NtpClient'}
+    result: {$ref: '#/types/NtpInfo'}
     examples:
     - title: Retrieve the NTP configuration
       request:
@@ -128,8 +131,11 @@ operations:
     effect: write
     write: patch
     binding: {method: setNTPClientConfiguration}
+    round_trip:
+      from: NtpClient
     params:
       type: object
+      x-name: SetNtpClientConfigurationRequest
       properties:
         enabled:
           type: boolean
@@ -220,7 +226,7 @@ operations:
           staticServers: [192.168.0.91, 192.168.0.92]
           staticNTSKEServers: [ntske.someserver.com, 13.8.343.12]
       response:
-        error: {code: 4004, message: Invalid parameter(s)}
+        error: {code: 4004, message: Invalid parameter(s), details: {subCode: 1}}
       source: https://developer.axis.com/vapix/network-video/ntp-api/#configure-the-ntp-client
 
 sources:
@@ -241,6 +247,5 @@ provenance:
   - Example IP 13.8.343.12 is not a valid IPv4 address (doc example).
   - Error subCode 4 is not listed.
   - getSupportedVersions security level stated as Administrator.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_ntp_client_configuration=write/patch'
   migrated_from: v1
-  curated: false
+  curated: true

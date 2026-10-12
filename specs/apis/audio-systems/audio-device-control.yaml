@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: audio-device-control
 name: Audio Device Control
-summary: List audio device capabilities and get/set audio device input/output settings (connection type, signaling
-  type, power type, per-channel gain and mute).
+summary: List audio device capabilities and read or change audio device input/output settings (connection type, signaling type, power type, per-channel gain and mute).
 section: audio-systems
 family: jsonrpc
 status: released
@@ -18,8 +16,8 @@ discovery:
 
 binding:
   path: /axis-cgi/audiodevicecontrol.cgi
-  major: 2
-  versions: ['2.1']
+  major: 1
+  versions: ['1.0', '1.3']
   negotiation:
     get_supported_versions: {key: apiVersions}
   params_placement: params
@@ -35,17 +33,19 @@ errors:
   2102: {description: METHOD_NOT_SUPPORTED. Method not supported., kind: unsupported}
   2103:
     description: JSON_KEY_NOT_FOUND. A mandatory input parameter was not found in the input.
-    kind: not_found
+    kind: invalid_argument
   2104:
     description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value specified.
     kind: invalid_argument
   2105: {description: AUTHORIZATION_ERROR. Authorization failed., kind: access_denied}
-  2106: {description: AUTHENTICATION_ERROR. Authentication failed.}
+  2106: {description: AUTHENTICATION_ERROR. Authentication failed., kind: access_denied}
   2107: {description: TRANSPORT_LEVEL_ERROR. Transport level error.}
 
 types:
   SignalingTypeCapability:
     type: object
+    description: One signal configuration (for example balanced or unbalanced) of a connection type.
+    required: [id]
     properties:
       id: {type: string, description: 'The signal ID (e.g. balanced, unbalanced). Cannot be changed.'}
       gainValues:
@@ -58,82 +58,138 @@ types:
         description: The power types available for the signal (inputs only; e.g. On, Off, P48, 5V).
   ConnectionTypeCapability:
     type: object
+    description: One input or output type (for example mic, line or external) and its signal configurations.
+    required: [id]
     properties:
       id: {type: string, description: 'Input/output type ID (e.g. internal, mic, line, external).'}
       signalingTypes:
         type: array
         items: {$ref: '#/types/SignalingTypeCapability'}
+        description: Lists the signal configuration settings.
   IoCapability:
     type: object
+    description: The capabilities of one audio input or output.
+    required: [id]
     properties:
       id: {type: string, description: The input/output ID.}
       connectionTypes:
         type: array
         items: {$ref: '#/types/ConnectionTypeCapability'}
+        description: Lists the input or output types.
   DeviceCapability:
     type: object
+    description: The capabilities of one audio device.
+    required: [id]
     properties:
       id: {type: string, description: The audio device ID.}
       inputs:
         type: array
         items: {$ref: '#/types/IoCapability'}
+        description: Lists the inputs on a device.
       outputs:
         type: array
         items: {$ref: '#/types/IoCapability'}
+        description: Lists the outputs on a device.
+  DevicesCapabilities:
+    type: object
+    description: The capabilities of all audio devices.
+    required: [devices]
+    properties:
+      devices:
+        type: array
+        items: {$ref: '#/types/DeviceCapability'}
+        description: Lists available audio devices.
   Channel:
     type: object
+    description: One audio channel.
+    required: [id]
     properties:
       id: {type: integer, description: The channel ID.}
       gain: {type: integer, description: The channel gain.}
       mute: {type: boolean, description: The channel mute.}
   SignalingTypeSettings:
     type: object
+    description: The settings of one signal configuration.
+    required: [id]
     properties:
       id: {type: string, description: The signal ID. Not changeable.}
       powerType: {type: string, description: The selected power type for a signal (inputs only).}
       channels:
         type: array
         items: {$ref: '#/types/Channel'}
+        description: Lists the channels.
   ConnectionTypeSettings:
     type: object
+    description: The settings of one input or output type.
+    required: [id]
     properties:
       id: {type: string, description: Input/output type ID.}
       signalingTypeSelected: {type: string, description: The selected signal.}
       signalingTypes:
         type: array
         items: {$ref: '#/types/SignalingTypeSettings'}
+        description: Lists the signal configuration settings.
   IoSettings:
     type: object
+    description: The settings of one audio input or output.
+    required: [id]
     properties:
-      id: {type: string}
-      name: {type: string}
+      id: {type: string, description: The input/output ID.}
+      name: {type: string, description: The input/output name.}
       connectionTypeSelected: {type: string, description: The selected input/output type.}
       connectionTypes:
         type: array
         items: {$ref: '#/types/ConnectionTypeSettings'}
+        description: Lists the input or output types.
   DeviceSettings:
     type: object
+    description: The settings of one audio device.
+    required: [id]
     properties:
       id: {type: string, description: The audio device ID.}
       name: {type: string, description: The audio device name.}
       inputs:
         type: array
         items: {$ref: '#/types/IoSettings'}
+        description: Lists the inputs on a device.
       outputs:
         type: array
         items: {$ref: '#/types/IoSettings'}
+        description: Lists the outputs on a device.
+  DevicesSettings:
+    type: object
+    description: The settings of all audio devices.
+    required: [devices]
+    properties:
+      devices:
+        type: array
+        items: {$ref: '#/types/DeviceSettings'}
+        description: Lists available audio devices.
+  SetDevicesSettingsRequest:
+    type: object
+    description: Arguments of ``set_devices_settings``.
+    required: [devices]
+    properties:
+      devices:
+        type: array
+        items: {$ref: '#/types/DeviceSettings'}
+        description: The audio devices to configure (same structure as get_devices_settings).
+  HazardousSettings:
+    type: object
+    description: Settings that may harm the hardware if used incorrectly. They are global.
+    required: [powerTypes]
+    properties:
+      powerTypes:
+        type: array
+        items: {type: string}
+        description: The hazardous power types, e.g. ["R12"].
 
 operations:
   get_devices_capabilities:
     summary: Lists all audio capabilities (accepted gain values and power types) of the device's audio devices.
     effect: read
     binding: {method: getDevicesCapabilities}
-    result:
-      type: object
-      properties:
-        devices:
-          type: array
-          items: {$ref: '#/types/DeviceCapability'}
+    result: {$ref: '#/types/DevicesCapabilities'}
     examples:
     - title: Retrieve audio capabilities
       request:
@@ -146,7 +202,7 @@ operations:
             - id: '0'
               connectionTypes:
               - id: internal
-                signalTypes:
+                signalingTypes:
                 - {id: unbalanced, gainValues: [1, 2, 4], powerTypes: ['On', 'Off']}
               - id: mic
                 signalingTypes:
@@ -174,12 +230,7 @@ operations:
     access: viewer
     effect: read
     binding: {method: getDevicesSettings}
-    result:
-      type: object
-      properties:
-        devices:
-          type: array
-          items: {$ref: '#/types/DeviceSettings'}
+    result: {$ref: '#/types/DevicesSettings'}
     examples:
     - title: Retrieve current device settings
       request:
@@ -257,14 +308,9 @@ operations:
     effect: write
     write: patch
     binding: {method: setDevicesSettings}
-    params:
-      type: object
-      required: [devices]
-      properties:
-        devices:
-          type: array
-          items: {$ref: '#/types/DeviceSettings'}
-          description: A list containing the audio devices to configure (same structure as getDevicesSettings).
+    params: {$ref: '#/types/SetDevicesSettingsRequest'}
+    round_trip:
+      from: DevicesSettings
     examples:
     - title: Change device settings
       request:
@@ -339,15 +385,10 @@ operations:
       source: https://developer.axis.com/vapix/audio-systems/audio-device-control/#change-device-settings
   get_hazardous_settings:
     summary: List settings that may harm the hardware if used incorrectly (global, not per device/input/output).
+    access: operator
     effect: read
     binding: {method: getHazardousSettings}
-    result:
-      type: object
-      properties:
-        powerTypes:
-          type: array
-          items: {type: string}
-          description: Hazardous powerTypes, e.g. ["R12"].
+    result: {$ref: '#/types/HazardousSettings'}
     examples:
     - title: Retrieve hazardous settings
       request:
@@ -364,20 +405,18 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - getDevicesCapabilities example uses 'signalTypes' for the first connection type and 'signalingTypes' elsewhere;
-    response syntax uses 'signalingTypes'.
-  - getDevicesSettings response syntax uses 'signalingTypesSelected' for outputs vs 'signalingTypeSelected' for
-    inputs; also missing commas in syntax block.
-  - setDevicesSettings table rows for outputs.id/name/connectionTypeSelected have wrong descriptions (channel ID/gain/mute)
-    — copy error.
+  - 'The getDevicesCapabilities example uses ''signalTypes'' for the first connection type and ''signalingTypes'' elsewhere;
+    the response syntax uses ''signalingTypes''. The example was corrected.'
+  - 'The getDevicesSettings response syntax uses ''signalingTypesSelected'' for outputs vs ''signalingTypeSelected''
+    for inputs; the parameter table and examples use ''signalingTypeSelected'' for both.'
+  - The setDevicesSettings table rows for outputs.id/name/connectionTypeSelected have wrong descriptions (channel
+    ID/gain/mute), a copy error.
   - Example device id 'Q1615-MkIII' with name 'Q1655-MkIII Audio Device' (inconsistent model).
-  - Units/semantics of gainValues (integers 1, 2, 4) and channel gain are not documented; whether setDevicesSettings
-    accepts partial structures is not stated.
-  - Obsoletes list says 'MicrophoneBalance' while Audio API parameter is 'MicrophoneBalanced'.
+  - Units and semantics of gainValues (integers 1, 2, 4) and channel gain are not documented. Whether setDevicesSettings
+    accepts partial structures is not stated; modelled as patch.
+  - 'Versions: examples use apiVersion 1.0, getSupportedVersions returns ["1.3", "2.1"], and differences between
+    versions are not documented. Modelled as major 1 (1.0, 1.3); major 2 is not covered.'
+  - Obsoletes list says 'MicrophoneBalance' while the Audio API parameter is 'MicrophoneBalanced'.
   - AXIS OS minimum version not stated.
-  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
-    suffix _v2 for later majors) is needed for the others'
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_devices_settings=write/patch'
-  - 'migration: dropped-keywords: maxProperties x1'
   migrated_from: v1
-  curated: false
+  curated: true

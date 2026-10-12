@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: decoder
 name: Decoder API
@@ -25,106 +24,125 @@ binding:
   params_placement: params
 
 errors:
-  100:
-    description: Configuration changed. The configuration has been changed. The ID of the new configuration is provided
-      in the message field.
+  100: {description: Configuration changed. The ID of the new configuration is provided in the message field.}
   200: {description: Internal error. Generic error., kind: internal}
-  201:
-    description: Unsupported API version. The decoder does not support the API version provided in the request.
-    kind: unsupported
-  202:
-    description: Invalid JSON. The decoder could not parse the provided JSON object.
-    kind: invalid_argument
-  210: {description: Illegal view ID. ID is either a duplicate or not a positive integer.}
-  211: {description: Illegal pane ID. ID is either a duplicate or not a positive integer.}
-  212: {description: 'Pane out of bound. Parts of the pane are outside of the view. Message: Pane ID.'}
-  213:
-    description: 'Overlapping pane. The pane is overlapping another pane and the decoder does not support picture-in-picture
-      (overlappingPanes=false). Message: Pane ID.'
-  400: {description: Failed to connect. The decoder could not connect to the streaming device.}
-  401: {description: Not authenticated. The provided credentials were not accepted.}
-  402:
-    description: Out of resources. The decoder does not have enough resources to render the provided configuration.
-  403:
-    description: Unsupported protocol. The decoder is not able to play the video or audio provided in the configuration.
-    kind: unsupported
-  410: {description: Illegal stream ID. ID is either a duplicate or not a positive integer.}
+  201: {description: Unsupported API version. The decoder does not support the API version provided in the request., kind: unsupported}
+  202: {description: Invalid JSON. The decoder could not parse the provided JSON object., kind: invalid_argument}
+  210: {description: Illegal view ID. ID is either a duplicate or not a positive integer., kind: invalid_argument}
+  211: {description: Illegal pane ID. ID is either a duplicate or not a positive integer., kind: invalid_argument}
+  212: {description: Pane out of bound. Parts of the pane are outside of the view. The message holds the pane ID., kind: invalid_argument}
+  213: {description: "Overlapping pane. The pane overlaps another pane and the decoder does not support picture-in-picture (overlappingPanes is false). The message holds the pane ID.", kind: invalid_argument}
+  400: {description: Failed to connect. The decoder could not connect to the streaming device., kind: unavailable}
+  401: {description: Not authenticated. The provided credentials were not accepted., kind: invalid_argument}
+  402: {description: Out of resources. The decoder does not have enough resources to render the provided configuration., kind: unavailable}
+  403: {description: Unsupported protocol. The decoder is not able to play the video or audio provided in the configuration., kind: unsupported}
+  410: {description: Illegal stream ID. ID is either a duplicate or not a positive integer., kind: invalid_argument}
 
 types:
+  Resolution:
+    enum: ["1920x1080", "1280x720", "720x480", "640x480"]
+
+  Capabilities:
+    type: object
+    description: What the decoder supports.
+    required: [resolution, maxStreams, videoCodecs, audioCodecs, overlappingPanes]
+    properties:
+      resolution: {$ref: "#/types/Resolution", description: One of the supported decoder resolutions; the one currently in use.}
+      maxStreams: {type: integer, minimum: 1, description: The maximum supported number of open video streams.}
+      videoCodecs:
+        type: array
+        items: {type: string}
+        description: "Video codecs supported by the decoder (documented values: H264, MPEG4, MJPEG; the example shows ``H.264``)."
+      audioCodecs:
+        type: array
+        items: {type: string}
+        description: "Audio codecs supported by the decoder (documented values: AAC, G711, G726)."
+      overlappingPanes: {type: boolean, description: Whether the decoder supports overlapping panes (picture in picture).}
+
+  ConfigurationId:
+    type: object
+    required: [configurationId]
+    properties:
+      configurationId: {type: string, description: The ID of the configuration.}
+
   Pane:
     type: object
-    description: Canvas on which a video stream is drawn; size and position within the view (0,0 top-left.. 1,1
-      bottom-right). Stream keeps its own aspect ratio.
+    description: >-
+      A canvas on which a video stream is drawn, given as position and size within the view. The origin (0, 0) is the
+      upper left corner of the view and (1, 1) the lower right. The stream keeps its own aspect ratio.
+    required: [paneId, left, top, right, bottom]
     properties:
-      paneId: {type: integer, minimum: 0}
+      paneId: {type: integer, minimum: 0, description: Unique pane ID.}
       left: {type: number, minimum: 0, maximum: 1}
       top: {type: number, minimum: 0, maximum: 1}
       right: {type: number, minimum: 0, maximum: 1}
       bottom: {type: number, minimum: 0, maximum: 1}
+
   Stream:
     type: object
-    description: Video stream information.
+    description: A video stream. The camera credentials are sent unencrypted; consider HTTPS.
     required: [streamId, url, videoCodec]
     properties:
-      streamId: {type: integer, minimum: 0}
-      url:
-        type: string
-        description: Where the decoder can reach the video, e.g. rtsp://192.168.0.90/axis-media/media.amp?resolution=1920x1080.
-      videoCodec: {type: string, description: 'e.g. H264 (capabilities list H264/H.264, MPEG4, MJPEG).'}
-      audioCodec: {type: string, description: 'e.g. AAC, G711, G726; empty by default.'}
-      username: {type: string}
-      password: {type: string}
+      streamId: {type: integer, minimum: 0, description: Unique stream ID.}
+      url: {type: string, description: "Where the decoder can reach the video, for example ``rtsp://192.168.0.90/axis-media/media.amp?resolution=1920x1080``."}
+      videoCodec: {type: string, description: "The video codec the decoder should use, for example ``H264``."}
+      audioCodec: {type: string, description: "The audio codec, for example ``AAC``. Only one stream may set it, if the decoder supports audio. Empty by default."}
+      username: {type: string, description: "Camera user name, if a login is required."}
+      password: {type: string, description: "Camera password, if a login is required."}
+
   Segment:
     type: object
+    description: One pane and one stream that together form a part of a view.
+    required: [stream, pane]
     properties:
-      stream: {type: integer, description: streamId}
-      pane: {type: integer, description: paneId}
+      stream: {type: integer, minimum: 0, description: The ``streamId`` of the stream.}
+      pane: {type: integer, minimum: 0, description: The ``paneId`` of the pane.}
+
   View:
     type: object
+    description: The whole screen area, divided into segments.
+    required: [viewId, segments]
     properties:
-      viewId: {type: integer, minimum: 0}
-      duration:
-        type: integer
-        minimum: 0
-        description: Seconds the view is shown in a sequence; 0 = displayed continuously.
+      viewId: {type: integer, minimum: 0, description: Unique view ID.}
+      duration: {type: integer, minimum: 0, description: "Seconds the view is shown when several views run in a sequence. 0 shows the view continuously."}
       segments:
         type: array
-        items: {$ref: '#/types/Segment'}
+        items: {$ref: "#/types/Segment"}
+
   Event:
     type: object
-    description: 'Base event {code, message}; stream event additionally {viewId, streamId}. Code ranges: 1xx information,
-      2xx error, 3xx reserved for stream information, 4xx stream error.'
+    description: >-
+      An event as returned in ``errors``. Stream events also carry ``viewId`` and ``streamId``.
+      Code ranges: 1xx information, 2xx error, 3xx reserved for stream information, 4xx stream error.
+    required: [code, message]
     properties:
       code: {type: integer, minimum: 0}
       message: {type: string}
       viewId: {type: integer, minimum: 0}
       streamId: {type: integer, minimum: 0}
 
+  SetViewConfigurationRequest:
+    type: object
+    description: Arguments of ``set_view_configuration``. Replaces the running configuration.
+    required: [panes, streams, views]
+    properties:
+      panes:
+        type: array
+        items: {$ref: "#/types/Pane"}
+      streams:
+        type: array
+        items: {$ref: "#/types/Stream"}
+      views:
+        type: array
+        description: The views. If there are several, the decoder loops through them in a sequence, each shown for its ``duration``.
+        items: {$ref: "#/types/View"}
+
 operations:
   get_capabilities:
-    summary: List all the capabilities that the decoder supports.
+    summary: List the capabilities of the decoder.
     effect: read
     binding: {method: getCapabilities}
-    result:
-      type: object
-      properties:
-        resolution:
-          type: string
-          description: Decoder resolution currently in use; one of 1920x1080, 1280x720, 720x480, 640x480.
-        maxStreams: {type: integer, minimum: 1, description: Maximum supported amount of open video streams.}
-        videoCodecs:
-          type: array
-          items: {type: string}
-          description: H264, MPEG4, MJPEG
-        audioCodecs:
-          type: array
-          items: {type: string}
-          description: AAC, G711, G726
-        overlappingPanes: {type: boolean, description: Whether overlapping panes (picture in picture) are supported.}
-    errors:
-      200: {description: Internal error., kind: internal}
-      201: {description: Unsupported API version., kind: unsupported}
-      202: {description: Invalid JSON., kind: invalid_argument}
+    result: {$ref: "#/types/Capabilities"}
     examples:
     - title: Get decoder capabilities
       request:
@@ -137,18 +155,12 @@ operations:
           audioCodecs: []
           overlappingPanes: false
       source: https://developer.axis.com/vapix/network-video/decoder-api/#get-decoder-capabilities
+
   get_view_configuration:
-    summary: Returns the ID of the currently running configuration.
+    summary: Return the ID of the currently running configuration.
     effect: read
     binding: {method: getViewConfiguration}
-    result:
-      type: object
-      properties:
-        configurationId: {type: string}
-    errors:
-      200: {description: Internal error., kind: internal}
-      201: {description: Unsupported API version., kind: unsupported}
-      202: {description: Invalid JSON., kind: invalid_argument}
+    result: {$ref: "#/types/ConfigurationId"}
     examples:
     - title: Retrieve running configuration
       request:
@@ -156,45 +168,19 @@ operations:
       response:
         data: {configurationId: '23'}
       source: https://developer.axis.com/vapix/network-video/decoder-api/#retrieve-running-configuration
+
   set_view_configuration:
-    summary: Configure what the decoder shall display; returns the ID of the new configuration.
-    description: The decoder has only one running configuration; it is overwritten by the next successful call and
-      saved so the decoder recovers after restart. If errors are not serious (e.g. cannot connect to some streams)
-      the decoder may still use the configuration, returning errors plus a 100 'Configuration changed' event with
-      the new configuration ID; it keeps trying to reconnect.
+    summary: Configure what the decoder displays; returns the ID of the new configuration.
+    description: >-
+      The decoder has one running configuration, which the next successful call replaces; it is saved so the decoder
+      recovers after a restart. Sequences are not supported in a split view. If the errors are not serious (for
+      example the decoder cannot connect to some streams) the decoder may still use the configuration; the reply then
+      carries the errors, including a 100 event with the new configuration ID, and the decoder keeps trying to reconnect.
     effect: write
-    write: patch
+    write: replace
     binding: {method: setViewConfiguration}
-    params:
-      type: object
-      required: [panes, streams, views]
-      properties:
-        panes:
-          type: array
-          items: {$ref: '#/types/Pane'}
-        streams:
-          type: array
-          items: {$ref: '#/types/Stream'}
-        views:
-          type: array
-          items: {$ref: '#/types/View'}
-          description: Views; each view's duration (seconds) controls sequence run time; 0 = continuous.
-    result:
-      type: object
-      properties:
-        configurationId: {type: string}
-    errors:
-      100:
-        description: Configuration changed. The configuration has been changed; message holds the new configuration
-          ID.
-      210: {description: Illegal view ID}
-      211: {description: Illegal pane ID}
-      212: {description: Pane out of bound}
-      400: {description: Failed to connect}
-      401: {description: Not authenticated}
-      402: {description: Out of resources}
-      403: {description: Unsupported protocol, kind: unsupported}
-      410: {description: Illegal stream ID}
+    params: {$ref: "#/types/SetViewConfigurationRequest"}
+    result: {$ref: "#/types/ConfigurationId"}
     examples:
     - title: Display a single video stream
       request:
@@ -308,6 +294,7 @@ operations:
         data: {configurationId: '1042'}
       source: https://developer.axis.com/vapix/network-video/decoder-api/#display-multiple-video-streams-in-a-sequence
 
+
 sources:
 - url: https://developer.axis.com/vapix/network-video/decoder-api/
   sha256_md: f9a0a043dd84296ff2bbaf43ac42764b4a5d070d14506f75df21ab1e7d5c80aa
@@ -316,13 +303,11 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - setViewConfiguration table describes 'duration' as a top-level Array, but examples put duration (integer) inside
-    each view.
-  - Capabilities table lists video codec 'H264' but the example returns 'H.264'; audioCodecs described as 'List
-    of video codecs' (typo).
-  - IDs must be 'positive integer' per error descriptions, yet examples use 0.
-  - getSupportedVersions failure uses 'error' (array) whereas setViewConfiguration uses 'errors'.
-  - AXIS OS minimum version not stated.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_view_configuration=write/patch'
+  - The setViewConfiguration table lists duration as a top-level Array, but the examples put an integer duration in each view; the examples are followed.
+  - The capabilities table lists the video codec as H264, but the example returns H.264; codecs are kept as free strings.
+  - The audioCodecs description says "List of video codecs" (typo in the docs).
+  - Error descriptions say IDs must be positive integers, yet the examples use 0; the event schema says minimum 0.
+  - Failures of setViewConfiguration come back in an "errors" array (and getSupportedVersions in "error" as an array), not the usual error object.
+  - The minimum AXIS OS version is not stated. The API supports VAPIX 3 cameras only and not the P7701 decoder.
   migrated_from: v1
-  curated: false
+  curated: true

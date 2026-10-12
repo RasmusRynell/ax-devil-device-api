@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: basic-device-info-v2-config
 name: Basic device info
@@ -40,8 +39,22 @@ operations:
           status: success
           data: {allowAnonymous: false}
       source: https://developer.axis.com/vapix/device-configuration/basic-device-info-api/
+  get_allow_anonymous:
+    summary: Whether anonymous access to the basic device info properties is allowed.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /allowAnonymous}
+    result: {type: boolean}
+    examples:
+    - title: Get the state of anonymous user access
+      request: {path: /allowAnonymous}
+      response:
+        status: 200
+        body: {status: success, data: true}
+      source: https://developer.axis.com/vapix/device-configuration/basic-device-info-api/
   set_allow_anonymous:
-    summary: Set the allow anonymous of the device.
+    summary: Allow or deny anonymous access to the basic device info properties.
+    description: Anonymous access goes through ``/axis-cgi/basicdeviceinfo.cgi``.
     effect: write
     write: patch
     binding: {method: PATCH, path: /allowAnonymous, body_field: allowAnonymous, body: value}
@@ -55,7 +68,7 @@ operations:
       request:
         path: /allowAnonymous
         body:
-          data: {allowAnonymous: true}
+          data: true
       response:
         status: 200
         body: {status: success}
@@ -71,9 +84,8 @@ provenance:
   open_questions:
   - 'Page states the setting is enabled by default, but the GET root example shows allowAnonymous: false. Source:
     https://developer.axis.com/vapix/device-configuration/basic-device-info-api/'
-  - 'The PATCH example on the property path uses body {"data": {"allowAnonymous": true}} instead of the framework''s
-    {"data": <value>} form for property SET. Source: https://developer.axis.com/vapix/device-configuration/basic-device-info-api/'
-  - 'migration: dropped-property-gets: 1 per-property GET operations dropped'
-  - 'migration: module-collision: module name basic_device_info collides with another spec; kept basic_device_info_config'
+  - 'The PATCH example on the property path sends {"data": {"allowAnonymous": true}}, but the property is a boolean and
+    the framework form is {"data": <value>}. The spec uses {"data": true}. Source:
+    https://developer.axis.com/vapix/device-configuration/basic-device-info-api/'
   migrated_from: v1
-  curated: false
+  curated: true

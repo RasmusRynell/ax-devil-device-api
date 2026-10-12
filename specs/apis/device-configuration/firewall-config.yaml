@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: firewall-config
 name: Firewall configuration service
-summary: The Firewall configuration service API enables you to add, retrieve, edit, reorder, and remove existing
-  firewall rules.
+summary: Activate the firewall, manage and test its rules, and configure brute force protection.
 section: device-configuration
 family: dca
 status: released
@@ -39,17 +37,20 @@ types:
   Filter:
     type: object
     description: Firewall filter type
+    required: [policy]
     properties:
       policy: {$ref: '#/types/Policy', description: Filter policy}
   IPRange:
     type: object
-    description: IP range type. Both lower and upper bounds are include
+    description: IP range type. Both lower and upper bounds are included.
+    required: [start, end]
     properties:
       end: {type: string, description: IP range end address}
       start: {type: string, description: IP range start address}
   Limit:
     type: object
-    description: Firewall limit type to define packet rate filtering
+    description: Firewall limit type to define packet rate filtering. With the NEWCONNECTIONS unit on UDP, packets from the same source and destination count as one tracked connection with a 30 second timeout.
+    required: [amount, period, unit]
     properties:
       amount:
         $ref: '#/types/LimitAmount'
@@ -67,11 +68,12 @@ types:
   LimitUnit: {type: string, enum: [NEWCONNECTIONS, PACKETS], description: Valid limit rule type}
   MAC:
     type: string
-    pattern: ^[0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{2}[-]){5}([0-9A-Fa-f]{2})$
+    pattern: ^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{2}[-]){5}([0-9A-Fa-f]{2})$
     description: MAC address type
   NetworkPort:
     type: object
     description: Port address type
+    required: [portType, portNum]
     properties:
       portType: {$ref: '#/types/PortType', description: Port type}
       portNum: {$ref: '#/types/Port', description: Port number}
@@ -84,6 +86,7 @@ types:
   PortRange:
     type: object
     description: Port range
+    required: [start, end]
     properties:
       portType: {$ref: '#/types/PortType', description: Port type}
       start: {$ref: '#/types/Port', description: Port range start number}
@@ -92,7 +95,8 @@ types:
   PositiveNumValue: {type: integer, minimum: 0, description: Positive number}
   Rule:
     type: object
-    description: Firewall rule entry type
+    description: Firewall rule entry type. Only one option from layer 2, 3 or 4 is allowed per rule; nullable members can be omitted when setting rules.
+    required: [ruleType]
     x-nullable:
     - filter
     - ip
@@ -121,15 +125,6 @@ types:
     items: {$ref: '#/types/Rule'}
     description: Firewall rule list type
   RuleType: {type: string, enum: [FILTER, LIMIT], description: Valid rule types}
-  SetRulesReqData:
-    type: object
-    description: Firewall rules set request data type
-    properties:
-      defaultPolicy: {$ref: '#/types/Policy', description: Default firewall policy}
-      fallbackTime:
-        $ref: '#/types/PositiveNumValue'
-        description: Maximum time in seconds to wait before reverting back to previous active rules
-      rules: {$ref: '#/types/RuleList', description: Rules to set as active}
   Firewall:
     type: object
     description: The whole API tree.
@@ -139,12 +134,14 @@ types:
   Conf:
     type: object
     description: Firewall configuration
+    x-read-only: [rules]
     properties:
       bruteForceProtection: {$ref: '#/types/BruteForceProtection'}
       rules: {$ref: '#/types/Rules'}
   BruteForceProtection:
     type: object
     description: Brute force protection
+    required: [attempts, blockTime, enabled, interval]
     properties:
       attempts: {$ref: '#/types/AttemptsLimit', description: The fail limit for the brute force protection.}
       blockTime:
@@ -156,7 +153,9 @@ types:
         description: The interval for the amount of fails for the brute force protection.
   Rules:
     type: object
-    description: Firewall rules
+    description: Firewall rules. Read-only; change them with set_rules.
+    required: [activeDefaultPolicy, activeRules, pendingRules, testTimeLeft]
+    x-read-only: [activeDefaultPolicy, activeRules, pendingDefaultPolicy, pendingRules, testTimeLeft]
     x-nullable: [pendingDefaultPolicy]
     properties:
       activeDefaultPolicy: {$ref: '#/types/Policy', description: Active default firewall policy. Default to `ACCEPT`.}
@@ -199,10 +198,11 @@ operations:
     binding: {method: PATCH, path: '', body: object}
     params: {$ref: '#/types/UpdateAllRequest'}
   set_activated:
-    summary: Set the activated of the device.
+    summary: Activate or deactivate the firewall.
     effect: write
     write: patch
     binding: {method: PATCH, path: /activated, body_field: activated, body: value}
+    positional: [activated]
     params:
       type: object
       required: [activated]
@@ -217,21 +217,27 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
+  get_activated:
+    summary: Whether the firewall is activated.
+    effect: read
+    binding: {method: GET, path: /activated}
+    result: {type: boolean}
+    examples:
+    - title: Check if firewall is activated
+      request: {path: /activated}
+      response:
+        status: 200
+        body: {status: success, data: true}
+      source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
   get_conf:
-    summary: Get the conf settings.
+    summary: Get the firewall configuration.
     effect: read
     binding: {method: GET, path: /conf}
     result: {$ref: '#/types/Conf'}
   clear_pending_rules:
-    summary: Clear the set of pending rules and abort any active test
+    summary: Clear the pending rules, abort any active test and restore the previous rules.
     effect: action
-    binding: {method: POST, path: /conf/clearPendingRules, body_field: data, body: value}
-    params:
-      type: object
-      required: [data]
-      properties:
-        data: {description: Action input (Empty Object).}
-    result: {type: object, description: Empty Object}
+    binding: {method: POST, path: /conf/clearPendingRules, body: object}
     examples:
     - title: Clear pending firewall rules
       request:
@@ -243,15 +249,9 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
   confirm_rules:
-    summary: Confirm to apply the active firewall rules
+    summary: Confirm the active firewall rules, deactivating the fallback and clearing the pending rules.
     effect: action
-    binding: {method: POST, path: /conf/confirmRules, body_field: data, body: value}
-    params:
-      type: object
-      required: [data]
-      properties:
-        data: {description: Action input (Empty Object).}
-    result: {type: object, description: Empty Object}
+    binding: {method: POST, path: /conf/confirmRules, body: object}
     examples:
     - title: Confirm pending firewall rules
       request:
@@ -262,7 +262,7 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
-    - title: Confirm pending firewall rules
+    - title: Confirm when no rules are pending
       request:
         path: /conf/confirmRules
         body:
@@ -276,8 +276,10 @@ operations:
             message: 'Backend defined error: "Tried to confirm pending rules without any rules pending"'
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
   set_rules:
-    summary: Sets the active firewall rule list
-    effect: action
+    summary: Set the active firewall rule list.
+    description: The changes are written to the active rules. With a fallbackTime greater than 0 the previous rules are restored unless confirm_rules is called in time; 0 applies the rules immediately and clears the pending rules. A fallbackTime greater than 0 while the firewall is inactive fails with error 103.
+    effect: write
+    write: replace
     binding: {method: POST, path: /conf/setRules, body: object}
     params:
       type: object
@@ -287,9 +289,9 @@ operations:
           $ref: '#/types/PositiveNumValue'
           description: Maximum time in seconds to wait before reverting back to previous active rules
         rules: {$ref: '#/types/RuleList', description: Rules to set as active}
-    result: {type: object, description: Empty Object}
     examples:
     - title: Edit firewall rules
+      x-contract: {skip: "docs examples use limit periods SECOND and MINUTE, but the LimitPeriod table only allows NEWCONNECTIONS"}
       request:
         path: /conf/setRules
         body:
@@ -330,6 +332,7 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
     - title: Re-order firewall rules
+      x-contract: {skip: "docs examples use limit periods SECOND and MINUTE, but the LimitPeriod table only allows NEWCONNECTIONS"}
       request:
         path: /conf/setRules
         body:
@@ -370,6 +373,7 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
     - title: Remove firewall rules
+      x-contract: {skip: "docs examples use limit periods SECOND and MINUTE, but the LimitPeriod table only allows NEWCONNECTIONS"}
       request:
         path: /conf/setRules
         body:
@@ -399,6 +403,30 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
+  get_active_default_policy:
+    summary: Get the active default firewall policy.
+    effect: read
+    binding: {method: GET, path: /conf/rules/activeDefaultPolicy}
+    result: {$ref: '#/types/Policy'}
+    examples:
+    - title: Get the active default firewall policy
+      request: {path: /conf/rules/activeDefaultPolicy}
+      response:
+        status: 200
+        body: {status: success, data: DROP}
+      source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
+  get_pending_default_policy:
+    summary: Get the pending default firewall policy set by set_rules, or null.
+    effect: read
+    binding: {method: GET, path: /conf/rules/pendingDefaultPolicy}
+    result: {$ref: '#/types/Policy'}
+    examples:
+    - title: Get the pending default firewall policy
+      request: {path: /conf/rules/pendingDefaultPolicy}
+      response:
+        status: 200
+        body: {status: success, data: DROP}
+      source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
   get_brute_force_protection:
     summary: Get the brute force protection settings.
     effect: read
@@ -421,7 +449,7 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
   set_brute_force_protection_attempts:
-    summary: Set the attempts of the brute force protection.
+    summary: Set the fail limit for the brute force protection.
     effect: write
     write: patch
     binding:
@@ -429,13 +457,14 @@ operations:
       path: /conf/bruteForceProtection/attempts
       body_field: attempts
       body: value
+    positional: [attempts]
     params:
       type: object
       required: [attempts]
       properties:
         attempts: {$ref: '#/types/AttemptsLimit', description: The fail limit for the brute force protection.}
   set_brute_force_protection_block_time:
-    summary: Set the block time of the brute force protection.
+    summary: Set how long (s) an IP is blocked by the brute force protection.
     effect: write
     write: patch
     binding:
@@ -443,6 +472,7 @@ operations:
       path: /conf/bruteForceProtection/blockTime
       body_field: blockTime
       body: value
+    positional: [blockTime]
     params:
       type: object
       required: [blockTime]
@@ -451,7 +481,7 @@ operations:
           $ref: '#/types/BlockTime'
           description: The time an IP is blocked for the brute force protection.
   set_brute_force_protection_enabled:
-    summary: Set the enabled of the brute force protection.
+    summary: Enable or disable the brute force protection.
     effect: write
     write: patch
     binding:
@@ -459,6 +489,7 @@ operations:
       path: /conf/bruteForceProtection/enabled
       body_field: enabled
       body: value
+    positional: [enabled]
     params:
       type: object
       required: [enabled]
@@ -474,7 +505,7 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
   set_brute_force_protection_interval:
-    summary: Set the interval of the brute force protection.
+    summary: Set the interval (s) in which failures are counted by the brute force protection.
     effect: write
     write: patch
     binding:
@@ -482,6 +513,7 @@ operations:
       path: /conf/bruteForceProtection/interval
       body_field: interval
       body: value
+    positional: [interval]
     params:
       type: object
       required: [interval]
@@ -490,7 +522,7 @@ operations:
           $ref: '#/types/BlockInterval'
           description: The interval for the amount of fails for the brute force protection.
   get_rules:
-    summary: Get the rule settings.
+    summary: Get the active and pending firewall rules.
     effect: read
     binding: {method: GET, path: /conf/rules}
     result: {$ref: '#/types/Rules'}
@@ -581,9 +613,9 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'migration: dropped-property-gets: 10 per-property GET operations dropped'
-  - 'migration: action-input-unresolved: action input type not defined in the source; passed as a raw value in `data`:
-    clear_pending_rules, confirm_rules'
-  - 'migration: dropped-keywords: gettable x23, x-notes x1'
+  - The LimitPeriod table lists only NEWCONNECTIONS, while the examples use SECOND and MINUTE. The table is followed, so limit rules cannot be set with a period the examples use; the examples are skipped in the contract tests.
+  - The MAC pattern in the docs has an unbalanced parenthesis; the leading group is added.
+  - The docs example for reading activated shows the string "true"; the boolean is used.
+  - The docs do not say which fields of setRules are required; all are optional here.
   migrated_from: v1
-  curated: false
+  curated: true

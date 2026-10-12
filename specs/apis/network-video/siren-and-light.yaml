@@ -1,21 +1,16 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: siren-and-light
 name: Siren and light
-summary: Control siren and light patterns (notifications/deterrence) with priorities, profiles, health check, maintenance
-  mode and profile upload.
+summary: Control the siren and light of a device with patterns, priorities and profiles; run a health check and
+  set maintenance mode.
 section: network-video
 family: jsonrpc
 status: released
-python:
-  module: siren_and_light
-  class: SirenAndLight
-docs:
-- https://developer.axis.com/vapix/network-video/siren-and-light/
+python: {module: siren_and_light, class: SirenAndLight}
+docs: ['https://developer.axis.com/vapix/network-video/siren-and-light/']
 access: operator
 discovery:
 - {api_discovery: siren-and-light}
-
 binding:
   path: /axis-cgi/siren_and_light.cgi
   major: 1
@@ -23,37 +18,57 @@ binding:
   negotiation:
     get_supported_versions: {key: apiVersions}
   params_placement: params
-
 errors:
   1100: {description: Internal error, kind: internal}
-  1200: {description: Service is not initialized}
+  1200: {description: Service is not initialized, kind: unavailable}
+  1201: {description: Maximum number of profiles reached}
+  1202: {description: Requested profile is invalid, kind: invalid_argument}
+  1203: {description: Requested process id does not exist, kind: not_found}
+  1204: {description: Service does not support health check, kind: unsupported}
+  1205: {description: Service does not support maintenance mode, kind: unsupported}
   2100: {description: The API version is not supported, kind: unsupported}
   2101: {description: Invalid JSON, kind: invalid_argument}
   2102: {description: Method not supported, kind: unsupported}
   2103: {description: Required parameter missing, kind: invalid_argument}
   2104: {description: Invalid parameter value specified, kind: invalid_argument}
-
+  2200: {description: Requested siren pattern is invalid, kind: invalid_argument}
+  2201: {description: Requested light pattern is invalid, kind: invalid_argument}
+  2202: {description: Requested siren intensity is invalid, kind: invalid_argument}
+  2203: {description: Requested light intensity is invalid, kind: invalid_argument}
+  2204: {description: Requested siren priority is invalid, kind: invalid_argument}
+  2205: {description: Requested light priority is invalid, kind: invalid_argument}
+  2206: {description: Requested siren duration unit is invalid, kind: invalid_argument}
+  2207: {description: Requested light duration unit is invalid, kind: invalid_argument}
+  2208: {description: Requested siren duration is invalid, kind: invalid_argument}
+  2209: {description: Requested light duration is invalid, kind: invalid_argument}
+  2210: {description: Requested function type is invalid, kind: invalid_argument}
+  2211: {description: Requested number of colors is invalid, kind: invalid_argument}
+  2212: {description: Requested color is invalid, kind: invalid_argument}
+  2213: {description: Profile name is too long, kind: invalid_argument}
+  2214: {description: Description is too long, kind: invalid_argument}
+  2215: {description: Requested speed is invalid, kind: invalid_argument}
 types:
   Duration:
     type: object
     required: [unit, value]
     properties:
-      unit: {type: string, enum: [seconds, repetitions], description: Duration unit.}
-      value:
-        type: integer
-        minimum: 0
-        maximum: 259200
-        description: Duration value. Valid ranges 0-259200 for seconds and 0-20 for repetitions.
+      unit:
+        type: string
+        enum: [seconds, repetitions]
+        description: Duration unit.
+      value: {type: integer, minimum: 0, maximum: 259200, description: Duration value. Valid ranges 0-259200 for
+          seconds and 0-20 for repetitions.}
+    description: How long a pattern runs.
   SirenConfig:
     type: object
     required: [pattern]
     properties:
-      pattern: {type: string, description: Name of the siren pattern (from getCapabilities).}
-      intensity:
-        type: integer
-        description: Siren intensity level (integer in examples; syntax tables also say string).
+      pattern: {type: string, description: Name of the siren pattern (see get_capabilities).}
+      intensity: {type: integer, description: Siren intensity level.}
       duration: {$ref: '#/types/Duration'}
-      priority: {type: integer, description: 'Priority level (optional; 1-10 for users, 11+ reserved).'}
+      priority: {type: integer, description: Priority level. 1 to 10 for users; 11 and above are reserved for service
+          functions.}
+    description: Siren settings of a start request or a profile.
   LightConfig:
     type: object
     required: [pattern]
@@ -67,127 +82,209 @@ types:
       intensity: {type: integer, description: Light intensity level.}
       duration: {$ref: '#/types/Duration'}
       priority: {type: integer, description: Priority level.}
+    description: Light settings of a start request or a profile.
   Profile:
     type: object
     required: [name]
     properties:
-      name:
-        type: string
-        maxLength: 50
-        description: Unique profile name (identifier), max 50 characters.
+      name: {type: string, maxLength: 50, description: 'Unique profile name (identifier), max 50 characters.'}
       description: {type: string, maxLength: 250, description: 'User description, max 250 characters.'}
       siren: {$ref: '#/types/SirenConfig'}
       light: {$ref: '#/types/LightConfig'}
+    description: A stored combination of siren and light settings.
   SirenPatternCapability:
     type: object
     properties:
       name: {type: string, description: Siren pattern name.}
-      intensity:
-        type: object
-        x-name: SirenPatternCapabilityIntensity
-        properties:
-          poeClass:
-            type: object
-            additionalProperties:
-              type: object
-              properties:
-                possible:
-                  type: array
-                  items: {type: integer}
-                default:
-                  type: integer
-                  description: Intensity used when the pattern is started without an intensity.
-            description: Keys are PoE classes ("3", "4"); must contain the PoE class supported by the device.
-      priority:
-        type: object
-        x-name: SirenPatternCapabilityPriority
-        properties:
-          possible:
-            type: array
-            items: {type: integer}
-          default: {type: integer, description: Priority used when not set.}
+      intensity: {$ref: '#/types/IntensityCapability'}
+      priority: {$ref: '#/types/PriorityCapability'}
   LightPatternCapability:
     type: object
     properties:
       name: {type: string, description: Light pattern name.}
-      speed:
+      speed: {$ref: '#/types/SpeedCapability'}
+      colors: {$ref: '#/types/ColorCapability'}
+      intensity: {$ref: '#/types/IntensityCapability'}
+      priority: {$ref: '#/types/PriorityCapability'}
+  PoeIntensity:
+    type: object
+    properties:
+      possible:
+        type: array
+        items: {type: integer}
+        description: Supported intensity levels for this PoE class.
+      default: {type: integer, description: Intensity used when the pattern is started without one.}
+  IntensityCapability:
+    type: object
+    properties:
+      poeClass:
         type: object
-        x-name: LightPatternCapabilitySpeed
-        properties:
-          possible:
-            type: array
-            items: {type: integer}
-          default: {type: integer, description: Default speed.}
+        additionalProperties: {$ref: '#/types/PoeIntensity'}
+        description: Intensity properties keyed by PoE class ("3", "4"). Contains the PoE class the device supports.
+  PriorityCapability:
+    type: object
+    properties:
+      possible:
+        type: array
+        items: {type: integer}
+        description: Supported priority levels.
+      default: {type: integer, description: Priority used when the pattern is started without one.}
+  SpeedCapability:
+    type: object
+    properties:
+      possible:
+        type: array
+        items: {type: integer}
+      default: {type: integer, description: Speed used when not set.}
+  ColorCapability:
+    type: object
+    properties:
+      minNbrColors: {type: integer, description: Minimum number of different colors the pattern needs.}
+      maxNbrColors: {type: integer, description: Maximum number of colors; the maximum length of the colors array
+          at start.}
+      possible:
+        type: array
+        items: {type: string}
+        description: Names of the colors the pattern can flash in.
+      default:
+        type: array
+        items: {type: string}
+        description: Colors used when the pattern is started without any.
+  SirenCapabilities:
+    type: object
+    properties:
+      supportedPatterns:
+        type: array
+        items: {$ref: '#/types/SirenPatternCapability'}
+  LightCapabilities:
+    type: object
+    properties:
+      supportedPatterns:
+        type: array
+        items: {$ref: '#/types/LightPatternCapability'}
+  Capabilities:
+    type: object
+    properties:
+      siren: {$ref: '#/types/SirenCapabilities'}
+      light: {$ref: '#/types/LightCapabilities'}
+      healthCheckSupport: {type: boolean, description: Whether the service supports health check.}
+      maintenanceModeSupport: {type: boolean, description: Whether the service supports maintenance mode.}
+      poeClass: {type: string, description: The current PoE class.}
+  CapabilitiesResult:
+    type: object
+    required: [capabilities]
+    properties:
+      capabilities: {$ref: '#/types/Capabilities'}
+  SirenStatus:
+    type: object
+    description: A running siren operation.
+    properties:
+      sirenId:
+        oneOf: &id001
+        - {type: integer}
+        - {type: string}
+        description: Siren ID. Documented as a string; the examples show an integer.
+      pattern: {type: string, description: Running pattern name.}
+      intensity: {type: integer, description: Running intensity level.}
+      durationLeft: {type: integer, description: Seconds left until stop; decreases even when other higher-priority
+          patterns are active.}
+      priority: {type: integer, description: Priority used to start the pattern.}
+      profile: {type: string, description: Name of the running profile.}
+  LightStatus:
+    type: object
+    description: A running light operation.
+    properties:
+      lightId:
+        oneOf: *id001
+        description: Light ID. Documented as a string; the examples show an integer.
+      speed: {type: integer, description: Speed of running light pattern.}
       colors:
-        type: object
-        x-name: LightPatternCapabilityColors
-        properties:
-          minNbrColors: {type: integer, description: Minimum number of colors required.}
-          maxNbrColors:
-            type: integer
-            description: Maximum number of colors; maximum length of the colors array at start.
-          possible:
-            type: array
-            items: {type: string}
-          default:
-            type: array
-            items: {type: string}
-            description: Colors used when the pattern is started without a color.
-      intensity:
-        type: object
-        x-name: LightPatternCapabilityIntensity
-        properties:
-          poeClass:
-            type: object
-            additionalProperties:
-              type: object
-              properties:
-                possible:
-                  type: array
-                  items: {type: integer}
-                default:
-                  type: integer
-                  description: Intensity used when the pattern is started without an intensity.
-            description: Keys are PoE classes ("3", "4"); must contain the PoE class supported by the device.
-      priority:
-        type: object
-        x-name: LightPatternCapabilityPriority
-        properties:
-          possible:
-            type: array
-            items: {type: integer}
-          default: {type: integer, description: Priority used when not set.}
-
+        type: array
+        items: {type: string}
+      pattern: {type: string, description: Running pattern name.}
+      intensity: {type: integer, description: Running intensity level.}
+      durationLeft: {type: integer, description: Seconds left until stop; decreases even when other higher-priority
+          patterns are active.}
+      priority: {type: integer, description: Priority used to start the pattern.}
+      profile: {type: string, description: Name of the running profile.}
+  Status:
+    type: object
+    properties:
+      siren:
+        type: array
+        items: {$ref: '#/types/SirenStatus'}
+      light:
+        type: array
+        items: {$ref: '#/types/LightStatus'}
+  ProfileList:
+    type: object
+    properties:
+      profiles:
+        type: array
+        items: {$ref: '#/types/Profile'}
+  StartRequest:
+    type: object
+    description: Arguments of ``start``. Use either ``profile`` or ``siren`` and ``light``, not both.
+    properties:
+      siren: {$ref: '#/types/SirenConfig', description: Siren properties. Cannot be used together with profile.}
+      light: {$ref: '#/types/LightConfig', description: Light properties. Cannot be used together with profile.}
+      profile: {type: string, description: Profile name. Cannot be used together with siren or light.}
+  StartResult:
+    type: object
+    properties:
+      sirenId: {type: integer, description: Siren operation ID (handle for stop).}
+      lightId: {type: integer, description: Light operation ID (handle for stop).}
+  StopRequest:
+    type: object
+    description: Arguments of ``stop``. Give sirenId and/or lightId, ``all``, or ``profile``.
+    properties:
+      sirenId: {type: integer, description: ID handle of the siren operation.}
+      lightId: {type: integer, description: ID handle of the light operation.}
+      all:
+        type: array
+        items:
+          type: string
+          enum: [siren, light]
+        description: Types to stop; may stop multiple requests with different priorities.
+      profile: {type: string, description: Profile name whose operations to stop.}
+  AddProfileRequest:
+    type: object
+    required: [name]
+    properties:
+      name: {type: string, maxLength: 50, description: 'Unique profile name, max 50 characters.'}
+      description: {type: string, maxLength: 250, description: Max 250 characters.}
+      siren: {$ref: '#/types/SirenConfig', description: Siren configuration.}
+      light: {$ref: '#/types/LightConfig', description: Light configuration.}
+    description: Arguments of ``add_profile``.
+  RemoveProfileRequest:
+    type: object
+    required: [name]
+    properties:
+      name: {type: string, description: Name of the profile to remove.}
+  HealthCheckError:
+    type: object
+    properties:
+      code: {type: integer, description: Health check error code.}
+      message: {type: string, description: Description of the error.}
+  HealthCheckResult:
+    type: object
+    properties:
+      timestamp: {type: string, description: ISO 8601 timestamp of the latest health check. (format=date-time)}
+      errors:
+        type: array
+        items: {$ref: '#/types/HealthCheckError'}
+  SetMaintenanceModeRequest:
+    type: object
+    required: [maintenanceMode]
+    properties:
+      maintenanceMode: {type: boolean, description: 'true engages, false disengages.'}
+      duration: {type: integer, description: Seconds the maintenance mode is active when true. (unit=s)}
 operations:
   get_capabilities:
-    summary: 'List all services (siren, light) and their capabilities: patterns, intensities per PoE class, priorities,
-      speeds, colors.'
+    summary: List the supported services (siren, light) and their capabilities.
     effect: read
     binding: {method: getCapabilities}
-    result:
-      type: object
-      properties:
-        capabilities:
-          type: object
-          x-name: GetCapabilitiesResultCapabilities
-          properties:
-            siren:
-              type: object
-              x-name: GetCapabilitiesResultCapabilitiesSiren
-              properties:
-                supportedPatterns:
-                  type: array
-                  items: {$ref: '#/types/SirenPatternCapability'}
-            light:
-              type: object
-              x-name: GetCapabilitiesResultCapabilitiesLight
-              properties:
-                supportedPatterns:
-                  type: array
-                  items: {$ref: '#/types/LightPatternCapability'}
-            healthCheckSupport: {type: boolean}
-            maintenanceModeSupport: {type: boolean}
-            poeClass: {type: string, description: The current PoE class.}
+    result: {$ref: '#/types/CapabilitiesResult'}
     examples:
     - title: Deter unwanted people
       request:
@@ -200,25 +297,45 @@ operations:
               - name: Siren Alternate
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2, 3, 4, 5], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: Alarm Horror
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2, 3, 4, 5], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: Alarm Classic Clock
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2, 3, 4, 5], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
             light:
               supportedPatterns:
               - name: Alternate
-                speed: {possible: [1, 2], default: 1}
+                speed:
+                  possible: [1, 2]
+                  default: 1
                 colors:
                   minNbrColors: 2
                   maxNbrColors: 4
@@ -226,11 +343,19 @@ operations:
                   default: [red, blue]
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: Steady
-                speed: {possible: [1], default: 1}
+                speed:
+                  possible: [1]
+                  default: 1
                 colors:
                   minNbrColors: 1
                   maxNbrColors: 1
@@ -238,11 +363,19 @@ operations:
                   default: [red]
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: Rotate white + steady color
-                speed: {possible: [1, 2, 3, 4], default: 2}
+                speed:
+                  possible: [1, 2, 3, 4]
+                  default: 2
                 colors:
                   minNbrColors: 0
                   maxNbrColors: 1
@@ -250,9 +383,15 @@ operations:
                   default: []
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
             healthCheckSupport: true
             maintenanceModeSupport: true
             poeClass: '4'
@@ -268,25 +407,45 @@ operations:
               - name: 'Siren: Alternate'
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2, 3, 4, 5], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: 'Alarm: Horror'
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2, 3, 4, 5], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: 'Alarm: Classic Clock'
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2, 3], default: 1}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 1}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2, 3]
+                      default: 1
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 1
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
             light:
               supportedPatterns:
               - name: Alternate
-                speed: {possible: [1, 2], default: 1}
+                speed:
+                  possible: [1, 2]
+                  default: 1
                 colors:
                   minNbrColors: 2
                   maxNbrColors: 4
@@ -294,11 +453,19 @@ operations:
                   default: [red, blue]
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: Steady
-                speed: {possible: [1], default: 1}
+                speed:
+                  possible: [1]
+                  default: 1
                 colors:
                   minNbrColors: 1
                   maxNbrColors: 1
@@ -306,11 +473,19 @@ operations:
                   default: [red]
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
               - name: Rotate white + steady color
-                speed: {possible: [1, 2, 3, 4], default: 2}
+                speed:
+                  possible: [1, 2, 3, 4]
+                  default: 2
                 colors:
                   minNbrColors: 0
                   maxNbrColors: 1
@@ -318,54 +493,28 @@ operations:
                   default: []
                 intensity:
                   poeClass:
-                    '3': {possible: [1, 2], default: 2}
-                    '4': {possible: [1, 2, 3, 4, 5], default: 2}
-                priority: {possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 3}
+                    '3':
+                      possible: [1, 2]
+                      default: 2
+                    '4':
+                      possible: [1, 2, 3, 4, 5]
+                      default: 2
+                priority:
+                  possible: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                  default: 3
             healthCheckSupport: true
             maintenanceModeSupport: true
             poeClass: '4'
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#multiple-requests-with-different-priorities
+    description: Patterns, intensities per PoE class, priorities, speeds and colors. Pattern and color names are
+      device dependent.
   get_status:
     summary: List the current status (running operations) of siren and light.
     description: 'Priorities 11 and above are reserved for service functions: Maintenance mode 11, Find my device
       12, Health check 13.'
     effect: read
     binding: {method: getStatus}
-    result:
-      type: object
-      properties:
-        siren:
-          type: array
-          items:
-            type: object
-            x-name: GetStatusResultSirenItem
-            properties:
-              sirenId: {type: string, description: Siren ID.}
-              pattern: {type: string, description: Running pattern name.}
-              intensity: {type: integer, description: Running intensity level.}
-              durationLeft:
-                type: integer
-                description: Seconds left until stop; decreases even when other higher-priority patterns are active.
-              priority: {type: integer, description: Priority used to start the pattern.}
-              profile: {type: string, description: Name of the running profile.}
-        light:
-          type: array
-          items:
-            type: object
-            x-name: GetStatusResultLightItem
-            properties:
-              lightId: {type: string, description: Light ID.}
-              speed: {type: integer, description: Speed of running light pattern.}
-              colors:
-                type: array
-                items: {type: string}
-              pattern: {type: string, description: Running pattern name.}
-              intensity: {type: integer, description: Running intensity level.}
-              durationLeft:
-                type: integer
-                description: Seconds left until stop; decreases even when other higher-priority patterns are active.
-              priority: {type: integer, description: Priority used to start the pattern.}
-              profile: {type: string, description: Name of the running profile.}
+    result: {$ref: '#/types/Status'}
     examples:
     - title: Deter unwanted people
       request:
@@ -379,11 +528,7 @@ operations:
       response:
         data:
           siren:
-          - sirenId: 1
-            pattern: 'Alarm: Classic clock'
-            intensity: 5
-            priority: 3
-            profile: Profile 1
+          - {sirenId: 1, pattern: 'Alarm: Classic clock', intensity: 5, priority: 3, profile: Profile 1}
           light:
           - lightId: 1
             pattern: Alternate
@@ -400,18 +545,18 @@ operations:
       response:
         data:
           light:
-          - {lightId: 1, pattern: Steady, speed: 1, colors: [green], intensity: 1, priority: 1}
+          - lightId: 1
+            pattern: Steady
+            speed: 1
+            colors: [green]
+            intensity: 1
+            priority: 1
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#multiple-requests-with-different-priorities
   get_profiles:
     summary: List the registered profiles.
     effect: read
     binding: {method: getProfiles}
-    result:
-      type: object
-      properties:
-        profiles:
-          type: array
-          items: {$ref: '#/types/Profile'}
+    result: {$ref: '#/types/ProfileList'}
     examples:
     - title: Customize a profile
       request:
@@ -430,7 +575,12 @@ operations:
               duration: {unit: seconds, value: 30}
               priority: 1
           - name: Profile 2
-            light: {pattern: Alternate, speed: 1, colors: [blue, red], intensity: 1, priority: 1}
+            light:
+              pattern: Alternate
+              speed: 1
+              colors: [blue, red]
+              intensity: 1
+              priority: 1
           - name: Profile 3
             siren: {pattern: 'Alarm: Horror', intensity: 1, priority: 3}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#customize-a-profile
@@ -451,48 +601,24 @@ operations:
               duration: {unit: seconds, value: 30}
               priority: 1
           - name: Profile 2
-            light: {pattern: Alternate, speed: 1, colors: [blue, red], intensity: 1, priority: 1}
+            light:
+              pattern: Alternate
+              speed: 1
+              colors: [blue, red]
+              intensity: 1
+              priority: 1
           - name: Profile 3
             siren: {pattern: 'Alarm: Horror', intensity: 1, priority: 3}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#activate-siren-and-light-using-a-profile
   start:
-    summary: Start siren and/or light (explicit configuration or a profile).
+    summary: Start the siren and/or light, from explicit settings or a profile.
     description: Depending on state and priority the operation is active or stored to be activated later. The highest
       priority operation runs; runtime of inactive operations still decreases. Only one operation per priority level
       is stored; start with an identical priority to replace it.
     effect: action
     binding: {method: start}
-    params:
-      type: object
-      properties:
-        siren:
-          $ref: '#/types/SirenConfig'
-          description: Siren properties. Cannot be used together with profile.
-        light:
-          $ref: '#/types/LightConfig'
-          description: Light properties. Cannot be used together with profile.
-        profile: {type: string, description: Profile name. Cannot be used together with siren or light.}
-    result:
-      type: object
-      properties:
-        sirenId: {type: integer, description: Siren operation ID (handle for stop).}
-        lightId: {type: integer, description: Light operation ID (handle for stop).}
-    errors:
-      1202: {description: Requested profile is invalid, kind: invalid_argument}
-      2200: {description: Requested siren pattern is invalid, kind: invalid_argument}
-      2201: {description: Requested light pattern is invalid, kind: invalid_argument}
-      2202: {description: Requested siren intensity is invalid, kind: invalid_argument}
-      2203: {description: Requested light intensity is invalid, kind: invalid_argument}
-      2204: {description: Requested siren priority is invalid, kind: invalid_argument}
-      2205: {description: Requested light priority is invalid, kind: invalid_argument}
-      2206: {description: Requested siren duration unit is invalid, kind: invalid_argument}
-      2207: {description: Requested light duration unit is invalid, kind: invalid_argument}
-      2208: {description: Requested siren duration is invalid, kind: invalid_argument}
-      2209: {description: Requested light duration is invalid, kind: invalid_argument}
-      2210: {description: Requested function type is invalid, kind: invalid_argument}
-      2211: {description: Requested number of colors is invalid, kind: invalid_argument}
-      2212: {description: Requested color is invalid, kind: invalid_argument}
-      2215: {description: Requested speed is invalid., kind: invalid_argument}
+    params: {$ref: '#/types/StartRequest'}
+    result: {$ref: '#/types/StartResult'}
     examples:
     - title: Deter unwanted people
       request:
@@ -501,7 +627,11 @@ operations:
             pattern: 'Alarm: Horror'
             intensity: 5
             duration: {unit: seconds, value: 30}
-          light: {pattern: Alternate, speed: 1, colors: [blue, red], intensity: 1}
+          light:
+            pattern: Alternate
+            speed: 1
+            colors: [blue, red]
+            intensity: 1
       response:
         data: {sirenId: 1, lightId: 1}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#deter-unwanted-people
@@ -527,28 +657,16 @@ operations:
         data: {sirenId: 1, lightId: 1}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#activate-siren-and-light-using-a-profile
   stop:
-    summary: 'Stop operations: all of a type, one siren/light operation by ID, or those started by a profile.'
+    summary: 'Stop running operations: all of a type, one siren/light operation by ID, or those started by a profile.'
     description: Stopping by sirenId/lightId also initiates operations with lower priorities.
     effect: action
     binding: {method: stop}
-    params:
-      type: object
-      properties:
-        sirenId: {type: integer, description: ID handle of the siren operation.}
-        lightId: {type: integer, description: ID handle of the light operation.}
-        all:
-          type: array
-          items: {type: string, enum: [siren, light]}
-          description: Types to stop; may stop multiple requests with different priorities.
-        profile: {type: string, description: Profile name whose operations to stop.}
-    errors:
-      1202: {description: Requested profile is invalid, kind: invalid_argument}
-      1203: {description: Requested process id does not exist, kind: not_found}
-      2210: {description: Requested function type is invalid, kind: invalid_argument}
+    params: {$ref: '#/types/StopRequest'}
     examples:
     - title: Deter unwanted people
       request:
-        params: {all: [siren, light]}
+        params:
+          all: [siren, light]
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#deter-unwanted-people
@@ -563,33 +681,7 @@ operations:
     effect: write
     write: create
     binding: {method: addProfile}
-    params:
-      type: object
-      required: [name]
-      properties:
-        name: {type: string, maxLength: 50, description: 'Unique profile name, max 50 characters.'}
-        description: {type: string, maxLength: 250, description: Max 250 characters.}
-        siren: {$ref: '#/types/SirenConfig', description: Siren configuration.}
-        light: {$ref: '#/types/LightConfig', description: Light configuration.}
-    errors:
-      1201: {description: Maximum number of profiles reached}
-      1202: {description: Requested profile is invalid, kind: invalid_argument}
-      2200: {description: Requested siren pattern is invalid, kind: invalid_argument}
-      2201: {description: Requested light pattern is invalid, kind: invalid_argument}
-      2202: {description: Requested siren intensity is invalid, kind: invalid_argument}
-      2203: {description: Requested light intensity is invalid, kind: invalid_argument}
-      2204: {description: Requested siren priority is invalid, kind: invalid_argument}
-      2205: {description: Requested light priority is invalid, kind: invalid_argument}
-      2206: {description: Requested siren duration unit is invalid, kind: invalid_argument}
-      2207: {description: Requested light duration unit is invalid, kind: invalid_argument}
-      2208: {description: Requested siren duration is invalid, kind: invalid_argument}
-      2209: {description: Requested light duration is invalid, kind: invalid_argument}
-      2210: {description: Requested function type is invalid, kind: invalid_argument}
-      2211: {description: Requested number of colors is invalid, kind: invalid_argument}
-      2212: {description: Requested color is invalid, kind: invalid_argument}
-      2213: {description: Profile name is too long}
-      2214: {description: Description is too long}
-      2215: {description: Requested speed is invalid., kind: invalid_argument}
+    params: {$ref: '#/types/AddProfileRequest'}
     examples:
     - title: Customize a profile
       request:
@@ -612,13 +704,7 @@ operations:
     effect: write
     write: delete
     binding: {method: removeProfile}
-    params:
-      type: object
-      required: [name]
-      properties:
-        name: {type: string, description: Name of the profile to remove.}
-    errors:
-      1202: {description: Requested profile is invalid, kind: invalid_argument}
+    params: {$ref: '#/types/RemoveProfileRequest'}
     examples:
     - title: Customize a profile
       request:
@@ -626,12 +712,11 @@ operations:
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#customize-a-profile
+    positional: [name]
   run_health_check:
-    summary: Start a health check for later retrieval (takes some time).
-    effect: unknown
+    summary: Start a health check; fetch the result later with get_last_health_check.
+    effect: action
     binding: {method: runHealthCheck}
-    errors:
-      1204: {description: Service does not support health check}
     examples:
     - title: Initiate a health check
       request:
@@ -639,26 +724,12 @@ operations:
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#initiate-a-health-check
+    description: The check takes some time.
   get_last_health_check:
     summary: Retrieve the result of the latest completed health check.
     effect: read
     binding: {method: getLastHealthCheck}
-    result:
-      type: object
-      properties:
-        timestamp:
-          type: string
-          description: ISO 8601 timestamp of the latest health check. (format=date-time)
-        errors:
-          type: array
-          items:
-            type: object
-            x-name: GetLastHealthCheckResultErrorsItem
-            properties:
-              code: {type: integer, description: Health check error code.}
-              message: {type: string, description: Error description.}
-    errors:
-      1204: {description: Service does not support health check}
+    result: {$ref: '#/types/HealthCheckResult'}
     examples:
     - title: Initiate a health check
       request:
@@ -671,18 +742,11 @@ operations:
           - {code: 102, message: Siren is not working optimal}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#initiate-a-health-check
   set_maintenance_mode:
-    summary: Engage or disengage maintenance mode (safe approach without alarm; persists through reboot).
+    summary: Engage or disengage maintenance mode (a safe approach without alarm).
     effect: write
     write: patch
     binding: {method: setMaintenanceMode}
-    params:
-      type: object
-      required: [maintenanceMode]
-      properties:
-        maintenanceMode: {type: boolean, description: 'true engages, false disengages.'}
-        duration: {type: integer, description: Seconds the maintenance mode is active when true. (unit=s)}
-    errors:
-      1205: {description: Service does not support maintenance mode}
+    params: {$ref: '#/types/SetMaintenanceModeRequest'}
     examples:
     - title: Toggle the maintenance mode
       request:
@@ -690,28 +754,22 @@ operations:
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/siren-and-light/#toggle-the-maintenance-mode
-
+    description: The mode persists through a reboot.
+    positional: [maintenanceMode]
 sources:
-- url: https://developer.axis.com/vapix/network-video/siren-and-light/
-  sha256_md: 326f548016182fc404dbf76d3ab55200d357caf9fc8252aba08da7c274a0b1c8
-  retrieved_at: '2026-10-11'
-
+- {url: 'https://developer.axis.com/vapix/network-video/siren-and-light/', sha256_md: 326f548016182fc404dbf76d3ab55200d357caf9fc8252aba08da7c274a0b1c8,
+  retrieved_at: '2026-10-11'}
 provenance:
   completeness: complete
-  open_questions:
-  - intensity and priority are typed inconsistently (string in syntax/start table, integer in other tables and in
-    all examples); modelled as integer|string.
-  - getStatus sirenId/lightId are strings in syntax but start returns integer IDs.
-  - start table types duration as Integer while syntax shows a {unit,value} object.
-  - Light colors default is described as Array in tables but <integer> in syntax.
-  - 'Request syntax blocks are invalid JSON (method: start without quotes, getLastHealthCheck" missing quote, missing
-    commas).'
-  - uploadProfiles text says filename=profiles but syntax shows filename="<profile-file>".
-  - Exact pattern/color names are device dependent (getCapabilities).
-  - AXIS OS minimum version not stated.
-  - 'migration: multi-type: type list [''integer'', ''string''] reduced to integer'
-  - 'migration: multipart-op: upload_profiles: only multipart parameters; skipped (not representable)'
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_maintenance_mode=write/patch'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: run_health_check, upload_profiles'
+  open_questions: ['intensity and priority are typed inconsistently: String in the start and getCapabilities-adjacent
+      tables, Integer in the addProfile/getProfiles/getStatus tables and in every example. Modelled as integer.',
+    getStatus sirenId/lightId are documented as String but the examples show integers and start returns integer
+      IDs. Modelled as integer or string., 'The start table types duration as Integer while its syntax and the examples
+      show a {unit, value} object. Modelled as the object.', Light colors default is described as Array in the tables
+      but as an integer in the syntax block., 'Request syntax blocks are invalid JSON (method: start without quotes,
+      missing quote after getLastHealthCheck, missing commas).', uploadProfiles (multipart/form-data profile upload)
+      is not modelled; the format has no multipart binding. The text says filename=profiles but the syntax shows
+      filename="<profile-file>"., Exact pattern and color names are device dependent (see getCapabilities)., AXIS
+      OS minimum version not stated.]
   migrated_from: v1
-  curated: false
+  curated: true

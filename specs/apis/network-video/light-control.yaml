@@ -1,9 +1,8 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: light-control
 name: Light control API
-summary: 'JSON API (/axis-cgi/lightcontrol.cgi) to query and control IR/white light LED groups: activate, enable,
-  intensity, angle of illumination, day/night sync, IR...'
+summary: 'Query and control the IR and white light LED groups: activate, enable, intensity, angle of illumination,
+  day/night synchronization, IR wavelength and beam shape.'
 section: network-video
 family: jsonrpc
 status: released
@@ -14,31 +13,45 @@ docs:
 - https://developer.axis.com/vapix/network-video/light-control/
 access: admin
 discovery:
-- {api_discovery: light-control}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
-- param: {name: Properties.LightControl.LightControl2, value: 'yes'}
+- api_discovery: light-control
+- param:
+    name: Properties.API.HTTP.Version
+    value: '3'
+- param:
+    name: Properties.LightControl.LightControl2
+    value: 'yes'
 requires:
   firmware: '7.40'
-
 binding:
   path: /axis-cgi/lightcontrol.cgi
   major: 1
-  versions: ['1.0']
+  versions:
+  - '1.0'
+  - '1.2'
+  - '1.7'
   negotiation:
-    get_supported_versions: {key: apiVersions}
+    get_supported_versions:
+      key: apiVersions
   params_placement: params
-
 errors:
-  1000: {description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument}
-  2000: {description: RESOURCE_MEM_ERROR. Failed to allocate memory.}
-  2001: {description: ACCESS_FORBIDDEN. Access forbidden, kind: access_denied}
+  1000:
+    description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value.
+    kind: invalid_argument
+  2000:
+    description: RESOURCE_MEM_ERROR. Failed to allocate memory.
+    kind: internal
+  2001:
+    description: ACCESS_FORBIDDEN. Access forbidden
+    kind: access_denied
   2002:
     description: HTTP_METHOD_NOT_SUPPORTED. HTTP request type not supported. Only POST supported.
     kind: unsupported
   2003:
     description: API_VERSION_NOT_SUPPORTED. The requested API version is not supported.
     kind: unsupported
-  2004: {description: METHOD_NOT_SUPPORTED. Method not supported., kind: unsupported}
+  2004:
+    description: METHOD_NOT_SUPPORTED. Method not supported.
+    kind: unsupported
   3000:
     description: UNSUPPORTED_API_VERSION. The requested API version is not supported.
     kind: unsupported
@@ -47,116 +60,315 @@ errors:
     kind: invalid_argument
   4001:
     description: JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input.
-    kind: not_found
+    kind: invalid_argument
   4002:
     description: JSON_INVALID_TYPE. The provided JSON parameter type was incorrect.
     kind: invalid_argument
   7000:
     description: UNSUPPORTED_API_VERSION. The requested API version is not supported by this implementation.
     kind: unsupported
-  8000: {description: INTERNAL_ERROR. Internal error., kind: internal}
-  8001: {description: UNEXPECTED_ERROR. Unexpected error., kind: internal}
-  8002: {description: GENERIC_ERROR. Generic error.}
-
+  8000:
+    description: INTERNAL_ERROR. Internal error.
+    kind: internal
+  8001:
+    description: UNEXPECTED_ERROR. Unexpected error.
+    kind: internal
+  8002:
+    description: GENERIC_ERROR. Generic error.
+    kind: internal
+types:
+  LedCapabilities:
+    type: object
+    description: Which methods a light supports.
+    properties:
+      automaticIntensitySupport:
+        type: boolean
+        description: Indicates that `setAutomaticIntensityMode` is supported.
+      manualIntensitySupport:
+        type: boolean
+        description: Indicates that `getManualIntensity` and `setManualIntensity` are supported.
+      individualIntensitySupport:
+        type: boolean
+        description: Indicates that `getIndividualIntensity` and `setIndividualIntensity` are supported.
+      getCurrentIntensitySupport:
+        type: boolean
+        description: Indicates that `getCurrentIntensity` is supported.
+      manualAngleOfIlluminationSupport:
+        type: boolean
+        description: Indicates that `setManualAngleOfIllumination` is supported.
+      automaticAngleOfIlluminationSupport:
+        type: boolean
+        description: Indicates that `setAutomaticAngleOfIlluminationMode` is supported.
+      dayNightSynchronizeSupport:
+        type: boolean
+        description: Indicates that `setLightSynchronizeDayNightMode` is supported.
+      multiIRWaveLengthSupport:
+        type: boolean
+        description: Indicates that `getValidIRWavelengths`, `setIRWavelength` and `getIRWavelength` are supported.
+  LightCapabilities:
+    type: object
+    description: Capabilities of one LED group.
+    required:
+    - lightID
+    properties:
+      lightID:
+        type: string
+        description: The ID of the LED group.
+      automaticIntensitySupport:
+        type: boolean
+        description: Indicates that `setAutomaticIntensityMode` is supported.
+      manualIntensitySupport:
+        type: boolean
+        description: Indicates that `getManualIntensity` and `setManualIntensity` are supported.
+      individualIntensitySupport:
+        type: boolean
+        description: Indicates that `getIndividualIntensity` and `setIndividualIntensity` are supported.
+      getCurrentIntensitySupport:
+        type: boolean
+        description: Indicates that `getCurrentIntensity` is supported.
+      manualAngleOfIlluminationSupport:
+        type: boolean
+        description: Indicates that `setManualAngleOfIllumination` is supported.
+      automaticAngleOfIlluminationSupport:
+        type: boolean
+        description: Indicates that `setAutomaticAngleOfIlluminationMode` is supported.
+      dayNightSynchronizeSupport:
+        type: boolean
+        description: Indicates that `setLightSynchronizeDayNightMode` is supported.
+      multiIRWaveLengthSupport:
+        type: boolean
+        description: Indicates that `getValidIRWavelengths`, `setIRWavelength` and `getIRWavelength` are supported.
+  ServiceCapabilities:
+    type: object
+    description: Capabilities of the light service as a whole, and per LED group.
+    properties:
+      automaticIntensitySupport:
+        type: boolean
+        description: Indicates that `setAutomaticIntensityMode` is supported.
+      manualIntensitySupport:
+        type: boolean
+        description: Indicates that `getManualIntensity` and `setManualIntensity` are supported.
+      individualIntensitySupport:
+        type: boolean
+        description: Indicates that `getIndividualIntensity` and `setIndividualIntensity` are supported.
+      getCurrentIntensitySupport:
+        type: boolean
+        description: Indicates that `getCurrentIntensity` is supported.
+      manualAngleOfIlluminationSupport:
+        type: boolean
+        description: Indicates that `setManualAngleOfIllumination` is supported.
+      automaticAngleOfIlluminationSupport:
+        type: boolean
+        description: Indicates that `setAutomaticAngleOfIlluminationMode` is supported.
+      dayNightSynchronizeSupport:
+        type: boolean
+        description: Indicates that `setLightSynchronizeDayNightMode` is supported.
+      multiIRWaveLengthSupport:
+        type: boolean
+        description: Indicates that `getValidIRWavelengths`, `setIRWavelength` and `getIRWavelength` are supported.
+      capabilities:
+        type: array
+        items:
+          $ref: '#/types/LightCapabilities'
+        description: Supported capabilities for each LED group.
+  LightInformation:
+    type: object
+    description: State of one light.
+    required:
+    - lightID
+    properties:
+      lightID:
+        type: string
+        description: Unique ID of the light.
+      lightType:
+        type: string
+        description: Type identifier of the light.
+      enabled:
+        type: boolean
+        description: Indicates if the light is enabled.
+      synchronizeDayNightMode:
+        type: boolean
+        description: Indicates if the light is synchronized with day/night.
+      lightState:
+        type: boolean
+        description: Indicates if the light is ON or OFF.
+      automaticIntensityMode:
+        type: boolean
+        description: Indicates if the mode for automatic intensity is active.
+      automaticAngleOfIlluminationMode:
+        type: boolean
+        description: Indicates if the mode for automatic angle of illumination is active.
+      nrOfLEDs:
+        type: integer
+        description: Number of configurable LEDs in a light group. The light groups are identified by their Light
+          ID.
+      error:
+        type: boolean
+        description: An error has occurred.
+      errorInfo:
+        type: string
+        description: Error description.
+  LightInformationList:
+    type: object
+    properties:
+      items:
+        type: array
+        items:
+          $ref: '#/types/LightInformation'
+  LightStatus:
+    type: object
+    required:
+    - status
+    properties:
+      status:
+        type: boolean
+        description: Indicates if the light is ON or OFF.
+  ValueRange:
+    type: object
+    required:
+    - low
+    - high
+    properties:
+      low:
+        type: integer
+        description: The lower limit of the range.
+      high:
+        type: integer
+        description: The upper limit of the range.
+  ValidRanges:
+    type: object
+    required:
+    - ranges
+    properties:
+      ranges:
+        type: array
+        items:
+          $ref: '#/types/ValueRange'
+        description: The valid ranges.
+  Intensity:
+    type: object
+    required:
+    - intensity
+    properties:
+      intensity:
+        type: integer
+        description: The intensity of the light.
+  AngleOfIllumination:
+    type: object
+    required:
+    - angleOfIllumination
+    properties:
+      angleOfIllumination:
+        type: integer
+        description: The angle of illumination.
+  DayNightSynchronization:
+    type: object
+    required:
+    - enabled
+    properties:
+      enabled:
+        type: boolean
+        description: If the day/night cut filter synchronization of the light is active.
+  ValidIrWavelengths:
+    type: object
+    properties:
+      wavelengths:
+        type: array
+        items:
+          type: string
+        description: The valid wavelength settings, for example 850nm.
+  IrWavelength:
+    type: object
+    required:
+    - IRWavelength
+    properties:
+      IRWavelength:
+        type: string
+        description: The currently set infrared wavelength.
+  BeamShape:
+    type: object
+    required:
+    - beamShape
+    properties:
+      beamShape:
+        type: string
+        description: The beam shape.
+  ValidBeamShapes:
+    type: object
+    properties:
+      items:
+        type: array
+        items:
+          $ref: '#/types/BeamShape'
+        description: The valid beam shapes.
 operations:
   get_service_capabilities:
     summary: Lists the capabilities of the light control.
     description: A CGI method that lists the light service capabilities.
     access: operator
     effect: read
-    binding: {method: getServiceCapabilities}
+    binding:
+      method: getServiceCapabilities
     result:
-      type: object
-      properties:
-        automaticIntensitySupport: {type: boolean, description: Indicates that `setAutomaticIntensityMode` is supported.}
-        manualIntensitySupport:
-          type: boolean
-          description: Indicates that `getManualIntensity` and `setManualIntensity` are supported.
-        individualIntensitySupport:
-          type: boolean
-          description: Indicates that `getIndividualIntensity` and `setIndividualIntensity` are supported.
-        getCurrentIntensitySupport: {type: boolean, description: Indicates that `getCurrentIntensity` is supported.}
-        manualAngleOfIlluminationSupport: {type: boolean, description: Indicates that `setManualAngleOfIllumination`
-            is supported.}
-        automaticAngleOfIlluminationSupport:
-          type: boolean
-          description: Indicates that `setAutomaticAngleOfIlluminationMode` is supported.
-        dayNightSynchronizeSupport: {type: boolean, description: Indicates that `setLightSynchronizeDayNightMode`
-            is supported.}
-        multiIRWaveLengthSupport:
-          type: boolean
-          description: Indicates that `getValidIRWavelengths`, `setIRWavelength` and `getIRWavelength` are supported.
-        capabilities:
-          type: array
-          items:
-            type: object
-            x-name: GetServiceCapabilitiesResultCapabilitiesItem
-            properties:
-              lightID: {type: string, description: The ID of the LEDgroup.}
-              automaticIntensitySupport: {type: boolean, description: Indicates that `setAutomaticIntensityMode`
-                  is supported.}
-              manualIntensitySupport:
-                type: boolean
-                description: Indicates that `getManualIntensity` and `setManualIntensity` are supported.
-              individualIntensitySupport:
-                type: boolean
-                description: Indicates that `getIndividualIntensity` and `setIndividualIntensity` are supported.
-              getCurrentIntensitySupport: {type: boolean, description: Indicates that `getCurrentIntensity` is supported.}
-              manualAngleOfIlluminationSupport: {type: boolean, description: Indicates that `setManualAngleOfIllumination`
-                  is supported.}
-              automaticAngleOfIlluminationSupport:
-                type: boolean
-                description: Indicates that `setAutomaticAngleOfIlluminationMode` is supported.
-              dayNightSynchronizeSupport: {type: boolean, description: Indicates that `setLightSynchronizeDayNightMode`
-                  is supported.}
-              multiIRWaveLengthSupport:
-                type: boolean
-                description: Indicates that `getValidIRWavelengths`, `setIRWavelength` and `getIRWavelength` are
-                  supported.
-          description: Container for supported capabilities for each LEDgroup.
+      $ref: '#/types/ServiceCapabilities'
     examples:
     - title: Get service capabilities
       request:
         params: {}
       response:
-        error: {code: 7000, message: The requested API version is not supported by this implementation.}
+        data:
+          automaticIntensitySupport: true
+          manualIntensitySupport: true
+          individualIntensitySupport: false
+          getCurrentIntensitySupport: true
+          manualAngleOfIlluminationSupport: false
+          automaticAngleOfIlluminationSupport: false
+          dayNightSynchronizeSupport: true
+          multiIRWaveLengthSupport: true
+          capabilities:
+          - lightID: led0
+            automaticIntensitySupport: true
+            manualIntensitySupport: true
+            individualIntensitySupport: false
+            getCurrentIntensitySupport: true
+            manualAngleOfIlluminationSupport: false
+            automaticAngleOfIlluminationSupport: false
+            dayNightSynchronizeSupport: true
+            multiIRWaveLengthSupport: true
+          - lightID: led1
+            automaticIntensitySupport: true
+            manualIntensitySupport: true
+            individualIntensitySupport: false
+            getCurrentIntensitySupport: true
+            manualAngleOfIlluminationSupport: false
+            automaticAngleOfIlluminationSupport: false
+            dayNightSynchronizeSupport: true
+            multiIRWaveLengthSupport: true
+      source: https://developer.axis.com/vapix/network-video/light-control/#get-service-capabilities
+    - title: Get service capabilities (error response)
+      request:
+        params: {}
+      response:
+        error:
+          code: 7000
+          message: The requested API version is not supported by this implementation.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-service-capabilities
   get_light_information:
     summary: Lists the light control information.
     description: A CGI method that lists the light control information.
     access: operator
     effect: read
-    binding: {method: getLightInformation}
+    binding:
+      method: getLightInformation
     result:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            x-name: GetLightInformationResultItemsItem
-            properties:
-              lightID: {type: string, description: Unique ID of the light.}
-              lightType: {type: string, description: Type identifier of the light.}
-              enabled: {type: boolean, description: Indicates if the light is enabled.}
-              synchronizeDayNightMode: {type: boolean, description: Indicates if the light is synchronized with
-                  day/night.}
-              lightState: {type: boolean, description: Indicates if the light is ON or OFF.}
-              automaticIntensityMode: {type: boolean, description: Indicates if the mode for automatic intensity
-                  is active.}
-              automaticAngleOfIlluminationMode:
-                type: boolean
-                description: Indicates if the mode for automatic angle of illumination is active.
-              nrOfLEDs:
-                type: string
-                description: Number of configurable LEDs in a light group. The light groups are identified by their
-                  Light ID.
-              error: {type: boolean}
-              errorInfo: {type: string, description: Error description.}
+      $ref: '#/types/LightInformationList'
     errors:
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get light information
       request:
@@ -189,163 +401,235 @@ operations:
       request:
         params: {}
       response:
-        error: {code: 2000, message: Failed to allocate memory for request.}
+        error:
+          code: 2000
+          message: Failed to allocate memory for request.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-light-information
   activate_light:
     summary: Activates the light.
     description: A CGI method that activates the light.
     access: operator
     effect: action
-    binding: {method: activateLight}
+    binding:
+      method: activateLight
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     errors:
       1002:
         description: INVALID_LIGHT_ID_FAULT. Provided lightID parameter is not valid for the device.
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
-      1008: {description: UPDATE_IRCUTFILTER_FAULT. Could not update IR cut filter.}
-      1009: {description: LIGHT_DISABLED_FAULT. The light group is turned off and can’t be activated.}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
+      1008:
+        description: UPDATE_IRCUTFILTER_FAULT. Could not update IR cut filter.
+        kind: internal
+      1009:
+        description: LIGHT_DISABLED_FAULT. The light group is turned off and can’t be activated.
+        kind: unavailable
     examples:
     - title: Activate light
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#activate-light
     - title: Activate light (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#activate-light
   deactivate_light:
     summary: Deactivates the light.
     description: A CGI method that deactivates the light.
     access: operator
     effect: action
-    binding: {method: deactivateLight}
+    binding:
+      method: deactivateLight
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     errors:
       1002:
         description: INVALID_LIGHT_ID_FAULT. Provided lightID parameter is not valid for the device.
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Deactivate light
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#deactivate-light
     - title: Deactivate light (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#deactivate-light
   enable_light:
     summary: Enables the light functionality on the device.
     description: A CGI method that enables the light functionality.
     access: operator
-    effect: unknown
-    binding: {method: enableLight}
+    effect: write
+    binding:
+      method: enableLight
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     errors:
       1002:
         description: INVALID_LIGHT_ID_FAULT. Provided lightID parameter is not valid for the device.
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Enable light
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#enable-light
     - title: Enable light (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1005, message: 'Hardware failure, could not complete request.'}
+        error:
+          code: 1005
+          message: Hardware failure, could not complete request.
       source: https://developer.axis.com/vapix/network-video/light-control/#enable-light
+    write: patch
   disable_light:
     summary: Disables the light functionality on the device.
     description: A CGI method that disables the light functionality.
     access: operator
-    effect: unknown
-    binding: {method: disableLight}
+    effect: write
+    binding:
+      method: disableLight
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     errors:
       1002:
         description: INVALID_LIGHT_ID_FAULT. Provided lightID parameter is not valid for the device.
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Disable light
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#disable-light
     - title: Disable light (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1005, message: 'Hardware failure, could not complete request.'}
+        error:
+          code: 1005
+          message: Hardware failure, could not complete request.
       source: https://developer.axis.com/vapix/network-video/light-control/#disable-light
+    write: patch
   get_light_status:
     summary: Retrieves the light status from a given Light ID.
     description: A CGI method that showcases the light status of a given Light ID.
     access: operator
     effect: read
-    binding: {method: getLightStatus}
+    binding:
+      method: getLightStatus
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        status: {type: boolean, description: Indicates if the light is ON or OFF.}
+      $ref: '#/types/LightStatus'
     errors:
       1002:
         description: INVALID_LIGHT_ID_FAULT. Provided lightID parameter is not valid for the device.
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get light status
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {status: true}
+        data:
+          status: true
       source: https://developer.axis.com/vapix/network-video/light-control/#get-light-status
     - title: Get light status (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-light-status
   set_automatic_intensity_mode:
     summary: Enables the automatic light intensity control.
@@ -353,12 +637,20 @@ operations:
     access: operator
     effect: write
     write: patch
-    binding: {method: setAutomaticIntensityMode}
+    binding:
+      method: setAutomaticIntensityMode
     params:
       type: object
+      required:
+      - lightID
+      - enabled
       properties:
-        lightID: {type: string, description: The light ID.}
-        enabled: {type: boolean, description: Enables automatic light intensity control.}
+        lightID:
+          type: string
+          description: The light ID.
+        enabled:
+          type: boolean
+          description: Enables automatic light intensity control.
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -368,42 +660,47 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Set automatic intensity mode
       request:
-        params: {lightID: led0, enabled: true}
+        params:
+          lightID: led0
+          enabled: true
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#set-automatic-intensity-mode
     - title: Set automatic intensity mode (error response)
       request:
-        params: {lightID: led0, enabled: true}
+        params:
+          lightID: led0
+          enabled: true
       response:
-        error: {code: 1005, message: 'Hardware failure, could not complete request.'}
+        error:
+          code: 1005
+          message: Hardware failure, could not complete request.
       source: https://developer.axis.com/vapix/network-video/light-control/#set-automatic-intensity-mode
   get_valid_intensity:
     summary: Lists the valid light intensity values.
     description: A CGI method that lists the valid light intensity values.
     access: operator
     effect: read
-    binding: {method: getValidIntensity}
+    binding:
+      method: getValidIntensity
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        ranges:
-          type: array
-          items:
-            type: object
-            x-name: GetValidIntensityResultRangesItem
-            properties:
-              low: {type: integer, description: The lower intensity limit for the range.}
-              high: {type: integer, description: The upper intensity limit for the range.}
-          description: Array of the range objects.
+      $ref: '#/types/ValidRanges'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -413,21 +710,29 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get valid intensity
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
         data:
           ranges:
-          - {low: 0, high: 50}
+          - low: 0
+            high: 50
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-intensity
     - title: Get valid intensity (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-intensity
   set_manual_intensity:
     summary: Manually sets the intensity.
@@ -435,12 +740,20 @@ operations:
     access: operator
     effect: write
     write: patch
-    binding: {method: setManualIntensity}
+    binding:
+      method: setManualIntensity
     params:
       type: object
+      required:
+      - lightID
+      - intensity
       properties:
-        lightID: {type: string, description: The light ID.}
-        intensity: {type: integer, description: The intensity level of the light.}
+        lightID:
+          type: string
+          description: The light ID.
+        intensity:
+          type: integer
+          description: The intensity level of the light; see get_valid_intensity for the valid ranges.
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -453,34 +766,47 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Set manual intensity
       request:
-        params: {lightID: led0, intensity: 50}
+        params:
+          lightID: led0
+          intensity: 50
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#set-manual-intensity
     - title: Set manual intensity (error response)
       request:
-        params: {lightID: led0, intensity: 50}
+        params:
+          lightID: led0
+          intensity: 50
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#set-manual-intensity
   get_manual_intensity:
     summary: Retrieves the intensity from the `setManualIntensity` request.
     description: A CGI method that gets the intensity that was sent in the `setManualIntensity` request.
     access: operator
     effect: read
-    binding: {method: getManualIntensity}
+    binding:
+      method: getManualIntensity
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        intensity: {type: string, description: The currently configured manual intensity.}
+      $ref: '#/types/Intensity'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -490,19 +816,27 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get manual intensity
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {intensity: 50}
+        data:
+          intensity: 50
       source: https://developer.axis.com/vapix/network-video/light-control/#get-manual-intensity
     - title: Get manual intensity (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-manual-intensity
   set_individual_intensity:
     summary: Manually sets the intensity for an individual LED.
@@ -510,13 +844,24 @@ operations:
     access: operator
     effect: write
     write: patch
-    binding: {method: setIndividualIntensity}
+    binding:
+      method: setIndividualIntensity
     params:
       type: object
+      required:
+      - lightID
+      - LEDID
+      - intensity
       properties:
-        lightID: {type: string, description: The light ID.}
-        LEDID: {type: integer, description: The ID of the LED.}
-        intensity: {type: integer, description: The intensity level of the light.}
+        lightID:
+          type: string
+          description: The light ID.
+        LEDID:
+          type: integer
+          description: The ID of the LED.
+        intensity:
+          type: integer
+          description: The intensity level of the light.
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -529,35 +874,52 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Set individual intensity
       request:
-        params: {lightID: led0, LEDID: 1, intensity: 100}
+        params:
+          lightID: led0
+          LEDID: 1
+          intensity: 100
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#set-individual-intensity
     - title: Set individual intensity (error response)
       request:
-        params: {lightID: led0, LEDID: 1, intensity: 100}
+        params:
+          lightID: led0
+          LEDID: 1
+          intensity: 100
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#set-individual-intensity
   get_individual_intensity:
     summary: Retrieves the intensity from the `setIndividualIntensity` request.
     description: A CGI method that sends the intensity in the `setIndividualIntensity` request.
     access: operator
     effect: read
-    binding: {method: getIndividualIntensity}
+    binding:
+      method: getIndividualIntensity
     params:
       type: object
+      required:
+      - lightID
+      - LEDID
       properties:
-        lightID: {type: string, description: The light ID.}
-        LEDID: {type: integer, description: The ID of the LED.}
+        lightID:
+          type: string
+          description: The light ID.
+        LEDID:
+          type: integer
+          description: The ID of the LED.
     result:
-      type: object
-      properties:
-        intensity: {type: integer, description: The currently configured individual intensity.}
+      $ref: '#/types/Intensity'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -567,34 +929,48 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get individual intensity
       request:
-        params: {lightID: led0, LEDID: 2}
+        params:
+          lightID: led0
+          LEDID: 2
       response:
-        data: {intensity: 100}
+        data:
+          intensity: 100
       source: https://developer.axis.com/vapix/network-video/light-control/#get-individual-intensity
     - title: Get individual intensity (error response)
       request:
-        params: {lightID: led0, LEDID: 2}
+        params:
+          lightID: led0
+          LEDID: 2
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-individual-intensity
   get_current_intensity:
     summary: Retrieves the current intensity.
     description: A CGI method that gets the current intensity.
     access: operator
     effect: read
-    binding: {method: getCurrentIntensity}
+    binding:
+      method: getCurrentIntensity
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        intensity: {type: integer, description: The current intensity of the light.}
+      $ref: '#/types/Intensity'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -604,19 +980,27 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get current intensity
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {intesity: 100}
+        data:
+          intensity: 100
       source: https://developer.axis.com/vapix/network-video/light-control/#get-current-intensity
     - title: Get current intensity (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1005, message: 'Hardware failure, could not complete request.'}
+        error:
+          code: 1005
+          message: Hardware failure, could not complete request.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-current-intensity
   set_automatic_angle_of_illumination_mode:
     summary: Automatically controls the angle of illumination.
@@ -624,14 +1008,20 @@ operations:
     access: operator
     effect: write
     write: patch
-    binding: {method: setAutomaticAngleOfIlluminationMode}
+    binding:
+      method: setAutomaticAngleOfIlluminationMode
     params:
       type: object
+      required:
+      - lightID
+      - enabled
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
         enabled:
           type: boolean
-          description: Activate or deactivate automatic angle of illumination mode for a selected light.
+          description: Activate or deactivate automatic angle of illumination mode for the light.
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -641,42 +1031,47 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Set automatic angle of illumination mode
       request:
-        params: {lightID: led0, enabled: true}
+        params:
+          lightID: led0
+          enabled: true
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#set-automatic-angle-of-illumination-mode
     - title: Set automatic angle of illumination mode (error response)
       request:
-        params: {lightID: led0, enabled: true}
+        params:
+          lightID: led0
+          enabled: true
       response:
-        error: {code: 1001, message: Method call not supported by the device.}
+        error:
+          code: 1001
+          message: Method call not supported by the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#set-automatic-angle-of-illumination-mode
   get_valid_angle_of_illumination:
     summary: Lists the valid angle of illumination values.
     description: A CGI method that lists the valid angle of the illumination values.
     access: operator
     effect: read
-    binding: {method: getValidAngleOfIllumination}
+    binding:
+      method: getValidAngleOfIllumination
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        ranges:
-          type: array
-          items:
-            type: object
-            x-name: GetValidAngleOfIlluminationResultRangesItem
-            properties:
-              low: {type: integer, description: Lower angle limit for the range.}
-              high: {type: integer, description: Upper angle limit for the range.}
-          description: Array of range objects.
+      $ref: '#/types/ValidRanges'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -686,22 +1081,31 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get valid angle of illumination
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
         data:
           ranges:
-          - {low: 10, high: 30}
-          - {low: 20, high: 50}
+          - low: 10
+            high: 30
+          - low: 20
+            high: 50
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-angle-of-illumination
     - title: Get valid angle of illumination (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1001, message: Method call not supported by the device.}
+        error:
+          code: 1001
+          message: Method call not supported by the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-angle-of-illumination
   set_manual_angle_of_illumination:
     summary: Sets the manual angle of illumination.
@@ -709,12 +1113,20 @@ operations:
     access: operator
     effect: write
     write: patch
-    binding: {method: setManualAngleOfIllumination}
+    binding:
+      method: setManualAngleOfIllumination
     params:
       type: object
+      required:
+      - lightID
+      - angleOfIllumination
       properties:
-        lightID: {type: string, description: The light ID.}
-        angleOfIllumination: {type: integer, description: The angle of illumination.}
+        lightID:
+          type: string
+          description: The light ID.
+        angleOfIllumination:
+          type: integer
+          description: The angle of illumination; see get_valid_angle_of_illumination for the valid ranges.
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -728,34 +1140,47 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Set manual angle of illumination
       request:
-        params: {lightID: led0, angleOfIllumination: 30}
+        params:
+          lightID: led0
+          angleOfIllumination: 30
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#set-manual-angle-of-illumination
     - title: Set manual angle of illumination (error response)
       request:
-        params: {lightID: led0, angleOfIllumination: 30}
+        params:
+          lightID: led0
+          angleOfIllumination: 30
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#set-manual-angle-of-illumination
   get_manual_angle_of_illumination:
     summary: Retrieves the angle of illumination from the `setManualAngleOfIllumination` request.
     description: A CGI method that gets the angle of illumination sent by the `setManualAngleOfIllumination` request.
     access: operator
     effect: read
-    binding: {method: getManualAngleOfIllumination}
+    binding:
+      method: getManualAngleOfIllumination
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        angleOfIllumination: {type: integer, description: The current manual angle of illumination.}
+      $ref: '#/types/AngleOfIllumination'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -765,34 +1190,46 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get manual angle of illumination
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {angleOfIllumination: 30}
+        data:
+          angleOfIllumination: 30
       source: https://developer.axis.com/vapix/network-video/light-control/#get-manual-angle-of-illumination
     - title: Get manual angle of illumination (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1005, message: 'Hardware failure, could not complete request.'}
+        error:
+          code: 1005
+          message: Hardware failure, could not complete request.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-manual-angle-of-illumination
   get_current_angle_of_illumination:
     summary: Retrieves the current angle of illumination.
     description: A CGI method that gets the current angle of illumination.
     access: operator
     effect: read
-    binding: {method: getCurrentAngleOfIllumination}
+    binding:
+      method: getCurrentAngleOfIllumination
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        angleOfIllumination: {type: integer, description: The currently active angle of illumination.}
+      $ref: '#/types/AngleOfIllumination'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -802,19 +1239,27 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get current angle of illumination
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {angleOfIllumination: 20}
+        data:
+          angleOfIllumination: 20
       source: https://developer.axis.com/vapix/network-video/light-control/#get-current-angle-of-illumination
     - title: Get current angle of illumination (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1001, message: Method call not supported by the device.}
+        error:
+          code: 1001
+          message: Method call not supported by the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-current-angle-of-illumination
   set_light_synchronize_day_night_mode:
     summary: Enables automatic synchronization with the day/night mode.
@@ -822,14 +1267,20 @@ operations:
     access: operator
     effect: write
     write: patch
-    binding: {method: setLightSynchronizeDayNightMode}
+    binding:
+      method: setLightSynchronizeDayNightMode
     params:
       type: object
+      required:
+      - lightID
+      - enabled
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
         enabled:
           type: boolean
-          description: Activate or deactivate automatic angle of illumination mode for a selected light.
+          description: Activate or deactivate synchronization with the day/night mode for the light.
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -839,34 +1290,47 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Set light synchronize day night mode
       request:
-        params: {lightID: led0, enabled: false}
+        params:
+          lightID: led0
+          enabled: false
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#set-light-synchronize-day-night-mode
     - title: Set light synchronize day night mode (error response)
       request:
-        params: {lightID: led0, enabled: false}
+        params:
+          lightID: led0
+          enabled: false
       response:
-        error: {code: 1001, message: Method call not supported by the device.}
+        error:
+          code: 1001
+          message: Method call not supported by the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#set-light-synchronize-day-night-mode
   get_light_synchronize_day_night_mode:
     summary: Checks if the automatic synchronization is enabled with the day/night mode.
     description: A CGI method that checks if the automatic synchronization with the day/night mode is enabled.
     access: operator
     effect: read
-    binding: {method: getLightSynchronizeDayNightMode}
+    binding:
+      method: getLightSynchronizeDayNightMode
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        synchronize: {type: boolean}
+      $ref: '#/types/DayNightSynchronization'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -876,31 +1340,36 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get light synchronize day night mode
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {enabled: false}
+        data:
+          enabled: false
       source: https://developer.axis.com/vapix/network-video/light-control/#get-light-synchronize-day-night-mode
     - title: Get light synchronize day night mode (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1001, message: Method call not supported by the device.}
+        error:
+          code: 1001
+          message: Method call not supported by the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-light-synchronize-day-night-mode
   get_valid_ir_wavelengths:
     summary: Lists the valid IR wavelengths.
     description: A CGI method that returns a list containing the infrared wavelengths.
     effect: read
-    binding: {method: getValidIRWavelengths}
+    binding:
+      method: getValidIRWavelengths
     result:
-      type: object
-      properties:
-        settings:
-          type: array
-          items: {type: string, description: 'doc placeholder: wavelength'}
+      $ref: '#/types/ValidIrWavelengths'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -910,32 +1379,63 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get valid infrared wavelengths
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {wavelength: [850nm, 940nm]}
+        data:
+          wavelength:
+          - 850nm
+          - 940nm
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-infrared-wavelengths
+      x-contract:
+        skip: The docs name the wavelength list settings (syntax), wavelengths (table) and wavelength (example).
     - title: Get valid infrared wavelengths (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1002, message: Provided lightID parameter is not valid for the device.}
+        error:
+          code: 1002
+          message: Provided lightID parameter is not valid for the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-infrared-wavelengths
+    params:
+      type: object
+      required:
+      - lightID
+      properties:
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
+    since: '1.2'
+    access: operator
   set_ir_wavelength:
     summary: Sets the IR wavelength.
     description: A CGI method that sets the infrared wavelength.
     access: operator
     effect: write
     write: patch
-    binding: {method: setIRWavelength}
+    binding:
+      method: setIRWavelength
     params:
       type: object
+      required:
+      - lightID
+      - IRWavelength
       properties:
-        lightID: {type: string, description: The light ID.}
-        IRWavelength: {type: string, description: The infrared wavelength.}
+        lightID:
+          type: string
+          description: The light ID.
+        IRWavelength:
+          type: string
+          description: The infrared wavelength, one of get_valid_ir_wavelengths.
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -945,24 +1445,32 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
       1007:
         description: INVALID_IR_WAVELENGTH_FAULT. Provided infrared wavelength is not valid.
         kind: invalid_argument
+    since: '1.2'
   get_ir_wavelength:
     summary: Retrieves the currently set IR wavelength
     description: A CGI method that returns the current wavelength setting.
     access: operator
     effect: read
-    binding: {method: getIRWavelength}
+    binding:
+      method: getIRWavelength
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        IRWavelength: {type: string, description: An array containing the wavelength settings.}
+      $ref: '#/types/IrWavelength'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -972,27 +1480,28 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
+    since: '1.2'
   get_valid_beam_shapes:
     summary: Lists valid beam shapes.
     description: A CGI method that returns a list of supported beam shapes.
     effect: read
-    binding: {method: getValidBeamShapes}
+    binding:
+      method: getValidBeamShapes
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            x-name: GetValidBeamShapesResultItemsItem
-            properties:
-              beamShape: {type: string}
-          description: Array of beam shapes.
+      $ref: '#/types/ValidBeamShapes'
     errors:
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
@@ -1002,38 +1511,53 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get valid beam shapes
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
         data:
           items:
-          - {beamShape: Default}
-          - {beamShape: Wide}
-          - {beamShape: Mid}
-          - {beamShape: Spot}
+          - beamShape: Default
+          - beamShape: Wide
+          - beamShape: Mid
+          - beamShape: Spot
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-beam-shapes
     - title: Get valid beam shapes (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 2004, message: Method not supported.}
+        error:
+          code: 2004
+          message: Method not supported.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-valid-beam-shapes
+    since: '1.7'
   set_beam_shape:
     summary: Sets the beam shape.
     description: A CGI method that sets the beam shape.
     effect: write
     write: patch
-    binding: {method: setBeamShape}
+    binding:
+      method: setBeamShape
     params:
       type: object
+      required:
+      - lightID
+      - beamShape
       properties:
-        lightID: {type: string, description: The light ID.}
-        beamShape: {type: string, description: The beam shape.}
+        lightID:
+          type: string
+          description: The light ID.
+        beamShape:
+          type: string
+          description: The beam shape, one of get_valid_beam_shapes.
     errors:
-      CODE: {description: DEFINITION. Description}
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
         kind: unsupported
@@ -1042,38 +1566,51 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
       1010:
         description: INVALID_BEAM_SHAPE_FAULT. Provided beam shape is not valid.
         kind: invalid_argument
     examples:
     - title: Set beam shape
       request:
-        params: {lightID: led0, beamShape: Wide}
+        params:
+          lightID: led0
+          beamShape: Wide
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/light-control/#set-beam-shape
     - title: Set beam shape (error response)
       request:
-        params: {lightID: led0, beamShape: Wide}
+        params:
+          lightID: led0
+          beamShape: Wide
       response:
-        error: {code: 1010, message: Provided beam shape is not valid.}
+        error:
+          code: 1010
+          message: Provided beam shape is not valid.
       source: https://developer.axis.com/vapix/network-video/light-control/#set-beam-shape
+    since: '1.7'
   get_beam_shape:
     summary: Gets the currently set beam shape.
     description: A CGI method that gets the current beam shape setting.
     effect: read
-    binding: {method: getBeamShape}
+    binding:
+      method: getBeamShape
     params:
       type: object
+      required:
+      - lightID
       properties:
-        lightID: {type: string, description: The light ID.}
+        lightID:
+          type: string
+          description: The light ID.
+      x-name: LightIdRequest
     result:
-      type: object
-      properties:
-        beamShape: {type: string, description: Current configured beam shape.}
+      $ref: '#/types/BeamShape'
     errors:
-      CODE: {description: DEFINITION. Description}
       1001:
         description: NOT_SUPPORTED_FAULT. Method call not supported by the device.
         kind: unsupported
@@ -1082,26 +1619,33 @@ operations:
         kind: invalid_argument
       1005:
         description: CARD_MALFUNCTIONING_FAULT. Could not find light hardware, could not complete request.
-      1006: {description: 'WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.'}
+        kind: unavailable
+      1006:
+        description: WRONG_POE_CLASS_FAULT. Wrong POE class, could not complete request.
+        kind: unavailable
     examples:
     - title: Get beam shape
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        data: {beamShape: Wide}
+        data:
+          beamShape: Wide
       source: https://developer.axis.com/vapix/network-video/light-control/#get-beam-shape
     - title: Get beam shape (error response)
       request:
-        params: {lightID: led0}
+        params:
+          lightID: led0
       response:
-        error: {code: 1001, message: Method call not supported by the device.}
+        error:
+          code: 1001
+          message: Method call not supported by the device.
       source: https://developer.axis.com/vapix/network-video/light-control/#get-beam-shape
-
+    since: '1.7'
 sources:
 - url: https://developer.axis.com/vapix/network-video/light-control/
   sha256_md: a98984664998d78ce8bb5d3371562495687accdd33734b7743a3be148d9beaff
   retrieved_at: '2026-10-11'
-
 provenance:
   completeness: complete
   open_questions:
@@ -1111,13 +1655,15 @@ provenance:
     manualAngleOfIlluminationsupport (lowercase s) while syntax uses manualAngleOfIlluminationSupport.'
   - 'https://developer.axis.com/vapix/network-video/light-control/#general-error-codes: codes 2003, 3000 and 7000
     all describe unsupported API version.'
-  - Response syntax templates are pseudo-JSON (true | false, bare placeholders); data schemas were derived from
-    them, descriptions from tables.
-  - Light control API tables list nested fields without their parent path; nesting taken from syntax templates.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_automatic_intensity_mode=write/patch,
-    set_manual_intensity=write/patch, set_individual_intensity=write/patch, set_automatic_angle_of_illumination_mode=write/patch,
-    set_manual_angle_of_illumination=write/patch, set_light_synchronize_day_night_mode=write/patch, set_ir_wavelength=write/patch,
-    set_beam_shape=write/patch'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: enable_light, disable_light'
+  - 'The method pages carry no apiVersion lines. Gates are taken from the example versions: IR wavelength methods
+    1.2, beam shape methods 1.7, everything else 1.0. The listed versions are the ones seen in the docs, not a full
+    history.'
+  - getValidIRWavelengths names its response list settings (syntax), wavelengths (table) and wavelength (example);
+    the table name is modelled and the example is skipped. The setIRWavelength and getIRWavelength examples use
+    a bare "wavelength" placeholder, so no examples are kept for them.
+  - getValidIRWavelengths has no Security level in the docs; operator is assumed like the other methods.
+  - The page also documents a legacy light control service API (AXIS OS 5.40, a separate SOAP-style service); it
+    is not covered by this spec.
+  - Which fields of getLightInformation items are always present is not stated; only lightID is required.
   migrated_from: v1
-  curated: false
+  curated: true

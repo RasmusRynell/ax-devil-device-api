@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: dnsupdate-configuration-config
 name: DNSUpdate configuration
-summary: The VAPIX® DNSUpdate configuration API makes it possible to configure the DNS (Dynamic Name Server) name
-  registration for the device.
+summary: Configure the DNS name registration (DNSUpdate) of the device.
 section: device-configuration
 family: dca
 status: released
@@ -27,7 +25,7 @@ types:
       settings: {$ref: '#/types/Settings'}
   Settings:
     type: object
-    description: Configuration settings.
+    description: Configuration settings. Defaults on first boot are disabled, an empty name and a TTL of 30.
     properties:
       enabled: {type: boolean, description: The enabled state of DNSUpdate.}
       name: {type: string, description: The name to be registered.}
@@ -47,46 +45,85 @@ operations:
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/DnsupdateConfiguration'}
   get_settings:
-    summary: Get the setting settings.
+    summary: Get the DNSUpdate settings.
     effect: read
     binding: {method: GET, path: /settings}
     result: {$ref: '#/types/Settings'}
+    examples:
+    - title: Get DNSUpdate settings
+      request: {path: /settings}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {enabled: true, name: mydevice, ttl: 300}
+      source: https://developer.axis.com/vapix/device-configuration/dnsupdate-configuration-api/
   update_settings:
-    summary: Update the setting settings.
+    summary: Update the DNSUpdate settings; only the given fields change.
     effect: write
     write: patch
     binding: {method: PATCH, path: /settings, body: object}
     params: {$ref: '#/types/UpdateSettingsRequest'}
   set_settings_enabled:
-    summary: Set the enabled of the setting.
+    summary: Enable or disable DNS name registration.
     effect: write
     write: patch
     binding: {method: PATCH, path: /settings/enabled, body_field: enabled, body: value}
+    positional: [enabled]
     params:
       type: object
       required: [enabled]
       properties:
         enabled: {type: boolean, description: The enabled state of DNSUpdate.}
+    examples:
+    - title: Enable DNSUpdate
+      request:
+        path: /settings/enabled
+        body: {data: true}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/dnsupdate-configuration-api/
   set_settings_name:
-    summary: Set the name of the setting.
+    summary: Set the name to register in DNS. Updates the DNS servers when DNSUpdate is enabled.
     effect: write
     write: patch
     binding: {method: PATCH, path: /settings/name, body_field: name, body: value}
+    positional: [name]
     params:
       type: object
       required: [name]
       properties:
         name: {type: string, description: The name to be registered.}
+    examples:
+    - title: Set DNSUpdate name
+      request:
+        path: /settings/name
+        body: {data: mydevice}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/dnsupdate-configuration-api/
   set_settings_ttl:
-    summary: Set the ttl of the setting.
+    summary: Set the Time To Live of the DNS records.
     effect: write
     write: patch
     binding: {method: PATCH, path: /settings/ttl, body_field: ttl, body: value}
+    positional: [ttl]
     params:
       type: object
       required: [ttl]
       properties:
         ttl: {$ref: '#/types/Ttl', description: The TTL used.}
+    examples:
+    - title: Set DNSUpdate TTL
+      request:
+        path: /settings/ttl
+        body: {data: 300}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/dnsupdate-configuration-api/
 
 sources:
 - url: https://developer.axis.com/vapix/device-configuration/dnsupdate-configuration-api/
@@ -95,6 +132,5 @@ sources:
 
 provenance:
   completeness: complete
-  open_questions: ['migration: dropped-property-gets: 3 per-property GET operations dropped']
   migrated_from: v1
-  curated: false
+  curated: true

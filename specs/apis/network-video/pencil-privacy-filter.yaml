@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: pencil-privacy-filter
 name: Pencil privacy filter
@@ -25,130 +24,156 @@ binding:
   params_placement: params
 
 errors:
-  2101: {description: Bad request. Invalid JSON., kind: invalid_argument}
-  2106: {description: Authentication failed. Authentication failed.}
-  2105: {description: Authorization failed. Authorization failed., kind: access_denied}
-  2107: {description: Transport Level Error. Transport Level Error.}
-  1100: {description: Internal error. Internal error., kind: internal}
+  1100: {description: Internal error, kind: internal}
+  2101: {description: Bad request. Invalid JSON, kind: invalid_argument}
+  2105: {description: Authorization failed, kind: access_denied}
+  2106: {description: Authentication failed, kind: access_denied}
+  2107: {description: Transport level error, kind: internal}
 
 types:
+  FilterType:
+    type: object
+    description: Selects a filter by type.
+    required: [type]
+    properties:
+      type: {type: string, description: "The filter type, for example ``pencil``."}
+
   FilterSetting:
     type: object
     required: [type]
     properties:
-      type: {type: string, description: 'Filter type, e.g. pencil, or none.'}
+      type: {type: string, description: "The filter type, for example ``pencil``."}
       flags:
         type: object
         additionalProperties: true
-        description: 'Flags, differ depending on the filter type (e.g. inverted: boolean, threshold: integer).'
+        description: "Flags of the filter. They differ by filter type, for example ``inverted`` (boolean) and ``threshold`` (integer). Use ``get_filter_capabilities`` to discover them."
+
+  SelectedFilter:
+    type: object
+    required: [type]
+    properties:
+      type: {type: string, description: "The current filter type; ``none`` if no filter is active."}
+
   FlagCapability:
     type: object
     properties:
-      type: {type: string, description: 'e.g. bool, integer'}
+      type: {type: string, description: "Flag type, for example ``bool`` or ``integer``."}
       min: {type: number}
       max: {type: number}
       description: {type: string}
+
   FilterCapability:
     type: object
     properties:
-      type: {type: string}
-      description: {type: string}
+      type: {type: string, description: The filter type.}
+      description: {type: string, description: Describes the filter type.}
       flags:
         type: array
+        description: Flags available for the filter. Each item is a single-key object from flag name to capability.
         items:
           type: object
-          additionalProperties: {$ref: '#/types/FlagCapability'}
-          description: Single-key object <flag_name> -> capability.
+          additionalProperties: {$ref: "#/types/FlagCapability"}
+
+  FilterCapabilities:
+    type: object
+    properties:
+      filters:
+        type: array
+        items: {$ref: "#/types/FilterCapability"}
 
 operations:
   set_filter_settings:
-    summary: Change the values for a valid filter type and one or more flags.
+    summary: Set the flag values of one or more filter types.
     effect: write
     write: patch
     binding: {method: setFilterSettings}
     params:
       type: array
-      items: {$ref: '#/types/FilterSetting'}
-      description: 'Array of {type, flags}. type: the filter type that will receive new or updated flags. flags:
-        differ depending on the filter type.'
+      x-arg-name: settings
+      x-name: SetFilterSettingsRequest
+      description: One entry per filter type that receives new or updated flags.
+      items: {$ref: "#/types/FilterSetting"}
+    examples:
+      - title: Invert the pencil filter and set its threshold
+        x-contract: {skip: "contract harness cannot build requests for array-wrapped params (the example sends the raw array)"}
+        request:
+          params:
+            - {type: pencil, flags: {inverted: true, threshold: 45}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#apply-filter-settings
+
   get_filter_settings:
-    summary: Check the values and settings for a valid filter type and its current flag values.
+    summary: Get the current flag values of one or more filter types.
     effect: read
     binding: {method: getFilterSettings}
     params:
       type: array
-      items:
-        type: object
-        x-name: GetFilterSettingsRequestItem
-        required: [type]
-        properties:
-          type: {type: string}
-      description: 'Array of {type}: the filter that will be checked.'
+      x-arg-name: filters
+      x-name: GetFilterSettingsRequest
+      description: The filter types to check.
+      items: {$ref: "#/types/FilterType"}
     result:
       type: array
-      items: {$ref: '#/types/FilterSetting'}
+      items: {$ref: "#/types/FilterSetting"}
     examples:
-    - title: get_filter_settings
-      request:
-        params:
-        - {type: pencil}
-      response:
-        data:
-        - type: pencil
-          flags: {inverted: true, threshold: 23}
-      source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#check-filter-settings
+      - title: Check the pencil filter settings
+        x-contract: {skip: "contract harness cannot build requests for array-wrapped params (the example sends the raw array)"}
+        request:
+          params:
+            - {type: pencil}
+        response:
+          data:
+            - {type: pencil, flags: {inverted: true, threshold: 23}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#check-filter-settings
+
   set_selected_filter:
-    summary: Select which filter should be active (none deactivates).
+    summary: Select which filter is active; ``none`` deactivates the filter.
     effect: write
     write: patch
     binding: {method: setSelectedFilter}
     params:
       type: array
-      items:
-        type: object
-        x-name: SetSelectedFilterRequestItem
-        required: [type]
-        properties:
-          type: {type: string}
-      description: 'Array of {type}: the filter type that should be active. none will deactivate the filter.'
+      x-arg-name: filters
+      x-name: SetSelectedFilterRequest
+      description: The filter type that should be active.
+      items: {$ref: "#/types/FilterType"}
+    examples:
+      - title: Deactivate the filter
+        x-contract: {skip: "contract harness cannot build requests for array-wrapped params (the example sends the raw array)"}
+        request:
+          params:
+            - {type: none}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#select-filter
+
   get_selected_filter:
-    summary: Request status information about the currently active filter.
+    summary: Get the currently active filter.
     effect: read
     binding: {method: getSelectedFilter}
-    result:
-      type: object
-      properties:
-        type: {type: string, description: Current filter type; none if no filter is active.}
+    result: {$ref: "#/types/SelectedFilter"}
     examples:
-    - title: get_selected_filter
-      request:
-        params: {}
-      response:
-        data: {type: pencil}
-      source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-filter-information
+      - title: Get the active filter
+        request: {params: {}}
+        response: {data: {type: pencil}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-filter-information
+
   get_filter_capabilities:
-    summary: Request all available filters with their supported parameters and flags.
+    summary: List all available filters with their supported flags.
     effect: read
     binding: {method: getFilterCapabilities}
-    result:
-      type: object
-      properties:
-        filters:
-          type: array
-          items: {$ref: '#/types/FilterCapability'}
+    result: {$ref: "#/types/FilterCapabilities"}
     examples:
-    - title: get_filter_capabilities
-      request:
-        params: {}
-      response:
-        data:
-          filters:
-          - type: pencil
-            description: string
-            flags:
-            - <flag_name>: {type: bool, description: string}
-            - <flag_name>: {type: integer, min: 0, max: 255, description: string}
-      source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-all-filter-capabilities
+      - title: Request all filter capabilities
+        request: {params: {}}
+        response:
+          data:
+            filters:
+              - type: pencil
+                description: string
+                flags:
+                  - "<flag_name>": {type: bool, description: string}
+                  - "<flag_name>": {type: integer, min: 0, max: 255, description: string}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-all-filter-capabilities
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/
@@ -164,9 +189,5 @@ provenance:
   - Filter capability flag type strings ('bool', 'integer') are shown with placeholder values; full list of possible
     types unknown.
   - AXIS OS minimum version not stated.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_filter_settings=write/patch, set_selected_filter=write/patch'
-  - 'migration: params-not-object: set_filter_settings: params is not an object schema (generator needs a model)'
-  - 'migration: params-not-object: get_filter_settings: params is not an object schema (generator needs a model)'
-  - 'migration: params-not-object: set_selected_filter: params is not an object schema (generator needs a model)'
   migrated_from: v1
-  curated: false
+  curated: true

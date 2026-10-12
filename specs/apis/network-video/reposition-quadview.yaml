@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: reposition-quadview
 name: QuadView configuration
@@ -35,88 +34,91 @@ errors:
   2104: {description: Invalid parameter value specified, kind: invalid_argument}
 
 types:
-  Order:
+  SubViewOrder:
     type: array
     items: {type: integer, minimum: 1, maximum: 4}
-    description: 'Order of sub views: top left, top right, bottom left, bottom right. IDs represent the part of
-      the overview dewarped into a view. (minItems=4, maxItems=4)'
+    description: "Four sub view IDs in the order top left, top right, bottom left, bottom right. Each ID is the part of the overview that is dewarped into that view (1 to 4)."
+
+  QuadEyeValue:
+    enum: ["true", "false"]
+    description: "Whether QuadEye (quad view plus a centre overview) is enabled. The device returns it as a string."
+
+  OrderResult:
+    type: object
+    required: [id]
+    properties:
+      id: {$ref: "#/types/SubViewOrder"}
+
+  SetOrderRequest:
+    type: object
+    required: [id]
+    properties:
+      id: {$ref: "#/types/SubViewOrder", description: New order of the four sub views.}
+
+  QuadEyeResult:
+    type: object
+    required: [quadeye]
+    properties:
+      quadeye: {$ref: "#/types/QuadEyeValue"}
+
+  SetQuadEyeValueRequest:
+    type: object
+    required: [quadeye]
+    properties:
+      quadeye: {type: boolean, description: Whether QuadEye should be enabled.}
 
 operations:
   get_order:
-    summary: Retrieve the order of sub views in a quad view.
+    summary: Get the order of the sub views in the quad view.
     effect: read
     binding: {method: getOrder}
-    result:
-      type: object
-      properties:
-        id: {$ref: '#/types/Order'}
+    result: {$ref: "#/types/OrderResult"}
     examples:
-    - title: get_order
-      request:
-        params: {}
-      response:
-        data: {id: [1, 2, 3, 4]}
-      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#get-the-current-order-of-the-sub-views
+      - title: Get the current order of the sub views
+        request: {params: {}}
+        response: {data: {id: [1, 2, 3, 4]}}
+        source: https://developer.axis.com/vapix/network-video/quadview-configuration/#get-the-current-order-of-the-sub-views
+
   set_order:
-    summary: Set the order of sub views in a quad view.
+    summary: Set the order of the sub views in the quad view.
+    description: The device may override the order when the mounting parameter ``root.ImageSource.IO.CameraTiltOrientation`` is used. Returns the order now in effect.
     effect: write
-    write: patch
+    write: replace
     binding: {method: setOrder}
-    params:
-      type: object
-      required: [id]
-      properties:
-        id:
-          type: array
-          items: {type: integer, minimum: 1, maximum: 4}
-          description: New order for the sub views; integers 1 to 4. (minItems=4, maxItems=4)
-    result:
-      type: object
-      properties:
-        id: {$ref: '#/types/Order'}
+    params: {$ref: "#/types/SetOrderRequest"}
+    positional: [id]
+    result: {$ref: "#/types/OrderResult"}
     examples:
-    - title: Switch top-right and bottom-left
-      request:
-        params: {id: [1, 4, 2, 3]}
-      response:
-        data: {id: [1, 4, 2, 3]}
-      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#reorder-the-sub-views
+      - title: Switch the top-right and bottom-left sub views
+        request: {params: {id: [1, 4, 2, 3]}}
+        response: {data: {id: [1, 4, 2, 3]}}
+        source: https://developer.axis.com/vapix/network-video/quadview-configuration/#reorder-the-sub-views
+
   get_quad_eye_value:
-    summary: Read if quad view and overview (QuadEye) is enabled or disabled.
+    summary: Read whether QuadEye (quad view plus overview) is enabled.
     effect: read
     binding: {method: getQuadEyeValue}
-    result:
-      type: object
-      properties:
-        quadeye: {type: string, enum: ['true', 'false'], description: String true or false.}
+    result: {$ref: "#/types/QuadEyeResult"}
     examples:
-    - title: get_quad_eye_value
-      request:
-        params: {}
-      response:
-        data: {quadeye: 'false'}
-      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#get-the-status-of-the-quadeye
+      - title: Get the status of QuadEye
+        request: {params: {}}
+        response: {data: {quadeye: "false"}}
+        source: https://developer.axis.com/vapix/network-video/quadview-configuration/#get-the-status-of-the-quadeye
+
   set_quad_eye_value:
-    summary: Enable or disable quad view plus overview.
+    summary: Enable or disable QuadEye (quad view plus overview).
+    description: Returns the value now in effect.
     effect: write
     write: patch
     binding: {method: setQuadEyeValue}
-    params:
-      type: object
-      required: [quadeye]
-      properties:
-        quadeye: {type: boolean, description: Defines whether quadeye should be enabled or disabled.}
-    result:
-      type: object
-      properties:
-        quadeye: {type: string, enum: ['true', 'false']}
+    params: {$ref: "#/types/SetQuadEyeValueRequest"}
+    positional: [quadeye]
+    result: {$ref: "#/types/QuadEyeResult"}
     examples:
-    - title: set_quad_eye_value
-      request:
-        params: {quadeye: true}
-      response:
-        data: {quadeye: 'true'}
-      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#enable-and-disable-the-quadeye
+      - title: Enable QuadEye
+        request: {params: {quadeye: true}}
+        response: {data: {quadeye: "true"}}
+        source: https://developer.axis.com/vapix/network-video/quadview-configuration/#enable-and-disable-the-quadeye
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/quadview-configuration/
@@ -133,6 +135,5 @@ provenance:
   - The API Discovery id 'reposition-quadview' is stated only for the order feature; no separate discovery id for
     QuadEye.
   - AXIS OS minimum version not stated.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_order=write/patch, set_quad_eye_value=write/patch'
   migrated_from: v1
-  curated: false
+  curated: true

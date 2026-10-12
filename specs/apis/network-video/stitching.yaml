@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: stitching
 name: Stitching
-summary: 'Tune multi-sensor panoramic stitching: blending amount, parallax compensation distance, per-sensor rotation,
-  restore, horizon straightening, field of view and...'
+summary: "Tune multi-sensor panoramic stitching: blending, parallax compensation, sensor rotation, horizon straightening and field of view."
 section: network-video
 family: jsonrpc
 status: released
@@ -19,78 +17,85 @@ discovery:
 binding:
   path: /axis-cgi/stitching.cgi
   major: 3
-  versions: ['3.2', '3.4']
+  versions: ['3.0', '3.2', '3.4']
   negotiation:
     get_supported_versions: {key: apiVersions}
   params_placement: params
 
 errors:
-  1000: {description: Invalid parameter value., kind: invalid_argument}
-  2000: {description: Failed to allocate memory.}
-  2004: {description: Method not supported., kind: unsupported}
-  2200: {description: Unknown error has occurred.}
-  2201: {description: Failed to init transformation tables., kind: invalid_argument}
-  2202: {description: Failed to generate table with given parameters., kind: invalid_argument}
-  2203: {description: Failed to apply table with given parameters., kind: invalid_argument}
-  2205: {description: Failed read calibration file.}
-  2206: {description: Calibration file is missing., kind: invalid_argument}
-  2207: {description: Failed to unlink calibration file.}
-  2208: {description: Unsupported stitching mode., kind: unsupported}
-  2209: {description: Failed to read configuration file.}
-  2210: {description: Failed to save configuration file.}
-  2211: {description: Failed to parse configuration file.}
-  2212: {description: Method is not allowed in disabled mode.}
-  2213: {description: Operation is not supported., kind: unsupported}
-  2300: {description: 'Internal vipd error, could not complete request.', kind: internal}
-  4001: {description: Mandatory input parameters was not found in the input., kind: not_found}
-  4002: {description: The type of a provided JSON parameter was incorrect., kind: invalid_argument}
-  8000: {description: 'Internal error, could not complete request.', kind: internal}
-  8002: {description: Generic error.}
+  1000: {description: Invalid parameter value, kind: invalid_argument}
+  2000: {description: Failed to allocate memory, kind: internal}
+  2004: {description: Method not supported, kind: unsupported}
+  2200: {description: Unknown error has occurred, kind: internal}
+  2201: {description: Failed to init transformation tables, kind: internal}
+  2202: {description: Failed to generate table with given parameters, kind: invalid_argument}
+  2203: {description: Failed to apply table with given parameters, kind: invalid_argument}
+  2205: {description: Failed read calibration file, kind: internal}
+  2206: {description: Calibration file is missing, kind: unavailable}
+  2207: {description: Failed to unlink calibration file, kind: internal}
+  2208: {description: Unsupported stitching mode, kind: unsupported}
+  2209: {description: Failed to read configuration file, kind: internal}
+  2210: {description: Failed to save configuration file, kind: internal}
+  2211: {description: Failed to parse configuration file, kind: internal}
+  2212: {description: Method is not allowed in disabled mode, kind: unavailable}
+  2213: {description: Operation is not supported, kind: unsupported}
+  2300: {description: "Internal vipd error, could not complete request", kind: internal}
+  4001: {description: Mandatory input parameters was not found in the input, kind: invalid_argument}
+  4002: {description: The type of a provided JSON parameter was incorrect, kind: invalid_argument}
+  8000: {description: "Internal error, could not complete request", kind: internal}
+  8002: {description: Generic error, kind: internal}
+
+types:
+  Capabilities:
+    type: object
+    description: Whether each method is supported by the device.
+    properties:
+      getBlendingAmount: {type: boolean}
+      setBlendingAmount: {type: boolean}
+      getParallaxCompensationDistance: {type: boolean}
+      setParallaxCompensationDistance: {type: boolean}
+      rotateAngle: {type: boolean}
+      restore: {type: boolean}
+      setHorizonStraighteningEnabled: {type: boolean}
+      getHorizonStraighteningEnabled: {type: boolean}
+      getHorizonStraighteningProperties: {type: boolean}
+      setHorizonStraighteningTilt: {type: boolean}
+      setHorizonStraighteningStretchEnabled: {type: boolean}
+      setHorizonStraighteningStretchAmount: {type: boolean}
+      getFieldOfView: {type: boolean}
+      setStitchingEnabled: {type: boolean}
+      getStitchingEnabled: {type: boolean}
+
+  Limits:
+    type: object
+    description: Parameter limits of the setter methods.
+    properties:
+      blendingAmountMin: {type: number, description: Minimum blending amount for setBlendingAmount.}
+      blendingAmountMax: {type: number, description: Maximum blending amount for setBlendingAmount.}
+      parallaxCompensationDistanceMin: {type: number, description: Minimum parallax compensation distance.}
+      parallaxCompensationDistanceMax: {type: number, description: Maximum parallax compensation distance.}
+      idMin: {type: number, description: Minimum id for rotateAngle and restore.}
+      idMax: {type: number, description: Maximum id for rotateAngle and restore.}
+      angleMin: {type: number, description: Minimum angle for rotateAngle.}
+      angleMax: {type: number, description: Maximum angle for rotateAngle.}
+      horizonStraighteningTiltMin: {type: number, description: Minimum for setHorizonStraighteningTilt.}
+      horizonStraighteningTiltMax: {type: number, description: Maximum for setHorizonStraighteningTilt.}
+      horizonStraighteningStretchMin: {type: number, description: Minimum for setHorizonStraighteningStretchAmount.}
+      horizonStraighteningStretchMax: {type: number, description: Maximum for setHorizonStraighteningStretchAmount.}
+
+  StitchingCapabilities:
+    type: object
+    required: [capabilities, limits]
+    properties:
+      capabilities: {$ref: "#/types/Capabilities"}
+      limits: {$ref: "#/types/Limits"}
 
 operations:
   get_capabilities:
-    summary: Retrieve which stitching.cgi methods are supported and the parameter limits.
+    summary: Retrieve which stitching.cgi methods the device supports, and the parameter limits.
     effect: read
     binding: {method: getCapabilities}
-    result:
-      type: object
-      properties:
-        capabilities:
-          type: object
-          x-name: GetCapabilitiesResultCapabilities
-          description: true/false per method depending on support.
-          properties:
-            getBlendingAmount: {type: boolean}
-            setBlendingAmount: {type: boolean}
-            getParallaxCompensationDistance: {type: boolean}
-            setParallaxCompensationDistance: {type: boolean}
-            rotateAngle: {type: boolean}
-            restore: {type: boolean}
-            setHorizonStraighteningEnabled: {type: boolean}
-            getHorizonStraighteningEnabled: {type: boolean}
-            getHorizonStraighteningProperties: {type: boolean}
-            setHorizonStraighteningTilt: {type: boolean}
-            setHorizonStraighteningStretchEnabled: {type: boolean}
-            setHorizonStraighteningStretchAmount: {type: boolean}
-            getFieldOfView: {type: boolean}
-            setStitchingEnabled: {type: boolean}
-            getStitchingEnabled: {type: boolean}
-        limits:
-          type: object
-          x-name: GetCapabilitiesResultLimits
-          properties:
-            blendingAmountMin: {type: number, description: Minimum blending amount for setBlendingAmount.}
-            blendingAmountMax: {type: number, description: Maximum blending amount for setBlendingAmount.}
-            parallaxCompensationDistanceMin: {type: number, description: Minimum parallax compensation distance.}
-            parallaxCompensationDistanceMax: {type: number, description: Maximum parallax compensation distance.}
-            idMin: {type: number, description: Minimum id for rotateAngle and restore.}
-            idMax: {type: number, description: Maximum id for rotateAngle and restore.}
-            angleMin: {type: number, description: Minimum angle for rotateAngle.}
-            angleMax: {type: number, description: Maximum angle for rotateAngle.}
-            horizonStraighteningTiltMin: {type: number, description: Minimum for setHorizonStraighteningTilt.}
-            horizonStraighteningTiltMax: {type: number, description: Maximum for setHorizonStraighteningTilt.}
-            horizonStraighteningStretchMin: {type: number, description: Minimum for setHorizonStraighteningStretchAmount.}
-            horizonStraighteningStretchMax: {type: number, description: Maximum for setHorizonStraighteningStretchAmount.}
+    result: {$ref: "#/types/StitchingCapabilities"}
     examples:
     - title: Retrieve supported capabilities
       request:
@@ -120,6 +125,7 @@ operations:
     binding: {method: getBlendingAmount}
     result:
       type: object
+      required: [blendingAmount]
       properties:
         blendingAmount: {type: number, description: Current amount of blurriness around the image seams.}
     examples:
@@ -148,8 +154,8 @@ operations:
           description: 0-100; 0 = sharp edges with no blurriness, 100 = maximum blurriness. Only the first 15 decimals
             are used.
     errors:
-      2204: {description: Failed to apply blending.}
-      2214: {description: Blending is disabled.}
+      2204: {description: Failed to apply blending, kind: internal}
+      2214: {description: Blending is disabled, kind: unavailable}
     examples:
     - title: Set blending amount
       request:
@@ -163,6 +169,7 @@ operations:
     binding: {method: getParallaxCompensationDistance}
     result:
       type: object
+      required: [parallaxCompensationDistance]
       properties:
         parallaxCompensationDistance: {type: number, description: 'Distance where alignment is currently calculated,
             in meters.'}
@@ -198,7 +205,8 @@ operations:
     summary: Rotate a sensor image on pan, tilt or roll to align the panoramic view.
     description: Hard limits -180..+180 degrees; lower product/sensor dependent soft limits exist (e.g. AXIS Q3819-PVE
       ±1.4 degrees pan). Exceeding them can cause unknown image behavior.
-    effect: unknown
+    effect: write
+    write: patch
     binding: {method: rotateAngle}
     params:
       type: object
@@ -230,7 +238,7 @@ operations:
   restore:
     summary: Restore a sensor to factory default (removes changes from setBlendingAmount, setParallaxCompensationDistance
       and rotateAngle).
-    effect: unknown
+    effect: action
     binding: {method: restore}
     params:
       type: object
@@ -276,6 +284,7 @@ operations:
     binding: {method: getHorizonStraighteningEnabled}
     result:
       type: object
+      required: [enabled]
       properties:
         enabled: {type: boolean}
     examples:
@@ -291,23 +300,15 @@ operations:
     binding: {method: getHorizonStraighteningProperties}
     result:
       type: object
+      required: [horizonStraighteningTilt, horizonStraighteningStretchEnabled, horizonStraighteningStretchAmount]
       properties:
         horizonStraighteningTilt: {type: number, description: Current straight horizon position.}
         horizonStraighteningStretchEnabled: {type: boolean, description: Whether the image is stretched over the
             black areas.}
         horizonStraighteningStretchAmount: {type: number, description: How the stretching is performed.}
     errors:
-      2215: {description: Horizon straightening is not enabled.}
+      2215: {description: Horizon straightening is not enabled, kind: unavailable}
     examples:
-    - title: Retrieve horizon straightening properties
-      request:
-        params: {}
-      response:
-        data:
-          horizonStraighteningTilt: 10.0
-          horizonStraighteningStretchEnabled: true
-          horizonStraighteningStretchAmount: 50.0
-      source: https://developer.axis.com/vapix/network-video/stitching/#retrieve-horizon-straightening-properties
     - title: Retrieve horizon straightening properties
       request:
         params: {}
@@ -331,7 +332,7 @@ operations:
           description: Position of the straight horizon in angles relative to the middle of the image (limits horizonStraighteningTiltMin/Max).
             Only the first 15 decimals are used. (unit=degrees)
     errors:
-      2215: {description: Horizon straightening is not enabled.}
+      2215: {description: Horizon straightening is not enabled, kind: unavailable}
     examples:
     - title: Set horizon straightening tilt
       request:
@@ -350,7 +351,7 @@ operations:
       properties:
         horizonStraighteningStretchEnabled: {type: boolean, description: 'true: enable stretch; false: disable.'}
     errors:
-      2215: {description: Horizon straightening is not enabled.}
+      2215: {description: Horizon straightening is not enabled, kind: unavailable}
     examples:
     - title: Enable horizon straightening stretch
       request:
@@ -379,8 +380,8 @@ operations:
           maximum: 100
           description: 0-100; 0 = stretch images non-linearly, 100 = linearly.
     errors:
-      2215: {description: Horizon straightening is not enabled.}
-      2216: {description: Horizon Straightening stretch is disabled.}
+      2215: {description: Horizon straightening is not enabled, kind: unavailable}
+      2216: {description: Horizon straightening stretch is disabled, kind: unavailable}
     examples:
     - title: Set horizon straightening stretch amount
       request:
@@ -394,6 +395,7 @@ operations:
     binding: {method: getFieldOfView}
     result:
       type: object
+      required: [hFoV, vFoV]
       properties:
         hFoV: {type: number, description: Supported horizontal field of view.}
         vFoV: {type: number, description: Supported vertical field of view.}
@@ -405,22 +407,29 @@ operations:
         data: {hFoV: 180, vFoV: 90}
       source: https://developer.axis.com/vapix/network-video/stitching/#get-horizontal-and-vertical-field-of-view
   get_stitching_enabled:
-    summary: Retrieve the most recent stitching status set by setStitchingEnabled.
+    summary: Retrieve the most recent stitching status set by set_stitching_enabled. Product dependent.
     effect: read
     binding: {method: getStitchingEnabled}
     result:
       type: object
+      required: [stitchingEnabled]
       properties:
         stitchingEnabled: {type: boolean}
     examples:
-    - title: Disable the stitching
+    - title: Get the stitching status
       request:
         params: {}
       response:
         data: {stitchingEnabled: true}
       source: https://developer.axis.com/vapix/network-video/stitching/#disable-the-stitching
+    - title: Operation not supported
+      request:
+        params: {}
+      response:
+        error: {code: 2213, message: Operation is not supported.}
+      source: https://developer.axis.com/vapix/network-video/stitching/#disable-the-stitching
   set_stitching_enabled:
-    summary: Enable or disable stitching (e.g.
+    summary: Enable or disable stitching. This method is product dependent.
     effect: write
     write: patch
     binding: {method: setStitchingEnabled}
@@ -432,7 +441,7 @@ operations:
     examples:
     - title: Disable the stitching
       request:
-        params: {}
+        params: {stitchingEnabled: false}
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/stitching/#disable-the-stitching
@@ -445,23 +454,13 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - getCapabilities response syntax lists only some capabilities and limits; the table lists all (incl. horizon
-    straightening, getFieldOfView, set/getStitchingEnabled and horizonStraightening* limits). Syntax shows rotateAngle/restore
-    literal true.
-  - getParallaxCompensationDistance response syntax key spelled parallaxComensationDistance; table and examples
-    should be checked against a device.
-  - Request syntax blocks are invalid JSON (missing comma after method, trailing commas).
-  - setStitchingEnabled use-case example omits params.stitchingEnabled.
-  - Range of horizonStraighteningTilt not stated (only via limits horizonStraighteningTiltMin/Max); table key horizonStraighteningStretchMin
-    lacks "=".
-  - Exact API version history (1.x vs 3.x) not documented; which version introduced horizon straightening / stitchingEnabled
-    unknown.
-  - AXIS OS minimum version not stated.
-  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 3 only. A separate spec (module
-    suffix _v2 for later majors) is needed for the others'
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_blending_amount=write/patch, set_parallax_compensation_distance=write/patch,
-    set_horizon_straightening_enabled=write/patch, set_horizon_straightening_tilt=write/patch, set_horizon_straightening_stretch_enabled=write/patch,
-    set_horizon_straightening_stretch_amount=write/patch, set_stitching_enabled=write/patch'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: rotate_angle, restore'
+    - getCapabilities response syntax lists only some capabilities and limits; the table lists all of them. All entries are treated as optional.
+    - getParallaxCompensationDistance response syntax spells the key parallaxComensationDistance; the table and examples use parallaxCompensationDistance, which is used here.
+    - The setStitchingEnabled example omits params.stitchingEnabled although the table requires it; the example here sends false (the section is "Disable the stitching").
+    - Range of horizonStraighteningTilt is not stated (only via limits horizonStraighteningTiltMin/Max).
+    - rotateAngle: not stated whether angle is absolute or relative to the current rotation; treated as a patch.
+    - Exact version history (3.0/3.2/3.4) is not documented; which version introduced horizon straightening and stitchingEnabled is unknown.
+    - AXIS OS minimum version is not stated.
+    - setStitchingEnabled/getStitchingEnabled are product dependent and may fail with 2213.
   migrated_from: v1
-  curated: false
+  curated: true

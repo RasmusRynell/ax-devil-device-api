@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: remote-syslog
 name: Remote Syslog
-summary: Configure the device to send system logs to up to two remote syslog servers (UDP/TCP/TLS, format, severity,
-  type); enable/disable/status/test.
+summary: Send the device's system logs to up to two remote syslog servers; enable, disable, query and test.
 section: network-video
 family: jsonrpc
 status: released
@@ -32,8 +30,12 @@ errors:
   2103: {description: Required parameter missing, kind: invalid_argument}
   2104: {description: Invalid parameter value specified, kind: invalid_argument}
   2105: {description: Authorization failed, kind: access_denied}
-  2106: {description: Authentication failed}
+  2106: {description: Authentication failed, kind: access_denied}
   2107: {description: Request too large, kind: invalid_argument}
+  2200: {description: No server configured, kind: unavailable}
+  2201: {description: Identical servers not allowed, kind: invalid_argument}
+  2202: {description: "Remote syslog is disabled, sending test messages is not possible", kind: unavailable}
+  2203: {description: Too many servers specified, kind: invalid_argument}
 
 types:
   Protocol: {type: string, enum: [UDP, TCP, TLS]}
@@ -60,12 +62,12 @@ types:
     description: 'Audit: audit logs are sent (user behavior such as configuration through the API). All: all logs.'
   ServerConfig:
     type: object
+    description: One remote syslog server. Omitted optional fields get the device defaults, which the responses show.
     required: [address]
     properties:
       address: {type: string, description: 'Remote server address (IPv4, IPv6 or host).'}
       port:
         type: integer
-        minimum: 1
         maximum: 65535
         description: 'Optional. Default depends on protocol/format (see notes: UDP 514; TCP 514 (AXIS/RFC3164) or
           601 (RFC5424); TLS 6514).'
@@ -75,30 +77,34 @@ types:
       type: {$ref: '#/types/LogType', default: All}
   Status:
     type: object
+    required: [enabled, servers]
     properties:
       enabled: {type: boolean, description: Whether the remote syslog feature is enabled.}
       servers:
         type: array
         items: {$ref: '#/types/ServerConfig'}
-        description: Empty if no servers configured.
+        description: The configured servers; empty if none.
+
+  SetupRequest:
+    type: object
+    required: [servers]
+    properties:
+      servers:
+        type: array
+        items: {$ref: '#/types/ServerConfig'}
+        description: At most 2 servers per request. An empty list removes the servers.
 
 operations:
   setup:
-    summary: Set the configuration and send system logs to the remote servers.
-    effect: unknown
+    summary: Set the server configuration and send system logs to the remote servers.
+    description: Replaces the configured servers (an empty list removes them) and returns the resulting status.
+    effect: write
+    write: replace
     binding: {method: setup}
-    params:
-      type: object
-      required: [servers]
-      properties:
-        servers:
-          type: array
-          items: {$ref: '#/types/ServerConfig'}
-          description: Max 2 servers per request. Servers can be removed if the list is empty. (maxItems=2)
+    params: {$ref: '#/types/SetupRequest'}
+    positional: [servers]
     result: {$ref: '#/types/Status'}
     errors:
-      2201: {description: Identical servers not allowed.}
-      2203: {description: Too many servers specified.}
       2103:
         description: Required parameter missing (e.g. details.propertyName=address).
         kind: invalid_argument
@@ -172,15 +178,13 @@ operations:
             severity: Warning
       source: https://developer.axis.com/vapix/network-video/remote-syslog/#send-syslogs-over-tls
   enable:
-    summary: Send system logs to the remote servers.
-    effect: unknown
+    summary: Start sending system logs to the remote servers.
+    effect: write
+    write: patch
     binding: {method: enable}
     result: {$ref: '#/types/Status'}
-    errors:
-      2200: {description: No server configured.}
-      2201: {description: Identical servers not allowed.}
     examples:
-    - title: enable
+    - title: Enable remote syslog
       request:
         params: {}
       response:
@@ -200,11 +204,13 @@ operations:
       source: https://developer.axis.com/vapix/network-video/remote-syslog/#enable-syslog-from-remote-server
   disable:
     summary: Stop sending system logs to the remote servers.
-    effect: unknown
+    description: No messages are buffered while sending is stopped.
+    effect: write
+    write: patch
     binding: {method: disable}
     result: {$ref: '#/types/Status'}
     examples:
-    - title: disable
+    - title: Disable remote syslog
       request:
         params: {}
       response:
@@ -223,8 +229,8 @@ operations:
             severity: Emergency
       source: https://developer.axis.com/vapix/network-video/remote-syslog/#disable-syslog-from-remote-server
   status:
-    summary: Retrieve the current configuration/status of the remote servers.
-    effect: unknown
+    summary: Retrieve whether remote syslog is enabled and the configured servers.
+    effect: read
     binding: {method: status}
     result: {$ref: '#/types/Status'}
     examples:
@@ -247,14 +253,13 @@ operations:
             severity: Debug
       source: https://developer.axis.com/vapix/network-video/remote-syslog/#get-status-for-one-or-several-remote-servers
   test:
-    summary: Generate log messages for all severity levels (only configured levels are sent).
+    summary: Send test log messages to the remote servers.
+    description: Generates messages for all severity levels; only the configured levels are sent.
     effect: action
     binding: {method: test}
     result: {$ref: '#/types/Status'}
-    errors:
-      2202: {description: 'Remote syslog is disabled, sending test messages is not possible.'}
     examples:
-    - title: test
+    - title: Send a test message
       request:
         params: {}
       response:
@@ -291,6 +296,5 @@ provenance:
   - Section 'changes made here might now be shown' likely means 'not be shown'.
   - 'Versions: examples use apiVersion 1.0 but getSupportedVersions example returns [''1.3'',''2.1''].'
   - AXIS OS minimum version not stated.
-  - 'migration: effect-unknown: effect could not be inferred from the method name: setup, enable, disable, status'
   migrated_from: v1
-  curated: false
+  curated: true

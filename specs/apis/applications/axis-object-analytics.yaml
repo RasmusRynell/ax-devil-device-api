@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: axis-object-analytics
 name: AXIS Object Analytics API
-summary: Configure object-detection scenarios (motion, fence, crossline counting, occupancy in area) of the AXIS
-  Object Analytics (AOA) ACAP via a JSON-RPC style CGI.
+summary: Configure object-detection scenarios (motion, fence, crossline counting, occupancy in area) of the AXIS Object Analytics (AOA) ACAP.
 section: applications
 family: jsonrpc
 status: released
@@ -25,9 +23,9 @@ binding:
   params_placement: params
 
 errors:
-  1000: {description: An error occurred inside the application.}
+  1000: {description: An error occurred inside the application., kind: internal}
   2000: {description: The requested version of the application is not supported., kind: unsupported}
-  2002: {description: Incoherent configuration (such as mismatched ID).}
+  2002: {description: Incoherent configuration (such as mismatched ID)., kind: invalid_argument}
   2003: {description: A mandatory parameter is missing., kind: invalid_argument}
   2004: {description: Invalid parameter., kind: invalid_argument}
   2005: {description: The requested CGI method is not supported., kind: unsupported}
@@ -52,8 +50,7 @@ types:
       isActive:
         type: boolean
         default: true
-        description: Optional. True if omitted. Excludes the device from being used if set to false; scenarios,
-          perspectives or metadata overlays referring to it are ignored.
+        description: True if omitted. Excludes the device from being used if set to false; scenarios, perspectives or metadata overlays referring to it are ignored.
   MetadataOverlay:
     type: object
     required: [id]
@@ -64,13 +61,22 @@ types:
         description: The metadata overlay ID in the range [1... n]. Corresponds to the device ID.
       drawOnAllResolutions:
         type: boolean
-        description: Whether the overlay should be drawn on all available resolutions. Not mandatory if resolutions
-          is specified. (How-to example spells it drawnOnAllResolutions.)
+        description: Whether the overlay should be drawn on all available resolutions. Not mandatory if resolutions is specified.
       resolutions:
         type: array
         items: {type: string, pattern: '^[0-9]+x[0-9]+$'}
-        description: Supported resolutions <width>x<height>. Should be empty or not specified if drawOnAllResolutions
-          is true.
+        description: Supported resolutions <width>x<height>. Should be empty or not specified if drawOnAllResolutions is true.
+  PerspectiveBar:
+    type: object
+    required: [height, points]
+    properties:
+      height:
+        type: integer
+        description: Virtual height (in centimeters) of an object appearing at the same location and perceived height as the bar.
+      points:
+        type: array
+        items: {$ref: '#/types/Point'}
+        description: Start (pos 0, touches the ground plane) and end (pos 1) points in ONVIF coordinates. (minItems=2, maxItems=2)
   Perspective:
     type: object
     required: [id, bars]
@@ -78,93 +84,49 @@ types:
       id: {type: integer, description: A unique ID identifying the perspective.}
       bars:
         type: array
-        items:
-          type: object
-          x-name: PerspectiveBarsItem
-          properties:
-            height:
-              type: integer
-              description: Virtual height (in centimeters) of an object appearing at the same location and perceived
-                height as the bar.
-            points:
-              type: array
-              items: {$ref: '#/types/Point'}
-              description: Start (pos 0, touches ground-plane) and end (pos 1) points in ONVIF coordinates. (minItems=2,
-                maxItems=2)
+        items: {$ref: '#/types/PerspectiveBar'}
         description: Bars contributing to the perspective calculation, limited by getConfigurationCapabilities.
+  Direction:
+    enum: [leftToRight, rightToLeft]
   Trigger:
-    oneOf:
-    - type: object
-      properties:
-        type: {const: includeArea}
-        vertices:
-          type: array
-          items: {$ref: '#/types/Point'}
-          description: A list of vertices that forms the include area polygon.
-    - type: object
-      properties:
-        type: {const: fence}
-        alarmDirection:
-          type: string
-          enum: [leftToRight, rightToLeft]
-          description: Direction in which the trigger activates the alarm for a crossing object (valid values from
-            getConfigurationCapabilities).
-        vertices:
-          type: array
-          items: {$ref: '#/types/Point'}
-          description: Polyline.
-    - type: object
-      properties:
-        type: {const: countingLine}
-        countingDirection:
-          type: string
-          enum: [leftToRight, rightToLeft]
-          description: Direction in which a crossing object is counted.
-        vertices:
-          type: array
-          items: {$ref: '#/types/Point'}
-    description: Scenario trigger; content depends on type. At least one trigger is needed.
+    type: object
+    required: [type]
+    description: >-
+      Scenario trigger; the fields used depend on the type. At least one trigger is needed per scenario.
+      includeArea uses vertices (polygon); fence uses vertices (polyline) and alarmDirection;
+      countingLine uses vertices (polyline) and countingDirection.
+    properties:
+      type: {type: string, enum: [includeArea, fence, countingLine]}
+      vertices:
+        type: array
+        items: {$ref: '#/types/Point'}
+        description: Polygon (includeArea) or polyline (fence, countingLine) vertices.
+      alarmDirection:
+        $ref: '#/types/Direction'
+        description: Fence only. Direction in which a crossing object raises the alarm (valid values from getConfigurationCapabilities).
+      countingDirection:
+        $ref: '#/types/Direction'
+        description: countingLine only. Direction in which a crossing object is counted.
   Filter:
-    oneOf:
-    - type: object
-      properties:
-        type: {const: sizePercentage}
-        width: {type: integer, description: Horizontal upper limit (ONVIF coordinates / percent of view).}
-        height: {type: integer, description: Vertical upper limit.}
-    - type: object
-      description: Scenario must point to a valid perspective.
-      properties:
-        type: {const: sizePerspective}
-        width: {type: integer, description: Horizontal upper limit in centimeters.}
-        height: {type: integer, description: Vertical upper limit in centimeters.}
-    - type: object
-      properties:
-        type: {const: timeShortLivedLimit}
-        time:
-          type: number
-          description: Waiting time in seconds until a detected object raises an alarm.
-    - type: object
-      properties:
-        type: {const: distanceSwayingObject}
-        distance:
-          type: integer
-          description: Distance an object may travel before raising an alarm, percent of the image.
-    - type: object
-      description: Ground speed range (m/s) where moving objects won't raise an alarm. Only with a secondary radar
-        device. Several instances allowed.
-      properties:
-        type: {const: speed}
-        minSpeed: {type: number}
-        maxSpeed: {type: number}
-    - type: object
-      description: Areas where alarms can't be triggered; several allowed.
-      properties:
-        type: {const: excludeArea}
-        vertices:
-          type: array
-          items: {$ref: '#/types/Point'}
-    description: Scenario filter (optional rules excluding objects); content depends on type. Only one of sizePercentage/sizePerspective
-      may be used.
+    type: object
+    required: [type]
+    description: >-
+      Scenario filter (optional rules excluding objects); the fields used depend on the type.
+      sizePercentage and sizePerspective use width and height (only one of the two may be used);
+      timeShortLivedLimit uses time; distanceSwayingObject uses distance; speed uses minSpeed and maxSpeed
+      (several allowed, only with a secondary radar device); excludeArea uses vertices (several allowed).
+    properties:
+      type: {type: string, enum: [sizePercentage, sizePerspective, timeShortLivedLimit, distanceSwayingObject, speed, excludeArea]}
+      width: {type: integer, description: "Horizontal upper limit; ONVIF coordinates for sizePercentage, centimeters for sizePerspective."}
+      height: {type: integer, description: "Vertical upper limit; ONVIF coordinates for sizePercentage, centimeters for sizePerspective."}
+      time: {type: number, description: Waiting time in seconds until a detected object raises an alarm (timeShortLivedLimit).}
+      distance: {type: integer, description: "Distance an object may travel before raising an alarm, percent of the image (distanceSwayingObject)."}
+      minSpeed: {type: number, description: Ground speed (m/s) from which moving objects won't raise an alarm.}
+      maxSpeed: {type: number, description: Ground speed (m/s) up to which moving objects won't raise an alarm.}
+      vertices:
+        type: array
+        items: {$ref: '#/types/Point'}
+        description: Exclude area polygon (excludeArea).
   ObjectClassification:
     type: object
     required: [type]
@@ -173,8 +135,37 @@ types:
       subTypes:
         type: array
         items: {$ref: '#/types/ObjectClassification'}
-        description: Optional list of sub classifiers (two-level depth currently supported; only if the camera supports
-          subtypes).
+        description: Optional list of sub classifiers (two-level depth currently supported; only if the camera supports subtypes).
+  ScenarioDevice:
+    type: object
+    required: [id]
+    properties:
+      id: {type: integer, description: Device ID defined in the root devices list.}
+  AccumulatedCountsConfig:
+    type: object
+    description: Crossline counting only.
+    properties:
+      timedResetEnabled: {type: boolean, description: Timed reset (at midnight) of accumulated counts enabled.}
+  PassthroughConfig:
+    type: object
+    description: Crossline counting only.
+    properties:
+      enabled: {type: boolean}
+      period: {type: integer, description: Trigger an event for every <period> count.}
+  Threshold:
+    type: object
+    properties:
+      level: {type: integer, description: The number of threshold objects.}
+      type: {type: string, enum: [moreThan, lessThan], description: Triggers if the number of objects in the area is more or less than the level.}
+  ThresholdConfig:
+    type: object
+    description: Occupancy in area only.
+    properties:
+      enabled: {type: boolean}
+      triggerDelay: {type: integer, description: Seconds to wait after the threshold is reached before the alarm is triggered.}
+      thresholds:
+        type: array
+        items: {$ref: '#/types/Threshold'}
   Scenario:
     type: object
     required: [id, name, type, devices, triggers]
@@ -184,28 +175,24 @@ types:
       type: {type: string, enum: [motion, fence, crosslinecounting, occupancyInArea]}
       metadataOverlay:
         type: integer
-        description: Optional. Must point to a valid id in the metadataOverlay array; omitting disables overlay.
+        description: Must point to a valid id in the metadataOverlay array; omitting disables the overlay.
       alarmRate:
         type: string
-        description: Optional. Valid rates in getConfigurationCapabilities.data.scenarios.alarmRates.
+        description: Valid rates are listed in getConfigurationCapabilities.data.scenarios.alarmRates.
       devices:
         type: array
-        items:
-          type: object
-          x-name: ScenarioDevicesItem
-          properties:
-            id: {type: integer, description: Device ID defined in the root devices list.}
+        items: {$ref: '#/types/ScenarioDevice'}
       triggers:
         type: array
         items: {$ref: '#/types/Trigger'}
-        description: minItems=1
+        description: At least one trigger is required.
       filters:
         type: array
         items: {$ref: '#/types/Filter'}
       objectClassifications:
         type: array
         items: {$ref: '#/types/ObjectClassification'}
-        description: Empty array = alarm on any detected motion.
+        description: An empty array means an alarm can be triggered on any detected motion.
       perspectives:
         type: array
         items: {type: integer}
@@ -213,40 +200,13 @@ types:
       presets:
         type: array
         items: {type: integer}
-        description: 'PTZ presets tracked: -2 always (except when moving), -1 all presets, 1 home, 2... specific
-          presets. Not valid on non-PTZ devices.'
-      accumulatedCounts:
-        type: object
-        x-name: ScenarioAccumulatedCounts
-        description: crosslinecounting only.
-        properties:
-          timedResetEnabled: {type: boolean, description: Timed reset (at midnight) of accumulated counts enabled.}
-      passthroughConfiguration:
-        type: object
-        x-name: ScenarioPassthroughConfiguration
-        description: crosslinecounting only.
-        properties:
-          enabled: {type: boolean}
-          period: {type: integer, description: Trigger an event for every <period> count.}
-      thresholdConfiguration:
-        type: object
-        x-name: ScenarioThresholdConfiguration
-        description: occupancyInArea only.
-        properties:
-          enabled: {type: boolean}
-          triggerDelay:
-            type: integer
-            description: Seconds to wait after threshold reached before the alarm is triggered.
-          thresholds:
-            type: array
-            items:
-              type: object
-              x-name: ScenarioThresholdConfigurationThresholdsItem
-              properties:
-                level: {type: integer, description: The number of threshold objects.}
-                type: {type: string, enum: [moreThan, lessThan]}
+        description: 'PTZ presets tracked: -2 always (except when moving), -1 all presets, 1 home, 2... specific presets. Not valid on non-PTZ devices.'
+      accumulatedCounts: {$ref: '#/types/AccumulatedCountsConfig'}
+      passthroughConfiguration: {$ref: '#/types/PassthroughConfig'}
+      thresholdConfiguration: {$ref: '#/types/ThresholdConfig'}
   Configuration:
     type: object
+    description: The complete application configuration, as read by get_configuration and written by set_configuration.
     properties:
       devices:
         type: array
@@ -254,15 +214,16 @@ types:
       metadataOverlay:
         type: array
         items: {$ref: '#/types/MetadataOverlay'}
-        description: Size limited by capabilities metadataOverlay.min/maxNbrActiveCameras.
+        description: Size limited by capabilities metadataOverlay.minNbrActiveCameras/maxNbrActiveCameras.
       perspectives:
         type: array
         items: {$ref: '#/types/Perspective'}
       scenarios:
         type: array
         items: {$ref: '#/types/Scenario'}
-  AreaCapability:
+  TriggerCapability:
     type: object
+    description: Limits of one trigger type (includeArea, fence or countingLine).
     properties:
       type: {type: string}
       minPosX: {type: number}
@@ -279,143 +240,178 @@ types:
       validAlarmDirections:
         type: array
         items: {type: string}
-        description: fence only
-      defaultAlarmDirection: {type: string, description: fence only}
+        description: "Fence (and, per the docs table, counting line) only."
+      defaultAlarmDirection: {type: string, description: "Fence (and, per the docs table, counting line) only."}
       validCountingDirections:
         type: array
         items: {type: string}
-        description: countingLine only
-      defaultCountingDirection: {type: string, description: countingLine only}
+        description: Counting line only.
+      defaultCountingDirection: {type: string, description: Counting line only.}
+  FilterCapability:
+    type: object
+    description: Limits and defaults of one filter type; the fields present depend on the type.
+    properties:
+      type: {type: string}
+      minWidth: {type: integer}
+      maxWidth: {type: integer}
+      minHeight: {type: integer}
+      maxHeight: {type: integer}
+      defaultWidth: {type: integer}
+      defaultHeight: {type: integer}
+      minTime: {type: integer, description: timeShortLivedLimit (docs table; see open questions).}
+      maxTime: {type: integer}
+      defaultTime: {type: integer}
+      minDistance: {type: integer, description: distanceSwayingObject (also used by the timeShortLivedLimit example block).}
+      maxDistance: {type: integer}
+      defaultDistance: {type: integer}
+      minSpeed: {type: number}
+      maxSpeed: {type: number}
+      defaultMinSpeed: {type: number}
+      defaultMaxSpeed: {type: number}
+      minPosX: {type: number}
+      maxPosX: {type: number}
+      minPosY: {type: number}
+      maxPosY: {type: number}
+      minNbrVertices: {type: integer}
+      maxNbrVertices: {type: integer}
+      minNbrInstances: {type: integer}
+      maxNbrInstances: {type: integer}
+      minNbrAreas: {type: integer}
+      maxNbrAreas: {type: integer}
+      defaultInstance:
+        type: array
+        items: {$ref: '#/types/Point'}
+  DeviceCapability:
+    type: object
+    properties:
+      id: {type: integer}
+      type: {type: string}
+      imageIndex: {type: integer, description: The image source index.}
+      name: {type: string}
+      rotation: {type: integer, enum: [0, 90, 180, 270]}
+      resolutions:
+        type: array
+        items: {type: string}
+      tags:
+        type: array
+        items: {type: string, enum: [primary, secondary, fisheye]}
+        description: primary is the device to use when a secondary exists; secondary can only be used together with a primary; fisheye has a fisheye lens.
+  MetadataOverlayCamera:
+    type: object
+    properties:
+      id: {type: integer, description: 'Camera value used with media.amp, starting at 1.'}
+      canDrawInSpecifiedResolutions: {type: boolean, description: False means only drawing on all resolutions at once is supported.}
+      resolutions:
+        type: array
+        items: {type: string}
+  MetadataOverlayCapabilities:
+    type: object
+    properties:
+      minNbrActiveCameras: {type: integer, description: 'If 0 cameras are referenced, the overlay is disabled.'}
+      maxNbrActiveCameras: {type: integer, description: 'If 0, the feature is not supported.'}
+      cameras:
+        type: array
+        items: {$ref: '#/types/MetadataOverlayCamera'}
+  PerspectiveCapabilities:
+    type: object
+    properties:
+      minNbrBars: {type: integer}
+      maxNbrBars: {type: integer}
+      minNbrPerspectivesPerScenario: {type: integer}
+      maxNbrPerspectivesPerScenario: {type: integer}
+      minHeight: {type: integer}
+      maxHeight: {type: integer}
+      defaultHeight: {type: integer}
+      minNbrPerspectives: {type: integer}
+      maxNbrPerspectives: {type: integer}
+  AccumulatedCountsCapabilities:
+    type: object
+    properties:
+      defaultTimedResetEnabled: {type: boolean}
+  PassthroughCapabilities:
+    type: object
+    properties:
+      defaultEnabled: {type: boolean}
+      minPeriod: {type: integer}
+      maxPeriod: {type: integer}
+  ThresholdCapabilities:
+    type: object
+    properties:
+      defaultEnabled: {type: boolean}
+      minLevelWithMoreThanType: {type: integer}
+      minLevelWithLessThanType: {type: integer}
+      minTriggerDelay: {type: integer}
+      maxTriggerDelay: {type: integer}
+      defaultLevel: {type: integer}
+      defaultType: {type: string}
+      defaultTriggerDelay: {type: integer}
+      maxLevel: {type: integer}
+  ScenarioCapabilities:
+    type: object
+    properties:
+      minNbrScenariosPerCamera: {type: integer}
+      maxNbrScenariosPerCamera: {type: integer}
+      minNbrActiveDevices: {type: integer}
+      maxNbrActiveDevices: {type: integer}
+      minNbrDevices: {type: integer}
+      maxNbrDevices: {type: integer}
+      minLengthName: {type: integer}
+      maxLengthName: {type: integer}
+      defaultScenario: {type: string}
+      defaultDeviceId: {type: string}
+      supportedScenarios:
+        type: array
+        items: {type: string}
+      alarmRates:
+        type: array
+        items: {type: string}
+      defaultAlarmRate: {type: string}
+      accumulatedCounts: {$ref: '#/types/AccumulatedCountsCapabilities'}
+      passthroughConfiguration: {$ref: '#/types/PassthroughCapabilities'}
+      thresholdConfiguration: {$ref: '#/types/ThresholdCapabilities'}
+  PresetCapabilities:
+    type: object
+    description: Only included if the camera supports PTZ presets.
+    properties:
+      minNbrPresetsPerScenario: {type: integer}
+      maxNbrPresetsPerScenario: {type: integer}
+      defaultPreset: {type: integer}
   ConfigurationCapabilities:
     type: object
     properties:
       devices:
         type: array
-        items:
-          type: object
-          x-name: ConfigurationCapabilitiesDevicesItem
-          properties:
-            id: {type: integer}
-            type: {type: string}
-            imageIndex: {type: integer, description: The image source index.}
-            name: {type: string}
-            rotation: {type: integer, enum: [0, 90, 180, 270]}
-            resolutions:
-              type: array
-              items: {type: string}
-            tags:
-              type: array
-              items: {type: string, enum: [primary, secondary, fisheye]}
+        items: {$ref: '#/types/DeviceCapability'}
       filters:
         type: array
-        items:
-          type: object
-          x-name: ConfigurationCapabilitiesFiltersItem
-          properties:
-            type: {type: string}
-          additionalProperties: true
-        description: 'Supported filters with limits: sizePercentage/sizePerspective {minWidth,maxWidth,minHeight,maxHeight,defaultWidth,defaultHeight}
-          (percent / cm); timeShortLivedLimit (see open_questions); distanceSwayingObject...'
-      metadataOverlay:
-        type: object
-        x-name: ConfigurationCapabilitiesMetadataOverlay
-        properties:
-          minNbrActiveCameras: {type: integer, description: 'If 0 cameras referenced, overlay disabled.'}
-          maxNbrActiveCameras: {type: integer, description: 'If 0, feature not supported.'}
-          cameras:
-            type: array
-            items:
-              type: object
-              x-name: ConfigurationCapabilitiesMetadataOverlayCamerasItem
-              properties:
-                id: {type: integer, description: 'Camera value used with media.amp, starting at 1.'}
-                canDrawInSpecifiedResolutions: {type: boolean}
-                resolutions:
-                  type: array
-                  items: {type: string}
+        items: {$ref: '#/types/FilterCapability'}
+      metadataOverlay: {$ref: '#/types/MetadataOverlayCapabilities'}
       objectClassifications:
         type: array
         items: {$ref: '#/types/ObjectClassification'}
-      perspective:
-        type: object
-        x-name: ConfigurationCapabilitiesPerspective
-        properties:
-          minNbrBars: {type: integer}
-          maxNbrBars: {type: integer}
-          minNbrPerspectivesPerScenario: {type: integer}
-          maxNbrPerspectivesPerScenario: {type: integer}
-          minHeight: {type: integer}
-          maxHeight: {type: integer}
-          defaultHeight: {type: integer}
-          minNbrPerspectives: {type: integer}
-          maxNbrPerspectives: {type: integer}
-      scenarios:
-        type: object
-        x-name: ConfigurationCapabilitiesScenarios
-        properties:
-          minNbrScenariosPerCamera: {type: integer}
-          maxNbrScenariosPerCamera: {type: integer}
-          minNbrActiveDevices: {type: integer}
-          maxNbrActiveDevices: {type: integer}
-          minNbrDevices: {type: integer}
-          maxNbrDevices: {type: integer}
-          minLengthName: {type: integer}
-          maxLengthName: {type: integer}
-          defaultScenario: {type: string}
-          defaultDeviceId: {type: string}
-          supportedScenarios:
-            type: array
-            items: {type: string}
-          alarmRates:
-            type: array
-            items: {type: string}
-          defaultAlarmRate: {type: string}
-          accumulatedCounts:
-            type: object
-            x-name: ConfigurationCapabilitiesScenariosAccumulatedCounts
-            properties:
-              defaultTimedResetEnabled: {type: boolean}
-          passthroughConfiguration:
-            type: object
-            x-name: ConfigurationCapabilitiesScenariosPassthroughConfiguration
-            properties:
-              defaultEnabled: {type: boolean}
-              minPeriod: {type: integer}
-              maxPeriod: {type: integer}
-          thresholdConfiguration:
-            type: object
-            x-name: ConfigurationCapabilitiesScenariosThresholdConfiguration
-            properties:
-              defaultEnabled: {type: boolean}
-              minLevelWithMoreThanType: {type: integer}
-              minLevelWithLessThanType: {type: integer}
-              minTriggerDelay: {type: integer}
-              maxTriggerDelay: {type: integer}
-              defaultLevel: {type: integer}
-              defaultType: {type: string}
-              defaultTriggerDelay: {type: integer}
-              maxLevel: {type: integer}
+      perspective: {$ref: '#/types/PerspectiveCapabilities'}
+      scenarios: {$ref: '#/types/ScenarioCapabilities'}
       triggers:
         type: array
-        items: {$ref: '#/types/AreaCapability'}
-      presets:
-        type: object
-        x-name: ConfigurationCapabilitiesPresets
-        description: Only included if the camera supports PTZ presets.
-        properties:
-          minNbrPresetsPerScenario: {type: integer}
-          maxNbrPresetsPerScenario: {type: integer}
-          defaultPreset: {type: integer}
+        items: {$ref: '#/types/TriggerCapability'}
+      presets: {$ref: '#/types/PresetCapabilities'}
+  ScenarioRequest:
+    type: object
+    required: [scenario]
+    properties:
+      scenario: {type: integer, description: The unique scenario ID.}
   Counts:
     type: object
+    required: [total]
+    description: Object counts. Besides the named fields there is one entry per configured category.
     properties:
       resetTime:
         type: string
-        description: Time when counting started or was last reset (ISO 8601 YYYY-MM-DDTHH:MM:SSZ). (format=date-time)
-      timeStamp: {type: string, description: Time when count was read. (format=date-time)}
-      total:
-        description: Total number of counted objects of any category (example shows a string placeholder).
+        description: Time when counting started or was last reset (ISO 8601 YYYY-MM-DDTHH:MM:SSZ). Only in accumulated counts.
+      timeStamp: {type: string, description: Time when the count was read (ISO 8601).}
+      total: {type: integer, description: Total number of counted objects of any category.}
     additionalProperties:
+      type: integer
       description: '<category> count: car, bus, bike, human, truck or otherVehicle depending on configuration.'
 
 operations:
@@ -432,73 +428,70 @@ operations:
     result: {$ref: '#/types/Configuration'}
   set_configuration:
     summary: Apply a complete application configuration immediately.
-    description: 'Any ongoing event is set inactive when a new configuration is applied, stopping ongoing recordings
-      (all channels on multichannel cameras). Exception: if there is movement in the include area after the configuration
-      is set and no exclusion filter hinders the alarm, the event is set active directly after the new configuration
-      is applied. Values outside the camera capabilities result in an error.'
+    description: >-
+      Replaces the whole configuration. Any ongoing event is set inactive when a new configuration is applied,
+      stopping ongoing recordings (all channels on multichannel cameras). Exception: if there is movement in the
+      include area after the configuration is set and no exclusion filter hinders the alarm, the event is set
+      active directly after the new configuration is applied. Values outside the camera capabilities result in an error.
     effect: write
-    write: patch
+    write: replace
     binding: {method: setConfiguration}
-    params:
-      $ref: '#/types/Configuration'
-      description: The complete configuration object (same structure as getConfiguration data).
+    params: {$ref: '#/types/Configuration'}
+    round_trip:
+      from: Configuration
+    errors:
+      2002: {description: Incoherent configuration (such as mismatched ID)., kind: invalid_argument}
+    examples:
+      - title: Create a scenario for object detection
+        request:
+          params:
+            scenarios:
+              - id: 1
+                name: My Scenario
+                type: motion
+                devices: [{id: 1}]
+                triggers:
+                  - type: includeArea
+                    vertices: [[-0.9, -0.9], [-0.9, 0.9], [0.9, 0.9], [0.9, -0.9]]
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/applications/axis-object-analytics-api/#create-a-scenario-for-object-detection
+      - title: Invalid parameter
+        request:
+          params: {scenarios: []}
+        response: {error: {code: 2004, message: Invalid parameter}}
+        source: https://developer.axis.com/vapix/applications/axis-object-analytics-api/#set-configuration
   send_alarm_event:
-    summary: Force a scenario to enter its alarm state for a 3 second duration (emits Axis and ONVIF events while
-      high).
+    summary: Force a scenario to enter its alarm state for a 3 second duration (emits Axis and ONVIF events while high).
     effect: action
     binding: {method: sendAlarmEvent}
-    params:
-      type: object
-      required: [scenario]
-      properties:
-        scenario:
-          type: integer
-          description: Defines which scenario will send the alarm event. <uid> represents the unique scenario ID
-            (integer inferred from scenario id type).
+    params: {$ref: '#/types/ScenarioRequest'}
+    positional: [scenario]
   get_accumulated_counts:
     summary: Retrieve the accumulated counts (per configured class and total) for a Crossline Counting scenario.
     effect: read
     binding: {method: getAccumulatedCounts}
-    params:
-      type: object
-      required: [scenario]
-      properties:
-        scenario: {type: integer, description: The unique scenario ID (<uid>).}
+    params: {$ref: '#/types/ScenarioRequest'}
+    positional: [scenario]
     result: {$ref: '#/types/Counts'}
-    errors:
-      2004: {description: The configuration contain an invalid parameter., kind: invalid_argument}
   reset_accumulated_counts:
     summary: Reset the object counts for a Crossline Counting scenario.
-    effect: write
-    write: replace
+    effect: action
     binding: {method: resetAccumulatedCounts}
-    params:
-      type: object
-      required: [scenario]
-      properties:
-        scenario: {type: integer, description: The unique scenario ID (<uid>).}
+    params: {$ref: '#/types/ScenarioRequest'}
+    positional: [scenario]
   reset_passthrough:
     summary: Reset the passthrough counter (event every N counts) for a Crossline Counting scenario.
-    effect: write
-    write: replace
+    effect: action
     binding: {method: resetPassthrough}
-    params:
-      type: object
-      required: [scenario]
-      properties:
-        scenario: {type: integer, description: The unique scenario ID (<uid>).}
+    params: {$ref: '#/types/ScenarioRequest'}
+    positional: [scenario]
   get_occupancy:
     summary: Retrieve the current object counts for an Occupancy in Area scenario.
     effect: read
     binding: {method: getOccupancy}
-    params:
-      type: object
-      required: [scenario]
-      properties:
-        scenario: {type: integer, description: The unique scenario ID (<uid>).}
+    params: {$ref: '#/types/ScenarioRequest'}
+    positional: [scenario]
     result: {$ref: '#/types/Counts'}
-    errors:
-      2004: {description: The configuration contains an invalid parameter., kind: invalid_argument}
 
 sources:
 - url: https://developer.axis.com/vapix/applications/axis-object-analytics-api/
@@ -508,30 +501,15 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Method table names 'sendAlarm' while the section uses 'sendAlarmEvent'. https://developer.axis.com/vapix/applications/axis-object-analytics-api/#send-alarm-event
-  - 'Scenario feature matrix has 5 columns with ''occupancyinArea'' twice and rows shifted (the feature name column
-    holds ''Filters''/''Triggers''); the mapping in notes is a best reading. #scenarios'
-  - getConfiguration response block lists capability containers (filters, objectClassifications, perspective, triggers,
-    presets) but Configuration overview lists devices, metadataOverlay, perspectives, scenarios.
-  - How-to example uses 'drawnOnAllResolutions'; reference uses 'drawOnAllResolutions'.
-  - Short-lived objects capability block uses minDistance/maxDistance/defaultDistance while the table says minTime/maxTime/defaultTime.
-  - Exclude area capability block uses min/maxNbrInstances but the table says minNbrAreas/maxNbrAreas. Counting-line
-    capability table says validAlarmDirections/defaultAlarmDirection but block uses validCountingDirections/defaultCountingDirection.
-  - 'Counts response field names: table uses ''resettime''/''timestamp'', example uses ''resetTime''/''timeStamp'';
-    values shown as strings in example (''<number of counted objects>'').'
-  - Counting line table names 'CountingDirection' (capital C) vs 'countingDirection' in block.
-  - The setConfiguration and sendAlarmEvent request examples are missing a comma after the method field (invalid
-    JSON).
-  - Perspectives syntax block shows bars as an array containing key/value pairs (invalid JSON); interpreted as array
-    of objects.
-  - sizePercentage filter width/height described as 'ONVIF coordinates' in configuration but as 'percentage of the
-    image' in capabilities.
-  - Scenario param 'scenario=<uid>' type not stated; integer inferred from scenario id. Events emitted by AOA scenarios
-    are not documented on this page.
-  - No AXIS OS / AOA version requirements stated.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_configuration=write/patch, reset_accumulated_counts=write/replace,
-    reset_passthrough=write/replace'
-  - 'migration: discovery: discovery method http_probe dropped'
-  - 'migration: dropped-keywords: title x9'
+  - Method table names 'sendAlarm' while the section and request examples use 'sendAlarmEvent'; the latter is used. https://developer.axis.com/vapix/applications/axis-object-analytics-api/#send-alarm-event
+  - 'Scenario feature matrix has 5 columns with ''occupancyinArea'' twice and rows shifted; trigger/filter applicability per scenario type is not encoded in the schema. #scenarios'
+  - The getConfiguration response block lists capability containers (filters, perspective, triggers, ...) but the Configuration overview lists devices, metadataOverlay, perspectives, scenarios; the latter is used. The docs say all properties are mandatory unless noted, but Configuration fields are left optional because the docs also say optional parameters may be omitted.
+  - 'The how-to example spells the overlay field drawnOnAllResolutions; the reference table drawOnAllResolutions is used.'
+  - Short-lived objects capability block uses minDistance/maxDistance/defaultDistance while the table says minTime/maxTime/defaultTime; both are modelled. Exclude area block uses minNbrInstances/maxNbrInstances while the table says minNbrAreas/maxNbrAreas; both are modelled. Counting line capability table says validAlarmDirections/defaultAlarmDirection while the block uses validCountingDirections/defaultCountingDirection; both are modelled.
+  - 'Counts: the table says resettime/timestamp while the example uses resetTime/timeStamp (camelCase used). Example values are string placeholders; counts are modelled as integers.'
+  - sizePercentage filter width/height are described as 'ONVIF coordinates' in the configuration but as 'percentage of the image' in capabilities.
+  - 'Scenario param scenario=<uid> has no stated type; integer inferred from the scenario id type. Events emitted by AOA scenarios are not documented on this page.'
+  - No AXIS OS / AOA version requirements are stated, and the docs give no discovery method beyond /axis-cgi/applications/list.cgi, so no discovery entry is set.
+  - The request examples for setConfiguration and sendAlarmEvent lack a comma after the method field (invalid JSON); the documented examples use placeholder values and are not included, except the how-to scenario.
   migrated_from: v1
-  curated: false
+  curated: true

@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: firmware-management
 name: Firmware management API
-summary: Firmware status, upgrade (multipart), commit, rollback, purge, factory default, stop auto-rollback, reboot
-  via /axis-cgi/firmwaremanagement.cgi.
+summary: Firmware status, upgrade, commit, rollback, purge, factory default and reboot.
 section: network-video
 family: jsonrpc
 status: released
@@ -14,57 +12,42 @@ docs:
 - https://developer.axis.com/vapix/network-video/firmware-management-api/
 access: admin
 discovery:
-- {api_discovery: fwmgr}
+- api_discovery: fwmgr
 requires:
   firmware: '7.40'
-
 binding:
   path: /axis-cgi/firmwaremanagement.cgi
   major: 1
-  versions: ['1.0']
+  versions:
+  - '1.0'
   negotiation:
-    get_supported_versions: {key: apiVersions}
+    get_supported_versions:
+      key: apiVersions
   params_placement: params
-
 errors:
   400:
     description: Message could not be parsed or contains unknown parameters or values.
     kind: invalid_argument
-  405: {description: Unknown method in request.}
-  417: {description: API version not compatible., kind: unsupported}
-  423: {description: System is busy with another firmware management request., kind: unavailable}
-  500: {description: Unexpected internal error., kind: internal}
-
+  405:
+    description: Unknown method in request.
+    kind: unsupported
+  417:
+    description: API version not compatible.
+    kind: unsupported
+  423:
+    description: System is busy with another firmware management request.
+    kind: unavailable
+  500:
+    description: Unexpected internal error.
+    kind: internal
 operations:
   status:
-    summary: Retrieve the current firmware status of the Axis product.
-    effect: unknown
-    binding: {method: status}
+    summary: Retrieve the firmware status of the product.
+    effect: read
+    binding:
+      method: status
     result:
-      type: object
-      properties:
-        activeFirmwareVersion: {type: string, description: Current firmware version.}
-        activeFirmwarePart: {type: string, description: Current firmware part number.}
-        inactiveFirmwareVersion:
-          type: string
-          description: Inactive firmware version. Only present if an inactive firmware exists; reported as UNKNOWN
-            if the inactive firmware doesn't support automatic rollback parameters.
-        isCommited:
-          type: boolean
-          description: True if current firmware is committed; false if uncommitted and will rollback on reboot.
-            Only present if an inactive firmware exists. (Spelling isCommited as documented.)
-        pendingCommit:
-          type: string
-          enum: [started]
-          description: 'Pending auto commit. ''started'': current firmware will be committed once the device has
-            finished booting. Only present if active firmware is uncommitted and an automatic commit is pending.'
-        timeToRollback:
-          type: integer
-          description: Seconds left to automatic rollback. Only present if active firmware is uncommitted and an
-            automatic rollback is pending.
-        lastUpgradeAt:
-          type: string
-          description: When the product was upgraded. Only present if an inactive firmware exists. (format=date-time)
+      $ref: '#/types/FirmwareStatus'
     examples:
     - title: Check the current firmware status
       request:
@@ -76,130 +59,301 @@ operations:
           inactiveFirmwareVersion: 7.40.1.2
           isCommited: true
           lastUpgradeAt: '2018-08-12T11:55:12+01:00'
-      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#rollback-to-previous-firmware
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#status
+    - title: Status with a rollback pending
+      request:
+        params: {}
+      response:
+        data:
+          activeFirmwareVersion: 7.50.3
+          activeFirmwarePart: '1234568'
+          inactiveFirmwareVersion: 7.40.1.2
+          isCommited: false
+          timeToRollback: 48
+          lastUpgradeAt: '2018-08-12T11:55:12+01:00'
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#status
+    - title: Status after a rollback
+      request:
+        params: {}
+      response:
+        data:
+          activeFirmwareVersion: 7.40.1.2
+          activeFirmwarePart: '1234567'
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#status
+    - title: Error 500
+      request:
+        params: {}
+      response:
+        error:
+          code: 500
+          message: Unexpected internal error.
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#status
   upgrade:
     summary: Upgrade the firmware; the product reboots as part of this method.
-    description: Only allowed if the current firmware is committed.
-    effect: unknown
-    binding: {method: upgrade}
+    description: 'Only allowed if the current firmware is committed. Any inactive firmware is purged when an upgrade starts,
+      even if the upgrade fails, so a rollback to it is no longer possible. The docs define the request as multipart (a json
+      part, then a file part with the firmware image), which the generator cannot express yet: the generated method sends
+      the JSON message without the file.'
+    effect: action
+    binding:
+      method: upgrade
     params:
-      type: object
-      properties:
-        factoryDefaultMode:
-          type: string
-          enum: [none, soft, hard]
-          default: none
-          description: 'Reset parameters to factory default values. All applications/ACAPs are removed or restored
-            to pre-installed versions on hard and soft. Required as hard for downgrades. Values: none: Upgrade and
-            preserve the current settings (default); soft: All parameters set to factory defaults except those listed
-            in factoryDefault (network settings, system time, 802.1X); hard: All parameters set to factory defaults'
-        autoCommit:
-          type: string
-          enum: [never, boot, started, default]
-          description: 'When the new firmware is automatically committed. Ignored if the new firmware doesn''t support
-            automatic rollback. Values: never: Never committed automatically; must be committed via commit; boot:
-            Committed when it starts booting; started: Committed when the device has finished booting; default:
-            Same as never if autoRollback is not default; otherwise boot if factoryDefaultMode is not none, else
-            started'
-        autoRollback:
-          type: string
-          description: '''never'' (no automatic rollback; still rolls back on major fault or power loss before commit),
-            a numeric string = minutes after boot until automatic rollback unless committed (example ''50''), or
-            ''default'' (same as never...'
+      $ref: '#/types/UpgradeRequest'
     result:
-      type: object
-      properties:
-        firmwareVersion: {type: string, description: New firmware version.}
+      $ref: '#/types/FirmwareVersion'
     errors:
       409:
         description: Upgrade without factory default not allowed to an older firmware version.
         kind: unsupported
-      410: {description: Upgrade failed due to firmware version revoked., kind: unsupported}
-      412: {description: Upgrade not allowed due to active firmware is uncommitted.}
-      415: {description: Upgrade failed due to invalid image., kind: invalid_argument}
-      421: {description: Upgrade failed due to image not matching device.}
+      410:
+        description: Upgrade failed due to firmware version revoked.
+        kind: unsupported
+      412:
+        description: Upgrade not allowed due to active firmware is uncommitted.
+        kind: unavailable
+      415:
+        description: Upgrade failed due to invalid image.
+        kind: invalid_argument
+      421:
+        description: Upgrade failed due to image not matching device.
+        kind: invalid_argument
       422:
         description: Upgrade failed due to image missing a mandatory digital signature.
         kind: invalid_argument
-      424: {description: Upgrade failed due to image referencing an unknown custom firmware certificate.}
+      424:
+        description: Upgrade failed due to image referencing an unknown custom firmware certificate.
+        kind: invalid_argument
+    support: known-broken
+    examples:
+    - title: Upgrade without a timeout
+      request:
+        params: {}
+      response:
+        data:
+          firmwareVersion: 7.50.3
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
+    - title: Upgrade with a rollback timeout
+      request:
+        params:
+          autoRollback: '50'
+      response:
+        data:
+          firmwareVersion: 7.50.3
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
+    - title: Error 421
+      request:
+        params: {}
+      response:
+        error:
+          code: 421
+          message: Upgrade failed due to image not matching device.
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
   commit:
-    summary: Commit the current firmware and stop automatic rollback if pending.
-    effect: unknown
-    binding: {method: commit}
+    summary: Commit the current firmware and stop a pending automatic rollback.
+    description: Does nothing if the firmware is already committed.
+    effect: action
+    binding:
+      method: commit
     result:
-      type: object
-      properties:
-        firmwareVersion: {type: string, description: Current firmware version.}
+      $ref: '#/types/FirmwareVersion'
     examples:
     - title: Commit the firmware upgrade
       request:
         params: {}
       response:
-        data: {firmwareVersion: 7.50.3}
+        data:
+          firmwareVersion: 7.50.3
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
+    - title: Error 500
+      request:
+        params: {}
+      response:
+        error:
+          code: 500
+          message: Unexpected internal error.
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
   rollback:
-    summary: Roll back firmware and configuration to the state before the most recent upgrade (product reboots).
-    description: Only the most recent upgrade can be rolled back; applications and their data are not rolled back.
-      Can be used whether or not the active firmware is committed. Not available after a purge or a factory default.
-    effect: unknown
-    binding: {method: rollback}
+    summary: Roll back the firmware and configuration to the state before the most recent upgrade; the product reboots.
+    description: Only the most recent upgrade can be rolled back; applications and their data are not rolled back. Works whether
+      or not the active firmware is committed. Not available after a purge or a factory default.
+    effect: action
+    binding:
+      method: rollback
     errors:
-      404: {description: No old firmware exists to rollback to.}
+      404:
+        description: No old firmware exists to rollback to.
+        kind: not_found
     examples:
     - title: Rollback to previous firmware
       request:
         params: {}
       response:
         data: {}
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#rollback-to-previous-firmware
+    - title: Error 404
+      request:
+        params: {}
+      response:
+        error:
+          code: 404
+          message: No old firmware exists.
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#rollback-to-previous-firmware
   purge:
-    summary: Purge previous firmware to prevent rollback.
-    effect: unknown
-    binding: {method: purge}
+    summary: Purge the previous firmware to prevent a rollback.
+    description: Only possible when the current firmware is committed and no upgrade is in progress. A rollback is no longer
+      possible afterwards.
+    effect: action
+    binding:
+      method: purge
     errors:
-      412: {description: Active firmware is not committed.}
+      412:
+        description: Active firmware is not committed.
+        kind: unavailable
     examples:
     - title: Purge previous firmware
       request:
         params: {}
       response:
         data: {}
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#purge-previous-firmware
+    - title: Error 412
+      request:
+        params: {}
+      response:
+        error:
+          code: 412
+          message: Current firmware is not active.
+      source: https://developer.axis.com/vapix/network-video/firmware-management-api/#purge-previous-firmware
   factory_default:
-    summary: Reset parameters to factory defaults; the product reboots.
-    description: If the current firmware is committed, any inactive or pending firmware is purged. If not committed
-      and no automatic rollback is pending, the current firmware is committed and the inactive firmware purged.
-      Replaces factorydefault.cgi and hardfactorydefault.cgi.
-    effect: unknown
-    binding: {method: factoryDefault}
-    params:
-      type: object
-      properties:
-        factoryDefaultMode: {type: string, enum: [soft, hard], default: soft}
-  stop_auto:
-    summary: Stop the pending auto rollback timer.
+    summary: Reset the parameters to factory defaults; the product reboots.
+    description: Applications and ACAPs are removed or restored to pre-installed versions. If the current firmware is committed,
+      any inactive or pending firmware is purged. If it is not committed and no automatic rollback is pending, the current
+      firmware is committed and the inactive firmware purged. Replaces factorydefault.cgi and hardfactorydefault.cgi.
     effect: action
-    binding: {method: stopAuto}
+    binding:
+      method: factoryDefault
+    params:
+      $ref: '#/types/FactoryDefaultRequest'
+  stop_auto:
+    summary: Stop the pending automatic rollback timer.
+    description: Does not commit the firmware.
+    effect: action
+    binding:
+      method: stopAuto
   reboot:
     summary: Reboot using the active firmware.
-    description: Replaces restart.cgi.
+    description: The firmware does not roll back even if it is uncommitted; a pending automatic rollback stays pending. Replaces
+      restart.cgi.
     effect: action
-    binding: {method: reboot}
-
+    binding:
+      method: reboot
 sources:
 - url: https://developer.axis.com/vapix/network-video/firmware-management-api/
   sha256_md: 8e895a48e918a67b8edce59d9fa992677c3e4a1d4041cc524fb3048651c3727b
   retrieved_at: '2026-10-11'
-
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - '''Upgrade with timeout'' example sends a plain application/json body without the firmware file; presumably
-    it must also be multipart.'
-  - autoRollback is typed String; numeric minutes given as a string ('50') in the example.
-  - Property Properties.FirmwareManagement.Version=1.3 while apiVersions example shows only 1.0.
-  - Purge failure example message 'Current firmware is not active.' differs from the 412 table text.
-  - 'migration: non-json-param: upgrade: multipart parameter json dropped'
-  - 'migration: non-json-param: upgrade: multipart parameter file dropped'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: status, upgrade, commit, rollback,
-    purge, factory_default'
-  - 'migration: discovery: param_property ''Properties.FirmwareManagement.Version'' is not a Name=value pair: dropped'
+  - upgrade is a multipart request (a json part with the JSON message, then a file part with the firmware image); the spec
+    format has no multipart binding, so the generated method cannot upload the image. This keeps the spec uncurated until
+    the generator supports it.
+  - The "Upgrade with timeout" example shows a plain JSON request with autoRollback "50"; the real request has to be multipart
+    too.
+  - 'autoRollback is a string: never, default, or a number of minutes.'
+  - The property Properties.FirmwareManagement.Version=1.3 is documented, while only apiVersion 1.0 appears in the examples.
+    The property is not a name=value discovery entry and is not used.
+  - The purge failure example message "Current firmware is not active." differs from the 412 table text.
+  - The docs do not state which methods need the product to be idle, other than the 423 busy error.
   migrated_from: v1
   curated: false
+types:
+  PendingCommit:
+    enum:
+    - started
+    description: 'started: the current firmware is committed automatically once the device has finished booting.'
+  FirmwareStatus:
+    type: object
+    description: Firmware status of the product.
+    required:
+    - activeFirmwareVersion
+    - activeFirmwarePart
+    properties:
+      activeFirmwareVersion:
+        type: string
+        description: Current firmware version.
+      activeFirmwarePart:
+        type: string
+        description: Current firmware part number.
+      inactiveFirmwareVersion:
+        type: string
+        description: Inactive firmware version. Only present if an inactive firmware exists; UNKNOWN if it does not support
+          the automatic rollback parameters.
+      isCommited:
+        type: boolean
+        x-python-name: is_committed
+        description: True if the current firmware is committed; false if it is uncommitted and will roll back on reboot. Only
+          present if an inactive firmware exists. (Spelled isCommited on the wire.)
+      pendingCommit:
+        $ref: '#/types/PendingCommit'
+        description: Pending automatic commit. Only present if the active firmware is uncommitted and an automatic commit
+          is pending.
+      timeToRollback:
+        type: integer
+        description: Seconds left to the automatic rollback. Only present if the active firmware is uncommitted and an automatic
+          rollback is pending.
+      lastUpgradeAt:
+        type: string
+        description: Date and time of the upgrade. Only present if an inactive firmware exists.
+  FirmwareVersion:
+    type: object
+    required:
+    - firmwareVersion
+    properties:
+      firmwareVersion:
+        type: string
+        description: The firmware version.
+  UpgradeFactoryDefaultMode:
+    enum:
+    - none
+    - soft
+    - hard
+    default: none
+    description: 'none: upgrade and keep the current settings. soft: reset all parameters except network boot protocol, static
+      IP address, default router, subnet mask, broadcast address, system time and 802.1X. hard: reset all parameters. Applications
+      and ACAPs are removed or restored to pre-installed versions for soft and hard. hard is required when downgrading.'
+  AutoCommit:
+    enum:
+    - never
+    - boot
+    - started
+    - default
+    description: 'When the new firmware is committed automatically. never: only via commit. boot: when it starts booting.
+      started: when the device has finished booting. default: never unless autoRollback is also default; then boot if factoryDefaultMode
+      is not none, otherwise started. Ignored if the new firmware does not support automatic rollback.'
+  UpgradeRequest:
+    type: object
+    description: 'JSON part of the upgrade request. The request is multipart: this JSON message first, then the firmware file.'
+    properties:
+      factoryDefaultMode:
+        $ref: '#/types/UpgradeFactoryDefaultMode'
+      autoCommit:
+        $ref: '#/types/AutoCommit'
+      autoRollback:
+        type: string
+        pattern: ^(never|default|[0-9]+)$
+        description: 'When the new firmware is rolled back automatically. never: no automatic rollback (a rollback still happens
+          on a major fault or power loss before commit). A number: minutes after boot until the rollback unless committed.
+          default: never unless autoCommit is also default, then a rollback after 10 minutes. Ignored if the new firmware
+          does not support automatic rollback.'
+  FactoryDefaultMode:
+    enum:
+    - soft
+    - hard
+    default: soft
+    description: 'soft: reset all settings except network boot protocol, static IP address, default router, subnet mask, broadcast
+      address, system time and 802.1X, so the product stays reachable. hard: reset everything, including IP addresses.'
+  FactoryDefaultRequest:
+    type: object
+    properties:
+      factoryDefaultMode:
+        $ref: '#/types/FactoryDefaultMode'

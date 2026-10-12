@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: capture-mode
 name: Capture mode
@@ -24,11 +23,11 @@ binding:
   params_placement: top_level
 
 errors:
-  2000: {description: Resource allocation failed. Check log for details.}
+  2000: {description: Resource allocation failed. Check log for details., kind: unavailable}
   4000: {description: Invalid JSON format. Check message field for details., kind: invalid_argument}
   4001:
     description: Parameter not found or invalid value/format. Check message field for details.
-    kind: not_found
+    kind: invalid_argument
   8000: {description: Internal error. Check log for details., kind: internal}
 
 types:
@@ -46,6 +45,7 @@ types:
       description: {type: string, description: Friendly description of this capture mode.}
   ChannelCaptureModes:
     type: object
+    required: [channel, captureMode]
     properties:
       channel: {type: integer, description: Channel index.}
       captureMode:
@@ -80,6 +80,7 @@ operations:
       source: https://developer.axis.com/vapix/network-video/capture-mode/#get-capture-mode
   set_capture_mode:
     summary: Set a capture mode for one channel.
+    description: The new capture mode takes effect only after a reboot.
     access: operator
     effect: write
     write: patch
@@ -101,6 +102,12 @@ operations:
       response:
         data: {}
       source: https://developer.axis.com/vapix/network-video/capture-mode/#set-capture-mode
+    - title: Internal error
+      request:
+        params: {channel: 1, captureModeId: 2}
+      response:
+        error: {code: 8000, message: Internal error. Check the log for details.}
+      source: https://developer.axis.com/vapix/network-video/capture-mode/#set-capture-mode
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/capture-mode/
@@ -111,11 +118,7 @@ provenance:
   completeness: complete
   open_questions:
   - No getSupportedVersions method or API discovery id/param property is documented; only apiVersion 1.0 appears.
-  - setCaptureMode parameters are top-level keys rather than under 'params' — unusual but consistently documented;
-    verify on device.
   - Set example uses captureModeId 2 although the get example only lists ids 0 and 1.
   - getCaptureModes data is an array (not object) — unlike most JSON APIs.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_capture_mode=write/patch'
-  - 'migration: dropped-keywords: maxProperties x1'
   migrated_from: v1
-  curated: false
+  curated: true

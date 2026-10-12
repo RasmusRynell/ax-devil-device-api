@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: stream-profiles
 name: Stream profiles
@@ -24,31 +23,19 @@ binding:
   params_placement: params
 
 errors:
-  1000: {description: Application Error. The application failed (to return/set a configuration).}
-  2000:
-    description: Unsupported Version. The major version number isn't supported.
-    kind: unsupported
-  2001:
-    description: Invalid Format. The request was not formatted correctly, i.e. does not follow JSON schema.
-    kind: invalid_argument
-  2002: {description: Incoherent Configuration. Parts of the configuration contradict each other.}
-  2003:
-    description: Missing Parameter. The request has a missing mandatory parameter.
-    kind: invalid_argument
-  2004:
-    description: Invalid Parameter. The request has parameter that has an invalid value.
-    kind: invalid_argument
-  2005:
-    description: Unsupported Method. The method in the request is not supported.
-    kind: unsupported
-  2006:
-    description: Profile does not exist. The requested profile does not exist.
-    kind: not_found
+  1000: {description: Application error. The application failed to return or set the configuration., kind: internal}
+  2000: {description: Unsupported version. The major version number is not supported., kind: unsupported}
+  2001: {description: Invalid format. The request does not follow the JSON schema., kind: invalid_argument}
+  2002: {description: "Incoherent configuration. Parts of the configuration contradict each other, for example several profiles with the same name.", kind: invalid_argument}
+  2003: {description: Missing parameter. A mandatory parameter is missing., kind: invalid_argument}
+  2004: {description: Invalid parameter. A parameter has an invalid value., kind: invalid_argument}
+  2005: {description: Unsupported method., kind: unsupported}
+  2006: {description: Profile does not exist., kind: not_found}
 
 types:
   StreamProfile:
     type: object
-    description: Same structure in list response data and create/update request params.
+    description: A stream profile. The structure is the same in list responses and create/update requests.
     required: [name]
     properties:
       name: {type: string, description: ASCII string that represents the name of the profile.}
@@ -56,8 +43,9 @@ types:
       parameters:
         type: string
         description: List of parameters, separated by a &, which defines the stream profile (e.g. resolution=640x360&fps=25&rotation=180).
-  StreamProfileName:
+  ProfileName:
     type: object
+    description: Reference to a stream profile by name.
     required: [name]
     properties:
       name: {type: string, description: ASCII string that represents the name of the profile.}
@@ -76,17 +64,16 @@ operations:
       properties:
         streamProfileName:
           type: array
-          items: {$ref: '#/types/StreamProfileName'}
+          items: {$ref: '#/types/ProfileName'}
           description: List of profile names whose profile needs to be listed. Empty list [] lists all profiles.
     result:
       type: object
+      required: [streamProfile]
       properties:
         streamProfile:
           type: array
           items: {$ref: '#/types/StreamProfile'}
         maxProfiles: {type: integer, description: Maximum number of supported stream profiles.}
-    errors:
-      1000: {description: Application Error. The application failed to return a configuration.}
     examples:
     - title: Backup - request all stream profiles
       request:
@@ -133,14 +120,6 @@ operations:
           type: array
           items: {$ref: '#/types/StreamProfile'}
           description: Stream profiles to create.
-    errors:
-      1000: {description: Application Error. The application failed to set the configuration.}
-      2001:
-        description: Invalid Format. The configuration was not formatted correctly, i.e. does not follow JSON-schema.
-        kind: invalid_argument
-      2002:
-        description: Incoherent Configuration. Parts of the configuration contradict each other, e.g. several profiles
-          have the same name.
     examples:
     - title: create (syntax example)
       request:
@@ -167,11 +146,6 @@ operations:
           type: array
           items: {$ref: '#/types/StreamProfile'}
           description: Stream profiles to update (matched by name).
-    errors:
-      1000: {description: Application Error. The application failed to set the configuration.}
-      2001:
-        description: Invalid Format. The configuration was not formatted correctly, i.e. does not follow JSON-schema.
-        kind: invalid_argument
     examples:
     - title: Set FPS of "My full HD profile" to 30
       request:
@@ -194,13 +168,8 @@ operations:
       properties:
         streamProfileName:
           type: array
-          items: {$ref: '#/types/StreamProfileName'}
+          items: {$ref: '#/types/ProfileName'}
           description: List of profile names to remove.
-    errors:
-      1000: {description: Application Error. The application failed to set the configuration.}
-      2001:
-        description: Invalid Format. The configuration was not formatted correctly, i.e. does not follow JSON-schema.
-        kind: invalid_argument
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/stream-profiles/
@@ -217,7 +186,8 @@ provenance:
   - Create example uses parameter key 'FPS=25' (uppercase) while other examples use 'fps='; case sensitivity of
     stream parameters not stated.
   - getSupportedVersions response example shows apiVersion 1.1 while all other examples use 1.0.
-  - 'migration: effect-guessed: write semantics guessed from the method name: update=write/patch'
-  - 'migration: dropped-keywords: maxProperties x3'
+  - 'update: the docs do not say whether omitted description/parameters keep their values (patch) or are cleared (replace); treated as patch, name is the key.'
+  - 'Only name is treated as required in a profile and only streamProfile as always present in list results; the docs state no guarantees for the rest.'
+  - 'Per-method security levels: list and getSupportedVersions allow Viewer; create, update and remove require Operator.'
   migrated_from: v1
-  curated: false
+  curated: true

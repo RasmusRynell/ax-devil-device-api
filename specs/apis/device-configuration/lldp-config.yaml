@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: lldp-config
 name: LLDP Configuration API
-summary: The VAPIX® LLDP Configuration API makes it possible to activate and deactivate LLDP (Link Layer Discovery
-  Protocol) as well as get neighbors information.
+summary: Activate and deactivate LLDP (Link Layer Discovery Protocol) and read neighbor information.
 section: device-configuration
 family: dca
 status: released
@@ -22,6 +20,7 @@ types:
   ChassisID:
     type: object
     description: The chassis ID type
+    required: [subType, value]
     properties:
       subType: {$ref: '#/types/ChassisIDSubType', description: Chassis ID subtype}
       value: {type: string, description: A chassis ID of the type specified by the subType field}
@@ -38,7 +37,8 @@ types:
     description: The type of the identifier used for the chassis.
   MgmtIP:
     type: object
-    description: The chassis ID type
+    description: The management IP type
+    required: [subType, value]
     properties:
       subType: {$ref: '#/types/MgmtIPSubType', description: Management IP address subtype}
       value:
@@ -51,6 +51,7 @@ types:
   Neighbor:
     type: object
     description: Neighbor information
+    required: [TTL, age, chassisID, ifName, portID, protocol]
     x-nullable: [mgmtIP, portDescr, sysDescr, sysName]
     properties:
       TTL: {$ref: '#/types/PositiveInt', description: Time To Live}
@@ -65,13 +66,10 @@ types:
       protocol: {$ref: '#/types/Protocol', description: The protocol used}
       sysDescr: {type: string, description: System description of the neighbor}
       sysName: {type: string, description: System hostname of the neighbor}
-  Neighbors:
-    type: array
-    items: {$ref: '#/types/Neighbor'}
-    description: A list of neighbor information
   PortID:
     type: object
     description: The port ID type
+    required: [subType, value]
     properties:
       subType: {$ref: '#/types/PortIDSubType', description: Port ID subtype}
       value: {type: string, description: A port ID of the type specified by the subType field}
@@ -90,33 +88,87 @@ types:
   Protocol:
     type: string
     enum: [LLDP, CDPv1, CDPv2]
-    description: The type of the identifier used for the chassis
+    description: The protocol the neighbor information was received with
   Lldp:
     type: object
     description: The whole API tree.
     x-read-only: [neighbors]
     properties:
       activated: {type: boolean, description: LLDP state}
-      neighbors: {$ref: '#/types/Neighbors', description: Information about neighbors on the interface}
+      neighbors:
+        type: array
+        items: {$ref: '#/types/Neighbor'}
+        description: Information about neighbors on the interface
 
 operations:
   get_all:
-    summary: All data of the LLDP Configuration API API.
+    summary: All data of the LLDP Configuration API.
     effect: read
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/Lldp'}
+  get_activated:
+    summary: Whether LLDP is activated.
+    effect: read
+    binding: {method: GET, path: /activated}
+    result: {type: boolean}
+    examples:
+    - title: Check if LLDP is active
+      request: {path: /activated}
+      response:
+        status: 200
+        body: {status: success, data: true, information: [string], warnings: [string]}
+      source: https://developer.axis.com/vapix/device-configuration/lldp-configuration-api/
+  list_neighbors:
+    summary: Neighbor information from all LLDP configured interfaces.
+    effect: read
+    binding: {method: GET, path: /neighbors}
+    result:
+      type: array
+      items: {$ref: '#/types/Neighbor'}
+    examples:
+    - title: Get all neighbors
+      request: {path: /neighbors}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - TTL: 120
+            age: 0
+            chassisID: {subType: MACAddress, value: '34:98:b5:ab:5a:b3'}
+            ifName: eth0
+            mgmtIP: {subType: IPv4, value: 192.168.0.115}
+            portDescr: null
+            portID: {subType: LocallyAssigned, value: g1}
+            protocol: LLDP
+            sysDescr: GS110TPv3 8-Port Gigabit Smart Managed Pro Switch with PoE+ and 2 SFP Ports
+            sysName: null
+          - TTL: 120
+            age: 10
+            chassisID: {subType: MACAddress, value: 'ac:cc:8e:fd:1f:ca'}
+            ifName: eth1
+            mgmtIP: {subType: IPv4, value: 10.10.1.145}
+            portDescr: eth0
+            portID: {subType: MACAddress, value: 'ac:cc:8e:fd:1f:ca'}
+            protocol: LLDP
+            sysDescr: AXIS S3008 Recorder 11.10+snapshot-20240202
+            sysName: ax-accc8efd1fca
+          information: [string]
+          warnings: [string]
+      source: https://developer.axis.com/vapix/device-configuration/lldp-configuration-api/
   set_activated:
-    summary: Set the activated of the device.
+    summary: Activate or deactivate LLDP. Deactivating LLDP also deactivates fabric attach network automation and may affect PoE power negotiation.
     effect: write
     write: patch
     binding: {method: PATCH, path: /activated, body_field: activated, body: value}
+    positional: [activated]
     params:
       type: object
       required: [activated]
       properties:
         activated: {type: boolean, description: LLDP state}
     examples:
-    - title: activate/deactivate LLDP
+    - title: Activate LLDP
       request:
         path: /activated
         body: {data: true}
@@ -132,6 +184,7 @@ sources:
 
 provenance:
   completeness: complete
-  open_questions: ['migration: dropped-property-gets: 2 per-property GET operations dropped']
+  open_questions:
+  - 'The docs show information and warnings arrays next to data in responses; they are not modelled.'
   migrated_from: v1
-  curated: false
+  curated: true

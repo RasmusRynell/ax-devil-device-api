@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: airqualitymodbus-config
 name: Air quality Modbus
@@ -9,7 +8,7 @@ family: dca
 status: released
 python:
   module: airqualitymodbus
-  class: Airqualitymodbus
+  class: AirQualityModbus
 docs:
 - https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
 access: admin
@@ -29,7 +28,7 @@ types:
     minLength: 1
     pattern: ^[1-9]\d*|0$
     description: A Unique alphanumeric ID
-  Airqualitymodbus:
+  AirQualityModbus:
     type: object
     description: The whole API tree.
     properties:
@@ -39,7 +38,6 @@ types:
   Configuration:
     type: object
     description: Configuration of air quality modbus
-    required: [sensorId]
     x-read-only: [sensorId]
     properties:
       modbusEnable: {type: boolean, description: Modbus enable}
@@ -56,18 +54,29 @@ types:
 
 operations:
   get_all:
+    access: viewer
     summary: All data of the Air quality Modbus API.
     effect: read
     binding: {method: GET, path: ''}
-    result: {$ref: '#/types/Airqualitymodbus'}
+    result: {$ref: '#/types/AirQualityModbus'}
   list_configurations:
+    access: viewer
     summary: List the configurations.
     effect: read
     binding: {method: GET, path: /configurations}
     result:
       type: array
       items: {$ref: '#/types/Configuration'}
+    examples:
+    - title: Get all configurations
+      request:
+        path: /configurations
+      response:
+        status: 200
+        body: {status: success, data: [{modbusEnable: false, modbusPort: 1502}]}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
   get_configuration:
+    access: viewer
     summary: Get one configuration.
     effect: read
     binding: {method: GET, path: '/configurations/{sensorId}'}
@@ -78,12 +87,55 @@ operations:
       properties:
         sensorId: {$ref: '#/types/SensorId'}
     result: {$ref: '#/types/Configuration'}
+  get_configuration_modbus_enable:
+    summary: Get the modbus enable of a configuration.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: '/configurations/{sensorId}/modbusEnable'}
+    params:
+      type: object
+      x-name: ConfigurationSensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {type: boolean}
+    examples:
+    - title: Get a single configuration
+      x-contract: {skip: "Docs use the placeholder sensor id My-SensorId, which the documented SensorId pattern rejects"}
+      request:
+        path: /configurations/My-SensorId/modbusEnable
+      response:
+        status: 200
+        body: {status: success, data: false}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
+  get_configuration_modbus_port:
+    summary: Get the modbus port of a configuration.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: '/configurations/{sensorId}/modbusPort'}
+    params:
+      type: object
+      x-name: ConfigurationSensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {$ref: '#/types/ModbusPort'}
   update_configuration:
     summary: Update a configuration.
     effect: write
     write: patch
     binding: {method: PATCH, path: '/configurations/{sensorId}', body: object}
     params: {$ref: '#/types/UpdateConfigurationRequest'}
+    examples:
+    - title: Set all configurations
+      x-contract: {skip: "Docs use the placeholder sensor id My-SensorId, which the documented SensorId pattern rejects"}
+      request:
+        path: /configurations/My-SensorId
+        body: {data: {modbusEnable: true, modbusPort: 1502}}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
   set_configuration_modbus_enable:
     summary: Set the modbus enable of a configuration.
     effect: write
@@ -99,6 +151,16 @@ operations:
       properties:
         sensorId: {$ref: '#/types/SensorId'}
         modbusEnable: {type: boolean, description: Modbus enable}
+    examples:
+    - title: Set a single configuration
+      x-contract: {skip: "Docs use the placeholder sensor id My-SensorId, which the documented SensorId pattern rejects"}
+      request:
+        path: /configurations/My-SensorId/modbusEnable
+        body: {data: true}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
   set_configuration_modbus_port:
     summary: Set the modbus port of a configuration.
     effect: write
@@ -123,9 +185,6 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'property airqualitymodbus.v1.configurations.sensorId lists no operations in the API definition. Source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/'
-  - 'Same API airqualitymodbus.v1 is also documented on .../environmental-sensor/modbus-api/; there sensorId has
-    GET permissions, here sensorId lists no operations. Source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/'
-  - 'migration: dropped-property-gets: 2 per-property GET operations dropped'
+  - 'Same API airqualitymodbus.v1 is also documented on .../environmental-sensor/modbus-api/ (spec airqualitymodbus-modbus-api-config); there sensorId has GET permissions, here it lists no operations. sensorId is modelled as a read-only key and no sensorId getter is generated. The docs example for the collection GET omits sensorId, so it is optional in responses.'
   migrated_from: v1
-  curated: false
+  curated: true

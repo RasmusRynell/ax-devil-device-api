@@ -263,9 +263,13 @@ class Builder:
                 else:
                     note = f"Default: {prop['default']!r}."
                     doc = f"{doc} {note}" if doc else note
+            since = _parse_version(prop["since"], f"{name}.{wire}.since") if prop.get("since") else None
+            if since:
+                note = f"Available from API version {since[0]}.{since[1]}."
+                doc = f"{doc} {note}" if doc else note
             td.fields.append(
                 FieldDef(
-                    py=py, wire=wire, ann=ann, sig=sig, required=wire in required,
+                    py=py, wire=wire, ann=ann, sig=sig, required=wire in required and since is None, since=since,
                     kwargs=self.constraint_kwargs(prop), default=default, doc=doc, schema=prop,
                     style=prop.get("x-style"), xml=prop.get("x-xml"), has_model=self.contains_model(prop),
                     model_name=self.model_name_of(prop, nest),
@@ -352,18 +356,22 @@ class Builder:
         effect = op.get("effect") or "unknown"
         if effect == "unknown":
             self.unknown_effects.append(op_id)
-        fields = params.fields if params else []
+        fields = [f for f in params.fields if f.py not in params.read_only] if params else []
         for f in fields:
             if f.py in RESERVED_ARG_NAMES:
                 raise SpecError(f"{op_id}: argument {f.py!r} is reserved")
         overloaded = bool(params) and not params_field and (any(f.has_model for f in fields) or len(fields) > 4)
 
         positional: list[str] = []
-        if not overloaded and params:
-            wanted = ([params_field] if params_field else []) + [k for k in path_keys] + [p for p in (op.get("positional") or []) if p not in path_keys]
+        if params:
+            if overloaded:
+                # Only explicit `positional` applies; path keys stay keyword arguments of the kwargs overload.
+                wanted = list(op.get("positional") or [])
+            else:
+                wanted = ([params_field] if params_field else []) + [k for k in path_keys] + [p for p in (op.get("positional") or []) if p not in path_keys]
             for item in wanted:
                 f = params.by_py(item) or params.by_wire(item)
-                if f is None:
+                if f is None or f not in fields:
                     raise SpecError(f"{op_id}: positional {item!r} is not an argument")
                 if f.py not in positional:
                     positional.append(f.py)
@@ -407,7 +415,7 @@ class Builder:
             access=op.get("access") or api_access, effect=effect, write=op.get("write"), since=since,
             support=op.get("support") or "docs-only", binding=dict(op.get("binding") or {}), params=params,
             result=result, result_model=result_model, errors=errors, applicability=applicability,
-            positional=positional, overloaded=overloaded, params_field=params_field, mapping_args=mapping_args, round_trip=round_trip,
+            positional=positional, overloaded=overloaded, args=fields, params_field=params_field, mapping_args=mapping_args, round_trip=round_trip,
         )  # fmt: skip
 
     def applicability(self, op_id: str, since_fields: dict[str, str], params: TypeDef | None) -> list[Applic]:
@@ -461,6 +469,10 @@ def build_api(spec: LoadedSpec) -> ApiDef:
         keys: list[str] = []
         if family == "dca":
             keys = dca_path_keys((raw.get("binding") or {}).get("path", ""))
+        styles = (raw.get("binding") or {}).get("key_styles") or {}
+        for placeholder in styles:
+            if placeholder not in keys:
+                raise SpecError(f"{op_id}: binding.key_styles names {placeholder!r}, which is not a placeholder of binding.path")
         ops.append(b.build_op(op_id, raw, access, keys))
     if b.unknown_effects:
         spec.warnings.append(f"effect is unknown for {len(b.unknown_effects)} operation(s): {', '.join(b.unknown_effects)}")
@@ -476,9 +488,16 @@ def build_api(spec: LoadedSpec) -> ApiDef:
     for ident in (python["module"], python["class"]):
         if not ident.isidentifier():
             raise SpecError(f"python.{ident!r} is not an identifier")
+    class_name = python["class"]
+    if class_name.endswith("Api") and len(class_name) > 3:
+        # The generator appends `Api` (and `AsyncApi` prefix); do not double it.
+        class_name = class_name[:-3]
+        spec.warnings.append(f"python.class {python['class']!r} already ends in 'Api'; using {class_name!r} ({class_name}Api)")
+    elif class_name == "Api":
+        raise SpecError("python.class 'Api' is not a usable class name")
     return ApiDef(
         id=data["id"], name=data["name"], summary=clean(data.get("summary")) or data["name"], section=data["section"],
-        family=family, module=python["module"], class_name=python["class"], docs=list(data.get("docs") or []),
+        family=family, module=python["module"], class_name=class_name, docs=list(data.get("docs") or []),
         access=access, discovery=discovery, binding=api_binding,
         errors={k: dict(v) for k, v in (data.get("errors") or {}).items()},
         types=[b.defs[n] for n in b.order], ops=ops, source=spec.rel,

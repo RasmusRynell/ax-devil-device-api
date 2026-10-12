@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: param-config
 name: Param API
@@ -20,106 +19,113 @@ binding: {root: /config/rest/param/v2beta}
 types:
   ParamValue:
     type: string
-    description: 'All param.cgi parameter values are strings and map to string-typed properties. (Note: the doc''s
-      group-retrieval and export examples show DSCP as the number 0.)'
-  ParamGroupInstance:
+    description: A parameter value. All param.cgi values are strings.
+  ParamTree:
     type: object
-    description: Instance of a dynamic group inside a <Group>Collection; carries the key property groupId plus the
-      instance's parameters/sub-groups.
-    properties:
-      groupId: {type: string, description: Instance identifier (e.g. "0" for root.IOPort.I0).}
+    description: >-
+      A group of param.cgi parameters. Static groups are nested objects, parameters are string
+      values, and dynamic groups are arrays named ``<Group>Collection`` whose items carry a ``groupId``.
     additionalProperties: true
-  Param:
-    type: object
-    description: The whole API tree.
-    properties: {}
-  UpdateAllRequest:
-    type: object
-    description: Arguments of ``update_all``.
-    properties:
-      data: {}
-      options: {}
 
 operations:
   get_all:
-    summary: All data of the Param API API.
+    summary: All readable param.cgi parameters, as a nested tree.
     effect: read
-    binding: {method: GET, path: ''}
+    binding: {method: GET, path: ""}
+    result: {$ref: "#/types/ParamTree"}
     examples:
-    - title: Get request to the root entity (parameters mapping, root.HTTPS.Enabled)
-      request: {path: ''}
-      response:
-        body:
-          data:
-            HTTPS: {Enabled: 'yes'}
-      source: https://developer.axis.com/vapix/device-configuration/param-api/#parameters
-  get_all_2:
-    summary: All data of the Param API API.
+      - title: Get request to the root entity (parameters mapping, root.HTTPS.Enabled)
+        request: {path: ""}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              HTTPS: {Enabled: "yes"}
+        source: https://developer.axis.com/vapix/device-configuration/param-api/#parameters
+
+  get_object:
+    summary: One parameter (a string) or a group (a tree), addressed by its path below the root.
+    description: >-
+      ``object_path`` is the group and parameter names joined by ``/``, for example ``Audio/MaxListeners``.
     effect: read
-    binding: {method: GET, path: '/{objectPath}'}
+    binding: {method: GET, path: "/{objectPath}"}
     params:
       type: object
       x-name: ParamObjectPathRequest
       required: [objectPath]
       properties:
         objectPath: {type: string}
+    positional: [objectPath]
     result:
       oneOf:
-      - {$ref: '#/types/ParamValue'}
-      - {$ref: '#/types/Param'}
+        - {$ref: "#/types/ParamValue"}
+        - {$ref: "#/types/ParamTree"}
     examples:
-    - title: Example of retrieving a single parameter
-      request:
-        path: ''
-        body: {operation: GET, path: param.v2.Audio.MaxListeners}
-      response:
-        body: {status: success, data: '5'}
-      source: https://developer.axis.com/vapix/device-configuration/param-api/#get-parameters
-    - title: Group retrieval example
-      request:
-        path: ''
-        body: {operation: GET, path: param.v2.Audio}
-      response:
-        body:
-          status: success
-          data: {DSCP: 0, MaxListeners: '5'}
-      source: https://developer.axis.com/vapix/device-configuration/param-api/#get-parameters
-  get_all_3:
-    summary: All data of the Param API API.
+      - title: Example of retrieving a single parameter
+        request: {path: ""}
+        response:
+          status: 200
+          body: {status: success, data: "5"}
+        source: https://developer.axis.com/vapix/device-configuration/param-api/#get-parameters
+        x-contract: {skip: "The docs example shows a generic request envelope (operation/path), not the REST call; its path param.v2.Audio.MaxListeners does not map to a DCA request path."}
+      - title: Group retrieval example
+        request: {path: ""}
+        response:
+          status: 200
+          body:
+            status: success
+            data: {DSCP: "0", MaxListeners: "5"}
+        source: https://developer.axis.com/vapix/device-configuration/param-api/#get-parameters
+        x-contract: {skip: "The docs example shows a generic request envelope (operation/path), not the REST call."}
+
+  export_all:
+    summary: Export all writable parameters (the ones that can be imported).
     effect: read
     binding: {method: GET, path: /$export}
+    result: {$ref: "#/types/ParamTree"}
     examples:
-    - title: Data export example for the sample API
-      request: {path: /$export}
-      response:
-        status: 200
-        body:
-          status: success
-          data:
-            Audio: {DSCP: 0}
-            AudioCollection:
-            - {groupId: '0', Enabled: 'yes'}
-      source: https://developer.axis.com/vapix/device-configuration/param-api/#export-parameters
-  update_all:
-    summary: Update the Param API settings.
+      - title: Data export example for the sample API
+        request: {path: /$export}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              Audio: {DSCP: "0"}
+              AudioCollection:
+                - {groupId: "0", Enabled: "yes"}
+        source: https://developer.axis.com/vapix/device-configuration/param-api/#export-parameters
+
+  import_all:
+    summary: Import parameters; only the given ones are updated and dynamic group instances are created as needed.
+    description: >-
+      Pass the same tree shape that ``export_all`` returns. The import type has no effect on this API.
+      Parameters that fail are reported in a warning section of the response.
     effect: write
     write: patch
-    binding: {method: PATCH, path: /$import, body: object}
-    params: {$ref: '#/types/UpdateAllRequest'}
+    binding: {method: PATCH, path: /$import, body: value, body_field: data}
+    params:
+      type: object
+      x-name: ImportRequest
+      required: [data]
+      properties:
+        data: {$ref: "#/types/ParamTree"}
+    positional: [data]
     examples:
-    - title: Import data example
-      request:
-        path: /$import
-        body:
-          data:
-            Audio: {DSCP: 0}
-            AudioCollection:
-            - {groupId: '0', Enabled: 'no'}
-            - {groupId: '1', Enabled: 'yes'}
-      response:
-        status: 200
-        body: {status: success}
-      source: https://developer.axis.com/vapix/device-configuration/param-api/#import-parameters
+      - title: Import data example
+        request:
+          path: /$import
+          body:
+            data:
+              Audio: {DSCP: "0"}
+              AudioCollection:
+                - {groupId: "0", Enabled: "no"}
+                - {groupId: "1", Enabled: "yes"}
+        response:
+          status: 200
+          body: {status: success}
+        source: https://developer.axis.com/vapix/device-configuration/param-api/#import-parameters
 
 sources:
 - url: https://developer.axis.com/vapix/device-configuration/param-api/
@@ -127,16 +133,12 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: partial
+  completeness: complete
   open_questions:
-  - 'The page documents no SET operation on individual properties (only GET, $export, $import); whether PATCH on
-    a writable parameter property works is not stated. Source: https://developer.axis.com/vapix/device-configuration/param-api/'
-  - 'Parameters are said to map to string-typed properties, but the group-retrieval and export/import examples show
-    DSCP as the number 0. Source: https://developer.axis.com/vapix/device-configuration/param-api/#get-parameters'
-  - 'Structure of the ''warning section'' reporting failed imports is not documented. Source: https://developer.axis.com/vapix/device-configuration/param-api/#import-parameters'
-  - 'The sample model nests ''Audio'' at the same indentation level as ''entities'' (likely a YAML indentation slip
-    in the doc). Source: https://developer.axis.com/vapix/device-configuration/param-api/#use-cases'
-  - 'migration: name-collision: operation name get_all collides; numeric suffix added'
-  - 'migration: anyof: anyOf converted to oneOf'
+    - The page documents no SET operation on individual properties (only GET, $export, $import).
+    - The structure of the warning section reporting failed imports is not documented.
+    - The root get example in the docs omits status success; it is added here.
+    - The docs show DSCP as the number 0 in two examples although parameters are strings; examples here use "0".
+    - How a nested path is written in the REST URL for a single get ("Audio/MaxListeners") is inferred from the DCA framework, not shown in the docs.
   migrated_from: v1
-  curated: false
+  curated: true

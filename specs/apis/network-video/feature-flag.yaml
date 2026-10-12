@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: feature-flag
 name: Feature Flag Service
@@ -31,100 +30,132 @@ errors:
   2103: {description: Required parameter missing., kind: invalid_argument}
   2104: {description: Invalid parameter value specified., kind: invalid_argument}
   2105: {description: Authorization failed., kind: access_denied}
-  2106: {description: Authentication failed.}
+  2106: {description: Authentication failed., kind: access_denied}
   2107: {description: Request too large., kind: invalid_argument}
-  2200: {description: Flags does not exist., kind: not_found}
+  2200: {description: Flag does not exist; the message lists the unknown flags., kind: not_found}
 
 types:
+  FlagValues:
+    type: object
+    additionalProperties: {type: boolean}
+    description: Flag name to flag value.
+
   Flag:
     type: object
+    description: A feature flag with its metadata.
+    required: [name, value, description, defaultValue]
     properties:
       name: {type: string, description: The name of the flag.}
       value: {type: boolean, description: The current flag value.}
       description: {type: string, description: A short description of the flag.}
       defaultValue: {type: boolean, description: The initial flag value.}
 
+  SetFlagsRequest:
+    type: object
+    required: [flagValues]
+    properties:
+      flagValues: {$ref: "#/types/FlagValues", description: Flag name and value pairs. The flags are updated according to this map; other flags are unchanged.}
+
+  SetFlagsResult:
+    type: object
+    required: [result]
+    properties:
+      result: {type: string, description: "``Success`` if the call was successful."}
+
+  GetFlagsRequest:
+    type: object
+    required: [names]
+    properties:
+      names:
+        type: array
+        items: {type: string}
+        description: The names of the flags to retrieve.
+
+  GetFlagsResult:
+    type: object
+    required: [flagValues]
+    properties:
+      flagValues: {$ref: "#/types/FlagValues", description: "The flag names and values, corresponding to the requested names."}
+
+  ListFlagsResult:
+    type: object
+    required: [flags]
+    properties:
+      flags:
+        type: array
+        description: All flags on the device with their metadata.
+        items: {$ref: "#/types/Flag"}
+
 operations:
-  set:
+  set_flags:
     summary: Set the value of one or multiple flags.
     effect: write
     write: patch
     binding: {method: set}
-    params:
-      type: object
-      required: [flagValues]
-      properties:
-        flagValues:
-          type: object
-          additionalProperties: {type: boolean}
-          description: Contains the flag name and value pairs. The flags will be updated according to this list.
-    result:
-      type: object
-      properties:
-        result: {type: string, const: Success}
+    params: {$ref: "#/types/SetFlagsRequest"}
+    result: {$ref: "#/types/SetFlagsResult"}
     examples:
-    - title: Set flags
-      request:
-        params:
-          flagValues: {flag.name.1: true, flag.name.2: true}
-      response:
-        data: {result: Success}
-      source: https://developer.axis.com/vapix/network-video/feature-flag-service/#set-flags
-  get:
+      - title: Set flags
+        request:
+          params:
+            flagValues: {flag.name.1: true, flag.name.2: true}
+        response:
+          data: {result: Success}
+        source: https://developer.axis.com/vapix/network-video/feature-flag-service/#set-flags
+      - title: Invalid parameter value
+        request:
+          params:
+            flagValues: {flag.name.1: true}
+        response:
+          error: {code: 2104, message: Invalid parameter value specified}
+        source: https://developer.axis.com/vapix/network-video/feature-flag-service/#set-flags
+
+  get_flags:
     summary: Retrieve the value of one or multiple flags.
     effect: read
     binding: {method: get}
-    params:
-      type: object
-      required: [names]
-      properties:
-        names:
-          type: array
-          items: {type: string}
-          description: List containing the flag names that should be retrieved. (The parameter table calls this
-            params.flagValues, but all request examples use params.names.)
-    result:
-      type: object
-      properties:
-        flagValues:
-          type: object
-          additionalProperties: {type: boolean}
-    errors:
-      2200: {description: Flag(s) does not exist (message lists the unknown flags)., kind: not_found}
+    params: {$ref: "#/types/GetFlagsRequest"}
+    result: {$ref: "#/types/GetFlagsResult"}
     examples:
-    - title: Get flags
-      request:
-        params: {names: [flag.name.1, flag.name.2]}
-      response:
-        data:
-          flagValues: {flag.name.1: true, flag.name.2: false}
-      source: https://developer.axis.com/vapix/network-video/feature-flag-service/#get-flags
-  list_all:
+      - title: Get flags
+        request:
+          params: {names: [flag.name.1, flag.name.2]}
+        response:
+          data:
+            flagValues: {flag.name.1: true, flag.name.2: false}
+        source: https://developer.axis.com/vapix/network-video/feature-flag-service/#get-flags
+      - title: Unknown flag
+        request:
+          params: {names: [com.axis.remotesyslog.fax]}
+        response:
+          error: {code: 2200, message: "Flag(s) does not exist: com.axis.remotesyslog.fax"}
+        source: https://developer.axis.com/vapix/network-video/feature-flag-service/#get-flags
+
+  list_flags:
     summary: Retrieve the value and metadata of all flags.
     effect: read
     binding: {method: listAll}
-    result:
-      type: object
-      properties:
-        flags:
-          type: array
-          items: {$ref: '#/types/Flag'}
+    result: {$ref: "#/types/ListFlagsResult"}
     examples:
-    - title: List all flags
-      request:
-        params: {}
-      response:
-        data:
-          flags:
-          - name: flag.name.1
-            value: true
-            description: Use both hands for parameter handling.
-            defaultValue: false
-          - name: flag.name.2
-            value: false
-            description: Run action engine on ethanol.
-            defaultValue: false
-      source: https://developer.axis.com/vapix/network-video/feature-flag-service/#list-all-flags
+      - title: List all flags
+        request: {params: {}}
+        response:
+          data:
+            flags:
+              - name: flag.name.1
+                value: true
+                description: Use both hands for parameter handling.
+                defaultValue: false
+              - name: flag.name.2
+                value: false
+                description: Run action engine on ethanol.
+                defaultValue: false
+        source: https://developer.axis.com/vapix/network-video/feature-flag-service/#list-all-flags
+      - title: Internal error
+        request: {params: {}}
+        response:
+          error: {code: 1100, message: Internal error}
+        source: https://developer.axis.com/vapix/network-video/feature-flag-service/#list-all-flags
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/feature-flag-service/
@@ -134,11 +165,10 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'get: parameter table documents params.flagValues (list of names) but all examples use params.names; params.names
-    used.'
-  - 'set: success table documents a top-level ''result'' but examples return data.result.'
-  - The set of available flag names is device-specific and not documented.
-  - AXIS OS minimum version not stated.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set=write/patch'
+  - The get parameter table names the request field params.flagValues (a list of names), but every example uses params.names; params.names is used.
+  - The set success table documents a top-level result, but the examples return data.result.
+  - The available flag names are device-specific and not documented.
+  - The minimum AXIS OS version is not stated.
+  - Whether error 2200 can also be returned by set is not stated.
   migrated_from: v1
-  curated: false
+  curated: true

@@ -27,6 +27,8 @@ class FieldDef:
     has_model: bool = False
     model_name: str | None = None
     """Name of the model type this field holds (directly or as list items), if any."""
+    since: tuple[int, int] | None = None
+    """Version that introduced the field (result fields); such a field is always optional."""
 
     @property
     def is_mapping(self) -> bool:
@@ -94,6 +96,8 @@ class OpDef:
     """jsonrpc: the single request field sent as the whole ``params``."""
     reply_map: str | None = None
     """Rendered ``XmlMap(...)`` for cgi xml replies."""
+    args: list[FieldDef] = field(default_factory=list)
+    """Request fields that become method arguments (the params fields without read-only ones)."""
 
 
 @dataclass

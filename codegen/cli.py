@@ -116,7 +116,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
         if not path.exists() or path.read_text() != text:
             path.write_text(text)
             print(f"wrote {path.relative_to(ROOT)}")
-    if not args.only:
+    if res.errors and not args.only:
+        print("note: not removing stale modules because some specs failed to build", file=sys.stderr)
+    elif not args.only:
         for path in stale_files(res):
             path.unlink()
             print(f"removed {path.relative_to(ROOT)} (no spec produces it)")
@@ -149,9 +151,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
     for path in paths:
         try:
             load_spec(path)
-        except SpecError as error:
+        except Exception as error:  # noqa: BLE001 - one broken file must not stop the others
             failed += 1
-            print(f"error: {path.relative_to(ROOT)}: {error}", file=sys.stderr)
+            message = str(error) if isinstance(error, SpecError) else f"{type(error).__name__}: {error}"
+            label = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+            print(f"error: {label}: {message}", file=sys.stderr)
     print(f"{len(paths) - failed}/{len(paths)} spec(s) valid")
     return 1 if failed else 0
 

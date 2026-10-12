@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: fence-guard
 name: Fence guard
-summary: Configure the AXIS Fence Guard ACAP (virtual fence lines, crossing direction, exclusion filters, perspective,
-  PTZ presets, alarm overlay) through a JSON-RPC...
+summary: Configure the AXIS Fence Guard ACAP (virtual fence lines, crossing direction, exclusion filters, perspective, PTZ presets, alarm overlay).
 section: applications
 family: jsonrpc
 status: released
@@ -25,32 +23,32 @@ binding:
   params_placement: params
 
 errors:
-  1000-1999:
-    description: Reserved for camera application (server) errors, e.g. could not read configuration from file; see
-      server log; possibly solved by restarting the camera.
-  2000-2999:
-    description: Reserved for client errors, e.g. wrong format of configuration file or invalid parameter.
-    kind: invalid_argument
-  8000:
-    description: The camera is not supported by this version of the application.
-    kind: unsupported
-  9000-9999:
-    description: Reserved for license related errors e.g. license invalid or missing.
-    kind: invalid_argument
+  1000: {description: Application error; the application failed to handle the request (see the server log; a restart may help)., kind: internal}
+  2000: {description: Unsupported version; the major version number isn't supported., kind: unsupported}
+  2001: {description: Invalid format; the request does not follow the JSON schema., kind: invalid_argument}
+  2002: {description: Incoherent format; parts of the request contradict each other or refer to something that does not exist., kind: invalid_argument}
+  2003: {description: Missing parameter; a mandatory parameter is missing., kind: invalid_argument}
+  2004: {description: Invalid parameter; a parameter has an invalid value., kind: invalid_argument}
+  8000: {description: Unsupported product; the camera is not supported by this version of the application., kind: unsupported}
+  9000: {description: Invalid license; the license file is invalid or missing., kind: access_denied}
+  1001-1999: {description: "Reserved for camera application (server) errors, e.g. could not read configuration from file.", kind: internal}
+  2005-2999: {description: "Reserved for client errors, e.g. wrong format of configuration file or invalid parameter.", kind: invalid_argument}
+  9001-9999: {description: "Reserved for license related errors, e.g. license invalid or missing.", kind: access_denied}
 
 types:
   Point:
     type: array
     items: {type: number, minimum: -1, maximum: 1}
-    description: '[x, y] normalized to image size; visible view spans -1..1. (minItems=2, maxItems=2)'
+    description: '[x, y] normalized to the image size; the visible view spans -1..1. (minItems=2, maxItems=2)'
   Camera:
     type: object
+    required: [active, id, rotation]
+    description: General settings of one camera, shared by all profiles using it.
     properties:
       active:
         type: boolean
         default: true
-        description: Profiles for the camera may be active if true; all profiles for the camera are inactivated
-          if false.
+        description: Profiles for the camera may be active if true; all profiles for the camera are inactivated if false.
       id:
         type: integer
         minimum: 1
@@ -60,54 +58,71 @@ types:
         type: integer
         enum: [0, 90, 180, 270]
         default: 0
-        description: Should match Image.I<camera>.Appearance.Rotation.
+        description: Rotation of the camera in degrees; should match Image.I<camera>.Appearance.Rotation.
       overlayResolution:
         type: string
         pattern: ^[0-9]+x[0-9]+$
-        description: Since 1.3. Resolution of the video streams with alarm overlay burnt in. Optional if alarmOverlayEnabled
-          is not active.
+        description: Resolution <width>x<height> of the video streams with the alarm overlay burnt in. Optional if alarmOverlayEnabled is not active. Since 1.3.
+  FilterType:
+    enum: [sizePercentage, sizePerspective, timeShortLivedLimit]
   Filter:
     type: object
     required: [type, data]
+    description: >-
+      Exclusion filter. A filter that is not present is disabled. Only one size filter (sizePercentage or
+      sizePerspective) can be active at a time.
     properties:
-      type: {type: string, enum: [sizePercentage, sizePerspective, timeShortLivedLimit]}
+      type: {$ref: '#/types/FilterType'}
       data:
-        description: 'sizePercentage: [w,h] percent of image, each 3..100, default [5,5]; objects <= are ignored.'
-      active: {type: boolean}
+        description: >-
+          Depends on the type. sizePercentage: [w, h] in percent of the image, each 3..100 (default [5, 5]); objects
+          at or below are ignored. sizePerspective: [w, h] real-world size in cm; needs perspective bars.
+          timeShortLivedLimit: integer seconds 1..5 (default 1).
+        oneOf:
+          - type: array
+            items: {type: integer}
+          - type: integer
+      active: {type: boolean, description: If the filter is active.}
   Trigger:
     type: object
+    required: [type, data, alarmDirection]
     properties:
       type: {const: fence}
       data:
         type: array
         items: {$ref: '#/types/Point'}
-        description: Fence polyline [[x0,y0],..., [xn,yn]].
+        description: Fence polyline [[x0,y0], ..., [xn,yn]].
       alarmDirection:
         type: string
         enum: [leftToRight, rightToLeft, both]
         description: Left/right from a viewer at the segment start looking towards its end.
   PerspectiveBar:
     type: object
+    required: [type, data, height]
     properties:
       type: {const: bar, description: A vertical line in the rotation of the camera.}
       data:
         type: array
         items: {$ref: '#/types/Point'}
-        description: Start (touches ground-plane) and end points. (minItems=2, maxItems=2)
+        description: Start (touches the ground plane) and end point. (minItems=2, maxItems=2)
       height:
         type: integer
-        description: Real-world height (cm) of an object at the same location/perceived height.
+        description: Real-world height (cm) of an object at the same location and with the same perceived height.
   Profile:
     type: object
+    required: [name, uid, camera, triggers]
     properties:
       name:
         type: string
         maxLength: 15
         default: Profile <uid>
         description: 'Unicode, up to 15 characters; part of the event nice name. Invalid: ''&&'', ''<'', ''>''.'
-      camera: {type: integer, default: 1, description: Shall match id of the corresponding camera.}
-      uid: {type: integer, default: 1, description: Unique id for each profile.}
-      alarmOverlayEnabled: {type: boolean, default: false, description: Since 1.3; optional.}
+      uid: {type: integer, default: 1, description: Unique id of the profile.}
+      camera: {type: integer, default: 1, description: Shall match the id of the corresponding camera.}
+      alarmOverlayEnabled:
+        type: boolean
+        default: false
+        description: True if the profile's alarming objects are shown in an alarm overlay video stream. Since 1.3.
       filters:
         type: array
         items: {$ref: '#/types/Filter'}
@@ -115,19 +130,24 @@ types:
       triggers:
         type: array
         items: {$ref: '#/types/Trigger'}
-        description: Exactly one fence (may change). (minItems=1, maxItems=1)
+        description: Exactly one fence (may change in the future). (minItems=1, maxItems=1)
       presets:
         type: array
         items: {type: integer}
         default: []
-        description: Since 1.1. PTZ only (error on non-PTZ). Preset index (PTZ.Preset.P0.Position.P<index>), -1
-          any-preset, -2 anywhere, [] always active. (maxItems=1)
+        description: >-
+          Since 1.1. PTZ only (error on non-PTZ; absent on other cameras). At most one preset index
+          (PTZ.Preset.P0.Position.P<index>), -1 any preset, -2 anywhere; empty means always active.
       perspective:
         type: array
         items: {$ref: '#/types/PerspectiveBar'}
         default: []
+        description: Perspective bars calibrating the view; needed for the sizePerspective filter.
   Configuration:
     type: object
+    required: [cameras, profiles]
+    x-read-only: [configurationStatus]
+    description: The complete ACAP configuration, as read by get_configuration and written by set_configuration.
     properties:
       cameras:
         type: array
@@ -139,77 +159,102 @@ types:
       configurationStatus:
         type: integer
         minimum: 0
-        description: Read-only (ignored by setConfiguration). 0 = default configuration; incremented by each set;
-          reset to 1 after MAX_INT.
+        description: Read-only (ignored by setConfiguration). 0 is the default configuration; incremented by each set; reset to 1 after MAX_INT.
+  AlarmOverlayCamera:
+    type: object
+    properties:
+      id: {type: integer, description: "Same as cameras[i].id in the configuration (starts at 1)."}
+      availableResolutions:
+        type: array
+        items: {type: string}
+        description: Resolutions <width>x<height> for which the alarm overlay can be used on this camera.
+  AlarmOverlayCapabilities:
+    type: object
+    properties:
+      isSupported: {type: boolean, description: True if the camera supports the burnt-in overlay feature.}
+      maxNbrActiveCameras: {type: integer, description: Number of cameras of a multichannel device that can use the feature at once; 0 if not supported.}
+      cameras:
+        type: array
+        items: {$ref: '#/types/AlarmOverlayCamera'}
+  FilterCapability:
+    type: object
+    properties:
+      type: {$ref: '#/types/FilterType'}
+      min:
+        description: Minimum allowed value; [w, h] percent for sizePercentage, seconds for timeShortLivedLimit.
+        oneOf:
+          - type: array
+            items: {type: integer}
+          - type: integer
+      max:
+        description: Maximum allowed value; same shape as min.
+        oneOf:
+          - type: array
+            items: {type: integer}
+          - type: integer
+      default:
+        description: Default value; same shape as min.
+        oneOf:
+          - type: array
+            items: {type: integer}
+          - type: integer
+      defaultActive: {type: boolean, description: If the filter is active by default. The docs table misspells it defautActive for timeShortLivedLimit.}
+  TriggerCapability:
+    type: object
+    properties:
+      type: {const: fence}
+      min:
+        type: array
+        items: {type: number}
+        description: '[xPos, yPos] minimum allowed values for the fence.'
+      max:
+        type: array
+        items: {type: number}
+        description: '[xPos, yPos] maximum allowed values for the fence.'
+      minNbrVertices: {type: integer}
+      maxNbrVertices: {type: integer}
+      minNbrInstances: {type: integer}
+      maxNbrInstances: {type: integer}
+      validAlarmDirections:
+        type: array
+        items: {type: string}
+        x-python-name: valid_alarm_directions
+      defaultInstance:
+        type: array
+        items: {$ref: '#/types/Point'}
+      defaultAlarmDirection: {type: string}
+  ProfileCapabilities:
+    type: object
+    properties:
+      minNbrProfilesPerCamera: {type: integer}
+      maxNbrProfilesPerCamera: {type: integer}
+      minLengthName: {type: integer}
+      maxLengthName: {type: integer}
+  PresetCapabilities:
+    type: object
+    description: Only for mechanical PTZ cameras.
+    properties:
+      maxNbrPresetsPerProfile: {type: integer}
+      defaultPreset: {type: integer}
   ConfigurationCapabilities:
     type: object
     properties:
-      alarmOverlay:
-        type: object
-        x-name: ConfigurationCapabilitiesAlarmOverlay
-        properties:
-          isSupported: {type: boolean}
-          maxNbrActiveCameras: {type: integer, description: 0 if not supported.}
-          cameras:
-            type: array
-            items:
-              type: object
-              x-name: ConfigurationCapabilitiesAlarmOverlayCamerasItem
-              properties:
-                id: {type: integer}
-                availableResolutions:
-                  type: array
-                  items: {type: string}
+      alarmOverlay: {$ref: '#/types/AlarmOverlayCapabilities'}
       filters:
         type: array
-        items:
-          type: object
-          x-name: ConfigurationCapabilitiesFiltersItem
-          properties:
-            type: {type: string, enum: [sizePercentage, timeShortLivedLimit]}
-            min: {description: '[w,h] percent or int seconds'}
-            max: {}
-            default: {}
-            defaultActive: {type: boolean}
+        items: {$ref: '#/types/FilterCapability'}
       triggers:
         type: array
-        items:
-          type: object
-          x-name: ConfigurationCapabilitiesTriggersItem
-          properties:
-            type: {const: fence}
-            min:
-              type: array
-              items: {type: number}
-            max:
-              type: array
-              items: {type: number}
-            minNbrVertices: {type: integer}
-            maxNbrVertices: {type: integer}
-            minNbrInstances: {type: integer}
-            maxNbrInstances: {type: integer}
-            validAlarmDirections:
-              type: array
-              items: {type: string}
-            defaultInstance:
-              type: array
-              items: {$ref: '#/types/Point'}
-            defaultAlarmDirection: {type: string}
-      profiles:
-        type: object
-        x-name: ConfigurationCapabilitiesProfiles
-        properties:
-          minNbrProfilesPerCamera: {type: integer}
-          maxNbrProfilesPerCamera: {type: integer}
-          minLengthName: {type: integer}
-          maxLengthName: {type: integer}
-      presets:
-        type: object
-        x-name: ConfigurationCapabilitiesPresets
-        description: Only for mechanical PTZ cameras.
-        properties:
-          maxNbrPresetsPerProfile: {type: integer}
-          defaultPreset: {type: integer}
+        items: {$ref: '#/types/TriggerCapability'}
+      profiles: {$ref: '#/types/ProfileCapabilities'}
+      presets: {$ref: '#/types/PresetCapabilities'}
+  SendAlarmEventRequest:
+    type: object
+    required: [profile]
+    properties:
+      profile:
+        type: integer
+        description: The unique id (uid) of the profile that will send the alarm event. There must be a profile with the specified uid.
 
 operations:
   get_configuration:
@@ -217,100 +262,133 @@ operations:
     effect: read
     binding: {method: getConfiguration}
     result: {$ref: '#/types/Configuration'}
-    errors:
-      1000: {description: Application Error. The application failed to return a configuration}
-      2000:
-        description: Unsupported Version. The major version number isn't supported
-        kind: unsupported
-      2001:
-        description: Invalid Format. The request was not formatted correctly, i.e. does not follow the JSON-schema
-        kind: invalid_argument
-      8000:
-        description: Unsupported Product. The product is not supported by this application
-        kind: unsupported
+    examples:
+      - title: Get the configuration (placeholders filled in)
+        request: {params: {}}
+        response:
+          data:
+            cameras:
+              - {active: true, id: 1, rotation: 0, overlayResolution: 1280x720}
+            profiles:
+              - name: Profile 1
+                uid: 1
+                camera: 1
+                alarmOverlayEnabled: true
+                filters:
+                  - {type: sizePerspective, data: [50, 100], active: true}
+                  - {type: sizePercentage, data: [5, 5], active: false}
+                  - {type: timeShortLivedLimit, data: 2, active: true}
+                triggers:
+                  - {type: fence, data: [[-0.5, 0.2], [0.5, 0.2]], alarmDirection: both}
+                presets: [1]
+                perspective:
+                  - {type: bar, data: [[-0.4, 0.5], [-0.4, 0.2]], height: 180}
+                  - {type: bar, data: [[0.4, 0.5], [0.4, 0.2]], height: 180}
+            configurationStatus: 0
+        source: https://developer.axis.com/vapix/applications/fence-guard/#getconfiguration
+      - title: Application error
+        request: {params: {}}
+        response: {error: {code: 1000, message: A descriptive error message}}
+        source: https://developer.axis.com/vapix/applications/fence-guard/#getconfiguration
   set_configuration:
     summary: Set the complete configuration of the ACAP.
-    description: If the ACAP is not restarted beforehand, ongoing events are set inactive when the new configuration
+    description: >-
+      Replaces the whole configuration, so send everything that should stay; to remove a profile, leave it out of
+      profiles. If the ACAP is not restarted beforehand, ongoing events are set inactive when the new configuration
       is applied, stopping ongoing recordings; on multichannel products all cameras are affected simultaneously.
+      Prefer a minified body, as POST requests have a size limit. apiVersion 1.2 or older clients cannot change
+      alarmOverlayEnabled and overlayResolution: those values are ignored and the existing ones are kept.
     effect: write
-    write: patch
+    write: replace
     binding: {method: setConfiguration}
-    params: {$ref: '#/types/Configuration', description: A complete ACAP configuration.}
+    params: {$ref: '#/types/Configuration'}
+    round_trip:
+      from: Configuration
+    since_fields:
+      params.cameras.overlayResolution: '1.3'
+      params.profiles.alarmOverlayEnabled: '1.3'
+      params.profiles.presets: '1.1'
     errors:
-      1000: {description: Application Error. The application failed to set the configuration.}
-      2000:
-        description: Unsupported Version. The major version number isn't supported.
-        kind: unsupported
-      2001:
-        description: Invalid Format. The configuration was not formatted correctly, i.e. does not follow the JSON-schema.
-        kind: invalid_argument
-      2002:
-        description: Incoherent Format. Parts of the configuration contradict each other, e.g. several profiles
-          have the same uid.
-        kind: invalid_argument
-      2003:
-        description: Missing Parameter. The request has a missing mandatory parameter.
-        kind: invalid_argument
-      2004:
-        description: Invalid Parameter. The request has parameters that has an invalid value.
-        kind: invalid_argument
-      8000: {description: Unsupported Product. The product is not supported., kind: unsupported}
-      9000:
-        description: Invalid License. The license file is invalid or missing.
-        kind: invalid_argument
+      2002: {description: "Incoherent format; parts of the configuration contradict each other, e.g. several profiles have the same uid.", kind: invalid_argument}
+    examples:
+      - title: Enable the alarm overlay (placeholders filled in)
+        request:
+          params:
+            cameras:
+              - {active: true, id: 1, rotation: 0, overlayResolution: 1280x720}
+            profiles:
+              - name: Profile 1
+                uid: 1
+                camera: 1
+                alarmOverlayEnabled: true
+                filters:
+                  - {type: sizePercentage, data: [10, 20], active: true}
+                triggers:
+                  - {type: fence, data: [[-0.5, 0.2], [0.5, 0.2]], alarmDirection: leftToRight}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/applications/fence-guard/#setconfiguration
+      - title: Invalid license
+        request:
+          params:
+            cameras: []
+            profiles: []
+        response: {error: {code: 9000, message: A descriptive error message}}
+        source: https://developer.axis.com/vapix/applications/fence-guard/#setconfiguration
   get_configuration_capabilities:
     summary: Request the boundaries and default values of the ACAP (constant per camera).
     effect: read
     binding: {method: getConfigurationCapabilities}
     result: {$ref: '#/types/ConfigurationCapabilities'}
-    errors:
-      1000: {description: Application Error. The application failed to return a configuration.}
-      2000:
-        description: Unsupported Version. The major version number isn't supported.
-        kind: unsupported
-      2001:
-        description: Invalid Format. The request was not formatted correctly, i.e. does not follow the JSON-schema.
-        kind: invalid_argument
-      8000:
-        description: Unsupported Product. The product is not supported by this application.
-        kind: unsupported
+    examples:
+      - title: Get the capabilities (placeholders filled in)
+        request: {params: {}}
+        response:
+          data:
+            alarmOverlay:
+              isSupported: true
+              cameras:
+                - {id: 1, availableResolutions: [1280x720, 640x360]}
+              maxNbrActiveCameras: 1
+            filters:
+              - {type: sizePercentage, min: [3, 3], max: [100, 100], default: [5, 5], defaultActive: true}
+              - {type: timeShortLivedLimit, min: 1, max: 5, default: 1, defaultActive: true}
+            triggers:
+              - type: fence
+                min: [-1, -1]
+                max: [1, 1]
+                minNbrVertices: 2
+                maxNbrVertices: 10
+                minNbrInstances: 1
+                maxNbrInstances: 1
+                validAlarmDirections: [leftToRight, rightToLeft, both]
+                defaultInstance: [[-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0.5, -0.5]]
+                defaultAlarmDirection: both
+            profiles:
+              minNbrProfilesPerCamera: 1
+              maxNbrProfilesPerCamera: 10
+              minLengthName: 1
+              maxLengthName: 15
+            presets:
+              maxNbrPresetsPerProfile: 1
+              defaultPreset: 1
+        source: https://developer.axis.com/vapix/applications/fence-guard/#getconfigurationcapabilities
   send_alarm_event:
     summary: Send a stateful alarm event (active for a few seconds) for a profile, for VMS testing.
-    description: Response returned immediately. Profiles send events independent of current state (e.g. PTZ profiles
-      connected to other presets).
+    description: >-
+      The response is returned immediately. All events related to the profile are sent, independent of its current
+      state (e.g. PTZ profiles connected to other presets).
     access: operator
     effect: action
     binding: {method: sendAlarmEvent}
-    params:
-      type: object
-      required: [profile]
-      properties:
-        profile:
-          type: integer
-          description: The unique id (uid) of the profile that will send the alarm event. There must be a profile
-            with the specified uid.
+    params: {$ref: '#/types/SendAlarmEventRequest'}
+    positional: [profile]
     errors:
-      1000: {description: Application Error. The application failed to handle the request.}
-      2000: {description: Unsupported Version. The major version isn't supported., kind: unsupported}
-      2001:
-        description: Invalid Format. The request was not formatted correctly, i.e. invalid JSON-schema.
-        kind: invalid_argument
-      2002:
-        description: Incoherent Format. The request cannot be handled, e.g. profile-id does not exist or is on an
-          inactive camera.
-        kind: not_found
-      2003:
-        description: Missing Parameter. The request has a missing mandatory parameter.
-        kind: invalid_argument
-      2004:
-        description: Invalid Parameter. The request has a parameter that has an invalid value.
-        kind: invalid_argument
-      8000:
-        description: Unsupported Product. The product is not supported by this application.
-        kind: unsupported
-      9000:
-        description: Invalid License. The license file is invalid or missing.
-        kind: invalid_argument
+      2002: {description: "Incoherent format; the request cannot be handled, e.g. the profile id does not exist or is on an inactive camera.", kind: not_found}
+    examples:
+      - title: Send an alarm event for profile 1
+        request: {params: {profile: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/applications/fence-guard/#sendalarmevent
 
 sources:
 - url: https://developer.axis.com/vapix/applications/fence-guard/
@@ -320,19 +398,13 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Examples contain placeholder variables (w,h,t,x,y,p,r) and missing commas (e.g. after fence 'data' array in
-    getConfiguration; after 'cameras' and 'profiles' in capabilities) - not valid JSON.
-  - Visual feedback example uses apiVersion '1.3.' and has '"active":' without value; response method 'setCOnfiguration'.
-  - Capabilities example key 'validAlarmDirection' vs table 'validAlarmDirections'; presets example 'maxNbrPresets'
-    vs table 'maxNbrPresetsPerProfile'; 'defautActive' typo in table.
-  - alarmOverlayEnabled type listed as 'int' but values true/false.
-  - Capabilities example lists no sizePerspective filter entry; its limits are not documented.
-  - getSupportedVersions curl omits Content-Type header.
-  - 'migration: skipped-op: get_event_stream (rtsp_request) is not a JSON-RPC method; skipped'
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_configuration=write/patch'
-  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=2.13'' is not a Name=value pair:
-    dropped'
-  - 'migration: discovery: discovery method http_probe dropped'
-  - 'migration: dropped-keywords: maxProperties x1'
+  - The docs' examples contain placeholder variables (w,h,t,x,y,p,r) and missing commas, so they are not valid JSON; the examples here fill placeholders with sample values.
+  - The visual feedback example uses apiVersion '1.3.', has '"active":' without a value, and the response method is 'setCOnfiguration'.
+  - The capabilities example uses 'validAlarmDirection' and 'maxNbrPresets' while the tables say 'validAlarmDirections' and 'maxNbrPresetsPerProfile' (the tables are used); the table also misspells 'defautActive'.
+  - The docs list alarmOverlayEnabled as type 'int' but its values are true/false (boolean used).
+  - The capabilities example lists no sizePerspective filter entry; its limits are not documented.
+  - The docs say all properties are mandatory unless noted but also give defaults for several; required fields of Camera and Profile follow the example responses, so a device omitting one would raise ResponseFormatError.
+  - The docs give EmbeddedDevelopment >= 2.13 (Properties.EmbeddedDevelopment.Version) as the identification, which the discovery format cannot express (exact value only); no discovery entry is set.
+  - The get_event_stream RTSP request mentioned by the v1 corpus is not a JSON-RPC method and is not modelled.
   migrated_from: v1
-  curated: false
+  curated: true

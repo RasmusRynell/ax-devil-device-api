@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: speaker-display-notification-config
 name: Speaker display notification
@@ -30,12 +29,13 @@ types:
     description: The value of the duration. Limited to a signed 32-bit integer.
   NotificationResponse:
     type: object
+    required: [duration]
     description: Response received from a simple notification request.
     properties:
-      duration: {type: integer, description: Duration of the notification in milliseconds.}
+      duration: {type: integer, description: Estimated duration of the notification in milliseconds. 0 means the notification lasts until interrupted.}
   ScrollDirectionEnum:
     type: string
-    enum: [fromRightToLeft, fromBottomToTop]
+    enum: [fromRightToLeft, fromBottomToTop, fromLeftToRight]
     description: Direction of the scrolling.
   ScrollSpeedInt: {type: integer, minimum: 0, maximum: 10, description: Scroll speed range.}
   SimpleDurationObject:
@@ -79,12 +79,10 @@ types:
       textSize:
         $ref: '#/types/TextSizeEnum'
         description: The text size. Can be either small, medium or large.
-  StopNotificationRequest: {type: object, description: Request to stop a simple notification.}
-  StopNotificationResponse: {}
   TextSizeEnum: {type: string, enum: [small, medium, large], description: Size of the text.}
   SpeakerDisplayNotification:
     type: object
-    description: The whole API tree.
+    description: The whole API tree. The root entity has no properties.
     properties: {}
 
 operations:
@@ -92,34 +90,12 @@ operations:
     summary: All data of the Speaker display notification API.
     effect: read
     binding: {method: GET, path: ''}
+    result: {$ref: '#/types/SpeakerDisplayNotification'}
   simple:
     summary: A simple notification which can either be static or scrolling.
     effect: action
     binding: {method: POST, path: /simple, body: object}
-    params:
-      type: object
-      properties:
-        backgroundColor:
-          $ref: '#/types/ColorFormat'
-          description: Background color. Format is RGB in hex 6 digits '#RRGGBB'.
-        duration:
-          $ref: '#/types/SimpleDurationObject'
-          description: Duration. Default is infinite repetitions.
-        message:
-          $ref: '#/types/SimpleMessageStr'
-          description: The display message. Max length is 1000 characters.
-        scrollDirection:
-          $ref: '#/types/ScrollDirectionEnum'
-          description: The scrolling direction. Can be either from right to left or bottom to top.
-        scrollSpeed:
-          $ref: '#/types/ScrollSpeedInt'
-          description: Message scroll speed. 1 is slow and 10 is fast. 0 means no scrolling.
-        textColor:
-          $ref: '#/types/ColorFormat'
-          description: The color of the message letters. Format is RGB in hex 6 digits '#RRGGBB'.
-        textSize:
-          $ref: '#/types/TextSizeEnum'
-          description: The text size. Can be either small, medium or large.
+    params: {$ref: '#/types/SimpleNotificationRequest'}
     result: {$ref: '#/types/NotificationResponse'}
     examples:
     - title: Send a simple notification with horizontally scrolling large size text
@@ -177,7 +153,8 @@ operations:
   stop:
     summary: Stop the ongoing notification.
     effect: action
-    binding: {method: POST, path: /stop, body: none}
+    binding: {method: POST, path: /stop, body: object}
+    params: {type: object, x-name: StopNotificationRequest, properties: {}}
     examples:
     - title: Stop the ongoing notification
       request:
@@ -198,6 +175,8 @@ sources:
 
 provenance:
   completeness: complete
-  open_questions: ['migration: dropped-keywords: x-notes x1']
+  open_questions:
+  - The docs list fromLeftToRight as a ScrollDirectionEnum value but the field descriptions only mention right to left and bottom to top.
+  - The API does not support coexistence; only one application should control the display.
   migrated_from: v1
-  curated: false
+  curated: true

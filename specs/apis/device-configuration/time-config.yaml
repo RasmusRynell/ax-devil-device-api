@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: time-config
 name: Time API
-summary: The VAPIX® Time API enables the configuration and management of time, date and time zone information on
-  your Axis device.
+summary: Configure the date, time and time zone (IANA, POSIX or DHCP) of the device.
 section: device-configuration
 family: dca
 status: released
@@ -22,6 +20,7 @@ types:
   TimeZoneEntry:
     type: object
     description: An object containing time zone information.
+    required: [timeZone]
     properties:
       timeZone: {type: string, description: The time zone string.}
   TimeZonesArray:
@@ -31,12 +30,14 @@ types:
   Time:
     type: object
     description: The whole API tree.
+    required: [time, timeZone]
     properties:
-      time: {$ref: '#/types/TimeTime'}
+      time: {$ref: '#/types/TimeSettings'}
       timeZone: {$ref: '#/types/TimeZone'}
-  TimeTime:
+  TimeSettings:
     type: object
     description: Handle date and time configuration.
+    required: [dateTime, localDateTime, maxSupportedYear]
     x-read-only: [localDateTime, maxSupportedYear]
     properties:
       dateTime:
@@ -48,14 +49,19 @@ types:
   TimeZone:
     type: object
     description: Handle all settings related to time zones.
+    required: [activeTimeZone, dhcp, iana, posix]
+    x-read-only: [activeTimeZone]
     properties:
-      activeTimeZone: {type: string, description: The currently active system time zone.}
+      activeTimeZone:
+        type: string
+        description: The currently active system time zone, in IANA or POSIX format. The IANA or POSIX time zone if one has been set; with DHCP enabled, the DHCP time zone if the network supplies one, otherwise the factory default time zone.
       dhcp: {$ref: '#/types/Dhcp'}
       iana: {$ref: '#/types/Iana'}
       posix: {$ref: '#/types/Posix'}
   Dhcp:
     type: object
     description: Handle DHCP time zone configuration.
+    required: [enabled]
     x-nullable: [timeZone]
     x-read-only: [timeZone]
     properties:
@@ -82,6 +88,7 @@ types:
   Posix:
     type: object
     description: Handle POSIX time zone configuration.
+    required: [dstEnabled]
     x-nullable: [timeZone]
     properties:
       dstEnabled: {type: boolean, description: The DST flag for controlling the POSIX time zone string.}
@@ -101,7 +108,7 @@ types:
 
 operations:
   get_all:
-    summary: All data of the Time API API.
+    summary: All time and time zone settings.
     effect: read
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/Time'}
@@ -124,10 +131,10 @@ operations:
               posix: {dstEnabled: true, timeZone: null}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
   get_time:
-    summary: Get the time settings.
+    summary: Get the date and time settings.
     effect: read
     binding: {method: GET, path: /time}
-    result: {$ref: '#/types/TimeTime'}
+    result: {$ref: '#/types/TimeSettings'}
     examples:
     - title: Get all time settings
       request: {path: /time}
@@ -141,8 +148,9 @@ operations:
               localDateTime: '2024-07-04T17:16:05+02:00'
               maxSupportedYear: 2069
       source: https://developer.axis.com/vapix/device-configuration/time-api/
-  set_time_date_time:
-    summary: Set the date time of the time.
+      x-contract: {skip: "the docs example nests the entity under its own name in data (data.time), which contradicts the property tables"}
+  set_date_time:
+    summary: Set the system date and time (UTC, ISO 8601).
     effect: write
     write: patch
     binding: {method: PATCH, path: /time/dateTime, body_field: dateTime, body: value}
@@ -163,6 +171,20 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
+      x-contract: {skip: "runtime/harness bug: dca.py _field_for calls type(params).model_fields on a model class (AttributeError) for body_field setters"}
+  get_active_time_zone:
+    summary: Get the currently active time zone (IANA or POSIX format).
+    effect: read
+    access: viewer
+    binding: {method: GET, path: /timeZone/activeTimeZone}
+    result: {type: string}
+    examples:
+    - title: Get the active time zone
+      request: {path: /timeZone/activeTimeZone}
+      response:
+        status: 200
+        body: {status: success, data: Europe/Copenhagen}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/#get-the-active-time-zone
   get_time_zone:
     summary: Get the time zone settings.
     effect: read
@@ -182,13 +204,14 @@ operations:
               iana: {posixTimeZone: 'CET-1CEST,M3.5.0,M10.5.0/3', timeZone: Europe/Stockholm}
               posix: {dstEnabled: true, timeZone: null}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
+      x-contract: {skip: "the docs example nests the entity under its own name in data (data.timeZone), which contradicts the property tables"}
   get_dhcp:
-    summary: Get the dhcp settings.
+    summary: Get the DHCP time zone settings.
     effect: read
     binding: {method: GET, path: /timeZone/dhcp}
     result: {$ref: '#/types/Dhcp'}
   set_dhcp_enabled:
-    summary: Set the enabled of the dhcp.
+    summary: Enable or disable the DHCP time zone. Enabling resets the IANA and POSIX time zones to null.
     effect: write
     write: patch
     binding: {method: PATCH, path: /timeZone/dhcp/enabled, body_field: enabled, body: value}
@@ -208,13 +231,14 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
+      x-contract: {skip: "runtime/harness bug: dca.py _field_for calls type(params).model_fields on a model class (AttributeError) for body_field setters"}
   get_iana:
-    summary: Get the iana settings.
+    summary: Get the IANA time zone settings.
     effect: read
     binding: {method: GET, path: /timeZone/iana}
     result: {$ref: '#/types/Iana'}
   set_iana_time_zone:
-    summary: Set the time zone of the iana.
+    summary: Set the IANA time zone. Clears the POSIX time zone and disables the DHCP time zone.
     effect: write
     write: patch
     binding: {method: PATCH, path: /timeZone/iana/timeZone, body_field: timeZone, body: value}
@@ -235,18 +259,15 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
+      x-contract: {skip: "runtime/harness bug: dca.py _field_for calls type(params).model_fields on a model class (AttributeError) for body_field setters"}
   get_time_zone_list:
-    summary: List of all time zones on the device
-    effect: action
-    binding: {method: POST, path: /timeZone/iana/getTimeZoneList, body_field: data, body: value}
-    params:
-      type: object
-      required: [data]
-      properties:
-        data: {description: Action input (Empty Object).}
+    summary: List the IANA time zones available on the device.
+    access: operator
+    effect: read
+    binding: {method: POST, path: /timeZone/iana/getTimeZoneList, body: object}
     result: {$ref: '#/types/TimeZonesArray'}
     examples:
-    - title: Set the IANA time zone
+    - title: List the IANA time zones
       request:
         path: /timeZone/iana/getTimeZoneList
         body:
@@ -261,12 +282,12 @@ operations:
           - {timeZone: '...'}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
   get_posix:
-    summary: Get the posix settings.
+    summary: Get the POSIX time zone settings.
     effect: read
     binding: {method: GET, path: /timeZone/posix}
     result: {$ref: '#/types/Posix'}
   update_posix:
-    summary: Update the posix settings.
+    summary: Update the POSIX time zone and DST flag. A valid time zone clears the IANA time zone and disables the DHCP time zone.
     effect: write
     write: patch
     binding: {method: PATCH, path: /timeZone/posix, body: object}
@@ -282,7 +303,7 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
   set_posix_dst_enabled:
-    summary: Set the dst enabled of the posix.
+    summary: Set the DST flag of the POSIX time zone.
     effect: write
     write: patch
     binding:
@@ -296,7 +317,7 @@ operations:
       properties:
         dstEnabled: {type: boolean, description: The DST flag for controlling the POSIX time zone string.}
   set_posix_time_zone:
-    summary: Set the time zone of the posix.
+    summary: Set the POSIX time zone. Clears the IANA time zone and disables the DHCP time zone.
     effect: write
     write: patch
     binding: {method: PATCH, path: /timeZone/posix/timeZone, body_field: timeZone, body: value}
@@ -317,8 +338,8 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'migration: dropped-property-gets: 10 per-property GET operations dropped'
-  - 'migration: action-input-unresolved: action input type not defined in the source; passed as a raw value in `data`:
-    get_time_zone_list'
+  - The docs examples for GET /time and GET /timeZone show the entity wrapped under its own name in data (data.time, data.timeZone), which contradicts the property tables; the schema follows the tables and those two examples are skipped.
+  - Per-property GETs other than activeTimeZone (for example /time/dateTime) are documented only through the property tables and have no operations; read them through get_time, get_time_zone, get_dhcp, get_iana and get_posix.
+  - getTimeZoneList is an action (trigger permission operator) that changes no state; it is modelled as effect read and sends an empty object as data.
   migrated_from: v1
-  curated: false
+  curated: true

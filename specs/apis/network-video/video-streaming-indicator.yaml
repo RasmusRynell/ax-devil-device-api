@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: video-streaming-indicator
 name: Video streaming indicator
@@ -20,14 +19,13 @@ binding:
   path: /axis-cgi/videostreamingindicator.cgi
   major: 1
   versions: ['1.0']
-  negotiation:
-    get_supported_versions: {key: apiVersion}
+  negotiation: {fixed: '1.0'}
   params_placement: params
 
 errors:
   1000: {description: Internal error., kind: internal}
   1001: {description: The requested API version is not supported., kind: unsupported}
-  1002: {description: Invalid method., kind: invalid_argument}
+  1002: {description: Invalid method., kind: unsupported}
   1003: {description: Invalid parameter., kind: invalid_argument}
   1004: {description: The provided input was invalid., kind: invalid_argument}
 
@@ -45,6 +43,8 @@ types:
     description: Predefined value or [x, y] coordinates normalized in the range [-1.0, 1.0].
   IndicatorConfig:
     type: object
+    description: Current configuration and state of the indicator.
+    required: [indicatorSize, position, color, bgColor, size, isActive]
     properties:
       indicatorSize: {$ref: '#/types/IndicatorSize'}
       position: {$ref: '#/types/Position'}
@@ -52,7 +52,7 @@ types:
       bgColor:
         type: string
         enum: [black, white, transparent, semiTransparent]
-        description: Tables list black|white|transparent; set response syntax additionally shows semiTransparent.
+        description: Background color. The tables list black, white and transparent; the set response syntax also shows semiTransparent.
       size:
         type: array
         items: {type: integer}
@@ -77,6 +77,12 @@ operations:
           bgColor: transparent
           size: [64, 64]
           isActive: false
+      source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#get-configuration
+    - title: Invalid parameter
+      request:
+        params: {}
+      response:
+        error: {code: 1003, message: Invalid parameter}
       source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#get-configuration
   set:
     summary: Update the configuration of the indicator.
@@ -122,7 +128,8 @@ operations:
       source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#set-configuration
   'on':
     summary: Enable the indicator.
-    effect: unknown
+    effect: write
+    write: patch
     binding: {method: 'on'}
     examples:
     - title: 'on'
@@ -133,7 +140,8 @@ operations:
       source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#enable-the-indicator
   'off':
     summary: Disable the indicator.
-    effect: unknown
+    effect: write
+    write: patch
     binding: {method: 'off'}
     examples:
     - title: 'off'
@@ -144,7 +152,7 @@ operations:
       source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#disable-the-indicator
   show:
     summary: Show the indicator for 5 seconds (non-adjustable).
-    effect: unknown
+    effect: action
     binding: {method: show}
 
 sources:
@@ -155,13 +163,10 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - getSupportedVersions response uses data.apiVersion (singular) whereas other Axis APIs use data.apiVersions;
-    client should accept both.
+  - getSupportedVersions response uses data.apiVersion (singular) whereas other Axis APIs use data.apiVersions; only 1.0 exists, so the binding uses fixed negotiation instead of querying it.
   - set response syntax lists bgColor value semiTransparent but the tables only list black/white/transparent.
   - HTTP status for failure responses is not stated (presumably 200).
   - AXIS OS minimum version not stated.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set=write/patch'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: on, off, show'
-  - 'migration: dropped-keywords: maxProperties x3'
+  - 'on/off: the docs do not say whether the enabled state persists across reboots.'
   migrated_from: v1
-  curated: false
+  curated: true

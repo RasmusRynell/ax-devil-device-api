@@ -1,8 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: regional-settings
 name: Regional settings
-summary: Store regional settings (e.g.
+summary: Store regional settings such as the length unit used when presenting values.
 section: network-video
 family: jsonrpc
 status: released
@@ -29,55 +28,63 @@ binding:
 errors:
   1000: {description: Internal error., kind: internal}
   1001: {description: The requested API version is not supported., kind: unsupported}
-  1002: {description: Unknown method.}
+  1002: {description: Unknown method., kind: unsupported}
   1003: {description: Invalid argument., kind: invalid_argument}
   1004: {description: Invalid request., kind: invalid_argument}
 
 types:
-  LengthUnit: {type: string, enum: [metric, us_customary], description: Default unit is metric.}
+  LengthUnit:
+    enum: [metric, us_customary]
+    description: Unit used to present length values. The device default is ``metric``.
+
+  Units:
+    type: object
+    required: [length]
+    properties:
+      length: {$ref: "#/types/LengthUnit"}
+
+  RegionalSettings:
+    type: object
+    description: Regional settings stored on the device.
+    properties:
+      units: {$ref: "#/types/Units"}
+
+  SetRegionalSettingsRequest:
+    type: object
+    description: Arguments of ``set_regional_settings``. The device answers 1003 if no parameters are given.
+    required: [units]
+    properties:
+      units: {$ref: "#/types/Units"}
 
 operations:
   get_regional_settings:
-    summary: Retrieve the current regional settings (e.g.
+    summary: Retrieve the current regional settings, for example the length unit used in the GUI.
     effect: read
     binding: {method: getRegionalSettings}
-    result:
-      type: object
-      properties:
-        units:
-          type: object
-          x-name: GetRegionalSettingsResultUnits
-          properties:
-            length: {$ref: '#/types/LengthUnit'}
+    result: {$ref: "#/types/RegionalSettings"}
     examples:
-    - title: Get regional settings
-      request:
-        params: {}
-      response:
-        data:
-          units: {length: metric}
-      source: https://developer.axis.com/vapix/network-video/regional-settings/#get-regional-settings
+      - title: Get regional settings
+        request: {params: {}}
+        response:
+          data:
+            units: {length: metric}
+        source: https://developer.axis.com/vapix/network-video/regional-settings/#get-regional-settings
+
   set_regional_settings:
     summary: Set the regional settings used in the GUI.
     effect: write
     write: patch
     binding: {method: setRegionalSettings}
-    params:
-      type: object
-      properties:
-        units:
-          type: object
-          x-name: SetRegionalSettingsRequestUnits
-          required: [length]
-          properties:
-            length:
-              type: string
-              enum: [metric, us_customary]
-              description: Specifies what unit to use for length values.
+    params: {$ref: "#/types/SetRegionalSettingsRequest"}
     errors:
-      1003:
-        description: Invalid argument — request doesn't contain any parameters, or an invalid value.
-        kind: invalid_argument
+      1003: {description: Invalid argument. The request has no parameters or an invalid value., kind: invalid_argument}
+    examples:
+      - title: Use US customary length units
+        request:
+          params:
+            units: {length: us_customary}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/regional-settings/#set-regional-settings
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/regional-settings/
@@ -92,7 +99,5 @@ provenance:
   - params.units.length required-ness not stated; error 1003 is returned when the request contains no parameters,
     so treated as required.
   - Whether other unit categories than length exist is not stated.
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_regional_settings=write/patch'
-  - 'migration: discovery: discovery method http_probe dropped'
   migrated_from: v1
-  curated: false
+  curated: true

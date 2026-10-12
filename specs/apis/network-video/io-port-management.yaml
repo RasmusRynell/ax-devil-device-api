@@ -1,9 +1,8 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: io-port-management
 name: I/O port management
-summary: Retrieve I/O port info/capabilities, configure ports (name, usage, direction, normal state, output state)
-  and run output state sequences via...
+summary: Retrieve I/O port information and capabilities, configure ports (name, usage, direction, normal state,
+  output state) and run output state sequences.
 section: network-video
 family: jsonrpc
 status: released
@@ -36,11 +35,17 @@ errors:
   2105: {description: Authorization failed., kind: access_denied}
 
 types:
+  PortState:
+    enum: [open, closed]
+  PortDirection:
+    enum: [input, output]
   Port:
     type: object
+    description: An I/O port with its capabilities and current configuration.
+    required: [port]
     properties:
       port: {type: string, description: The port ID.}
-      state: {type: string, enum: [<open, closed>], description: The current state of the port.}
+      state: {$ref: "#/types/PortState", description: The current state of the port.}
       configurable: {type: boolean, description: Indicates if the port direction can be configured.}
       readonly:
         type: boolean
@@ -49,39 +54,59 @@ types:
         type: string
         description: Tells the intended usage of a port. In this case `usage` is treated as a nice name. Any underlying
           behavior will not be affected by its value.
-      direction: {type: string, enum: [<input, output>], description: The direction of the port.}
+      direction: {$ref: "#/types/PortDirection", description: The direction of the port.}
       name: {type: string, description: Specifies the nice name of the port.}
-      normalState:
-        type: string
-        enum: [<open, closed>]
-        description: Specifies the normal state of the port.
+      normalState: {$ref: "#/types/PortState", description: Specifies the normal state of the port.}
+  PortList:
+    type: object
+    required: [numberOfPorts]
+    properties:
+      numberOfPorts: {type: integer, minimum: 0, maximum: 255, description: The number of ports available on the device.}
+      items:
+        type: array
+        items: {$ref: '#/types/Port'}
+        description: The ports. Omitted if numberOfPorts is zero.
   PortConfig:
     type: object
-    properties: {}
-  PortError:
-    type: object
+    description: Changes to apply to one port. If all optional fields are omitted nothing changes.
+    required: [port]
     properties:
-      code: {type: integer}
-      message: {type: string}
-      details:
-        type: object
-        x-name: PortErrorDetails
-        properties:
-          port: {type: string}
-          propertyName: {type: string}
+      port: {type: string, description: "The port ID affected, as returned by ``get_ports``."}
+      usage: {type: string, description: "The intended usage of the port, for example Button, Door, REX or Tampering. Treated as a nice name."}
+      direction: {$ref: "#/types/PortDirection", description: The direction to apply. Read-only for non-configurable ports.}
+      name: {type: string, description: The nice name to use for the port.}
+      normalState: {$ref: "#/types/PortState", description: "The normal state: ``open`` or ``closed`` circuit."}
+      state: {$ref: "#/types/PortState", description: The current state of the port; output ports only.}
+  SequenceStep:
+    type: object
+    required: [state, time]
+    properties:
+      state: {$ref: "#/types/PortState", description: The state that should be set.}
+      time:
+        type: integer
+        minimum: 0
+        maximum: 65535
+        description: The delay in milliseconds between state changes. The maximum is 65535 milliseconds.
+  SetPortsResult:
+    type: object
+    required: [ports]
+    properties:
+      ports:
+        type: array
+        items: {type: string}
+        description: IDs of the affected ports.
+  SetStateSequenceResult:
+    type: object
+    required: [port]
+    properties:
+      port: {type: string, description: The affected port ID.}
 
 operations:
   get_ports:
     summary: Retrieve all ports and their capabilities.
     effect: read
     binding: {method: getPorts}
-    result:
-      type: object
-      properties:
-        numberOfPorts: {type: integer, minimum: 0, maximum: 255}
-        items:
-          type: array
-          items: {$ref: '#/types/Port'}
+    result: {$ref: '#/types/PortList'}
     examples:
     - title: Retrieve port information for all ports
       request:
@@ -132,13 +157,9 @@ operations:
         ports:
           type: array
           items: {$ref: '#/types/PortConfig'}
-          description: List of port configurations. Maximum 256 ports per request. (maxItems=256)
-    result:
-      type: object
-      properties:
-        ports:
-          type: array
-          items: {type: string}
+          maxItems: 256
+          description: List of port configurations. At most 256 ports per request.
+    result: {$ref: '#/types/SetPortsResult'}
     examples:
     - title: Configure I/O ports with all values
       request:
@@ -183,7 +204,7 @@ operations:
             state: open
           - {port: '2', usage: '', direction: input, name: Input 2, normalState: closed}
       response:
-        error: {code: 2104, message: Invalid parameter value specified}
+        error: {code: 2104, message: Invalid parameter value specified, details: {port: '0', propertyName: direction}}
       source: https://developer.axis.com/vapix/network-video/io-port-management/#configure-io-ports-with-all-values
     - title: Multiple errors
       request:
@@ -198,7 +219,14 @@ operations:
             state: open
           - {port: '2', usage: '', direction: input, name: Input 2, normalState: closed}
       response:
-        error: {code: 2104, message: Invalid parameter value specified}
+        error:
+          code: 2104
+          message: Invalid parameter value specified
+          details: {port: '0', propertyName: direction}
+          errors:
+          - {code: 1100, message: Internal error, details: {port: '1'}}
+          - {code: 2104, message: Invalid parameter value specified, details: {port: '2', propertyName: direction}}
+          - {code: 2104, message: Invalid parameter value specified, details: {port: '2', propertyName: normalState}}
       source: https://developer.axis.com/vapix/network-video/io-port-management/#configure-io-ports-with-all-values
     - title: Set the direction of the I/O port
       request:
@@ -210,40 +238,22 @@ operations:
       source: https://developer.axis.com/vapix/network-video/io-port-management/#set-the-direction-of-the-io-port
   set_state_sequence:
     summary: Apply a sequence of state changes with a delay in milliseconds between states (output ports only).
-    effect: write
-    write: patch
+    description: The sequence runs once and returns immediately; the last state stays until a new sequence is launched.
+      Starting a sequence while another runs fails with 2200. Changing direction or normalState cancels a running sequence.
+    effect: action
     binding: {method: setStateSequence}
     params:
       type: object
-      required: [port]
+      required: [port, sequence]
       properties:
-        port:
-          type: string
-          description: Specifies the affected port ID. Retrieved by using the method [getPorts](#getports). [table
-            says <integer>, syntax and examples use a string]
+        port: {type: string, description: "The affected output port ID, as returned by ``get_ports``."}
         sequence:
           type: array
-          items:
-            type: object
-            x-name: SetStateSequenceRequestSequenceItem
-            required: [state, time]
-            properties:
-              state:
-                type: string
-                enum: [open, closed]
-                description: Specifies the state that should be set.
-              time:
-                type: integer
-                minimum: 0
-                maximum: 65535
-                description: Specifies the delay in milliseconds between state changes. The maximum time that can
-                  be specified is 65535 milliseconds. (unit=ms)
-    result:
-      type: object
-      properties:
-        port: {type: string}
+          items: {$ref: "#/types/SequenceStep"}
+          description: The state changes to apply in order.
+    result: {$ref: '#/types/SetStateSequenceResult'}
     errors:
-      2200: {description: State sequence already ongoing.}
+      2200: {description: State sequence already ongoing., kind: unavailable}
     examples:
     - title: Set a sequence of state changes on the output port
       request:
@@ -280,11 +290,10 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - setStateSequence table types params.port as <integer>; syntax/examples use string.
+  - setStateSequence table types params.port as <integer>; syntax/examples use string (modelled as string).
+  - getPorts error example uses code 4004, which is not in the error table.
   - setStateSequence is documented with Security level Viewer although it changes output state (verify).
   - 'Example text says port 0 "has readonly=0" while the response shows readonly: true.'
   - Event topics are listed without data/source fields; namespace URIs not stated on page.
-  - setPorts error syntax has trailing comma after propertyName (doc typo).
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_ports=write/patch, set_state_sequence=write/patch'
   migrated_from: v1
-  curated: false
+  curated: true

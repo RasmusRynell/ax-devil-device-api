@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: systemready
 name: Systemready API
@@ -33,17 +32,18 @@ errors:
 operations:
   systemready:
     summary: Check if the system is ready for operation.
-    effect: unknown
+    effect: read
     binding: {method: systemready}
     params:
       type: object
       properties:
         timeout:
           type: integer
-          description: The maximum time /axis-cgi/systemready.cgi will take before returning a response. (Type inferred
-            from '<timeout seconds>' and example value 20; requiredness not stated.) (unit=seconds)
+          minimum: 0
+          description: Maximum time in seconds the call waits for the system to become ready before answering.
     result:
       type: object
+      required: [systemready, needsetup]
       properties:
         systemready: {type: string, enum: ['yes', 'no']}
         needsetup: {type: string, enum: ['yes', 'no']}
@@ -65,6 +65,18 @@ operations:
           bootid: ebe1fa05-2ff7-4062-874c-68a466a9eaed
           passphrasepolicy: length
       source: https://developer.axis.com/vapix/network-video/systemready-api/#how-to-use-systemready
+    - title: Ready, with preview mode active
+      request:
+        params: {timeout: 20}
+      response:
+        data:
+          systemready: 'yes'
+          needsetup: 'no'
+          uptime: '120'
+          bootid: ebe1fa05-2ff7-4062-874c-68a466a9eaed
+          previewmode: '7200'
+          passphrasepolicy: length
+      source: https://developer.axis.com/vapix/network-video/systemready-api/#how-to-use-systemready
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/systemready-api/
@@ -75,11 +87,10 @@ provenance:
   completeness: complete
   open_questions:
   - timeout parameter table says 'Valid responses are either yes or no' which is a copy of the systemready field
-    description; actual type/range/default of timeout and whether it is required are not documented.
+    description; the range and default of timeout, and whether it is required, are not documented (treated as optional integer seconds).
   - Version history not documented; the example request uses apiVersion 1.1 but the response reports 1.4. Which
     version introduced previewmode/passphrasepolicy is unstated.
   - uptime/previewmode are documented as seconds but returned as JSON strings.
   - Page says 'without authentication' but curl examples pass --anyauth --user.
-  - 'migration: effect-unknown: effect could not be inferred from the method name: systemready'
   migrated_from: v1
-  curated: false
+  curated: true

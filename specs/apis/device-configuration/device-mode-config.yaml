@@ -1,8 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: device-mode-config
 name: Device mode configuration
-summary: WARNING This API is in BETA stage.
+summary: List the available device modes, read the active and pending mode, and select the mode to switch to.
 section: device-configuration
 family: dca
 status: beta
@@ -38,8 +37,9 @@ types:
         description: Indicates if a restart is required to apply the mode change. This is typically true for current
           implementations.
       availableModes:
-        type: array
-        items: {$ref: '#/types/AvailableMode'}
+        type: object
+        description: Available modes keyed by mode id.
+        additionalProperties: {$ref: '#/types/AvailableMode'}
   AvailableMode:
     type: object
     description: The `availableModes` entity collection contains all device modes that are available on the device.
@@ -69,7 +69,7 @@ operations:
               fisheye: {id: fisheye}
               double-panorama: {id: double-panorama}
       source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
-    - title: Revert pending mode change
+    - title: Get the root entity after reverting a pending mode change
       request: {path: ''}
       response:
         status: 200
@@ -83,11 +83,42 @@ operations:
               fisheye: {id: fisheye}
               double-panorama: {id: double-panorama}
       source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+  get_mode:
+    summary: Get the pending device mode.
+    effect: read
+    binding: {method: GET, path: /mode}
+    result: {type: string}
+    examples:
+    - title: Get the mode
+      request: {path: /mode}
+      response:
+        status: 200
+        body: {status: success, data: fisheye}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+  get_active_mode:
+    summary: Get the device mode that is currently running.
+    effect: read
+    binding: {method: GET, path: /activeMode}
+    result: {type: string}
+    examples:
+    - title: Get the active mode
+      request: {path: /activeMode}
+      response:
+        status: 200
+        body: {status: success, data: fisheye}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+  get_restart_required:
+    summary: Whether a restart is needed for the pending mode to take effect.
+    effect: read
+    binding: {method: GET, path: /restartRequired}
+    result: {type: boolean}
   set_mode:
-    summary: Set the mode of the device.
+    summary: Set the pending device mode.
+    description: The mode becomes active after a restart when restartRequired is true. Setting the mode back to the active mode reverts a pending change.
     effect: write
     write: patch
     binding: {method: PATCH, path: /mode, body_field: mode, body: value}
+    positional: [mode]
     params:
       type: object
       required: [mode]
@@ -117,8 +148,8 @@ operations:
     effect: read
     binding: {method: GET, path: /availableModes}
     result:
-      type: array
-      items: {$ref: '#/types/AvailableMode'}
+      type: object
+      additionalProperties: {$ref: '#/types/AvailableMode'}
     examples:
     - title: Get all available device modes
       request: {path: /availableModes}
@@ -158,6 +189,5 @@ sources:
 
 provenance:
   completeness: complete
-  open_questions: ['migration: dropped-property-gets: 4 per-property GET operations dropped']
   migrated_from: v1
-  curated: false
+  curated: true

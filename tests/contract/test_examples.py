@@ -1,7 +1,17 @@
 """Contract tests: every documented example in specs/apis/**/*.yaml against the generated modules.
 
 One test per (spec id, operation id, example index). An example may carry
-``x-contract: {skip: "reason"}`` to be skipped.
+``x-contract``:
+
+- ``skip: "reason"``: the example is skipped.
+- ``template: true``: the example is a syntax template (placeholders instead of
+  values). The runtime still runs it, but only the method and path are compared
+  with the example, and an example whose placeholder values do not validate
+  against the models is skipped instead of failing. Examples that do validate
+  are still run through the runtime.
+
+Examples without a request (response-only) for operations with required
+arguments validate just the response against the result model.
 """
 
 from __future__ import annotations
@@ -53,7 +63,9 @@ def _jsonrpc_response(spec, op, example, sent: h.Sent):
     response = example.get("response")
     method = sent.json.get("method") if isinstance(sent.json, dict) else None
     if method == "getSupportedVersions":
-        return httpx.Response(200, json={"apiVersion": "1.0", "method": method, "data": {"apiVersions": spec["binding"]["versions"]}})
+        negotiation = spec["binding"].get("negotiation") or {}
+        key = ((negotiation.get("get_supported_versions") or {}) if isinstance(negotiation, dict) else {}).get("key", "apiVersions")
+        return httpx.Response(200, json={"apiVersion": "1.0", "method": method, "data": {key: spec["binding"]["versions"]}})
     if method != op.binding.method:
         return None
     body: dict[str, Any] = {"apiVersion": spec["binding"]["versions"][-1], "method": method}
@@ -96,9 +108,11 @@ def test_example(case):
     if case[0] == "invalid":
         pytest.fail(f"{case[1].name} is not valid YAML: {case[2]}")
     spec, ops, op_id, example = case
-    skip = (example.get("x-contract") or {}).get("skip")
+    marker = example.get("x-contract") or {}
+    skip = marker.get("skip")
     if skip:
         pytest.skip(skip)
+    template = bool(marker.get("template"))
     family = spec["family"]
     op = getattr(ops, op_id)
     request = example.get("request")
@@ -108,17 +122,31 @@ def test_example(case):
     expected_path = op.binding.path
     expected_args: dict[str, str] = {}
     if request is not None:
-        if family == "jsonrpc":
-            model = h.build_jsonrpc(op, request)
-        elif family == "dca":
-            model, expected_path = h.build_dca(op, request, spec["binding"]["root"])
-        else:
-            model, expected_args = h.build_cgi(op, request)
+        try:
+            if family == "jsonrpc":
+                model = h.build_jsonrpc(op, request)
+            elif family == "dca":
+                model, expected_path = h.build_dca(op, request, spec["binding"]["root"])
+            else:
+                model, expected_args = h.build_cgi(op, request)
+        except Exception as error:  # noqa: BLE001
+            if template:
+                pytest.skip(f"template example: request placeholders do not validate ({type(error).__name__})")
+            raise
     elif op.params is not None:
         try:
             model = op.params.model_validate({})
         except Exception:  # noqa: BLE001
-            pytest.skip("response-only example and the operation needs arguments")
+            # Required arguments and no request in the example: check the response alone.
+            if response is None or _expected_error(family, response) is not None or family not in ("jsonrpc", "dca"):
+                pytest.skip("response-only example, the operation needs arguments and the response cannot be checked alone")
+            try:
+                h.check_response_only(op, family, response)
+            except Exception as error:  # noqa: BLE001
+                if template:
+                    pytest.skip(f"template example: response placeholders do not validate ({type(error).__name__})")
+                raise
+            return
 
     def handler(sent: h.Sent):
         if family == "jsonrpc":
@@ -134,7 +162,7 @@ def test_example(case):
         if error is not None:
             with pytest.raises(ApiError) as caught:
                 dev.invoke(op, model)
-            assert caught.value.code == error.get("code")
+            assert caught.value.code == error.get("code", error.get("errorCode"))
         elif response is None:
             try:
                 dev.invoke(op, model)
@@ -143,8 +171,13 @@ def test_example(case):
             except Exception:  # noqa: BLE001  (request-only: the placeholder reply may not fit the result type)
                 pass
         else:
-            result = dev.invoke(op, model)
-            h.check_result(op, result)
+            try:
+                result = dev.invoke(op, model)
+                h.check_result(op, result)
+            except Exception as error:  # noqa: BLE001
+                if template and not isinstance(error, ApiError):
+                    pytest.skip(f"template example: response placeholders do not validate ({type(error).__name__})")
+                raise
     finally:
         dev.close()
 
@@ -154,14 +187,31 @@ def test_example(case):
     calls = [c for c in fake.calls if not (family == "jsonrpc" and isinstance(c.json, dict) and c.json.get("method") == "getSupportedVersions")]
     assert len(calls) == 1, f"expected one request, got {len(calls)}"
     sent = calls[0]
+    if template:
+        # Placeholder values are not compared with what was sent; method and path still are.
+        if family == "jsonrpc":
+            assert sent.path == op.binding.path and sent.json["method"] == op.binding.method
+        elif family == "dca":
+            assert sent.method == op.binding.method and sent.path == expected_path
+        else:
+            assert sent.method == op.binding.method and sent.path == op.binding.path
+        return
     if family == "jsonrpc":
         assert sent.path == op.binding.path
         assert sent.json["method"] == op.binding.method
-        assert sent.json.get("params", {}) == (request.get("params") or {})
+        if getattr(op.binding, "params_placement", "params") == "top_level":
+            # Arguments sit next to apiVersion/method in the envelope.
+            sent_args = {k: v for k, v in sent.json.items() if k not in ("apiVersion", "method", "context")}
+            assert sent_args == (request.get("params") or {})
+        else:
+            assert sent.json.get("params", {}) == (request.get("params") if request.get("params") is not None else {})
     elif family == "dca":
         assert sent.method == op.binding.method
         assert sent.path == expected_path
         body = request.get("body")
+        if body == {} and sent.json == {"data": {}}:
+            # Docs show an empty object for argument-less actions; the runtime sends {"data": {}}.
+            body = sent.json
         assert sent.json == (json.loads(json.dumps(body)) if body is not None else None)
     else:
         assert sent.method == op.binding.method

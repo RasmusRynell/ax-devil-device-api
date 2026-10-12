@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: crypto-policy-config
 name: Cryptographic policy
-summary: The VAPIX® Cryptographic policy management API allows you to configure a cryptographic policy for services
-  in the system.
+summary: Choose the cryptographic policy that defines which algorithms and protocols the device's services may use.
 section: device-configuration
 family: dca
 status: released
@@ -12,7 +10,7 @@ python:
   class: CryptoPolicy
 docs:
 - https://developer.axis.com/vapix/device-configuration/cryptographic-policy-api/
-access: admin
+access: viewer
 discovery:
 - dca: {api: crypto-policy, version: v1}
 
@@ -33,6 +31,7 @@ types:
   CryptoPolicy:
     type: object
     description: The whole API tree.
+    required: [active_policy, policies]
     properties:
       active_policy: {$ref: '#/types/Name', description: The cryptographic policy that is active}
       policies:
@@ -41,7 +40,7 @@ types:
   Policy:
     type: object
     description: The cryptographic policies
-    required: [name]
+    required: [name, nice_name, description]
     properties:
       description: {$ref: '#/types/PolDescription', description: The policy description}
       name: {$ref: '#/types/Name', description: The policy identifier}
@@ -49,12 +48,25 @@ types:
 
 operations:
   get_all:
-    summary: All data of the Cryptographic policy API.
+    summary: The active policy and all available policies.
     effect: read
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/CryptoPolicy'}
+  get_active_policy:
+    summary: Name of the active cryptographic policy.
+    effect: read
+    binding: {method: GET, path: /active_policy}
+    result: {$ref: '#/types/Name'}
+    examples:
+    - title: Get the active cryptographic policy
+      request: {path: /active_policy}
+      response:
+        status: 200
+        body: {status: success, data: DEFAULT}
+      source: https://developer.axis.com/vapix/device-configuration/cryptographic-policy-api/
   set_active_policy:
     summary: Set the active policy of the device.
+    access: admin
     effect: write
     write: patch
     binding: {method: PATCH, path: /active_policy, body_field: active_policy, body: value}
@@ -109,6 +121,6 @@ sources:
 
 provenance:
   completeness: complete
-  open_questions: ['migration: dropped-property-gets: 4 per-property GET operations dropped']
+  open_questions: []
   migrated_from: v1
-  curated: false
+  curated: true

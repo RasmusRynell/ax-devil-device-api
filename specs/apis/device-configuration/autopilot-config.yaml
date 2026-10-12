@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: autopilot-config
 name: Autopilot API
@@ -18,8 +17,6 @@ discovery:
 binding: {root: /config/rest/autopilot/v1}
 
 types:
-  AbortCalibrationRequest: {type: object, description: Abort calibration request data.}
-  AbortCalibrationResponse: {type: object, description: Abort calibration response data.}
   AutopilotState:
     type: string
     enum:
@@ -85,8 +82,6 @@ types:
     type: array
     items: {$ref: '#/types/ScenarioData'}
     description: Data to configure a list of scenarios.
-  StartCalibrationRequest: {type: object, description: Start calibration request data.}
-  StartCalibrationResponse: {type: object, description: Start calibration response data.}
   Autopilot:
     type: object
     description: The whole API tree.
@@ -103,6 +98,7 @@ types:
   Calibration:
     type: object
     description: Control the calibration process.
+    x-read-only: [channelsCalibrated, status]
     properties:
       channelsCalibrated:
         $ref: '#/types/ChannelsCalibrated'
@@ -136,18 +132,18 @@ types:
 
 operations:
   get_all:
-    summary: All data of the Autopilot API API.
+    summary: The whole Autopilot tree, including calibration, object switch and scenario configuration.
     effect: read
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/Autopilot'}
   update_all:
-    summary: Update the Autopilot API settings.
+    summary: Turn the Autopilot on or off.
     effect: write
     write: patch
     binding: {method: PATCH, path: '', body: object}
     params: {$ref: '#/types/UpdateAllRequest'}
   set_enabled:
-    summary: Set the enabled of the device.
+    summary: Turn the Autopilot on or off.
     effect: write
     write: patch
     binding: {method: PATCH, path: /enabled, body_field: enabled, body: value}
@@ -156,19 +152,90 @@ operations:
       required: [enabled]
       properties:
         enabled: {type: boolean, description: Turn on or off the Autopilot.}
+    examples:
+    - title: Configure the autopilot
+      request:
+        path: /enabled
+        body:
+          data: true
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_in_solo_mode:
+    summary: Whether the Autopilot is in solo mode (no remote PTZ connected).
+    effect: read
+    binding: {method: GET, path: /inSoloMode}
+    result: {type: boolean}
+    examples:
+    - title: Verify that Autopilot is not in solo mode
+      request: {path: /inSoloMode}
+      response:
+        status: 200
+        body: {status: success, data: false}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_state:
+    summary: The current state of the Autopilot.
+    effect: read
+    binding: {method: GET, path: /state}
+    result: {$ref: '#/types/AutopilotState'}
+    examples:
+    - title: Autopilot fails to connect to the remote PTZ
+      request: {path: /state}
+      response:
+        status: 200
+        body: {status: success, data: connectToPtzFailed}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+    - title: Autopilot needs calibration
+      request: {path: /state}
+      response:
+        status: 200
+        body: {status: success, data: calibrationNeeded}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
   get_calibration:
-    summary: Get the calibration settings.
+    summary: Calibration status and calibrated channels.
     effect: read
     binding: {method: GET, path: /calibration}
     result: {$ref: '#/types/Calibration'}
-  abort:
-    summary: Abort the calibration process.
+  get_calibration_status:
+    summary: The current calibration status.
+    effect: read
+    binding: {method: GET, path: /calibration/status}
+    result: {$ref: '#/types/CalibrationStatus'}
+    examples:
+    - title: Successful calibration
+      request: {path: /calibration/status}
+      response:
+        status: 200
+        body: {status: success, data: calibrated}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_channels_calibrated:
+    summary: Which channels are calibrated to the remote PTZ.
+    effect: read
+    binding: {method: GET, path: /calibration/channelsCalibrated}
+    result: {$ref: '#/types/ChannelsCalibrated'}
+    examples:
+    - title: Verify that the channels are calibrated
+      request: {path: /calibration/channelsCalibrated}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {calibrated: true, channelId: 1}
+          - {calibrated: true, channelId: 2}
+          - {calibrated: true, channelId: 3}
+          - {calibrated: true, channelId: 4}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  abort_calibration:
+    summary: Abort the running calibration process.
     effect: action
     binding: {method: POST, path: /calibration/abort, body: none}
-  start:
+  start_calibration:
     summary: Start the calibration process.
+    description: Poll ``get_calibration_status`` for the outcome.
     effect: action
-    binding: {method: POST, path: /calibration/start, body: none}
+    binding: {method: POST, path: /calibration/start, body: object}
     examples:
     - title: Calibration process
       request:
@@ -187,7 +254,7 @@ operations:
     binding: {method: GET, path: /objectSwitch}
     result: {$ref: '#/types/ObjectSwitch'}
   update_object_switch:
-    summary: Update the object switch settings.
+    summary: Update the object switch settings (only the given fields change).
     effect: write
     write: patch
     binding: {method: PATCH, path: /objectSwitch, body: object}
@@ -203,7 +270,7 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
   set_object_switch_enabled:
-    summary: Set the enabled of the object switch.
+    summary: Turn object switching on or off.
     effect: write
     write: patch
     binding: {method: PATCH, path: /objectSwitch/enabled, body_field: enabled, body: value}
@@ -213,7 +280,7 @@ operations:
       properties:
         enabled: {type: boolean, description: Enable object switching on or off.}
   set_object_switch_time:
-    summary: Set the time of the object switch.
+    summary: Set how long an object is tracked before switching, in seconds.
     effect: write
     write: patch
     binding: {method: PATCH, path: /objectSwitch/time, body_field: time, body: value}
@@ -223,12 +290,12 @@ operations:
       properties:
         time: {$ref: '#/types/ObjectSwitchTime', description: Change the object switching time.}
   get_scenario_configuration:
-    summary: Get the scenario configuration settings.
+    summary: Get the scenario configuration.
     effect: read
     binding: {method: GET, path: /scenarioConfiguration}
     result: {$ref: '#/types/ScenarioConfiguration'}
   set_scenario_configuration_scenarios:
-    summary: Set the scenarios of the scenario configuration.
+    summary: Configure the scenarios to track.
     effect: write
     write: patch
     binding:
@@ -264,10 +331,9 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'Example ''Configure the autopilot'' uses PATCH /config/rest/autopilot/v1/enable, which does not map to an operation
-    documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/autopilot-api/'
-  - 'The ''Configure the autopilot'' example PATCHes /config/rest/autopilot/v1/enable, but the documented root property
-    is ''enabled''. Source: https://developer.axis.com/vapix/device-configuration/autopilot-api/'
-  - 'migration: dropped-property-gets: 8 per-property GET operations dropped'
+  - 'The "Configure the autopilot" example PATCHes /config/rest/autopilot/v1/enable, but the documented property is
+    "enabled". The spec uses /enabled. Source: https://developer.axis.com/vapix/device-configuration/autopilot-api/'
+  - The docs list the root entity as supporting Set without naming properties; update_all sends only ``enabled``
+    (the only settable root property).
   migrated_from: v1
-  curated: false
+  curated: true

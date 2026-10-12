@@ -1,8 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: ssh-config
-name: SSH Management
-summary: SSH Management
+name: SSH management API
+summary: Manage the SSH accounts on the device.
 section: device-configuration
 family: dca
 status: released
@@ -52,9 +51,11 @@ types:
     properties:
       username: {$ref: '#/types/UsernameType'}
       password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
+      comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
   AddUserRequest:
     type: object
     description: Arguments of ``add_user``.
+    required: [username, password]
     properties:
       comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
       password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
@@ -73,13 +74,24 @@ operations:
     result:
       type: array
       items: {$ref: '#/types/User'}
+    examples:
+    - title: Get all of the SSH users
+      request: {path: /users}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {username: username1, comment: comment1}
+          - {username: username2, comment: comment2}
+      source: https://developer.axis.com/vapix/device-configuration/ssh-management/
   get_user:
     summary: Get one user.
     effect: read
     binding: {method: GET, path: '/users/{username}'}
     params:
       type: object
-      x-name: UserUsernameRequest
+      x-name: UsernameRequest
       required: [username]
       properties:
         username: {$ref: '#/types/UsernameType'}
@@ -109,6 +121,7 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/ssh-management/
+      x-contract: {skip: "the example comment contains a space, which the documented comment_type pattern ^[^: ]*$ forbids"}
   add_user:
     summary: Add a user.
     effect: write
@@ -132,7 +145,7 @@ operations:
     binding: {method: DELETE, path: '/users/{username}'}
     params:
       type: object
-      x-name: UserUsernameRequest
+      x-name: UsernameRequest
       required: [username]
       properties:
         username: {$ref: '#/types/UsernameType'}
@@ -154,6 +167,19 @@ operations:
       properties:
         username: {$ref: '#/types/UsernameType'}
         password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
+    positional: [username, password]
+  set_user_comment:
+    summary: Set the comment (full name) of a user.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/users/{username}/comment', body_field: comment, body: value}
+    params:
+      type: object
+      required: [username, comment]
+      properties:
+        username: {$ref: '#/types/UsernameType'}
+        comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
+    positional: [username, comment]
 
 sources:
 - url: https://developer.axis.com/vapix/device-configuration/ssh-management/
@@ -163,7 +189,8 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'migration: dropped-property-gets: 2 per-property GET operations dropped'
-  - 'migration: module-collision: module name ssh collides with another spec; kept ssh_config'
+  - 'The comment_type pattern ^[^: ]*$ forbids spaces and colons, although the docs example uses the comment "new comment" and the property is described as a full name. The schema follows the data type table.'
+  - The docs say a comment, if used, cannot be an empty string, while comment_type allows length 0. The schema follows the data type table.
+  - 'The docs example for listing users has invalid JSON ("status: "success"); corrected here.'
   migrated_from: v1
-  curated: false
+  curated: true

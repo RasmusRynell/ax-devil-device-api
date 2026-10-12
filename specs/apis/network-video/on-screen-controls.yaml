@@ -1,9 +1,8 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: on-screen-controls
 name: On-screen controls API
-summary: 'JSON API of the axis-onscreencontrols ACAP (/local/axis-onscreencontrols/onscreencontrols.cgi): list languages,
-  get/add/remove/enable/disable feature...'
+summary: List the features an operator can trigger from a video client, in several languages. Add, remove, enable
+  and disable feature descriptions.
 section: network-video
 family: jsonrpc
 status: released
@@ -21,17 +20,17 @@ requires:
 
 binding:
   path: /local/axis-onscreencontrols/onscreencontrols.cgi
-  major: 2
-  versions: ['2.0']
+  major: 1
+  versions: ['1.0', '1.1', '1.3', '1.4']
   negotiation:
     get_supported_versions: {key: apiVersions}
   params_placement: params
 
 errors:
-  1001: {description: Out of memory.}
-  1002: {description: Error in the CGI request.}
+  1001: {description: Out of memory., kind: internal}
+  1002: {description: Error in the CGI request., kind: invalid_argument}
   1003: {description: CGI request is an invalid method., kind: invalid_argument}
-  2001: {description: Error in the database.}
+  2001: {description: Error in the database., kind: internal}
   2002: {description: Invalid locale., kind: invalid_argument}
   2003: {description: Invalid JSON., kind: invalid_argument}
   2004: {description: Unsupported API version., kind: unsupported}
@@ -41,146 +40,106 @@ errors:
 types:
   FeatureGroup:
     type: object
-    description: featureGroups structure.
+    description: A group of features, possibly with nested groups. The root group is named ``root``.
+    required: [name]
     properties:
-      name: {type: string, description: 'Name of a feature in English, used as an identifier.'}
+      name: {type: string, description: "Name of the group in English, used as an identifier."}
       niceName:
         type: string
-        description: Translated name of the featureGroup according to the requested locale.
+        description: Translated name of the group according to the requested locale.
       featureGroups:
         type: array
         items: {$ref: '#/types/FeatureGroup'}
-        description: An array of featureGroups, used for grouping features together like PTZ features or similar.
-          Features added with addFeatures will be placed in a post install group, and then an individual group for
-          the specific request.
+        description: Nested groups, used for grouping features together like PTZ features. Features added with
+          addFeatures are placed in a post install group, and then an individual group for the specific request.
       features:
         type: array
         items: {$ref: '#/types/Feature'}
-        description: An array of features that are located in this featureGroup, see [Description of fields in feature
-          structures](#description-of-fields-in-feature-structures).
+        description: The features located in this group.
+      status:
+        type: string
+        enum: [enabled, disabled]
+        description: Whether the group is enabled. Appears in examples only; not in the field tables.
   Feature:
     type: object
-    description: Feature structure.
+    description: One feature, with the request a client sends to the camera to trigger it.
+    required: [name]
     properties:
-      name: {type: string, description: Name of a feature in English and used as an identifier.}
-      niceName: {type: string, description: Translated name of a feature according to the requested locale.}
+      name: {type: string, description: "Name of the feature in English, used as an identifier."}
+      niceName: {type: string, description: Translated name of the feature according to the requested locale.}
       user:
         type: array
         items: {type: string, enum: [operator, admin, event]}
-        description: Recommended user level for accessing this feature. Valid values are `operator`, `admin` and
-          `event`.
+        description: Recommended user level for accessing this feature.
       info: {type: string, description: Translated information string about the feature.}
       requestType:
         type: string
         enum: [GET, POST]
-        description: How the CGI request should be sent to a camera. Valid values are `GET` and `POST`.
+        description: How the CGI request should be sent to the camera.
       requestPayload:
         type: string
         enum: [JSON, BINARY]
-        description: Specify the format of the request payload. Valid values are `JSON` and `BINARY`. Reserved for
-          future use is `SOAP` and `XML`.
+        description: The format of the request payload. SOAP and XML are reserved for future use.
       requestURL:
         type: string
-        description: URL to trigger the feature `param`, which should be replaced by parameter values. See table
-          *Fields in requestURL parameter structure* below.
+        description: URL that triggers the feature; ``<param>`` placeholders are replaced by parameter values.
       response:
         type: boolean
-        description: If the request will return a value to the VMS. See [Description of fields in requestURL response
-          structures](#description-of-fields-in-requesturl-response-structures).
+        description: Whether the request returns a value to the video client.
       vmsHint:
         type: array
         items: {$ref: '#/types/VmsHint'}
-        description: vmsHint specifies the client side actions that is suitable to do when a button is pressed.
-          These are not mandatory. See the *Valid values for vmsHint parameter* table below.
+        description: Client side actions that are suitable when the button is pressed. Not mandatory.
       vmsReq:
         type: array
         items: {$ref: '#/types/VmsReq'}
-        description: vmsReq specifies a requirement to the VMS that needs to be fulfilled for the button to be useful
-          for a user.
+        description: Requirements on the client that must be fulfilled for the button to be useful.
       jsonTemplate:
         type: string
-        description: Used as a template for the json payload of a POST request, this field is only present when
-          requestPayload is JSON.
+        description: Template for the JSON payload of a POST request; only present when requestPayload is JSON.
       parameters:
         type: object
-        additionalProperties: {$ref: '#/types/RequestURLParameter'}
-        description: Description of parameters to use in requestURL. See table *Fields in requestURL parameter structure*
-          below.
-  RequestURLParameter:
+        additionalProperties: {$ref: '#/types/RequestUrlParameter'}
+        description: The parameters to use in requestURL, keyed by parameter name.
+  RequestUrlParameter:
     type: object
-    description: 'Fields in the requestURL parameter structure; additional type specific fields: RangeParameterFields,
-      StringParameterFields, MultiOptionParameterFields, TransmitAudioDataFields.'
+    description: One parameter of a feature request. Which fields apply depends on ``type``.
     properties:
-      type: {type: string, description: Type of parameters to be used in the URL.}
+      type:
+        type: string
+        description: "Parameter type: a range, a geometric type (coordinate, line, box, polygon), a string, a multiOption,
+          transmitAudioData, or a JSON-only type (fixed, context, keyOnly)."
       niceName: {type: string, description: Short description (one or two words) of the parameter.}
       info: {type: string, description: Optional information about the parameter.}
-      Key: {type: string, description: String to use as a key for parameters in a JSON Payload.}
-      jsonVariableFormat:
-        $ref: '#/types/JsonVariableFormat'
-        description: Which format for the JSON parameters to use. For valid values, see table *Valid values for
-          jsonVariableFormat parameter*.
-  RangeParameterFields:
-    type: object
-    description: Range specific fields in parameter object.
-    properties:
-      defaultValue: {type: string, description: Default value for range.}
+      Key: {type: string, x-python-name: key, description: String to use as a key for parameters in a JSON payload.}
+      jsonVariableFormat: {$ref: '#/types/JsonVariableFormat', description: Format of the value in a JSON payload.}
+      value: {type: string, description: "Value for the JSON-only types ``fixed`` and ``context``."}
+      defaultValue: {type: string, description: "Default value for range, string and multiOption parameters."}
       unit:
         type: string
         enum: [integer, fraction]
-        description: Type of value to be used in a range. Valid values are `integer`, `fraction`.
-      min: {type: string, description: Minimum value for range.}
-      max: {type: string, description: Maximum value for range.}
-      step: {type: string, description: Stepsize for range.}
-  GeometricType:
-    type: string
-    enum: [coordinate, line, box, polygon, niceName]
-    description: Geometric parameter types (all coordinates normalized).
-  StringParameterFields:
-    type: object
-    description: Specific field in a string parameter object.
-    properties:
-      defaultValue:
-        type: string
-        description: Default value of a string that suggests user as input. Any string, including empty, is valid.
-  MultiOptionParameterFields:
-    type: object
-    description: Specific fields in a multiOption parameter object.
-    properties:
-      defaultValue:
-        type: string
-        description: Default value for multiOption (Value, not the translated niceName).
+        description: Range parameters, the type of value.
+      min: {type: string, description: "Range parameters, minimum value."}
+      max: {type: string, description: "Range parameters, maximum value."}
+      step: {type: string, description: "Range parameters, step size."}
       values:
         type: array
         items: {$ref: '#/types/MultiOptionValue'}
-        description: List of possible values for a multiOption parameter. Each object contains a value and a niceName.
-          See table *Specific fields in a multiOption values parameter object* below.
+        description: multiOption parameters, the possible values.
+      contentType:
+        oneOf:
+        - {type: string}
+        - type: array
+          items: {type: string}
+        description: "transmitAudioData parameters, the accepted audio content types: g711, g726, axis-mulaw-128."
   MultiOptionValue:
     type: object
-    description: Specific fields in a multiOption values parameter object.
     properties:
-      value:
-        type: string
-        description: Value that should be part of requestURL for multiOption parameters.
-      niceName: {type: string, description: Translated name for multiOption parameters.}
-  JsonOnlyParameterType:
-    type: string
-    enum: [fixed, context, keyOnly]
-    description: Specific field in json only parameter type.
-  TransmitAudioDataFields:
-    type: object
-    description: transmitAudioData types.
-    properties:
-      contentType:
-        type: string
-        enum: [g711, g726, axis-mulaw-128]
-        description: Audio content type that should be used when you want to transmit data. Valid values are - `g711`
-          - `g726` - `axis-mulaw-128`
+      value: {type: string, description: Value that should be part of requestURL.}
+      niceName: {type: string, description: Translated name.}
   JsonVariableFormat:
-    type: string
     enum: [string, integer, fraction, exponent, boolean, 'null']
-    description: Valid values for the jsonVariableFormat parameter.
   VmsHint:
-    type: string
     enum:
     - windowClose
     - audioOutDisable
@@ -190,50 +149,55 @@ types:
     - audioInEnable
     - audioInToggle
     - hidden
-    description: Valid values for the vmsHint parameter.
   VmsReq:
-    type: string
+    description: "eventStream: the button produces an event in the Dynamic Event Stream."
     enum: [eventStream]
-    description: 'Valid values for the vmsReq parameter. eventStream: This button produces an event in the Dynamic
-      Event Stream. The VMS needs to be able to understand these events to have any benefit of this button.'
-  RequestURLResponse:
+  Languages:
     type: object
-    description: Fields in the requestURL response structure.
+    required: [languages]
     properties:
-      vmsHint:
+      languages:
         type: array
-        items: {$ref: '#/types/ResponseVmsHint'}
-        description: What the VMS should do with the return value. The valid value is *display, store* as shown
-          in the table *Valid values for vmsHint in response* below.
-      context: {type: string, description: Variable containing the context value from the request.}
-      type:
-        type: string
-        description: Type of response. Can be either in the form of an *integer, string, boolean, array, object*.
-      value: {description: Return value from Request.}
-  ResponseVmsHint:
-    type: string
-    enum: [display, store]
-    description: 'Valid values for vmsHint in response. display: The returned value should be displayed to the user.;
-      store: Store the returned value as a searchable metadata.'
+        items: {$ref: '#/types/Language'}
+  Language:
+    type: object
+    required: [language, locale]
+    properties:
+      language: {type: string, description: Name of the language.}
+      locale: {type: string, description: "Locale specifier, for example en-us."}
+  FeatureDescription:
+    type: object
+    required: [featureDescription]
+    properties:
+      featureDescription: {$ref: '#/types/FeatureGroup', description: 'Root feature group (name "root").'}
+  FeaturesByLocale:
+    type: object
+    description: Feature descriptions keyed by locale.
+    additionalProperties: {$ref: '#/types/FeatureGroup'}
+  AddedFeatures:
+    type: object
+    required: [addedFeatures]
+    properties:
+      addedFeatures:
+        type: array
+        items: {$ref: '#/types/AddedFeature'}
+  AddedFeature:
+    type: object
+    required: [name, locales]
+    properties:
+      name: {type: string, description: Name of the added feature group.}
+      locales:
+        type: array
+        items: {$ref: '#/types/Language'}
+        description: The locales the feature group was added for.
 
 operations:
   languages:
     summary: Get a list of supported languages and locales.
-    description: 'Returns a list supported languages and locales. - **apiVersion**: 1.0'
     access: viewer
-    effect: unknown
+    effect: read
     binding: {method: languages}
-    result:
-      type: object
-      properties:
-        languages:
-          type: array
-          items:
-            type: object
-            x-name: LanguagesResultLanguagesItem
-            properties:
-              language: {type: string}
-              locale: {type: string}
+    result: {$ref: '#/types/Languages'}
     examples:
     - title: Languages
       request:
@@ -247,14 +211,15 @@ operations:
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#languages
   features:
     summary: Get descriptions of available features in one of the supported languages.
-    description: 'Returns a collection of available features. - **apiVersion**: 1.0'
+    description: Features without a description in the requested locale fall back to en-us. An unsupported locale gives an error.
     access: viewer
-    effect: unknown
+    effect: read
+    since_fields: {"params.channel": "1.4"}
     binding: {method: features}
     params:
       type: object
       properties:
-        locale: {type: string, default: en-us, description: A locale specifier (e.g.}
+        locale: {type: string, default: en-us, description: "A locale specifier, for example en-us, from the languages operation."}
         acceptLocaleMismatch:
           type: boolean
           default: false
@@ -266,17 +231,14 @@ operations:
           description: A channel/source specifier that filters the returning information. If set, the default returned
             information will contain both the features with the chosen channel ID and the features without a channel
             ID.
-    result:
-      type: object
-      description: Content described in "Description of fields in featureGroups structure".
-      properties:
-        featureDescription: {$ref: '#/types/FeatureGroup', description: Root feature group (name "root").}
+    result: {$ref: '#/types/FeatureDescription'}
     examples:
     - title: Get a list of features that support the Swedish language
       request:
         params: {locale: sv-sv, acceptLocaleMismatch: false}
       response:
-        error: {}
+        error: {code: 2002, message: The given locale is not supported.}
+      x-contract: {skip: "The docs show this error as {errorCode, errorMsg} instead of {code, message}."}
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#get-a-list-of-features-that-support-the-swedish-language
     - title: Use a feature that accepts audio data
       request:
@@ -306,12 +268,13 @@ operations:
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#use-a-feature-that-accepts-audio-data
   add_features:
     summary: Add information about a manually installed feature.
-    description: 'Add information about a manually installed feature. - **apiVersion**: 1.0'
+    description: Saves the feature descriptions for the given locale.
     effect: write
     write: create
     binding: {method: addFeatures}
     params:
       type: object
+      required: [locale, language, featureDescription]
       properties:
         locale:
           type: string
@@ -319,9 +282,8 @@ operations:
           description: Must be formatted in on of two ways, `ab` or `ab-xy`.
         language: {type: string, description: Name of the language.}
         featureDescription:
-          $ref: '#/types/Feature'
-          description: See [Description of fields in feature structures](#description-of-fields-in-feature-structures)
-            for description of this parameter.
+          $ref: '#/types/FeatureGroup'
+          description: The feature group to add. The field table points to the feature structure, but the examples pass a feature group.
     examples:
     - title: Add features
       request:
@@ -345,14 +307,10 @@ operations:
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#add-features
   list_added_features:
     summary: Get a list of manually added features.
-    description: 'Lists the feature descriptions added by the user. - **apiVersion**: 1.0'
+    access: admin
     effect: read
     binding: {method: listAddedFeatures}
-    result:
-      type: object
-      description: Content described in "Description of fields in featureGroups structure".
-      properties:
-        featureDescription: {$ref: '#/types/FeatureGroup', description: Root feature group (name "root").}
+    result: {$ref: '#/types/AddedFeatures'}
     examples:
     - title: List added features
       request:
@@ -365,16 +323,16 @@ operations:
             - {locale: en-us, language: English}
             - {locale: de-de, language: Deutsch}
             - {locale: es-es, language: Espanol}
-          - name: featureGroup_identifer_2
+          - name: featureGroup_identifier_2
             locales:
             - {locale: de-de, language: Deutsch}
-          - name: featureGroup_identifer_3
+          - name: featureGroup_identifier_3
             locales:
             - {locale: es-es, language: Espanol}
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#list-added-features
   remove_features:
     summary: Remove information about a manually installed feature.
-    description: 'Remove information that has been added about a manually installed feature. - **apiVersion**: 1.0'
+    description: Removes the feature group added for a locale.
     effect: write
     write: delete
     binding: {method: removeFeatures}
@@ -384,8 +342,8 @@ operations:
       properties:
         locale:
           type: string
-          description: Required. Specifies the locale for which the featureGroup should be removed.
-        name: {type: string, description: Required. Specifies the featureGroup to remove.}
+          description: The locale for which the feature group should be removed.
+        name: {type: string, description: The feature group to remove.}
     examples:
     - title: Remove features
       request:
@@ -398,10 +356,16 @@ operations:
     description: 'A CGI method for retrieving all feature descriptions in all available languages. The returned
       collection contains all feature descriptions arranged in JSON objects identical with [Features](#features-api-specification),
       using locales as keys. The locales are the same as returned by [Languages](#languages-api-specification).
-      - **apiVersion**: 1.1'
+      '
+    since: '1.1'
     access: viewer
     effect: read
     binding: {method: getAllFeatures}
+    params:
+      type: object
+      properties:
+        showDisabled: {type: boolean, description: Include disabled features. Used in the docs' example only; the docs say the method takes no parameters.}
+    result: {$ref: '#/types/FeaturesByLocale'}
     examples:
     - title: Get a collection of all feature descriptions
       request:
@@ -528,9 +492,10 @@ operations:
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#get-a-collection-of-all-feature-descriptions-including-disabled-features
   enable_feature:
     summary: Show the option to enable/disable a feature.
-    description: 'This CGI method can be used to change the status of a feature to `enabled`. - **apiVersion**:
-      1.3'
-    effect: unknown
+    description: Changes the status of a feature to ``enabled``.
+    since: '1.3'
+    effect: write
+    write: patch
     binding: {method: enableFeature}
     params:
       type: object
@@ -538,7 +503,7 @@ operations:
       properties:
         name:
           type: string
-          description: Required. Specifies the name of the feature that should be enabled.
+          description: The name of the feature that should be enabled.
     examples:
     - title: Enable features
       request:
@@ -554,8 +519,10 @@ operations:
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#enable-features
   disable_feature:
     summary: Remove the option to enable/disable a feature.
-    description: 'This CGI method is used to change the status of a feature to `disabled`. - **apiVersion**: 1.3'
-    effect: unknown
+    description: Changes the status of a feature to ``disabled``.
+    since: '1.3'
+    effect: write
+    write: patch
     binding: {method: disableFeature}
     params:
       type: object
@@ -563,7 +530,7 @@ operations:
       properties:
         name:
           type: string
-          description: Required. Specifies the name of the feature that should be disabled.
+          description: The name of the feature that should be disabled.
     examples:
     - title: Disable features
       request:
@@ -586,17 +553,19 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Per-method apiVersion lines (since) are 1.0 for most methods while examples use 1.4; when each later minor version
-    was introduced is not documented.
-  - RequestURLParameter.type valid values are spread over several tables (range, geometric types, string, multiOption,
-    json-only types, transmitAudioData) without an explicit single list.
-  - Range fields defaultValue/min/max/step are typed String in the doc.
-  - addFeatures locale "Must be formatted in on of two ways, ab or ab-xy" — pattern inferred.
-  - Field "Key" in requestURL parameter structure is capitalized in the doc (wire name uncertain).
-  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
-    suffix _v2 for later majors) is needed for the others'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: languages, features, enable_feature,
-    disable_feature'
-  - 'migration: discovery: discovery method other dropped'
+  - 'Versions: the method pages and examples use 1.0 to 1.4 (since: getAllFeatures 1.1, enableFeature and disableFeature 1.3), but the getSupportedVersions example returns ["1.1", "2.0"] with apiVersion 2.0. The spec binds major 1; major 2 is not documented beyond that example.'
+  - The channel parameter of features is gated at 1.4 because only the 1.4 example uses it; the field table gives no version.
+  - Per-method apiVersion lines are minimum versions; the docs do not say when later minors changed behaviour.
+  - RequestUrlParameter.type valid values are spread over several tables without a single list, so type is a free string. The range, string, multiOption, JSON-only and transmitAudioData fields are merged into one model.
+  - Range fields defaultValue, min, max and step are typed String in the docs.
+  - transmitAudioData contentType is typed String in the table but is an array in the example; both are accepted.
+  - addFeatures locale "Must be formatted in on of two ways, ab or ab-xy" - the pattern is inferred.
+  - The field "Key" in the requestURL parameter structure is capitalized in the docs (wire name uncertain).
+  - addFeatures featureDescription links to the feature structure, but the examples pass a feature group; modelled as a feature group.
+  - status (enabled, disabled) appears on feature groups in examples only, and getAllFeatures showDisabled only in an example; neither is in a field table.
+  - The unsupported-locale example error uses {errorCode, errorMsg} instead of {code, message}; the example is skipped in contract tests.
+  - Error 2005 is described as "Missing data param" but the enableFeature and disableFeature examples use it for "Feature not found.".
+  - Application identification (the addon.cgi status method lists axis-onscreencontrols as active) cannot be expressed as a discovery entry.
+  - listAddedFeatures example contains a typo ("langauge"), corrected in the spec example.
   migrated_from: v1
-  curated: false
+  curated: true

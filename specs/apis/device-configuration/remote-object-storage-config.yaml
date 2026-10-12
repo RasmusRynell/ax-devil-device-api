@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: remote-object-storage-config
 name: Remote object storage
-summary: The VAPIX® Remote Object Storage API makes it possible for the client to configure storage of recordings
-  on a remote object store.
+summary: Configure storage of recordings on remote object stores (Azure, S3) and the local failover storage.
 section: device-configuration
 family: dca
 status: released
@@ -11,60 +9,52 @@ python:
   module: remote_object_storage
   class: RemoteObjectStorage
 docs:
-- https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
+  - https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
 access: admin
 discovery:
-- dca: {api: remote-object-storage, version: v1}
-
-binding: {root: /config/rest/remote-object-storage/v1}
+  - dca: {api: remote-object-storage, version: v1}
+binding:
+  root: /config/rest/remote-object-storage/v1
+errors:
+  5: {description: Validation error. Occurs for example when more than one destination type is given when adding a destination., kind: invalid_argument}
 
 types:
-  AuthorizationServer: {}
+  IdString: {type: string, minLength: 1, maxLength: 50, pattern: "^[a-zA-Z0-9_]+$", description: The ID of a destination.}
+  DiskIdString: {type: string, minLength: 1, maxLength: 50, pattern: "^[a-zA-Z0-9_-]+$", description: The disk ID.}
+  PositiveInteger: {type: integer, minimum: 1, description: Positive integer value.}
+  FailoverDiskSelection: {enum: [AUTO, MANUAL], description: Failover disk selection mode.}
+  ClientAuthenticationMethod: {enum: [private_key_jwt], description: "How the device authenticates to the token endpoint (OpenID Connect client authentication)."}
+
+  AuthorizationServer:
+    type: object
+    description: >-
+      An external authorization server that supplies the object store credentials through the OAuth 2.0
+      client credentials flow. With private_key_jwt a certificate set named like the destination id must be
+      configured afterwards.
+    properties:
+      clientAuthenticationMethod: {$ref: "#/types/ClientAuthenticationMethod"}
+      clientId: {type: string}
+      tokenEndpoint: {type: string}
+
   AzureDestination:
     type: object
+    description: >-
+      Azure settings. Valid credentials are accountName with sharedKey (url may then be omitted), or a sas token.
+      Unset fields are returned as empty strings.
+    x-masked: [sharedKey, sas]
     properties:
       accountName: {type: string}
       container: {type: string}
       sas: {type: string}
       sharedKey: {type: string}
       url: {type: string}
-  ClientAuthenticationMethod: {}
-  DiskIdString:
-    type: string
-    minLength: 1
-    maxLength: 50
-    pattern: ^[a-zA-Z0-9_-]+$
-    description: The disk ID.
-  FailoverConfiguration:
-    type: object
-    description: Configuration for local failover storage, used to temporarily store objects that can't be uploaded
-      to the remote object store. When set to null, failover is disabled.
-    x-nullable: [diskId, storageLimit, uploadLimit]
-    properties:
-      diskId:
-        $ref: '#/types/DiskIdString'
-        description: 'The ID of the disk to store objects for failover in `MANUAL` mode, where it must be explicitly
-          set. Default: null (not configured).'
-      diskSelection:
-        $ref: '#/types/FailoverDiskSelection'
-        description: 'The failover disk selection mode. Default: `AUTO`.'
-      storageLimit:
-        $ref: '#/types/PositiveInteger'
-        description: 'The maximum failover storage size, in kibibytes (KiB). Only applies in `MANUAL` mode. Default:
-          null (unlimited).'
-      uploadLimit:
-        $ref: '#/types/PositiveInteger'
-        description: 'The maximum upload bandwidth for objects stored in failover, in kbit/s. Default: null (unlimited).'
-  FailoverDiskSelection: {type: string, enum: [AUTO, MANUAL], description: Failover disk selection mode.}
-  IdString:
-    type: string
-    minLength: 1
-    maxLength: 50
-    pattern: ^[a-zA-Z0-9_]+$
-    description: The ID for a destination
-  PositiveInteger: {type: integer, minimum: 1, description: Positive integer value.}
+
   S3Destination:
     type: object
+    description: >-
+      S3 settings. sessionToken may be empty when temporary credentials are not used. An empty region means us-east-1.
+      Unset fields are returned as empty strings.
+    x-masked: [accessKeyId, secretAccessKey, sessionToken]
     properties:
       accessKeyId: {type: string}
       bucket: {type: string}
@@ -72,239 +62,302 @@ types:
       secretAccessKey: {type: string}
       sessionToken: {type: string}
       url: {type: string}
+
+  FailoverConfiguration:
+    type: object
+    description: >-
+      Local failover storage for objects that cannot be uploaded to the remote object store. Setting the whole
+      failover configuration to null disables failover.
+    x-nullable: [diskId, storageLimit, uploadLimit]
+    properties:
+      diskSelection: {$ref: "#/types/FailoverDiskSelection", description: "The failover disk selection mode. Default: AUTO."}
+      diskId: {$ref: "#/types/DiskIdString", description: "The disk used for failover in MANUAL mode, where it must be set. Default: null (not configured)."}
+      storageLimit: {$ref: "#/types/PositiveInteger", description: "Maximum failover storage size in KiB. Only applies in MANUAL mode. Default: null (unlimited)."}
+      uploadLimit: {$ref: "#/types/PositiveInteger", description: "Maximum upload bandwidth for objects stored in failover, in kbit/s. Default: null (unlimited)."}
+
+  Destination:
+    type: object
+    description: A remote object store that recordings are uploaded to. Secrets are masked in responses.
+    required: [id, description]
+    x-nullable: [authorizationServer, azure, s3]
+    properties:
+      id: {$ref: "#/types/IdString", description: ID of the destination}
+      description: {type: string, description: Description of the destination}
+      authorizationServer: {$ref: "#/types/AuthorizationServer", description: Authorization server configuration}
+      azure: {$ref: "#/types/AzureDestination", description: Azure related settings}
+      s3: {$ref: "#/types/S3Destination", description: S3 related settings}
+
   RemoteObjectStorage:
     type: object
     description: The whole API tree.
     x-nullable: [failover]
     properties:
-      failover:
-        $ref: '#/types/FailoverConfiguration'
-        description: Failover configuration. Defaults to `AUTO` disk selection when not explicitly set. Set to `null`
-          to disable. See Failover configuration.
-      destinations:
-        type: array
-        items: {$ref: '#/types/Destination'}
-  Destination:
-    type: object
-    description: Destination collection
-    x-nullable: [authorizationServer, azure, s3]
-    properties:
-      authorizationServer: {$ref: '#/types/AuthorizationServer', description: Authorization server configuration}
-      azure: {$ref: '#/types/AzureDestination', description: Azure related settings}
-      description: {type: string, description: Description of the destination}
-      id: {$ref: '#/types/IdString', description: ID of the destination}
-      s3: {$ref: '#/types/S3Destination', description: S3 related settings}
+      failover: {$ref: "#/types/FailoverConfiguration", description: "Failover configuration. Null means failover is disabled."}
+      destinations: {type: array, items: {$ref: "#/types/Destination"}, default: []}
+
   AddDestinationRequest:
     type: object
-    description: Arguments of ``add_destination``.
+    description: Arguments of ``add_destination``. Give at most one of azure and s3.
     required: [id]
     properties:
-      id: {$ref: '#/types/IdString', description: ID of the destination}
+      id: {$ref: "#/types/IdString", description: ID of the destination}
       description: {type: string, description: Description of the destination}
-      authorizationServer: {$ref: '#/types/AuthorizationServer', description: Authorization server configuration}
-      azure: {$ref: '#/types/AzureDestination', description: Azure related settings}
-      s3: {$ref: '#/types/S3Destination', description: S3 related settings}
+      authorizationServer: {$ref: "#/types/AuthorizationServer", description: Authorization server configuration}
+      azure: {$ref: "#/types/AzureDestination", description: Azure related settings}
+      s3: {$ref: "#/types/S3Destination", description: S3 related settings}
 
 operations:
   get_all:
-    summary: All data of the Remote object storage API.
+    summary: The failover configuration and all destinations.
     effect: read
-    binding: {method: GET, path: ''}
-    result: {$ref: '#/types/RemoteObjectStorage'}
+    binding: {method: GET, path: ""}
+    result: {$ref: "#/types/RemoteObjectStorage"}
+
+  get_failover:
+    summary: The failover configuration; None when failover is disabled.
+    effect: read
+    binding: {method: GET, path: /failover}
+    result: {$ref: "#/types/FailoverConfiguration"}
+    examples:
+      - title: Get failover configuration
+        request: {path: /failover}
+        response:
+          status: 200
+          body:
+            status: success
+            data: {diskSelection: AUTO, diskId: null, storageLimit: null, uploadLimit: null}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#get-failover-configuration
+
   set_failover:
-    summary: Set the failover of the device.
+    summary: Change the failover configuration, or disable failover with None.
+    description: >-
+      Only the given fields change. Pass ``None`` to disable failover (objects that fail to upload are then not stored locally).
     effect: write
     write: patch
-    binding: {method: PATCH, path: /failover, body_field: failover, body: value}
+    binding: {method: PATCH, path: /failover, body: value, body_field: failover}
     params:
       type: object
+      x-nullable: [failover]
       required: [failover]
       properties:
-        failover:
-          $ref: '#/types/FailoverConfiguration'
-          description: Failover configuration. Defaults to `AUTO` disk selection when not explicitly set. Set to
-            `null` to disable. See Failover configuration.
+        failover: {$ref: "#/types/FailoverConfiguration"}
+    positional: [failover]
+    examples:
+      - title: Set up failover storage on a specific disk
+        request:
+          path: /failover
+          body:
+            data: {diskSelection: MANUAL, diskId: SD_DISK, storageLimit: 10485760, uploadLimit: 5000}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#set-up-failover-storage-on-a-specific-disk
+      - title: Update the failover upload bandwidth limit
+        request:
+          path: /failover
+          body:
+            data: {uploadLimit: 1000}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#update-the-failover-upload-bandwidth-limit
+      - title: Disable failover storage
+        request:
+          path: /failover
+          body: {data: null}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#disable-failover-storage
+
   list_destinations:
     summary: List the destinations.
+    access: operator
     effect: read
     binding: {method: GET, path: /destinations}
-    result:
-      type: array
-      items: {$ref: '#/types/Destination'}
+    result: {type: array, items: {$ref: "#/types/Destination"}}
     examples:
-    - title: Get all destinations
-      request: {path: /destinations}
-      response:
-        status: 200
-        body:
-          status: success
-          data:
-          - id: aws1
-            description: My S3 Destination
-            s3:
-              accessKeyId: '*****'
-              secretAccessKey: '*****'
-              sessionToken: '*****'
-              region: us-east-1
-              url: some.domain/some/url
-              bucket: someBucket
-          - id: azure1
-            description: My Azure Destination
-            azure:
-              accountName: someAccountName
-              sharedKey: '*****'
-              sas: ''
-              url: some.domain/some/url
-              container: somecontainer
-      source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
+      - title: Get all destinations
+        request: {path: /destinations}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              - id: aws1
+                description: My S3 Destination
+                s3:
+                  accessKeyId: "*****"
+                  secretAccessKey: "*****"
+                  sessionToken: "*****"
+                  region: us-east-1
+                  url: some.domain/some/url
+                  bucket: someBucket
+              - id: azure1
+                description: My Azure Destination
+                azure:
+                  accountName: someAccountName
+                  sharedKey: "*****"
+                  sas: ""
+                  url: some.domain/some/url
+                  container: somecontainer
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#get-all-destinations
+
   get_destination:
-    summary: Get one destination.
+    summary: One destination.
+    access: operator
     effect: read
-    binding: {method: GET, path: '/destinations/{ID}'}
+    binding: {method: GET, path: "/destinations/{id}"}
     params:
       type: object
-      x-name: DestinationIDRequest
-      required: [ID]
+      x-name: DestinationIdRequest
+      required: [id]
       properties:
-        ID: {type: string}
-    result: {$ref: '#/types/Destination'}
-    examples:
-    - title: Update a storage destination
-      request:
-        path: /destinations/myDestination
-        body:
-          data:
-            azure: {sas: newToken}
-      response:
-        status: 200
-        body: {status: success}
-      source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
+        id: {$ref: "#/types/IdString"}
+    result: {$ref: "#/types/Destination"}
+
   add_destination:
-    summary: Add a destination.
+    summary: Add a destination. Give at most one of azure and s3.
     effect: write
     write: create
     binding: {method: POST, path: /destinations, body: object}
-    params: {$ref: '#/types/AddDestinationRequest'}
+    params: {$ref: "#/types/AddDestinationRequest"}
+    round_trip:
+      from: Destination
     examples:
-    - title: Add a new storage destination
-      request:
-        path: /destinations
-        body:
-          data:
-            id: myDestination
-            description: azure destination
-            azure:
-              accountName: someAccountName
-              container: acontainer
-              sharedKey: bXlwYXNzd29yZA==
-              url: some.domain/example/url
-      response:
-        status: 201
-        body: {status: success}
-      source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
-    - title: Add a new storage destination with external authorization
-      request:
-        path: /destinations
-        body:
-          data:
-            id: myDestination2
-            description: azure destination with authorization
-            azure: {accountName: someAccountName, container: acontainer, url: some.domain/example/url}
-            authorizationServer:
-              clientAuthenticationMethod: private_key_jwt
-              clientId: myClientId
-              tokenEndpoint: some.domain/token/endpoint
-      response:
-        status: 201
-        body: {status: success}
-      source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
+      - title: Add a new storage destination
+        request:
+          path: /destinations
+          body:
+            data:
+              id: myDestination
+              description: azure destination
+              azure:
+                accountName: someAccountName
+                container: acontainer
+                sharedKey: bXlwYXNzd29yZA==
+                url: some.domain/example/url
+        response: {status: 201, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#add-a-new-storage-destination
+      - title: Add a new storage destination with external authorization
+        request:
+          path: /destinations
+          body:
+            data:
+              id: myDestination2
+              description: azure destination with authorization
+              azure: {accountName: someAccountName, container: acontainer, url: some.domain/example/url}
+              authorizationServer:
+                clientAuthenticationMethod: private_key_jwt
+                clientId: myClientId
+                tokenEndpoint: some.domain/token/endpoint
+        response: {status: 201, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#add-a-new-storage-destination-with-external-authorization
+
+  update_destination:
+    summary: Update properties of a destination; only the given ones change.
+    description: >-
+      Documented by the "Update a storage destination" use case (PATCH on the destination); the API definition lists only per-property SET.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/destinations/{id}", body: object}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {$ref: "#/types/IdString"}
+        description: {type: string, description: Description of the destination}
+        authorizationServer: {$ref: "#/types/AuthorizationServer", description: Authorization server configuration}
+        azure: {$ref: "#/types/AzureDestination", description: Azure related settings}
+        s3: {$ref: "#/types/S3Destination", description: S3 related settings}
+    examples:
+      - title: Update a storage destination
+        request:
+          path: /destinations/myDestination
+          body:
+            data:
+              azure: {sas: newToken}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#update-a-storage-destination
+
   remove_destination:
-    summary: Remove a destination.
+    summary: Remove a destination (objects held in failover for it are removed too).
     effect: write
     write: delete
-    binding: {method: DELETE, path: '/destinations/{ID}'}
+    binding: {method: DELETE, path: "/destinations/{id}"}
     params:
       type: object
-      x-name: DestinationIDRequest
-      required: [ID]
+      x-name: DestinationIdRequest
+      required: [id]
       properties:
-        ID: {type: string}
+        id: {$ref: "#/types/IdString"}
     examples:
-    - title: Delete a storage destination
-      request: {path: /destinations/myDestination}
-      response:
-        status: 200
-        body: {status: success}
-      source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
-  set_destination_authorization_server:
-    summary: Set the authorization server of a destination.
-    effect: write
-    write: patch
-    binding:
-      method: PATCH
-      path: /destinations/{ID}/authorizationServer
-      body_field: authorizationServer
-      body: value
-    params:
-      type: object
-      required: [ID, authorizationServer]
-      properties:
-        ID: {type: string}
-        authorizationServer: {$ref: '#/types/AuthorizationServer', description: Authorization server configuration}
-  set_destination_azure:
-    summary: Set the azure of a destination.
-    effect: write
-    write: patch
-    binding: {method: PATCH, path: '/destinations/{ID}/azure', body_field: azure, body: value}
-    params:
-      type: object
-      required: [ID, azure]
-      properties:
-        ID: {type: string}
-        azure: {$ref: '#/types/AzureDestination', description: Azure related settings}
+      - title: Delete a storage destination
+        request: {path: /destinations/myDestination}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/#delete-a-storage-destination
+
   set_destination_description:
-    summary: Set the description of a destination.
+    summary: Replace the description of a destination.
     effect: write
-    write: patch
-    binding:
-      method: PATCH
-      path: /destinations/{ID}/description
-      body_field: description
-      body: value
+    write: replace
+    binding: {method: PATCH, path: "/destinations/{id}/description", body: value, body_field: description}
     params:
       type: object
-      required: [ID, description]
+      required: [id, description]
       properties:
-        ID: {type: string}
-        description: {type: string, description: Description of the destination}
+        id: {$ref: "#/types/IdString"}
+        description: {type: string}
+    positional: [id, description]
+
+  set_destination_azure:
+    summary: Replace the Azure settings of a destination (None removes them).
+    effect: write
+    write: replace
+    binding: {method: PATCH, path: "/destinations/{id}/azure", body: value, body_field: azure}
+    params:
+      type: object
+      x-nullable: [azure]
+      required: [id, azure]
+      properties:
+        id: {$ref: "#/types/IdString"}
+        azure: {$ref: "#/types/AzureDestination"}
+    positional: [id, azure]
+
   set_destination_s3:
-    summary: Set the s3 of a destination.
+    summary: Replace the S3 settings of a destination (None removes them).
     effect: write
-    write: patch
-    binding: {method: PATCH, path: '/destinations/{ID}/s3', body_field: s3, body: value}
+    write: replace
+    binding: {method: PATCH, path: "/destinations/{id}/s3", body: value, body_field: s3}
     params:
       type: object
-      required: [ID, s3]
+      x-nullable: [s3]
+      required: [id, s3]
       properties:
-        ID: {type: string}
-        s3: {$ref: '#/types/S3Destination', description: S3 related settings}
+        id: {$ref: "#/types/IdString"}
+        s3: {$ref: "#/types/S3Destination"}
+    positional: [id, s3]
+
+  set_destination_authorization_server:
+    summary: Replace the authorization server of a destination (None removes it).
+    effect: write
+    write: replace
+    binding: {method: PATCH, path: "/destinations/{id}/authorizationServer", body: value, body_field: authorizationServer}
+    params:
+      type: object
+      x-nullable: [authorizationServer]
+      required: [id, authorizationServer]
+      properties:
+        id: {$ref: "#/types/IdString"}
+        authorizationServer: {$ref: "#/types/AuthorizationServer"}
+    positional: [id, authorizationServer]
 
 sources:
-- url: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
-  sha256_md: 5ef9df3695f19acdf8420d002a7f7da1536ff67a35d648cadda9b05d6d6a131d
-  retrieved_at: '2026-10-11'
-
+  - url: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/
+    sha256_md: 5ef9df3695f19acdf8420d002a7f7da1536ff67a35d648cadda9b05d6d6a131d
+    retrieved_at: "2026-10-11"
 provenance:
   completeness: complete
   open_questions:
-  - 'Example ''Update a storage destination'' uses PATCH /config/rest/remote-object-storage/v1/destinations/myDestination,
-    which does not map to an operation documented in the API definition section (attached to get_destinations_item
-    for reference). Source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/'
-  - 'The page gives the topic as path RemoteObjectStorage/UploadSummary under a tnsaxis:RemoteObjectStorage declaration;
-    namespace URI not stated (standard Axis http://www.axis.com/2009/event/topics assumed) and no root tns1 prefix
-    is shown. Source: https://developer.axis.com/vapix/device-configuration/remote-object-storage-api/'
-  - 'migration: dropped-property-gets: 6 per-property GET operations dropped'
-  - 'migration: dropped-keywords: access_token x1, aud x1, exp x1, expires_in x1, iss x1, jti x1, sub x1, token_type
-    x1, x-notes x4'
+    - >-
+      PATCH on a destination (the "Update a storage destination" use case) is not in the API definition section, which lists only per-property SET. It is modelled as update_destination.
+    - The docs mark the fields of azure, s3 and authorizationServer as not gettable, yet the list example returns them (masked), so they are all optional.
+    - The UploadSummary event (topic RemoteObjectStorage/UploadSummary) is documented but is not an HTTP operation and is not modelled here; the namespace URI is not stated.
+    - Whether set_destination_azure, _s3 and _authorization_server replace the whole object or merge fields is not stated; replace is assumed.
+    - Whether GET on /failover requires admin is not stated; the API default (admin) is used.
   migrated_from: v1
-  curated: false
+  curated: true

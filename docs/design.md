@@ -331,7 +331,7 @@ Planned CI: schema validation, `codegen check` (regenerate, diff must be empty),
 ## 10. Maintenance loop (planned)
 
 1. External monitor detects changed doc pages and lists the specs citing them.
-2. The agent edits `specs/apis/**` by hand, citing source anchors, then runs `codegen generate` and commits the regenerated outputs (`apis/`, contract tests, `docs/api_surface.txt`) in the same PR.
+2. The agent edits `specs/apis/**` by hand, citing source anchors, then runs `codegen generate` (a full run also deletes generated modules no spec produces any more; `--only` never deletes) and commits the regenerated outputs (`apis/`, contract tests, `docs/api_surface.txt`) in the same PR.
 3. CI validates the specs, runs `codegen check` (regenerating must reproduce the committed outputs exactly, which catches hand edits to generated files), and runs the contract tests.
 4. The PR shows the spec diff and the `docs/api_surface.txt` diff. Patch conflicts block merging.
 

@@ -32,8 +32,15 @@ class Signature:
     overload: bool = False
 
 
+def _sig_type(f: FieldDef) -> str:
+    """Argument type: nullable fields accept an explicit ``None``."""
+    if f.nullable and f.sig != "None" and not f.sig.endswith("| None"):
+        return f"{f.sig} | None"
+    return f.sig
+
+
 def _arg(f: FieldDef) -> str:
-    return f"{f.py}: {f.sig}" if f.required else f"{f.py}: {f.sig} | MISSING = MISSING"
+    return f"{f.py}: {_sig_type(f)}" if f.required else f"{f.py}: {_sig_type(f)} | MISSING = MISSING"
 
 
 def signatures(op: OpDef) -> tuple[list[Signature], Signature | None]:
@@ -41,16 +48,19 @@ def signatures(op: OpDef) -> tuple[list[Signature], Signature | None]:
     ret = op.result or "None"
     if op.params is None:
         return [Signature(["*", REQUEST_OPTIONS], ret)], None
-    fields = op.params.fields
-    if op.overloaded:
-        name = op.params.name
-        first = Signature([f"request: {name}", "/", "*", REQUEST_OPTIONS], ret, overload=True)
-        second = Signature(["/", "*", *map(_arg, fields), REQUEST_OPTIONS], ret, overload=True)
-        impl = Signature([f"request: {name} | None = None", "/", "*", REQUEST_OPTIONS, "**kwargs: Any"], ret)
-        return [first, second], impl
+    fields = op.args
     positional = [f for f in fields if f.py in op.positional]
     positional.sort(key=lambda f: op.positional.index(f.py))
     keyword = [f for f in fields if f.py not in op.positional]
+    if op.overloaded:
+        name = op.params.name
+        first = Signature([f"request: {name}", "/", "*", REQUEST_OPTIONS], ret, overload=True)
+        second = Signature([*map(_arg, positional), "/", "*", *map(_arg, keyword), REQUEST_OPTIONS], ret, overload=True)
+        if positional:
+            impl = Signature(["request: Any = MISSING", "/", "*args: Any", REQUEST_OPTIONS, "**kwargs: Any"], ret)
+        else:
+            impl = Signature([f"request: {name} | None = None", "/", "*", REQUEST_OPTIONS, "**kwargs: Any"], ret)
+        return [first, second], impl
     args = [_arg(f) for f in positional] + ["*", *map(_arg, keyword), REQUEST_OPTIONS]
     return [Signature(args, ret)], None
 
@@ -289,6 +299,9 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
             args.append(f"body={body!r}")
         if ob.get("body_field"):
             args.append(f"body_field={ob['body_field']!r}")
+        styles = ob.get("key_styles") or {}
+        if styles:
+            args.append(f"key_styles={tup([f'({k!r}, {v!r})' for k, v in styles.items()])}")
         return f"DcaBinding({', '.join(args + extra)})"
     # cgi
     args = ["PATH" if "path" not in ob else repr(ob["path"])]
@@ -302,7 +315,7 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
         args.append(f"fixed_query={tup(pairs)}")
     if op.params is not None:
         cgi_args = []
-        for f in op.params.fields:
+        for f in op.args:
             style = f.style or ("csv" if f.sig.startswith("list[") else "spread" if f.is_mapping else None)
             parts = [repr(f.py)]
             if f.wire != f.py:
@@ -432,25 +445,40 @@ def class_doc(api: ApiDef) -> str:
     return f"{api.name} (``{api.id}``{extra})."
 
 
+def _value(f: FieldDef) -> str:
+    if not f.is_mapping:
+        return f.py
+    return f"None if {f.py} is None else dict({f.py})" if f.nullable else f"dict({f.py})"
+
+
 def render_call(op: OpDef, is_async: bool) -> list[str]:
     prefix = ("return " if op.result else "") + ("await " if is_async else "")
     if op.params is None:
         return [f"        {prefix}self._run(OPS.{op.id}, None, {{}}, request_options)"]
     if op.overloaded:
-        return [f"        {prefix}self._run(OPS.{op.id}, request, kwargs, request_options)"]
-    fields = op.params.fields
+        lines: list[str] = []
+        if op.positional:
+            names = tup([repr(n) for n in op.positional])
+            lines += [
+                "        if request is MISSING:",
+                "            request = None",
+                f"        elif args or not isinstance(request, {op.params.name}):",
+                f"            kwargs = {{**dict(zip({names}, (request, *args), strict=False)), **kwargs}}",
+                "            request = None",
+            ]
+        return lines + [f"        {prefix}self._run(OPS.{op.id}, request, kwargs, request_options)"]
+    fields = op.args
     optional_maps = [f for f in fields if f.is_mapping and not f.required]
     items = []
     for f in fields:
         if f in optional_maps:
             continue
-        value = f"dict({f.py})" if f.is_mapping else f.py
-        items.append(f'"{f.py}": {value}')
+        items.append(f'"{f.py}": {_value(f)}')
     if not optional_maps:
         return [f"        {prefix}self._run(OPS.{op.id}, None, {{{', '.join(items)}}}, request_options)"]
     lines = [f"        args = {{{', '.join(items)}}}"]
     for f in optional_maps:
-        lines += [f"        if {f.py} is not MISSING:", f'            args["{f.py}"] = dict({f.py})']
+        lines += [f"        if {f.py} is not MISSING:", f'            args["{f.py}"] = {_value(f)}']
     lines.append(f"        {prefix}self._run(OPS.{op.id}, None, args, request_options)")
     return lines
 

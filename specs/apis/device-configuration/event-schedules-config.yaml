@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: event-schedules-config
 name: Event schedules API
-summary: The Event schedules API is used to manage scheduled events sent by the event system according to certain
-  schedules.
+summary: Manage pulse and interval schedules that make the event system send scheduled events.
 section: device-configuration
 family: dca
 status: released
@@ -30,17 +28,17 @@ types:
   Schedule:
     type: object
     description: Schedules
-    required: [id]
+    required: [id, name, schedule, scheduleType]
     x-read-only: [scheduleType]
     properties:
       id:
         type: string
         description: Unique identifier for a schedule. Automatically generated if not provided during add.
       name: {type: string, description: Well-known name of the schedule.}
-      schedule: {type: string, description: 'Schedule definition, based on the iCalendar format.'}
+      schedule: {type: string, description: 'Schedule definition, based on the iCalendar format (DTSTART, optional DTEND, RRULE). The schedule type follows from DTEND.'}
       scheduleType:
         $ref: '#/types/ScheduleVariant'
-        description: Type of schedule, either 'Pulse' or 'Interval'.
+        description: Type of schedule, either 'Pulse' or 'Interval'. Determined by the schedule definition.
   UpdateScheduleRequest:
     type: object
     description: Arguments of ``update_schedule``.
@@ -48,12 +46,9 @@ types:
     properties:
       id:
         type: string
-        description: Unique identifier for a schedule. Automatically generated if not provided during add.
+        description: Identifier of the schedule to update.
       name: {type: string, description: Well-known name of the schedule.}
       schedule: {type: string, description: 'Schedule definition, based on the iCalendar format.'}
-      scheduleType:
-        $ref: '#/types/ScheduleVariant'
-        description: Type of schedule, either 'Pulse' or 'Interval'.
   AddScheduleRequest:
     type: object
     description: Arguments of ``add_schedule``.
@@ -67,12 +62,26 @@ types:
 
 operations:
   get_all:
-    summary: All data of the Event schedules API API.
+    summary: All data of the Event schedules API.
+    access: viewer
     effect: read
     binding: {method: GET, path: ''}
     result: {$ref: '#/types/EventSchedules'}
+    examples:
+    - title: Get root entity
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            schedules:
+            - {id: Schedule1, name: MyPulseSchedule, scheduleType: PULSE, schedule: "DTSTART:19700101T000000\nRRULE:FREQ=SECONDLY;INTERVAL=1"}
+            - {id: Schedule2, name: MyIntervalSchedule, scheduleType: INTERVAL, schedule: "DTSTART:19700101T000000\nDTEND:19700102T000000\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU"}
+      source: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
   list_schedules:
     summary: List the schedules.
+    access: viewer
     effect: read
     binding: {method: GET, path: /schedules}
     result:
@@ -80,6 +89,7 @@ operations:
       items: {$ref: '#/types/Schedule'}
   get_schedule:
     summary: Get one schedule.
+    access: viewer
     effect: read
     binding: {method: GET, path: '/schedules/{id}'}
     params:
@@ -89,7 +99,7 @@ operations:
       properties:
         id:
           type: string
-          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+          description: Identifier of the schedule.
     result: {$ref: '#/types/Schedule'}
   update_schedule:
     summary: Update a schedule.
@@ -97,12 +107,71 @@ operations:
     write: patch
     binding: {method: PATCH, path: '/schedules/{id}', body: object}
     params: {$ref: '#/types/UpdateScheduleRequest'}
+    examples:
+    - title: Set a pulse schedule
+      request:
+        path: /schedules/schedule1
+        body:
+          data:
+            name: TwoSecondPulseSchedule
+            schedule: "DTSTART:19700101T000000\nRRULE:FREQ=SECONDLY;INTERVAL=2"
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
+    - title: Set an interval schedule
+      request:
+        path: /schedules/schedule2
+        body:
+          data:
+            name: Monday&Tuesday&Wednesday
+            schedule: "DTSTART:19700101T000000\nDTEND:19700102T000000\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE"
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
   add_schedule:
-    summary: Add a schedule.
+    summary: Add a schedule. The device generates the id unless one is given.
     effect: write
     write: create
     binding: {method: POST, path: /schedules, body: object}
     params: {$ref: '#/types/AddScheduleRequest'}
+    result: {$ref: '#/types/Schedule'}
+    examples:
+    - title: Add a pulse schedule
+      request:
+        path: /schedules
+        body:
+          data:
+            name: OneSecondPulseSchedule
+            schedule: "DTSTART:19700101T000000\nRRULE:FREQ=SECONDLY;INTERVAL=1"
+      response:
+        status: 201
+        body:
+          status: success
+          data:
+            id: schedule1
+            name: OneSecondPulseSchedule
+            scheduleType: PULSE
+            schedule: "DTSTART:19700101T000000\nRRULE:FREQ=SECONDLY;INTERVAL=1"
+      source: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
+    - title: Add an interval schedule
+      request:
+        path: /schedules
+        body:
+          data:
+            name: Monday&Tuesday
+            schedule: "DTSTART:19700101T000000\nDTEND:19700102T000000\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU"
+      response:
+        status: 201
+        body:
+          status: success
+          data:
+            id: schedule2
+            name: Monday&Tuesday
+            scheduleType: INTERVAL
+            schedule: "DTSTART:19700101T000000\nDTEND:19700102T000000\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU"
+      source: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
   remove_schedule:
     summary: Remove a schedule.
     effect: write
@@ -115,7 +184,14 @@ operations:
       properties:
         id:
           type: string
-          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+          description: Identifier of the schedule.
+    examples:
+    - title: Remove a schedule
+      request: {path: /schedules/schedule1}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
   set_schedule_name:
     summary: Set the name of a schedule.
     effect: write
@@ -127,10 +203,10 @@ operations:
       properties:
         id:
           type: string
-          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+          description: Identifier of the schedule.
         name: {type: string, description: Well-known name of the schedule.}
   set_schedule_schedule:
-    summary: Set the schedule of a schedule.
+    summary: Set the definition (iCalendar text) of a schedule.
     effect: write
     write: patch
     binding: {method: PATCH, path: '/schedules/{id}/schedule', body_field: schedule, body: value}
@@ -140,7 +216,7 @@ operations:
       properties:
         id:
           type: string
-          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+          description: Identifier of the schedule.
         schedule: {type: string, description: 'Schedule definition, based on the iCalendar format.'}
 
 sources:
@@ -150,6 +226,5 @@ sources:
 
 provenance:
   completeness: complete
-  open_questions: ['migration: dropped-property-gets: 4 per-property GET operations dropped']
   migrated_from: v1
-  curated: false
+  curated: true

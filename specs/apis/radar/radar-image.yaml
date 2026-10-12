@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: radar-image
 name: Radar image
@@ -18,182 +17,234 @@ discovery:
 - param: {name: Properties.AddOnFramework.AddOnFramework, value: 'yes'}
 requires:
   firmware: '7.10'
-  application: axis-rmd (listed as active by getInfo in /axis-cgi/packagemanager.cgi)
+  application: axis-rmd
 
 binding:
   path: /axis-cgi/radar/radarimage.cgi
   major: 1
   versions: ['1.0']
-  negotiation:
-    get_supported_versions: {key: value}
+  negotiation: {fixed: '1.0'}
   params_placement: params
 
 errors:
-  1000: {description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument}
-  2000: {description: RESOURCE_MEM_ERROR. Failed to allocate memory.}
-  3000:
-    description: UNSUPPORTED_API_VERSION. The requested API version is not supported.
-    kind: unsupported
-  3001:
-    description: CGI_INVALID_PARAM_ERROR. A CGI parameter is missing or invalid.
-    kind: invalid_argument
-  3002: {description: CGI_NOT_FOUND. The cgi name was not found., kind: not_found}
-  4000:
-    description: JSON_INVALID_ERROR. The provided JSON input was invalid.
-    kind: invalid_argument
-  4001:
-    description: JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input.
-    kind: not_found
-  4002:
-    description: JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect.
-    kind: invalid_argument
-  4003: {description: JSON_METHOD_NOT_FOUND_ERROR. The JSON method was not found., kind: not_found}
-  4004: {description: JSON_FAIL_TO_LOAD_ERROR. Failed to load JSON from HTTP POST data.}
-  6000:
-    description: CALIB_INVALID_STATE_ERROR. Can not perform command in current calibration state.
-    kind: invalid_argument
-  8000: {description: INTERNAL_ERROR. Internal error., kind: internal}
-  8001: {description: UNEXPECTED_ERROR. Unexpected error., kind: internal}
-  8002: {description: GENERIC_ERROR. Generic error.}
+  1000: {description: "PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument"}
+  2000: {description: "RESOURCE_MEM_ERROR. Failed to allocate memory., kind: internal"}
+  3000: {description: "UNSUPPORTED_API_VERSION. The requested API version is not supported., kind: unsupported"}
+  3001: {description: "CGI_INVALID_PARAM_ERROR. A CGI parameter is missing or invalid., kind: invalid_argument"}
+  3002: {description: "CGI_NOT_FOUND. The cgi name was not found., kind: not_found"}
+  4000: {description: "JSON_INVALID_ERROR. The provided JSON input was invalid., kind: invalid_argument"}
+  4001: {description: "JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input., kind: invalid_argument"}
+  4002: {description: "JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect., kind: invalid_argument"}
+  4003: {description: "JSON_METHOD_NOT_FOUND_ERROR. The JSON method was not found., kind: unsupported"}
+  4004: {description: "JSON_FAIL_TO_LOAD_ERROR. Failed to load JSON from HTTP POST data., kind: invalid_argument"}
+  6000: {description: "CALIB_INVALID_STATE_ERROR. Can not perform command in current calibration state., kind: invalid_argument"}
+  8000: {description: "INTERNAL_ERROR. Internal error., kind: internal"}
+  8001: {description: "UNEXPECTED_ERROR. Unexpected error., kind: internal"}
+  8002: {description: "GENERIC_ERROR. Generic error., kind: internal"}
+
+types:
+  CalibrationState:
+    description: |-
+      ``reset``: back to the default background and grid. ``image_uploaded``: a reference map is uploaded for calibration. ``tracking``: tracking of the calibration object has started. ``successful``: the calibration succeeded but has not been stopped yet. ``calibrated``: the reference map is calibrated.
+    enum: [reset, image_uploaded, tracking, successful, calibrated]
+
+  CalibrationStateResult:
+    type: object
+    required: [value]
+    properties:
+      value: {$ref: "#/types/CalibrationState", description: The current calibration state.}
+
+  CalibrationPointRequest:
+    type: object
+    description: A point on the reference map in coordinates normalized to -1..1.
+    required: [x_pos, y_pos]
+    properties:
+      x_pos: {type: number, minimum: -1, maximum: 1, description: "The x coordinate of the calibration point, normalized between -1 and 1."}
+      y_pos: {type: number, minimum: -1, maximum: 1, description: "The y coordinate of the calibration point, normalized between -1 and 1."}
+
+  SetManualCalibrationPointRequest:
+    type: object
+    required: [x_pos, y_pos, range, angle]
+    properties:
+      x_pos: {type: number, minimum: -1, maximum: 1, description: "The x coordinate of the calibration point, normalized between -1 and 1."}
+      y_pos: {type: number, minimum: -1, maximum: 1, description: "The y coordinate of the calibration point, normalized between -1 and 1."}
+      range: {type: number, description: Actual distance of the calibration point from the radar in meters.}
+      angle: {type: number, description: Actual angle from the radar to the calibration point in degrees.}
+
+  TrailLifetime:
+    type: object
+    required: [value]
+    properties:
+      value: {type: integer, description: The trail lifetime in seconds.}
+      minValue: {type: integer, description: The smallest allowed lifetime in seconds.}
+      maxValue: {type: integer, description: The largest allowed lifetime in seconds.}
+
+  ColorScheme:
+    type: object
+    required: [value]
+    properties:
+      value: {type: string, description: The current color scheme.}
+      allowedValues: {type: array, items: {type: string}, description: The possible color schemes.}
+
+  GridOpaque:
+    type: object
+    required: [value]
+    properties:
+      value: {type: integer, description: The grid opaque level.}
+      minValue: {type: integer, description: The smallest allowed level.}
+      maxValue: {type: integer, description: The largest allowed level.}
+
+  EchoVisualizationLevelName:
+    description: "``disable``: no echoes are visualized. ``associated``: echoes associated with a track are visualized. ``all``: all echoes are visualized."
+    enum: [disable, associated, all]
+
+  EchoVisualizationLevel:
+    type: object
+    required: [value]
+    properties:
+      value: {$ref: "#/types/EchoVisualizationLevelName", description: The current level.}
+      allowedValues: {type: array, items: {$ref: "#/types/EchoVisualizationLevelName"}, description: The possible levels.}
+
+  ImageMetricSize:
+    type: object
+    required: [value]
+    properties:
+      value: {type: number, description: "The height of the video stream in meters."}
+
+  Filename:
+    type: object
+    required: [value]
+    properties:
+      value: {type: string, description: The name of the reference map shown in the video stream.}
 
 operations:
   start_calibration_tracking:
-    summary: Start or restart the reference map calibration by tracking the installer (user) moving away from the
-      radar within its field of view.
+    summary: Start or restart the reference map calibration by tracking the installer moving away from the radar.
+    description: The installer walks away from the radar within its field of view while calibration points are set.
     effect: action
     binding: {method: startCalibrationTracking}
+    examples:
+      - title: Start tracking the calibration object
+        request: {params: {}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#reference-map-calibration-using-tracking
+      - title: Invalid calibration state
+        request: {params: {}}
+        response: {error: {code: 6000, message: "Invalid calibration state: 'reset'."}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#reference-map-calibration-using-tracking
+
   set_calibration_point:
-    summary: Use the supplied reference-map coordinates and the current position of the tracked object as a calibration
-      point.
-    effect: write
-    write: patch
+    summary: Use the given reference map coordinates and the tracked object's current position as a calibration point.
+    effect: action
     binding: {method: setCalibrationPoint}
-    params:
-      type: object
-      required: [x_pos, y_pos]
-      properties:
-        x_pos:
-          type: number
-          minimum: -1
-          maximum: 1
-          description: The x coordinate for the calibration point normalized between -1 and 1.
-        y_pos:
-          type: number
-          minimum: -1
-          maximum: 1
-          description: The y coordinate for the calibration point normalized between -1 and 1.
+    params: {$ref: "#/types/CalibrationPointRequest"}
+    positional: [x_pos, y_pos]
     errors:
-      6001:
-        description: CALIB_OUT_OF_RANGE_ERROR. The tracked object walked out of range so tracking is lost and calibration
-          need to be restarted.
-      6003:
-        description: CALIB_NOT_DETECTED_ERROR. Placed first calibration point before tracking detected any object
-          close to the radar unit.
-      6004: {description: CALIB_TOO_CLOSE_TO_RADAR_ERROR. The tracked object is too close to radar.}
-      6005: {description: CALIB_TOO_CLOSE_TO_POINT_ERROR. The tracked object is too close to last point.}
-      6006:
-        description: CALIB_INVALID_SCALE_ERROR. Calibration resulted in invalid scale.
-        kind: invalid_argument
-      6007:
-        description: CALIB_INVALID_POSITION_ERROR. The calculated radar direction (x, y) is too far outside of the
-          image.
-        kind: invalid_argument
-      6008:
-        description: CALIB_GENERAL_CALC_ERROR. The calibration calculation result is invalid so calibration should
-          be done again.
-        kind: invalid_argument
-      6009:
-        description: CALIB_POINT_INVALID. The calibration point is out of range -1 to 1.
-        kind: invalid_argument
-      6010:
-        description: CALIB_OBJ_MOVING. The tracked object was moving when setting calibration point. May indicate
-          that the wrong object is being tracked.
+      6001: {description: CALIB_OUT_OF_RANGE_ERROR. The tracked object walked out of range so tracking is lost and calibration needs to be restarted.}
+      6003: {description: CALIB_NOT_DETECTED_ERROR. The first calibration point was placed before tracking detected any object close to the radar unit.}
+      6004: {description: CALIB_TOO_CLOSE_TO_RADAR_ERROR. The tracked object is too close to the radar.}
+      6005: {description: CALIB_TOO_CLOSE_TO_POINT_ERROR. The tracked object is too close to the last point.}
+      6006: {description: "CALIB_INVALID_SCALE_ERROR. Calibration resulted in invalid scale., kind: invalid_argument"}
+      6007: {description: "CALIB_INVALID_POSITION_ERROR. The calculated radar direction (x, y) is too far outside of the image.", kind: invalid_argument}
+      6008: {description: "CALIB_GENERAL_CALC_ERROR. The calibration calculation result is invalid so calibration should be done again., kind: invalid_argument"}
+      6009: {description: "CALIB_POINT_INVALID. The calibration point is out of range -1 to 1., kind: invalid_argument"}
+      6010: {description: CALIB_OBJ_MOVING. The tracked object was moving when setting the calibration point. May indicate that the wrong object is being tracked.}
+    examples:
+      - title: Set a calibration point
+        request: {params: {x_pos: -0.5, y_pos: 0.5}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#reference-map-calibration-using-tracking
+      - title: Tracked object out of range
+        request: {params: {x_pos: -0.5, y_pos: 0.5}}
+        response: {error: {code: 6001, message: Tracked object moved out of range.}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#reference-map-calibration-using-tracking
+
   stop_calibration_tracking:
     summary: Stop tracking the calibration object and store the result if the calibration was successful.
     effect: action
     binding: {method: stopCalibrationTracking}
     errors:
-      6002:
-        description: CALIB_NOT_ENOUGH_POINTS_ERROR. Need at least two calibration points to stop calibration successfully.
+      6002: {description: CALIB_NOT_ENOUGH_POINTS_ERROR. At least two calibration points are needed to stop the calibration successfully.}
+    examples:
+      - title: Stop tracking the calibration object
+        request: {params: {}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#reference-map-calibration-using-tracking
+      - title: Not enough calibration points
+        request: {params: {}}
+        response: {error: {code: 6002, message: Not enough calibration points set for successful calibration.}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#reference-map-calibration-using-tracking
+
   abort_calibration:
     summary: Stop tracking the calibration object and reset all parameters related to the current reference map.
-    effect: unknown
+    effect: action
     binding: {method: abortCalibration}
+    examples:
+      - title: Abort the calibration
+        request: {params: {}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#abort-calibration
+
   reset_calibration:
     summary: Reset the calibration by removing the reference map and its parameters.
     effect: write
-    write: replace
+    write: delete
     binding: {method: resetCalibration}
+    examples:
+      - title: Remove the reference map
+        request: {params: {}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#remove-reference-map
+
   get_calibration_state:
-    summary: Return the current state of the calibration.
+    summary: Get the current state of the calibration.
     effect: read
     binding: {method: getCalibrationState}
-    result:
-      type: object
-      properties:
-        value:
-          type: string
-          enum: [reset, image_uploaded, tracking, successful, calibrated]
-          description: 'reset: back to default background and grid; image_uploaded: a reference map is uploaded
-            for calibration; tracking: user has started tracking of calibration object; successful: calibration
-            successful but not stopped yet...'
+    result: {$ref: "#/types/CalibrationStateResult"}
+    examples:
+      - title: Get the calibration state
+        request: {params: {}}
+        response: {data: {value: tracking}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#find-calibration-state
+
   set_manual_radar_position:
-    summary: Manually set a point in the reference map as the new radar position (calibrate without tracking an
-      object).
+    summary: Manually set a point on the reference map as the radar position, without tracking an object.
     effect: write
     write: patch
     binding: {method: setManualRadarPosition}
-    params:
-      type: object
-      required: [x_pos, y_pos]
-      properties:
-        x_pos:
-          type: number
-          minimum: -1
-          maximum: 1
-          description: The x coordinate for the calibration point normalized between -1 and 1.
-        y_pos:
-          type: number
-          minimum: -1
-          maximum: 1
-          description: The y coordinate for the calibration point normalized between -1 and 1.
+    params: {$ref: "#/types/CalibrationPointRequest"}
+    positional: [x_pos, y_pos]
+    examples:
+      - title: Set the radar position
+        request: {params: {x_pos: -0.5, y_pos: -0.5}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#manual-calibration
+
   set_manual_calibration_point:
-    summary: Manually set a point in the reference map used to calibrate the radar.
+    summary: Manually set a point on the reference map, with its real range and angle, to calibrate the radar.
     effect: write
     write: patch
     binding: {method: setManualCalibrationPoint}
-    params:
-      type: object
-      required: [x_pos, y_pos, range, angle]
-      properties:
-        x_pos:
-          type: number
-          minimum: -1
-          maximum: 1
-          description: The x coordinate for the calibration point normalized between -1 and 1.
-        y_pos:
-          type: number
-          minimum: -1
-          maximum: 1
-          description: The y coordinate for the calibration point normalized between -1 and 1.
-        range:
-          type: number
-          description: Actual distance of the calibration point from the radar in meters.
-        angle:
-          type: number
-          description: Actual angle from the radar to the calibration point in degrees.
+    params: {$ref: "#/types/SetManualCalibrationPointRequest"}
+    examples:
+      - title: Set a manual calibration point
+        request: {params: {x_pos: -0.5, y_pos: -0.5, range: 20, angle: 10}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#manual-calibration
+
   get_trail_lifetime:
-    summary: Return current trail lifetime and its minimum and maximum value.
+    summary: Get the trail lifetime in seconds with its minimum and maximum.
     effect: read
     binding: {method: getTrailLifetime}
-    result:
-      type: object
-      properties:
-        value: {type: integer, description: trail lifetime in seconds}
-        minValue: {type: integer}
-        maxValue: {type: integer}
+    result: {$ref: "#/types/TrailLifetime"}
+    examples:
+      - title: Get the trail lifetime
+        request: {params: {}}
+        response: {data: {value: 17, minValue: 0, maxValue: 600}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-trail-lifetime
+
   set_trail_lifetime:
-    summary: Set how long (seconds) the trail of a tracked object is visible in the video stream.
+    summary: Set how long, in seconds, the trail of a tracked object is visible in the video stream.
     effect: write
     write: patch
     binding: {method: setTrailLifetime}
@@ -201,20 +252,31 @@ operations:
       type: object
       required: [value]
       properties:
-        value: {type: integer, description: Value for how long the trails should be in seconds.}
+        value: {type: integer, description: "How long the trails are shown, in seconds."}
+    positional: [value]
+    examples:
+      - title: Set the trail lifetime
+        request: {params: {value: 30}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-trail-lifetime
+      - title: Invalid trail lifetime
+        request: {params: {value: -1}}
+        response: {error: {code: 1000, message: "Invalid radarimage configuration value -1 for 'value'."}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-trail-lifetime
+
   get_color_scheme:
-    summary: Return the current color scheme and a list of possible color schemes.
+    summary: Get the current color scheme and the possible color schemes.
     effect: read
     binding: {method: getColorScheme}
-    result:
-      type: object
-      properties:
-        value: {type: string, description: current color scheme}
-        allowedValues:
-          type: array
-          items: {type: string}
+    result: {$ref: "#/types/ColorScheme"}
+    examples:
+      - title: Get the color scheme
+        request: {params: {}}
+        response: {data: {value: green, allowedValues: [black, green, blue]}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-color-scheme
+
   set_color_scheme:
-    summary: Set the color scheme (affects grid, echoes and radar trail).
+    summary: Set the color scheme of the video stream. It affects the grid, the echoes and the radar trail.
     effect: write
     write: patch
     binding: {method: setColorScheme}
@@ -222,19 +284,31 @@ operations:
       type: object
       required: [value]
       properties:
-        value: {type: string, description: Color scheme used in the video stream.}
+        value: {type: string, description: "The color scheme; the possible values come from ``get_color_scheme``."}
+    positional: [value]
+    examples:
+      - title: Set the color scheme
+        request: {params: {value: blue}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-color-scheme
+      - title: Invalid color scheme
+        request: {params: {value: orange}}
+        response: {error: {code: 1000, message: "Invalid radarimage configuration value orange for 'value'."}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-color-scheme
+
   get_grid_opaque:
-    summary: Return current grid opaque level and its minimum and maximum.
+    summary: Get the opaque level of the grid with its minimum and maximum.
     effect: read
     binding: {method: getGridOpaque}
-    result:
-      type: object
-      properties:
-        value: {type: integer, description: grid opaque level}
-        minValue: {type: integer}
-        maxValue: {type: integer}
+    result: {$ref: "#/types/GridOpaque"}
+    examples:
+      - title: Get the grid opaque level
+        request: {params: {}}
+        response: {data: {value: 70, minValue: 0, maxValue: 100}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-grid-opaque
+
   set_grid_opaque:
-    summary: 'Set the opaque level of the grid: 0 = fully transparent, 100 = fully opaque.'
+    summary: "Set the opaque level of the grid: 0 is fully transparent and 100 is fully opaque."
     effect: write
     write: patch
     binding: {method: setGridOpaque}
@@ -242,24 +316,27 @@ operations:
       type: object
       required: [value]
       properties:
-        value:
-          type: integer
-          minimum: 0
-          maximum: 100
-          description: Opaque level used for the grid in the video stream.
+        value: {type: integer, minimum: 0, maximum: 100, description: The opaque level of the grid in the video stream.}
+    positional: [value]
+    examples:
+      - title: Set the grid opaque level
+        request: {params: {value: 50}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-grid-opaque
+
   get_echo_visualization_level:
-    summary: Return current level of echo visualization and a list of possible levels.
+    summary: Get the current level of echo visualization and the possible levels.
     effect: read
     binding: {method: getEchoVisualizationLevel}
-    result:
-      type: object
-      properties:
-        value: {type: string, description: current echo visualization level}
-        allowedValues:
-          type: array
-          items: {type: string}
+    result: {$ref: "#/types/EchoVisualizationLevel"}
+    examples:
+      - title: Get the echo visualization level
+        request: {params: {}}
+        response: {data: {value: associated, allowedValues: [disable, associated, all]}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-echo-visualization-level
+
   set_echo_visualization_level:
-    summary: Set the level of visualization of the radar echoes (raw responses of the electromagnetic waves).
+    summary: Set the level of visualization of the radar echoes, the raw responses of the radar's electromagnetic waves.
     effect: write
     write: patch
     binding: {method: setEchoVisualizationLevel}
@@ -267,29 +344,38 @@ operations:
       type: object
       required: [value]
       properties:
-        value:
-          type: string
-          enum: [disable, associated, all]
-          description: 'Value for visualization level: disable (no echoes), associated (echoes associated with a
-            track), all (all echoes).'
+        value: {$ref: "#/types/EchoVisualizationLevelName", description: The visualization level.}
+    positional: [value]
+    examples:
+      - title: Disable echo visualization
+        request: {params: {value: disable}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#set-echo-visualization-level
+
   get_image_metric_size:
-    summary: Return the height of the video stream in meters (to transform between pixels and meters).
+    summary: Get the height of the video stream in meters, to transform between pixels and meters.
+    description: Only a 16:9 aspect ratio is supported.
     effect: read
     binding: {method: getImageMetricSize}
-    result:
-      type: object
-      properties:
-        value: {type: number, description: height of the video stream in meters}
+    result: {$ref: "#/types/ImageMetricSize"}
+    examples:
+      - title: Get the image metric size
+        request: {params: {}}
+        response: {data: {value: 72}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#get-metric-size
+
   get_filename:
-    summary: Return the name of the reference map currently displayed in the video stream.
+    summary: Get the name of the reference map currently shown in the video stream.
     effect: read
     binding: {method: getFilename}
-    result:
-      type: object
-      properties:
-        value: {type: string, description: file name}
+    result: {$ref: "#/types/Filename"}
     errors:
-      5002: {description: FILE_NOT_UPLOADED_ERROR. No image file uploaded to radar.}
+      5002: {description: "FILE_NOT_UPLOADED_ERROR. No image file uploaded to the radar., kind: not_found"}
+    examples:
+      - title: Get the file name
+        request: {params: {}}
+        response: {data: {value: west_entrance.png}}
+        source: https://developer.axis.com/vapix/radar/radar-image/#get-file-name
 
 sources:
 - url: https://developer.axis.com/vapix/radar/radar-image/
@@ -297,23 +383,16 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - Restart calibration example uses method 'startCalibration' (and step 3 'starCalibrationTracking'); the documented
-    method is startCalibrationTracking. https://developer.axis.com/vapix/radar/radar-image/#restart-calibration
-  - Error code 5002 is both FILE_CONTENT_INVALID_ERROR (upload/replace) and FILE_NOT_UPLOADED_ERROR (getFilename).
-  - 'getEchoVisualizationLevel syntax returns value: true instead of a level string.'
-  - getTrailLifetime maxValue 60 in syntax vs 600 in the common example; getImageMetricSize returns value as number
-    (72) vs string ('57').
-  - Multipart form part name for uploads is not specified ('<name>'); replace example has malformed headers.
-  - getSupportedVersions returns data.value instead of apiVersions used elsewhere.
-  - 'migration: skipped-op: upload_radar_image (http_endpoint) is not a JSON-RPC method; skipped'
-  - 'migration: skipped-op: replace_radar_image (http_endpoint) is not a JSON-RPC method; skipped'
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_calibration_point=write/patch,
-    reset_calibration=write/replace, set_manual_radar_position=write/patch, set_manual_calibration_point=write/patch,
-    set_trail_lifetime=write/patch, set_color_scheme=write/patch, set_grid_opaque=write/patch, set_echo_visualization_level=write/patch'
-  - 'migration: effect-unknown: effect could not be inferred from the method name: abort_calibration'
-  - 'migration: discovery: param_property ''Properties.AddOnFramework.Version>=1.0'' is not a Name=value pair: dropped'
-  - 'migration: discovery: discovery method other dropped'
+  - uploadRadarImage (/axis-cgi/radar/uploadradarimage.cgi) and replaceRadarImage (/axis-cgi/radar/replaceradarimage.cgi) send multipart/form-data and are not JSON-RPC methods; they are not modelled, and the multipart part name ('<name>') is unspecified. The calibration workflow needs them to upload the reference map.
+  - The Restart calibration example uses method startCalibration (and step 3 starCalibrationTracking); the documented method startCalibrationTracking is used. https://developer.axis.com/vapix/radar/radar-image/#restart-calibration
+  - Error code 5002 is FILE_CONTENT_INVALID_ERROR for the uploads and FILE_NOT_UPLOADED_ERROR for getFilename; only the latter is modelled.
+  - The getEchoVisualizationLevel syntax returns value true instead of a level string; the examples and the level table show a string.
+  - getTrailLifetime maxValue is 60 in the syntax and 600 in the common example; getImageMetricSize returns a number (72) in the syntax and a string ("57") in the common example. The number is used.
+  - The setManualRadarPosition and setManualCalibrationPoint syntax shows the request coordinates echoed in data, while the examples return an empty data; no result is modelled.
+  - getSupportedVersions returns data.value (a list) instead of apiVersions used elsewhere, and its example lists 1.0 and 2.0; only 1.0 is documented as a version of this API, so version 1.0 is used without negotiation.
+  - Properties.AddOnFramework.Version of 1.0 or higher is documented as a range and cannot be expressed as discovery.
+  - Whether setCalibrationPoint and the other calibration steps persist on their own is unclear; they are modelled as actions.
   migrated_from: v1
-  curated: false
+  curated: true

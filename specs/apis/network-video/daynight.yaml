@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: daynight
 name: DayNight API
@@ -25,58 +24,73 @@ binding:
   params_placement: params
 
 errors:
-  2100: {description: API version not supported. API version not supported., kind: unsupported}
+  1100: {description: Internal error. The details field may list the parameters that could not be set., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
   2101: {description: Bad request. Invalid JSON., kind: invalid_argument}
-  2102: {description: Method not supported. Method not supported., kind: unsupported}
+  2102: {description: Method not supported., kind: unsupported}
   2103: {description: Missing parameter. Required parameter missing., kind: invalid_argument}
-  2104: {description: Invalid parameter. Invalid parameter value specified., kind: invalid_argument}
-  2105: {description: Authorization failed. Authorization failed., kind: access_denied}
-  2106: {description: Authentication failed. Authentication failed.}
-  2107: {description: Method not allowed. Transport level error.}
-  1100: {description: Internal error. Internal error (may include error.details)., kind: internal}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed., kind: access_denied}
+  2107: {description: Method not allowed. Transport level error., kind: unsupported}
 
 types:
+  NightFilter:
+    enum: [irpass, clear]
+
   Capabilities:
     type: object
+    description: Day and night capabilities of one channel.
+    required: [channel, AutotuneSupport, IrPassSupport, NightDayShiftLevelSupport]
     properties:
       channel: {type: integer}
       AutotuneSupport: {type: boolean, description: True if the channel supports autotune.}
-      IrPassSupport: {type: boolean, description: True if the channel supports IR-pass filter.}
+      IrPassSupport: {type: boolean, description: True if the channel supports the IR-pass filter.}
       NightDayShiftLevelSupport: {type: boolean, description: True if the channel supports night to day shift levels.}
+
   Configuration:
     type: object
+    description: Day and night configuration of one channel. Fields the channel does not support are absent.
+    required: [channel]
     properties:
       channel: {type: integer}
       DayNightDwellTime:
         type: number
         minimum: 1
         maximum: 600
-        description: Seconds before switching from day to night mode once the DayNightShiftLevel threshold is reached
-          (1–600 s; default typically 3–5 s).
+        description: Seconds that pass, once the ``DayNightShiftLevel`` threshold is reached, before the channel switches from day to night mode.
       DayNightShiftLevel:
         type: integer
         minimum: 0
         maximum: 100
-        description: Day to night switch threshold 0–100; higher = switch when darker. Equivalent to param.cgi root.ImageSource.IX.DayNight.ShiftLevel.
+        description: Day to night switch threshold. A higher value switches when the image is darker. Equivalent to the param.cgi parameter ``root.ImageSource.IX.DayNight.ShiftLevel``.
       NightDayDwellTime:
         type: number
         minimum: 1
         maximum: 600
-        description: Seconds before switching from night to day mode once the NightDayShiftLevel threshold is reached
-          (1–600 s).
+        description: Seconds that pass, once the ``NightDayShiftLevel`` threshold is reached, before the channel switches from night to day mode.
       NightDayShiftLevel:
         type: integer
-        description: Only if NightDayShiftLevelSupport is true. Night to day threshold; higher = switch when darker.
-          Too high may cause day/night oscillation. Cannot be set while Autotune is true.
+        description: Night to day threshold; only if ``NightDayShiftLevelSupport`` is true. A higher value switches when the image is darker; too high a value may cause day and night oscillation. Cannot be set while ``Autotune`` is true.
       Autotune:
         type: boolean
-        description: 'Only if AutotuneSupport is true. true: an algorithm controls NightDayShiftLevel; false: NightDayShiftLevel
-          can be set to a fixed value.'
+        description: "Only if ``AutotuneSupport`` is true. True lets an algorithm control ``NightDayShiftLevel``; false lets the operator set it."
       NightFilter:
-        type: string
-        enum: [irpass, clear]
-        description: 'Only if IrPassSupport is true. irpass: IR-pass filter when IR-cut filter is Off; clear: clear
-          glass.'
+        $ref: "#/types/NightFilter"
+        description: "Only if ``IrPassSupport`` is true. ``irpass`` uses the IR-pass filter and ``clear`` uses clear glass when the IR-cut filter is Off."
+
+  SetConfigurationRequest:
+    type: object
+    description: Arguments of ``set_configuration``. Only the given fields are changed.
+    required: [channel]
+    properties:
+      channel: {type: integer, description: The channel that should be used for the operation.}
+      DayNightDwellTime: {type: number, minimum: 1, maximum: 600, description: Seconds before switching from day to night mode.}
+      DayNightShiftLevel: {type: integer, minimum: 0, maximum: 100, description: Day to night switch threshold. A higher value switches when the image is darker.}
+      NightDayDwellTime: {type: number, minimum: 1, maximum: 600, description: Seconds before switching from night to day mode.}
+      NightDayShiftLevel: {type: integer, description: Only if ``NightDayShiftLevelSupport`` is true and ``Autotune`` is false.}
+      Autotune: {type: boolean, description: Only if ``AutotuneSupport`` is true.}
+      NightFilter: {$ref: "#/types/NightFilter", description: Only if ``IrPassSupport`` is true.}
 
 operations:
   get_capabilities:
@@ -85,6 +99,7 @@ operations:
     binding: {method: getCapabilities}
     params:
       type: object
+      x-name: ChannelRequest
       required: [channel]
       properties:
         channel: {type: integer, description: The channel that should be used for the operation.}
@@ -105,9 +120,10 @@ operations:
     binding: {method: getConfiguration}
     params:
       type: object
+      x-name: ChannelRequest
       required: [channel]
       properties:
-        channel: {type: integer}
+        channel: {type: integer, description: The channel that should be used for the operation.}
     result:
       type: array
       items: {$ref: '#/types/Configuration'}
@@ -127,27 +143,14 @@ operations:
       source: https://developer.axis.com/vapix/network-video/daynight-api/#getconfiguration
   set_configuration:
     summary: Apply day/night configuration to a channel.
+    description: Returns the resulting configuration of the channel.
     effect: write
     write: patch
     binding: {method: setConfiguration}
-    params:
-      type: object
-      required: [channel]
-      properties:
-        channel: {type: integer}
-        DayNightDwellTime: {type: number, minimum: 1, maximum: 600, description: unit=s}
-        DayNightShiftLevel: {type: integer, minimum: 0, maximum: 100}
-        NightDayDwellTime: {type: number, minimum: 1, maximum: 600, description: unit=s}
-        NightDayShiftLevel:
-          type: integer
-          description: Only if NightDayShiftLevelSupport is true and Autotune is false.
-        Autotune: {type: boolean, description: Only if AutotuneSupport is true.}
-        NightFilter: {type: string, enum: [irpass, clear], description: Only if IrPassSupport is true.}
+    params: {$ref: "#/types/SetConfigurationRequest"}
     result:
       type: array
-      items: {$ref: '#/types/Configuration'}
-    errors:
-      1100: {description: 'Internal error, autotune set to true.', kind: internal}
+      items: {$ref: "#/types/Configuration"}
     examples:
     - title: setConfiguration
       request:
@@ -169,6 +172,15 @@ operations:
           Autotune: true
           NightFilter: clear
       source: https://developer.axis.com/vapix/network-video/daynight-api/#setconfiguration
+    - title: Setting an unsupported parameter
+      request:
+        params: {channel: 0, Autotune: true}
+      response:
+        error:
+          code: 1100
+          message: Internal error
+          details: [{Autotune: "Can't set Autotune, Autotune is not supported.", channel: 0}]
+      source: https://developer.axis.com/vapix/network-video/daynight-api/#error-responses
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/daynight-api/
@@ -178,16 +190,11 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Parameter tables list channel and configuration keys at top level, but examples nest them under params; examples
-    followed.
-  - Responses' data is an array of per-channel objects; setConfiguration echoes the configuration.
-  - getSupportedVersions parameter table lists apiVersion as a request parameter (unusual).
-  - DayNightShiftLevel description says 'A higher value corresponds to a night to day switch when it is darker'
-    in the spec table but overview says the day-to-night switch occurs when darker.
-  - Range of NightDayShiftLevel not stated (DayNightShiftLevel is 0–100).
-  - 'Error examples use "method": "method" placeholder. Error HTTP statuses vary (200/400/401/403/405/500) unlike
-    most JSON APIs.'
-  - AXIS OS minimum version not stated (API added 2024-04-26).
-  - 'migration: effect-guessed: write semantics guessed from the method name: set_configuration=write/patch'
+  - The overview and the getConfiguration table disagree on DayNightShiftLevel (a higher value switches day to night when darker, or night to day when darker); the overview wording is used.
+  - The range of NightDayShiftLevel is not stated (DayNightShiftLevel is 0 to 100).
+  - The minimum AXIS OS version is not stated.
+  - What differs between API versions 1.0 and 1.2 is not documented.
+  - Error HTTP statuses vary (200, 400, 401, 403, 405, 500), unlike most JSON APIs.
+  - Setting NightDayShiftLevel while Autotune is true fails with error 1100; no round trip is generated for that reason.
   migrated_from: v1
-  curated: false
+  curated: true
