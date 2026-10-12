@@ -11,6 +11,8 @@ python:
 docs:
 - https://developer.axis.com/vapix/applications/fence-guard/
 access: admin
+discovery:
+  - acap: {name: FenceGuard}
 requires:
   application: AXIS Fence Guard
 
@@ -404,7 +406,7 @@ provenance:
   - The docs list alarmOverlayEnabled as type 'int' but its values are true/false (boolean used).
   - The capabilities example lists no sizePerspective filter entry; its limits are not documented.
   - The docs say all properties are mandatory unless noted but also give defaults for several; required fields of Camera and Profile follow the example responses, so a device omitting one would raise ResponseFormatError.
-  - The docs give EmbeddedDevelopment >= 2.13 (Properties.EmbeddedDevelopment.Version) as the identification, which the discovery format cannot express (exact value only); no discovery entry is set.
+  - "The ACAP Name reported by applications/list.cgi is not documented (the docs only say to use list.cgi; the example for the related VMD 3 shows name=\"VMD3\"). The acap discovery name FenceGuard is inferred from the application's /local/fenceguard/control.cgi path; verify on a device. The docs' additional identification by Properties.EmbeddedDevelopment.Version is not used."
   - The get_event_stream RTSP request mentioned by the v1 corpus is not a JSON-RPC method and is not modelled.
   migrated_from: v1
   curated: true

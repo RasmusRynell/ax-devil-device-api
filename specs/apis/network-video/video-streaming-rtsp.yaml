@@ -1,0 +1,169 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: video-streaming-rtsp
+name: Video streaming over RTSP
+summary: 'RTSP media streaming from rtsp://<servername>/axis-media/media.amp: commands, URL parameters (incl.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: video_streaming_rtsp
+  class: RtspHelper
+docs:
+- https://developer.axis.com/vapix/network-video/video-streaming/
+access: viewer
+discovery:
+- param: {name: Properties.API.RTSP.Version, value: '2.01'}
+- param: {name: Properties.API.RTSP.RTSPAuth, value: 'yes'}
+
+binding: {path: /axis-cgi/alwaysmulti.sdp}
+
+operations:
+  get_always_multicast_sdp:
+    summary: Get the SDP of an always-multicast stream (continuously running multicast; reduces connect latency).
+    description: 'Requires Network.RTP.R0.AlwaysMulticastVideo=yes. Protected by HTTP authentication; viewer, operator
+      and admin can request. Identification: Properties.API.HTTP.Version=3, AXIS OS 5.40 and later. Since AXIS OS
+      5.40.'
+    effect: read
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {type: string, description: Desired video source.}
+    result: {type: string}
+    examples:
+    - title: get_always_multicast_sdp
+      request:
+        query: {camera: '1'}
+      response:
+        status: 200
+        text: |-
+          v=0
+          o=- 1284464363092904 1284464363092904 IN IP4 axis
+          s=Multicast presentation
+          e=NONE
+          t=0 0
+          a=range:npt=0.000000-
+          m=video 50000 RTP/AVP 96
+          c=IN IP4 239.225.149.138/0
+          b=AS:50000
+          a=framerate:25.0
+          a=transform:1,0,0;0,1,0;0,0,1
+          a=rtpmap:96 H264/90000
+          a=fmtp:96 packetization-mode=1; profile-level-id=420029;
+          sprop-parameter-sets=Z0IAKeKQFgJNgScFAQXh4kRU,aM48gA==
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#always-multicast
+  describe_url:
+    summary: Request an SDP description of the media stream(s).
+    effect: read
+    binding:
+      rtsp: {}
+    params:
+      type: object
+      properties:
+        streamprofile:
+          type: string
+          description: Name of a saved stream profile (StreamProfile.S#.Name). Values can be overridden by parameters
+            after it.
+        recordingid: {type: string, description: Name of a saved recording.}
+        audio:
+          type: integer
+          enum: [0, 1]
+          default: 1
+          description: 'Whether audio shall be available in the stream. 0 = No audio, 1 = Audio. (Metadata table:
+            default configurable, see Audio.A0.Enabled.)'
+        pull:
+          type: integer
+          enum: [0, 1]
+          default: 0
+          description: 'For PLAY when downloading a recording: 1 = stream as fast as possible (only useful with
+            RTSP over HTTP); 0 = default, pull disabled, real-time playback.'
+        video:
+          type: integer
+          enum: [0, 1]
+          default: 1
+          description: Whether video should be made available in the stream.
+        event:
+          type: string
+          enum: ['off', 'on']
+          default: 'off'
+          description: Whether event metadata should be made available in the stream.
+        eventtopic:
+          type: string
+          description: 'Event topic filter: <filter1>[,<filter2>...], Topic Expression of the ConcreteSet dialect
+            with prefixes onvif (http://www.onvif.org/ver10/topics) and axis (http://www.axis.com/2009/event/topics).'
+        eventcontent:
+          type: string
+          description: MessageContent filter expression in the ItemFilter dialect (ONVIF); may be URL encoded. Only
+            useful when event=on.
+        ptz:
+          type: string
+          enum: [none, all, status, position]
+          description: 'PTZ metadata. Values: none: No PTZ status or position information; all: Both PTZ status
+            and position; status: PTZ status; position: PTZ position'
+        analytics:
+          type: string
+          enum: ['off', box, polygon]
+          description: 'Scene (analytics) metadata. Values: off: No scene data; box: Bounding box and object classification
+            (if supported/configured); polygon: Polygon and bounding box and object classification (if supported/configured)'
+        ptz_pantilt_coordinate_space:
+          type: string
+          enum: [generic, degrees, digital]
+          description: 'Coordinate space for pan/tilt positions; only with ptz=all|position. Values: generic: http://www.onvif.org/ver10/tptz/PantiltSpaces/PositionGenericSpace;
+            degrees: http://www.onvif.org/ver10/tptz/PantiltSpaces/SphericalPositionSpaceDegrees; digital: http://www.onvif.org/ver10/tptz/PantiltSpaces/DigitalPositionSpace'
+        ptz_zoom_coordinate_space:
+          type: string
+          enum: [generic, digital]
+          description: 'Coordinate space for zoom positions; only with ptz=all|position. Values: generic: http://www.onvif.org/ver10/tptz/ZoomSpaces/PositionGenericSpace;
+            digital: http://www.onvif.org/ver10/tptz/ZoomSpaces/NormalizedDigitalPosition'
+  ssm_describe_url:
+    summary: 'Source-specific multicast (SSM): SDP includes a=source-filter; SETUP with Transport: RTP/AVP;multicast;
+      tracks addressed as /stream=<n>.'
+    description: Requires Network.RTP.R0.VideoAddress, Network.RTP.R0.VideoPort (0 = dynamically allocated by the
+      RTSP server; otherwise static), Network.RTP.R0.TTL (and AudioAddress/AudioPort for audio, with ?audio=1).
+      The SSM implementation does not support RTCP receiver feedback.
+    effect: read
+    binding:
+      rtsp: {path: /axis-media/ssm/media.amp}
+    params:
+      type: object
+      properties:
+        audio: {type: integer, enum: [0, 1]}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-streaming/
+  sha256_md: c5a6a629959b129e10f70c9855786d7282b383fadd6c44254103acc40c4a5a30
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Example 5 SETUP URL 'rtsp:///<servername>//axis-media/...' contains extra slashes (doc typo).
+  - 'audio default: RTSP URL table says 1; metadata table says configurable via Audio.A0.Enabled.'
+  - Video URL options (videocodec, resolution, fps, ...) are defined on the Image API page and are not duplicated
+    here.
+  - SSM DESCRIBE/SETUP responses lack the RTSP status line; 'a=range:npt=now-a=control:...' lines are concatenated
+    in the doc.
+  - Always multicast SDP response content type not stated.
+  - SET_PARAMETER note says 'See example 2 below' but refers to Example 11.
+  - Renew-Stream is a body parameter; schema param 'in' has no text/parameters body location, so 'in' is omitted.
+  - 'migration: op-skipped: rtsp_over_http_get: a request body, tunnelling headers or a path argument; uploads and
+    RTSP-over-HTTP are not stream replies'
+  - 'migration: op-skipped: rtsp_over_http_post: a request body, tunnelling headers or a path argument; uploads
+    and RTSP-over-HTTP are not stream replies'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: op-skipped: options: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not
+    a URL; RTSP clients drive these'
+  - 'migration: op-skipped: setup: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not a
+    URL; RTSP clients drive these'
+  - 'migration: op-skipped: play: the same URL as an earlier operation (its parameters are a subset)'
+  - 'migration: op-skipped: pause: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not a
+    URL; RTSP clients drive these'
+  - 'migration: op-skipped: teardown: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not
+    a URL; RTSP clients drive these'
+  - 'migration: op-skipped: set_parameter_renew_stream: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER
+    ...), not a URL; RTSP clients drive these'
+  - 'migration: op-skipped: get_parameter: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...),
+    not a URL; RTSP clients drive these'
+  migrated_from: v1
+  curated: false

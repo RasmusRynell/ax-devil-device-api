@@ -1,0 +1,309 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: datahub-streaming-over-websocket
+name: Device Data Hub WebSocket API
+summary: Consume data from Device Data Hub (on-device pub/sub) over a JSON-RPC 2.0 WebSocket API.
+section: device-data-hub
+family: ws
+status: released
+python:
+  module: device_data_hub_ws
+  class: DeviceDataHubWebSocket
+docs:
+- https://developer.axis.com/vapix/device-data-hub/websocket/
+- https://developer.axis.com/vapix/device-data-hub/topics/
+- https://developer.axis.com/vapix/device-data-hub/
+access: admin
+discovery:
+- {api_discovery: datahub-streaming-over-websocket}
+requires:
+  firmware: '12.11'
+
+binding: {}
+
+errors:
+  -32700: {description: Invalid JSON, kind: invalid_argument}
+  -32600: {description: Invalid request, kind: invalid_argument}
+  -32601: {description: Method not found, kind: not_found}
+  -32602: {description: Invalid parameter value specified, kind: invalid_argument}
+  -32603: {description: Internal error, kind: internal}
+  2100: {description: API version not supported, kind: unsupported}
+  2105: {description: Authorization failed, kind: access_denied}
+  2107: {description: Transport level error}
+  1200: {description: No such subscription. Data Hub specific error code.}
+
+types:
+  PtzOpticalZoomStateV1:
+    type: object
+    required: [channelId]
+    x-nullable: [hfov_deg, vfov_deg, zoom_mag, zoom_moving]
+    properties:
+      channelId: {type: string}
+      hfov_deg: {type: number, minimum: 0, maximum: 360.0}
+      vfov_deg: {type: number, minimum: 0, maximum: 360.0}
+      zoom_mag: {type: number, minimum: 1.0, maximum: 100.0}
+      zoom_moving: {type: boolean}
+    additionalProperties: true
+  PtzPanTiltStateV1:
+    type: object
+    required: [channelId]
+    x-nullable:
+    - pan_deg
+    - pan_moving
+    - pan_speed_deg_s
+    - tilt_deg
+    - tilt_moving
+    - tilt_speed_deg_s
+    properties:
+      channelId: {type: string}
+      pan_deg: {type: number, minimum: -360, maximum: 360.0}
+      pan_moving: {type: boolean}
+      pan_speed_deg_s: {type: number, minimum: -400, maximum: 400.0}
+      tilt_deg: {type: number, minimum: -360, maximum: 360.0}
+      tilt_moving: {type: boolean}
+      tilt_speed_deg_s: {type: number, minimum: -400, maximum: 400.0}
+    additionalProperties: true
+  SceneFrameV1:
+    type: object
+    description: A detected and tracked object observed over time.
+    required: [id, channel_id]
+    x-nullable:
+    - classes
+    - duration
+    - end_time
+    - image
+    - maximum_speed
+    - minimum_speed
+    - parts
+    - path
+    - start_time
+    properties:
+      channel_id:
+        type: integer
+        minimum: 1
+        description: Uniquely identifies a source within a single device, for example, a video or radar sensor.
+      classes:
+        type: array
+        items: {}
+        description: Classification candidates for the track (e.g., person, vehicle).
+      duration: {type: number, description: Total duration of the track in seconds.}
+      end_time:
+        type: string
+        description: Timestamp of the last observation in the track. (format=date-time)
+      id: {type: string, description: Globally unique identifier.}
+      image: {description: Representative snapshot of the tracked object.}
+      maximum_speed: {type: number, minimum: 0, description: Maximum measured speed of an object in m/s}
+      minimum_speed: {type: number, minimum: 0, description: Minimum measured speed of an object in m/s}
+      parts:
+        type: array
+        items: {}
+        description: References to the original object tracks that were combined to create this track. (minItems=1)
+      path:
+        type: array
+        items: {}
+        description: Time-ordered samples of the track’s trajectory (timestamps and positions).
+      start_time:
+        type: string
+        description: Timestamp of the first observation in the track. (format=date-time)
+    additionalProperties: true
+  SceneObjectSnapshotV1:
+    type: object
+    description: A detected and tracked object observed over time.
+    required: [id, channel_id]
+    x-nullable:
+    - classes
+    - duration
+    - end_time
+    - image
+    - maximum_speed
+    - minimum_speed
+    - parts
+    - path
+    - start_time
+    properties:
+      channel_id:
+        type: integer
+        minimum: 1
+        description: Uniquely identifies a source within a single device, for example, a video or radar sensor.
+      classes:
+        type: array
+        items: {}
+        description: Classification candidates for the track (e.g., person, vehicle).
+      duration: {type: number, description: Total duration of the track in seconds.}
+      end_time:
+        type: string
+        description: Timestamp of the last observation in the track. (format=date-time)
+      id: {type: string, description: Globally unique identifier.}
+      image: {description: Representative snapshot of the tracked object.}
+      maximum_speed: {type: number, minimum: 0, description: Maximum measured speed of an object in m/s}
+      minimum_speed: {type: number, minimum: 0, description: Minimum measured speed of an object in m/s}
+      parts:
+        type: array
+        items: {}
+        description: References to the original object tracks that were combined to create this track. (minItems=1)
+      path:
+        type: array
+        items: {}
+        description: Time-ordered samples of the track’s trajectory (timestamps and positions).
+      start_time:
+        type: string
+        description: Timestamp of the first observation in the track. (format=date-time)
+    additionalProperties: true
+  SceneObjectTrackV1:
+    type: object
+    description: A detected and tracked object observed over time.
+    required: [id, channel_id]
+    x-nullable:
+    - classes
+    - duration
+    - end_time
+    - image
+    - maximum_speed
+    - minimum_speed
+    - parts
+    - path
+    - start_time
+    properties:
+      channel_id:
+        type: integer
+        minimum: 1
+        description: Uniquely identifies a source within a single device, for example, a video or radar sensor.
+      classes:
+        type: array
+        items: {}
+        description: Classification candidates for the track (e.g., person, vehicle).
+      duration: {type: number, description: Total duration of the track in seconds.}
+      end_time:
+        type: string
+        description: Timestamp of the last observation in the track. (format=date-time)
+      id: {type: string, description: Globally unique identifier.}
+      image: {description: Representative snapshot of the tracked object.}
+      maximum_speed: {type: number, minimum: 0, description: Maximum measured speed of an object in m/s}
+      minimum_speed: {type: number, minimum: 0, description: Minimum measured speed of an object in m/s}
+      parts:
+        type: array
+        items: {}
+        description: References to the original object tracks that were combined to create this track. (minItems=1)
+      path:
+        type: array
+        items: {}
+        description: Time-ordered samples of the track’s trajectory (timestamps and positions).
+      start_time:
+        type: string
+        description: Timestamp of the first observation in the track. (format=date-time)
+    additionalProperties: true
+  Filter:
+    type: object
+    description: Subscription filter. The filters array currently supports one filter object.
+    required: [topics]
+    properties:
+      topics:
+        type: array
+        items: {type: string}
+        description: Lists of topics to subscribe to. Minimum one topic is required. (minItems=1)
+      instanceFilter:
+        type: array
+        items:
+          type: object
+          additionalProperties: {type: string}
+        description: Filters samples by instance key-value pairs.
+      dataFilter:
+        type: array
+        items: {type: string}
+        description: Filters samples using jq-style expressions.
+  StartFrom:
+    type: object
+    properties:
+      position:
+        enum: [oldest, new]
+        default: new
+        description: oldest includes historical samples, new receives only new samples.
+  Subscription:
+    type: object
+    description: Same structure as the data-hub_v1:subscribe params.
+    properties:
+      subscriptionId: {type: string}
+      filters:
+        type: array
+        items: {$ref: '#/types/Filter'}
+      startFrom: {$ref: '#/types/StartFrom'}
+  TopicSampleParams:
+    type: object
+    required: [subscriptionId, topic, instance, data, timestamp, isHistorical]
+    properties:
+      subscriptionId: {type: string, description: Identifies the subscription that the sample matches.}
+      topic: {type: string, description: Identifies the topic from which the sample was received.}
+      instance:
+        type: object
+        additionalProperties: true
+        description: Instance key-value pairs associated with the sample.
+      data: {type: object, description: The topic sample data (see the topic data schemas).}
+      timestamp: {type: string, description: 'When the sample was produced, ISO 8601. (format=date-time)'}
+      isHistorical: {type: boolean, description: Whether the sample was cached before the subscription started.}
+
+operations:
+  connect:
+    summary: Open the WebSocket session with Device Data Hub.
+    effect: read
+    binding:
+      session:
+        path: /vapix/ws/v1
+        query: {apis: data-hub}
+        codec: datahub
+
+sources:
+- url: https://developer.axis.com/vapix/device-data-hub/websocket/
+  sha256_md: 2aee1ba109d99a26cf4edc1cc0f2dbdbd2dea679208d8ae75f9ff7dddad7e98e
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/device-data-hub/topics/
+  sha256_md: 1d2d29ccee9b492605e6235cea72e7bef6e9c6f748cc72c37ea55b86b6446d7e
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/device-data-hub/
+  sha256_md: 7716a6fe99a4c7b2637b9d7ecc36e75bcf5427e8bd521411f01d2193909105cc
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The subscribe example uses topic names ''some.Topic''/''other.Topic'' (capital T) while listTopics shows ''some.topic'';
+    case sensitivity of topic names is not stated. Source: https://developer.axis.com/vapix/device-data-hub/websocket/'
+  - 'Format of instanceFilter (array of single-key objects?) and dataFilter jq expression semantics (AND/OR across
+    entries) are not specified beyond the example. Source: https://developer.axis.com/vapix/device-data-hub/websocket/#method-subscribe'
+  - 'Whether wssession token auth and Basic/Digest on the upgrade request can be combined, and the access level
+    required, are not stated. Source: https://developer.axis.com/vapix/device-data-hub/websocket/#authentication'
+  - 'Topic key names differ between topic families: PTZ topics use channelId (string), scene topics use channel_id
+    (integer). Source: https://developer.axis.com/vapix/device-data-hub/topics/'
+  - 'migration: op-skipped: list_topics: an in-session message: sent with session.request(method, params), or a
+    notification the codec parses (EventNotification, TopicSample)'
+  - 'migration: op-skipped: subscribe: an in-session message: sent with session.request(method, params), or a notification
+    the codec parses (EventNotification, TopicSample)'
+  - 'migration: op-skipped: unsubscribe: an in-session message: sent with session.request(method, params), or a
+    notification the codec parses (EventNotification, TopicSample)'
+  - 'migration: op-skipped: unsubscribe_all: an in-session message: sent with session.request(method, params), or
+    a notification the codec parses (EventNotification, TopicSample)'
+  - 'migration: op-skipped: list_subscriptions: an in-session message: sent with session.request(method, params),
+    or a notification the codec parses (EventNotification, TopicSample)'
+  - 'migration: op-skipped: on_topic_sample: an in-session message: sent with session.request(method, params), or
+    a notification the codec parses (EventNotification, TopicSample)'
+  - 'migration: op-skipped: get_ws_session_token: the session token is handled by connect(use_token=True)'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneFrameV1/$defs/ObjectClass'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneFrameV1/$defs/Snapshot'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneFrameV1/$defs/ObjectTrackReference'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneFrameV1/$defs/TimeAndPosition'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectSnapshotV1/$defs/ObjectClass'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectSnapshotV1/$defs/Snapshot'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectSnapshotV1/$defs/ObjectTrackReference'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectSnapshotV1/$defs/TimeAndPosition'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectTrackV1/$defs/ObjectClass'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectTrackV1/$defs/Snapshot'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectTrackV1/$defs/ObjectTrackReference'
+  - 'migration: odd-ref: unsupported $ref #/types/SceneObjectTrackV1/$defs/TimeAndPosition'
+  - 'migration: discovery: discovery method other dropped'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section envelope not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'migration: dropped-keywords: $defs x5, $id x5, metamodel_version x5, title x5, version x5, x-original-schema-dialect
+    x5, x-source-file x5'
+  migrated_from: v1
+  curated: false

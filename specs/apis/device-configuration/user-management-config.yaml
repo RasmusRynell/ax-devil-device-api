@@ -118,7 +118,6 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/user-management-v2-api/#manage-the-current-passphrase-complexity-policy
-      x-contract: {skip: "runtime/harness bug: dca.py _field_for calls type(params).model_fields on a model class (AttributeError) for body_field setters"}
 
 sources:
 - url: https://developer.axis.com/vapix/device-configuration/user-management-v2-api/

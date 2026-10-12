@@ -1,15 +1,13 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: p8815-2-3d-people-counter
 name: P8815-2 3D people counter API
-summary: Export foot traffic and occupancy statistics (CSV/JSON), read real-time occupancy, adjust occupancy and
-  restart passthrough countdown on the AXIS P8815-2 3D...
+summary: Export foot traffic and occupancy statistics (CSV/JSON) and read real-time occupancy on the AXIS P8815-2 3D People Counter.
 section: applications
 family: cgi
 status: released
 python:
   module: p8815_2_3d_people_counter
-  class: P88152PeopleCounter3D
+  class: P8815PeopleCounter3D
 docs:
 - https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/
 access: admin
@@ -19,51 +17,73 @@ requires:
 binding: {path: /a3dpc/api/export/csv}
 
 types:
+  StatisticsDate:
+    type: string
+    pattern: ^([0-9]{8}|yesterday|today|now)$
+    description: 'YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).'
+  TrafficResolution:
+    type: string
+    enum: [minute, hour, day]
+  OccupancyResolution:
+    type: string
+    enum: [hour, day]
   TrafficRecord:
     type: object
+    required: [start, end, in, out]
     properties:
-      start: {type: string, description: 'YYYY-MM-DD hh:mm:ss'}
-      end: {type: string}
-      in: {type: integer}
-      out: {type: integer}
+      start: {type: string, description: 'Interval start, YYYY-MM-DD hh:mm:ss.'}
+      end: {type: string, description: 'Interval end, YYYY-MM-DD hh:mm:ss.'}
+      in: {type: integer, description: People counted in during the interval.}
+      out: {type: integer, description: People counted out during the interval.}
+  TrafficStatistics:
+    type: object
+    required: [data]
+    properties:
+      data:
+        type: array
+        items: {$ref: '#/types/TrafficRecord'}
   OccupancyRecord:
     type: object
+    required: [start, end, peak]
     properties:
-      start: {type: string, description: 'YYYY-MM-DD hh:mm:ss'}
-      end: {type: string}
-      peak: {type: integer}
+      start: {type: string, description: 'Interval start, YYYY-MM-DD hh:mm:ss.'}
+      end: {type: string, description: 'Interval end, YYYY-MM-DD hh:mm:ss.'}
+      peak: {type: integer, description: Peak occupancy during the interval.}
+  OccupancyStatistics:
+    type: object
+    required: [data]
+    properties:
+      data:
+        type: array
+        items: {$ref: '#/types/OccupancyRecord'}
   RealTimeOccupancy:
     type: object
-    description: Real-time estimated occupancy and counting statistics for the primary camera as well as its connected
-      secondary cameras.
+    description: Real-time estimated occupancy and counting statistics for the primary camera and its connected secondary cameras.
+    required: [occupancy, serial, timestamp, total_in, total_out]
     properties:
-      occupancy: {type: integer}
-      serial: {type: string, description: 'e.g. 00:40:8c:18:82:27'}
-      timestamp: {type: string, description: format=date-time}
-      total_in: {type: integer}
-      total_out: {type: integer}
+      occupancy: {type: integer, description: Estimated occupancy.}
+      serial: {type: string, description: 'Serial of the camera, for example 00:40:8c:18:82:27.'}
+      timestamp: {type: string, description: 'Time of the reading, ISO 8601 with offset.'}
+      total_in: {type: integer, description: Total people counted in.}
+      total_out: {type: integer, description: Total people counted out.}
 
 operations:
   export_traffic_csv:
     summary: Download foot traffic statistics (In/Out) as CSV.
+    description: 'The first line names the columns: start, end, in, out.'
     effect: read
-    binding: {method: GET, reply: text}
+    binding: {path: /a3dpc/api/export/csv, method: GET, reply: text}
     params:
       type: object
+      x-name: TrafficExportRequest
       required: [start, end, resolution]
       properties:
-        start:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        end:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        resolution: {type: string, enum: [minute, hour, day]}
+        start: {$ref: '#/types/StatisticsDate'}
+        end: {$ref: '#/types/StatisticsDate'}
+        resolution: {$ref: '#/types/TrafficResolution'}
     result: {type: string}
     errors:
-      400: {description: 'Bad Request. Validation failed; error[] lists field and reason.'}
+      400: {description: 'Bad Request. Validation failed; the error list gives the field and reason.', kind: invalid_argument}
     examples:
     - title: 'Example 2: current day, minute intervals'
       request:
@@ -81,6 +101,7 @@ operations:
           2020-09-23 00:06:00,2020-09-23 00:07:00,0,0
           2020-09-23 00:07:00,2020-09-23 00:08:00,0,0
           2020-09-23 00:08:00,2020-09-23 00:09:00,0,0
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#download-foot-traffic-statistics
     - title: 'Example 3: 2020-08-01 until today, daily intervals'
       request:
         query: {start: '20200801', end: today, resolution: day}
@@ -97,51 +118,56 @@ operations:
           2020-08-07 00:00:00,2020-08-08 00:00:00,0,0
           2020-08-08 00:00:00,2020-08-09 00:00:00,0,0
           2020-08-09 00:00:00,2020-08-10 00:00:00,0,0
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#download-foot-traffic-statistics
   export_traffic_json:
     summary: Download foot traffic statistics (In/Out) as JSON.
     effect: read
     binding: {path: /a3dpc/api/export/json, method: GET, reply: json}
     params:
       type: object
+      x-name: TrafficExportRequest
       required: [start, end, resolution]
       properties:
-        start:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        end:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        resolution: {type: string, enum: [minute, hour, day]}
-    result:
-      type: object
-      properties:
-        data:
-          type: array
-          items: {$ref: '#/types/TrafficRecord'}
+        start: {$ref: '#/types/StatisticsDate'}
+        end: {$ref: '#/types/StatisticsDate'}
+        resolution: {$ref: '#/types/TrafficResolution'}
+    result: {$ref: '#/types/TrafficStatistics'}
     errors:
-      400: {description: 'Bad Request. Validation failed; error[] lists field and reason.'}
+      400: {description: 'Bad Request. Validation failed; the error list gives the field and reason.', kind: invalid_argument}
+    examples:
+    - title: 'Example 1: yesterday, hourly intervals'
+      request:
+        query: {start: yesterday, end: today, resolution: hour}
+      response:
+        status: 200
+        text: |-
+          {
+              "data": [
+                  {
+                      "start": "2020-06-23 00:00:00",
+                      "end": "2020-06-23 01:00:00",
+                      "in": 0,
+                      "out": 0
+                  }
+              ]
+          }
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#download-foot-traffic-statistics
   export_occupancy_csv:
     summary: Download occupancy statistics as CSV.
+    description: 'The first line names the columns: start, end, peak.'
     effect: read
     binding: {path: /a3dpc/api/export_occupancy/csv, method: GET, reply: text}
     params:
       type: object
+      x-name: OccupancyExportRequest
       required: [start, end, resolution]
       properties:
-        start:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        end:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        resolution: {type: string, enum: [hour, day]}
+        start: {$ref: '#/types/StatisticsDate'}
+        end: {$ref: '#/types/StatisticsDate'}
+        resolution: {$ref: '#/types/OccupancyResolution'}
     result: {type: string}
     errors:
-      400: {description: 'Bad Request. Validation failed; error[] lists field and reason.'}
+      400: {description: 'Bad Request. Validation failed; the error list gives the field and reason.', kind: invalid_argument}
     examples:
     - title: 'Example 2: hour intervals'
       request:
@@ -160,6 +186,7 @@ operations:
           2023-01-09 07:00:00,2023-01-09 08:00:00,3
           2023-01-09 08:00:00,2023-01-09 09:00:00,17
           2023-01-09 09:00:00,2023-01-09 10:00:00,21
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#download-occupancy-statistics
     - title: 'Example 3: 2022-12-31 until today, daily intervals'
       request:
         query: {start: '20221231', end: today, resolution: day}
@@ -176,37 +203,63 @@ operations:
           2023-01-06 00:00:00,2023-01-07 00:00:00,5
           2023-01-07 00:00:00,2023-01-08 00:00:00,2
           2023-01-08 00:00:00,2023-01-09 00:00:00,1
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#download-occupancy-statistics
   export_occupancy_json:
     summary: Download occupancy statistics as JSON.
     effect: read
     binding: {path: /a3dpc/api/export_occupancy/json, method: GET, reply: json}
     params:
       type: object
+      x-name: OccupancyExportRequest
       required: [start, end, resolution]
       properties:
-        start:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        end:
-          type: string
-          pattern: ^([0-9]{8}|yesterday|today|now)$
-          description: YYYYMMDD (start-of-day), yesterday (start-of-day), today (start-of-day) or now (current time).
-        resolution: {type: string, enum: [hour, day]}
-    result:
-      type: object
-      properties:
-        data:
-          type: array
-          items: {$ref: '#/types/OccupancyRecord'}
+        start: {$ref: '#/types/StatisticsDate'}
+        end: {$ref: '#/types/StatisticsDate'}
+        resolution: {$ref: '#/types/OccupancyResolution'}
+    result: {$ref: '#/types/OccupancyStatistics'}
     errors:
-      400: {description: 'Bad Request. Validation failed; error[] lists field and reason.'}
+      400: {description: 'Bad Request. Validation failed; the error list gives the field and reason.', kind: invalid_argument}
+    examples:
+    - title: 'Example 1: yesterday, hourly intervals'
+      request:
+        query: {start: yesterday, end: today, resolution: hour}
+      response:
+        status: 200
+        text: |-
+          {
+              "data": [
+                  {
+                      "start": "2023-01-08 00:00:00",
+                      "end": "2023-01-08 01:00:00",
+                      "peak": 0
+                  },
+                  {
+                      "start": "2023-01-08 01:00:00",
+                      "end": "2023-01-08 02:00:00",
+                      "peak": 0
+                  }
+              ]
+          }
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#download-occupancy-statistics
   get_occupancy:
-    summary: Request real-time estimated occupancy and counting statistics (primary camera and connected secondary
-      cameras).
+    summary: Request real-time estimated occupancy and counting statistics (primary camera and connected secondary cameras).
     effect: read
     binding: {path: /a3dpc/api/occupancy, method: GET, reply: json}
     result: {$ref: '#/types/RealTimeOccupancy'}
+    examples:
+    - title: Request real-time data
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          {
+              "occupancy": 15,
+              "serial": "00:40:8c:18:82:27",
+              "timestamp": "2020-12-03T16:28:05+01:00",
+              "total_in": 100,
+              "total_out": 85
+          }
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#request-real-time-data
 
 sources:
 - url: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/
@@ -214,20 +267,13 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - Data push field table names 'Data' and 'Sensor' as arrays and uses data[]./sensor[]. paths, but the sample shows
-    plain objects; table says sensor[].timeZone while the sample uses 'timezone'. https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#generic-data-push
-  - Request apiVersion is '1' while responses report '1.0'; supported versions and version negotiation not documented.
-  - Error code 1200 is used for three different conditions; it is not in the general error code list.
-  - restartPassthroughCountdown response table describes 'data' as 'An array containing the counting data information'
-    but the example is an empty object.
-  - Occupancy Example 2 text says 'current day' but uses start=yesterday&end=today.
-  - AXIS OS / application version requirements and access level of the GET export endpoints are not documented.
-  - 'migration: op-skipped: adjust_occupancy: kind json_rpc_method is not a classic CGI call'
-  - 'migration: op-skipped: restart_passthrough_countdown: kind json_rpc_method is not a classic CGI call'
-  - 'migration: types-dropped: types not referenced by any migrated operation: DataPushPayload, ValidationError'
-  - 'migration: dropped-section: v1 section envelope not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - "BLOCKED(raw-body): adjust_occupancy: POST /axis-cgi/a3dpc.cgi with a JSON envelope body (apiVersion, context, method adjustOccupancy, params.occupancy), Operator access, error 1200."
+  - "BLOCKED(raw-body): restart_passthrough_countdown: POST /axis-cgi/a3dpc.cgi with a JSON envelope body (method restartPassthroughCountdown), Operator access, error 1200."
+  - Generic data push is pushed by the device to a configured HTTPS endpoint, so it is not an operation. The field table names Data and Sensor as arrays but the sample uses plain objects, and it says sensor[].timeZone while the sample uses timezone.
+  - Error code 1200 of the a3dpc.cgi methods is used for three different conditions and is missing from the general error code list.
+  - Occupancy example 2 text says current day but uses start=yesterday&end=today.
+  - AXIS OS and application version requirements and the access level of the GET export endpoints are not documented, so access stays admin.
   migrated_from: v1
-  curated: false
+  curated: true

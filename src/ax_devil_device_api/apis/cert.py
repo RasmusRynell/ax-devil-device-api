@@ -203,10 +203,8 @@ class OPS:
         access="admin",
         effect="action",
         errors={
-            5: ErrorCode("The key type is not supported by the selected keystore, kind: invalid_argument"),
-            100: ErrorCode(
-                "Maintenance is required on the device before the key type can be generated, kind: unavailable"
-            ),
+            5: ErrorCode("The key type is not supported by the selected keystore", "invalid_argument"),
+            100: ErrorCode("Maintenance is required on the device before the key type can be generated", "unavailable"),
         },
     )
     install_from_pkcs12 = Operation(
@@ -217,9 +215,9 @@ class OPS:
         access="admin",
         effect="action",
         errors={
-            5: ErrorCode("The private key type is not supported by the selected keystore, kind: invalid_argument"),
+            5: ErrorCode("The private key type is not supported by the selected keystore", "invalid_argument"),
             100: ErrorCode(
-                "Maintenance is required on the device before the private key type can be uploaded, kind: unavailable"
+                "Maintenance is required on the device before the private key type can be uploaded", "unavailable"
             ),
         },
     )

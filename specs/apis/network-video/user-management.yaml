@@ -1,8 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: user-management
 name: Add, modify and delete user accounts (pwdgrp.cgi)
-summary: Add, update, remove and list user accounts with password and group membership via /axis-cgi/pwdgrp.cgi.
+summary: Add, update, remove and list user accounts with password and group membership via ``/axis-cgi/pwdgrp.cgi``.
 section: network-video
 family: cgi
 status: released
@@ -20,158 +19,161 @@ requires:
 
 binding: {path: /axis-cgi/pwdgrp.cgi}
 
+types:
+  UserName:
+    type: string
+    minLength: 1
+    maxLength: 14
+    pattern: ^[a-zA-Z0-9]+$
+    description: The user account name, 1 to 14 characters from a-z, A-Z and 0-9.
+  SecondaryGroups:
+    type: string
+    pattern: ^(viewer|operator|admin|ptz)(:(viewer|operator|admin|ptz))*$
+    description: >-
+      Colon separated secondary group names that set the access rights, in any order: ``viewer`` (Viewer),
+      ``viewer:ptz`` (Viewer with PTZ control), ``operator:viewer`` (Operator), ``operator:viewer:ptz`` (Operator with PTZ
+      control), ``admin:operator:viewer`` (Administrator) and ``admin:operator:viewer:ptz`` (Administrator with PTZ control).
+  AddUserRequest:
+    type: object
+    required: [user, pwd, grp, sgrp]
+    properties:
+      user: {$ref: '#/types/UserName'}
+      pwd:
+        type: string
+        minLength: 1
+        maxLength: 64
+        description: The password for the account. It must contain one or more characters and comply with any configured passphrase policy.
+      grp:
+        type: string
+        description: An existing primary group name. The recommended value is ``users``; ``root`` is supported but should only be used when creating the initial user account.
+      sgrp: {$ref: '#/types/SecondaryGroups'}
+      comment:
+        type: string
+        description: Description of the user account; may be empty. Optional in device software and service releases since autumn 2019, required before.
+      strict_pwd:
+        type: integer
+        minimum: 1
+        maximum: 1
+        description: Set to 1 to enforce the VAPIX password standard (ASCII characters 0x20-0x7E, at most 64 characters).
+  UpdateUserRequest:
+    type: object
+    required: [user]
+    properties:
+      user: {$ref: '#/types/UserName'}
+      pwd:
+        type: string
+        minLength: 1
+        maxLength: 64
+        description: The new password. It must comply with any configured passphrase policy.
+      grp: {type: string, description: The primary group.}
+      sgrp: {$ref: '#/types/SecondaryGroups'}
+      comment: {type: string, description: Description of the user account.}
+      strict_pwd:
+        type: integer
+        minimum: 1
+        maximum: 1
+        description: Set to 1 to enforce the VAPIX password standard.
+  UserRequest:
+    type: object
+    required: [user]
+    properties:
+      user: {$ref: '#/types/UserName'}
+
 operations:
   add_user:
-    summary: Create a new user account.
+    summary: Create a new user account; returns the device message (``"Created account joe."``).
+    description: >-
+      The arguments are sent in the request body, as the docs advise against putting credentials in the URL. The initial
+      administrator account can be created without authentication, and on devices older than AXIS OS 11.5 it must be named
+      ``root``; the role must be Administrator with PTZ control. The device reports failures as a text line starting with
+      ``Error:``.
     effect: write
     write: create
     binding:
-      method: GET
+      method: POST
+      encoding: form
       query: {action: add}
       reply: text
-    params:
-      type: object
-      required: [user, pwd, grp, sgrp]
-      properties:
-        user:
-          type: string
-          minLength: 1
-          maxLength: 14
-          pattern: ^[a-zA-Z0-9]+$
-          description: The user account name (1-14 characters), a non-existing user account name. Valid characters
-            are a-z, A-Z and 0-9.
-        pwd:
-          type: string
-          minLength: 1
-          description: The password for the account. It must contain one or more characters. Must comply with any
-            configured passphrase policy.
-        grp:
-          type: string
-          description: An existing primary group account name. The recommended value for this argument is users.
-            VAPIX also supports the value root, but it should only be used when creating the initial user account.
-        sgrp:
-          type: string
-          enum:
-          - viewer
-          - viewer:ptz
-          - operator:viewer
-          - operator:viewer:ptz
-          - admin:operator:viewer
-          - admin:operator:viewer:ptz
-          description: 'Colon separated existing secondary group account names; sets the user access rights. Values:
-            viewer: Viewer role; viewer:ptz: Viewer role, with PTZ control; operator:viewer: Operator role; operator:viewer:ptz:
-            Operator role, with PTZ control; admin:operator:viewer: Admin role; admin:operator:viewer:ptz: Admin
-            role, with PTZ control'
-        comment:
-          type: string
-          description: Description of the user account. This value can be empty. Optional in device software and
-            service releases since autumn 2019 (previously required for action=add).
-        strict_pwd:
-          type: integer
-          enum: [1]
-          description: Set to 1 to enforce VAPIX password standard. Valid characters for passwords are ASCII characters
-            with byte codes in the range of 0x20 - 0x7E. The password must be within 64 characters.
+      auth: if_challenged
+    params: {$ref: '#/types/AddUserRequest'}
+    result: {type: string}
     errors:
-      'Error: consult the system log file.': {description: Generic error.}
-      'Error: action operation type.': {description: 'The action is omitted or is not one of add, update, remove
-          or get.'}
-      'Error: account user name.':
-        description: No user name was supplied, or the user name contains characters other than A-Z, a-z or 0-9.
-      'Error: malformed action operation, <action>.': {description: The user name is not appropriate for the action.}
-      'Error: not a valid initial admin user.':
-        description: No admin user has been created and the user that attempted to be added is not a valid initial
-          admin user.
-      'Error: initial admin user must be created first.':
-        description: No admin user has been created. Start by creating one and use it to login and perform the requested
-          operation.
-      'Error:  invalid password.':
-        description: The supplied password is less than 1 character or more than 64 characters or does not comply
-          with the configured passphrase policy.
+      'Error: consult the system log file.': {description: Generic error., kind: internal}
+      'Error: action operation type.': {description: 'The action is omitted or is not one of add, update, remove or get.', kind: invalid_argument}
+      'Error: account user name.': {description: 'No user name was supplied, or the user name contains characters other than A-Z, a-z or 0-9.', kind: invalid_argument}
+      'Error: malformed action operation, <action>.': {description: The user name is not appropriate for the action., kind: invalid_argument}
+      'Error: not a valid initial admin user.': {description: 'No admin user has been created and the user that attempted to be added is not a valid initial admin user (HTTP 401).', kind: access_denied}
+      'Error: initial admin user must be created first.': {description: 'No admin user has been created; create one and log in with it (HTTP 401).', kind: access_denied}
+      'Error:  invalid password.': {description: The supplied password is shorter than 1 or longer than 64 characters or does not comply with the passphrase policy., kind: invalid_argument}
     examples:
     - title: Create the initial admin account
-      request:
-        query: {user: root, pwd: foo, grp: root, sgrp: 'admin:operator:viewer:ptz'}
+      request: {form: {user: root, pwd: foo, grp: root, sgrp: 'admin:operator:viewer:ptz'}}
       response: {status: 200, text: Created account root.}
       source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
     - title: Create a new user account with administrator and PTZ control privileges
-      request:
-        query: {user: joe, pwd: foo, grp: users, sgrp: 'admin:operator:viewer:ptz', comment: Joe}
+      request: {form: {user: joe, pwd: foo, grp: users, sgrp: 'admin:operator:viewer:ptz', comment: Joe}}
       response: {status: 200, text: Created account joe.}
       source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
     - title: Create an account with enforced VAPIX password standards
       request:
-        query:
+        form:
           user: joe
           pwd: foo
           grp: users
           sgrp: admin:operator:viewer:ptz
           comment: Joe
-          strict_pwd: '1'
+          strict_pwd: 1
       response: {status: 200, text: Modified the account joe.}
       source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
   update_user:
-    summary: Change user account information of specified parameters if the user account exists.
+    summary: Change the given properties of an existing user account; returns the device message (``"Modified account joe."``).
     effect: write
     write: patch
     binding:
-      method: GET
+      method: POST
+      encoding: form
       query: {action: update}
       reply: text
-    params:
-      type: object
-      required: [user]
-      properties:
-        user:
-          type: string
-          description: The user account name to modify (requiredness for update inferred from examples).
-        pwd:
-          type: string
-          description: New password. Must comply with any configured passphrase policy.
-        grp: {type: string, description: Primary group.}
-        sgrp: {type: string, description: Colon separated secondary groups (see add_user).}
-        comment: {type: string, description: Description of the user account.}
-        strict_pwd: {type: integer, enum: [1], description: Set to 1 to enforce VAPIX password standard.}
+    params: {$ref: '#/types/UpdateUserRequest'}
+    result: {type: string}
     examples:
     - title: Change the password of an existing account
-      request:
-        query: {user: joe, pwd: bar}
+      request: {form: {user: joe, pwd: bar}}
       response: {status: 200, text: Modified account joe.}
       source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
   remove_user:
-    summary: Remove an existing user account.
+    summary: Remove an existing user account; returns the device message (``"Removed account joe."``).
     effect: write
     write: delete
     binding:
-      method: GET
+      method: POST
+      encoding: form
       query: {action: remove}
       reply: text
-    params:
-      type: object
-      required: [user]
-      properties:
-        user: {type: string, description: The user account name to remove.}
+    params: {$ref: '#/types/UserRequest'}
+    positional: [user]
+    result: {type: string}
     examples:
-    - title: remove_user
-      request:
-        query: {user: joe}
+    - title: Remove an account
+      request: {form: {user: joe}}
       response: {status: 200, text: Removed account joe.}
       source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
   get_users:
-    summary: Get a list of the user accounts which belong to each group defined.
-    description: digusers lists all created users; admin, operator, viewer and ptz are access group rights (a user
-      is listed in every group it has rights to).
+    summary: 'List the user accounts that belong to each group, as ``{"admin": "\"root,joe\""}``.'
+    description: >-
+      The keys are the groups ``admin``, ``operator``, ``viewer`` and ``ptz`` (access rights; a user is listed in every
+      group it has rights to) and ``digusers`` (all created users). Each value is a double-quoted, comma separated list
+      of user names.
     effect: read
     binding:
       method: GET
       query: {action: get}
+      accept: text/plain
       reply: text_kv
-    result:
-      type: object
-      additionalProperties: {type: string}
+    result: {type: object, additionalProperties: {type: string}}
     examples:
-    - title: get_users
-      request:
-        query: {}
+    - title: List groups and users
+      request: {query: {}}
       response:
         status: 200
         text: |-
@@ -190,14 +192,11 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Parameter table marks user/pwd/grp/sgrp/comment all as 'Required if action=add. Adding a value to comment is
-    optional.' - a copy/paste artefact; comment is optional since autumn 2019. Which parameters update/remove require
-    is not stated.
-  - Example 6 (add with strict_pwd=1) shows response 'Modified the account joe.' although it is an add; probably
-    doc error.
-  - Response content type for POST requests (body-encoded arguments) and the expected request Content-Type for POST
-    are not documented.
-  - 'Example 13 error text has a double space (''Error:  invalid password.''), kept verbatim.'
-  - 'migration: types-dropped: types not referenced by any migrated operation: SecondaryGroups'
+  - The values of get_users are double-quoted comma separated lists (``"root,joe"``); the text_kv codec now strips the quotes and returns the comma separated string, because splitting only applies to a result model that declares an array field.
+  - The parameter table marks user, pwd, grp, sgrp and comment all as "Required if action=add" (copy/paste artefact). comment is optional since autumn 2019; which arguments update and remove require is not stated, so update takes only user as required and remove takes user.
+  - Example 6 (add with strict_pwd=1) shows the reply "Modified the account joe." although it is an add; probably a doc error, kept verbatim.
+  - The docs recommend POST with the arguments in the body, but do not state the Content-Type or the reply for POST; form encoding is assumed. The GET form with query arguments is also supported by the device.
+  - add_user sends credentials only if challenged because the initial administrator account is created without authentication.
+  - The sgrp group names may come in any order, so the colon separated list is validated by pattern rather than by the six documented values.
   migrated_from: v1
-  curated: false
+  curated: true

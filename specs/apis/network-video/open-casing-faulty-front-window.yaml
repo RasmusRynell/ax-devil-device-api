@@ -1,0 +1,49 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: open-casing-faulty-front-window
+name: Open Casing and Faulty Front Window
+summary: 'Two events: casing opened (tns1:Device/tnsaxis:Casing/Open) and faulty front window (tns1:Device/tnsaxis:Window/Faulty).'
+section: network-video
+family: rtsp
+status: released
+python:
+  module: open_casing_faulty_front_window
+  class: OpenCasingFaultyFrontWindow
+docs:
+- https://developer.axis.com/vapix/network-video/open-casing-faulty-front-window/
+access: admin
+
+binding: {}
+
+operations:
+  stream_casing_events_url:
+    summary: Retrieve the event stream for the casing topic over RTSP.
+    effect: read
+    binding:
+      rtsp:
+        query: {event: 'on', eventtopic: 'tns1:Device/Casing'}
+  stream_window_events_url:
+    summary: Retrieve the event stream for the window topic over RTSP.
+    effect: read
+    binding:
+      rtsp:
+        query: {event: 'on', eventtopic: 'tns1:Device/Window'}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/open-casing-faulty-front-window/
+  sha256_md: 3d17f0e1dde4b44c8b5f53f98e8c96e3a4ce1da084be2aedf0f3b4b66af08470
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - RTSP URL uses /axismedia/media.amp (no hyphen) while other pages use /axis-media/media.amp — possible doc typo.
+  - 'RTSP eventtopic uses tns1:Device/Casing without the tnsaxis: prefix used in the declaration.'
+  - Namespace URIs for tns1/tnsaxis are not stated on this page (taken as the standard ONVIF/Axis topic namespaces;
+    verify).
+  - 'migration: rtsp-path: the documented path ''axismedia/media.amp'' is a typo; /axis-media/media.amp is used'
+  - 'migration: discovery: discovery method other dropped'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

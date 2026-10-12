@@ -1,0 +1,295 @@
+format: 2
+id: gpio-service
+name: General purpose I/O service
+summary: List, read and configure I/O ports, including supervised inputs and relay outputs, through the axgpio service.
+section: network-video
+family: service_json
+status: released
+python:
+  module: gpio_service
+  class: GpioService
+docs:
+- https://developer.axis.com/vapix/network-video/input-and-outputs/
+access: admin
+discovery:
+- param: {name: Properties.API.GPIO.GPIO, value: 'yes'}
+- param: {name: Properties.API.GPIO.Version, value: '1.0', compare: '>='}
+
+binding: {path: /vapix/axgpio}
+
+types:
+  ServiceCapabilities:
+    type: object
+    required: [MaxLimit]
+    properties:
+      MaxLimit: {type: integer, description: Maximum number of entries returned by GetPortList and GetPort.}
+  PortId:
+    type: string
+    minLength: 1
+    maxLength: 64
+    description: String identifying the port.
+  PortMode:
+    type: string
+    minLength: 1
+    maxLength: 32
+    description: 'Port mode. Non-normative enum: known values are DigitalInput, SupervisedInput, OpenCollectorOutput and RelayOutput.'
+  PortState:
+    type: string
+    minLength: 1
+    maxLength: 32
+    description: 'Port state. Non-normative enum: known values are open, closed, shorted, cut and undefined.'
+  ActiveState:
+    type: string
+    description: 'Non-normative enum. open: the port is active when open (floating); closed: active when closed (grounded).'
+  SupervisedInputCapabilities:
+    type: object
+    required: [MaxNumberOfRanges, MinVoltageRange, MinVoltageLevel, MaxVoltageLevel]
+    properties:
+      MaxNumberOfRanges: {type: integer, description: The maximum number of SupervisionRange structures supported by the supervised input.}
+      MinVoltageRange:
+        type: string
+        description: 'The minimum voltage span that is viable to use with respect to noise and ADC resolution. Unit: mV.'
+      MinVoltageLevel: {type: string, description: 'The minimum voltage that can be specified in a SupervisionRange. Unit: mV.'}
+      MaxVoltageLevel: {type: string, description: 'The maximum voltage that can be specified in a SupervisionRange. Unit: mV.'}
+  Properties:
+    type: object
+    description: Input or output properties of a port.
+    properties:
+      NiceName: {type: string, description: The port's nice name.}
+      ActiveState: {$ref: '#/types/ActiveState', description: Specifies when the port is active.}
+  SupervisionRange:
+    type: object
+    required: [State, LowerLimit, UpperLimit]
+    properties:
+      State: {$ref: '#/types/PortState', description: Behavior may change; assume any string.}
+      LowerLimit: {type: string, description: 'Lower voltage limit (inclusive), mV.'}
+      UpperLimit: {type: string, description: 'Upper voltage limit (exclusive), mV.'}
+  SupervisedInput:
+    type: object
+    description: Configuration for a supervised input.
+    required: [Triggers]
+    x-read-only: [AnalogLevel, Capabilities]
+    properties:
+      Triggers:
+        type: array
+        items: {$ref: '#/types/SupervisionRange'}
+        description: User-defined ranges for the supervised input.
+      AnalogLevel: {type: integer, description: 'The current analog voltage at the input pin. Unit: mV.'}
+      Capabilities: {$ref: '#/types/SupervisedInputCapabilities', description: The supervised input's capabilities.}
+  Port:
+    type: object
+    description: The configuration of a port. Only PortId and the fields to modify are needed when configuring a port.
+    required: [PortId]
+    x-read-only: [SupportedModes, CurrentState]
+    properties:
+      PortId: {$ref: '#/types/PortId', description: The port identifier.}
+      SupportedModes:
+        type: array
+        items: {$ref: '#/types/PortMode'}
+        description: Supported port modes.
+      PortUsage: {type: string, description: String describing the port usage.}
+      CurrentMode: {$ref: '#/types/PortMode', description: The port's current mode.}
+      CurrentState:
+        $ref: '#/types/PortState'
+        description: The port's current state. Use Active to set the port active or inactive.
+      Active: {type: boolean, description: true when the port is active.}
+      InputProperties: {$ref: '#/types/Properties', description: The port's input properties.}
+      OutputProperties: {$ref: '#/types/Properties', description: The port's output properties.}
+      SupervisedInput: {$ref: '#/types/SupervisedInput', description: The configuration used when the port is a supervised input.}
+
+operations:
+  get_service_capabilities:
+    summary: Retrieve the capabilities supported by the service.
+    access: anonymous
+    effect: read
+    binding: {operation: 'axgpio:GetServiceCapabilities'}
+    result:
+      type: object
+      required: [Capabilities]
+      properties:
+        Capabilities: {$ref: '#/types/ServiceCapabilities', description: The supported service capabilities.}
+    examples:
+    - title: Get service capabilities (JSON)
+      request:
+        params: {}
+      response:
+        data:
+          Capabilities: {MaxLimit: 1000}
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  get_port_list:
+    summary: List the product Port data structures (paged).
+    effect: read
+    binding: {operation: 'axgpio:GetPortList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of items to return. Actual number may be less; if omitted determined by ServiceCapabilities.
+        StartReference:
+          type: string
+          description: Internal reference of the first item to return; use NextStartReference from the previous
+            call; do not reuse.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: Reference to use as StartReference in the next call. Returned if the response does not include
+            all available Port items.
+        Port:
+          type: array
+          items: {$ref: '#/types/Port'}
+          description: The returned Port items.
+    errors:
+      ter:InvalidStartReference: {description: StartReference is invalid or has timed out., kind: invalid_argument}
+      ter:InvalidArgVal: {description: The request has an invalid argument value., kind: invalid_argument}
+    examples:
+    - title: 'Example 1: (JSON)'
+      request:
+        params: {Limit: 1}
+      response:
+        data:
+          NextStartReference: '1'
+          Port:
+          - PortId: '0'
+            SupportedModes: [DigitalInput, OpenCollectorOutput, SupervisedInput]
+            CurrentMode: OpenCollectorOutput
+            CurrentState: closed
+            Active: true
+            InputProperties: {NiceName: Input 1, ActiveState: closed}
+            OutputProperties: {NiceName: Output 1, ActiveState: closed}
+            SupervisedInput:
+              Triggers:
+              - {State: shorted, LowerLimit: '0', UpperLimit: '100'}
+              - {State: closed, LowerLimit: '500', UpperLimit: '1500'}
+              - {State: open, LowerLimit: '1800', UpperLimit: '2200'}
+              - {State: cut, LowerLimit: '2300', UpperLimit: '12000'}
+              Capabilities: {MaxNumberOfRanges: 4, MinVoltageRange: '60', MinVoltageLevel: '0', MaxVoltageLevel: '12000'}
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  get_port:
+    summary: List specified Port data structures by PortId.
+    effect: read
+    binding: {operation: 'axgpio:GetPort'}
+    params:
+      type: object
+      required: [PortId]
+      properties:
+        PortId:
+          type: array
+          items: {$ref: '#/types/PortId'}
+          description: List of port identifiers; unresolved IDs are ignored.
+    result:
+      type: object
+      properties:
+        Port:
+          type: array
+          items: {$ref: '#/types/Port'}
+          description: The returned Port items.
+    errors:
+      ter:TooManyItems: {description: Too many items were requested., kind: invalid_argument}
+    examples:
+    - title: List ports settings (JSON)
+      request:
+        params: {PortId: ['8', '9']}
+      response:
+        data:
+          Port:
+          - PortId: '8'
+            SupportedModes: [RelayOutput]
+            CurrentMode: RelayOutput
+            CurrentState: closed
+            Active: true
+            OutputProperties: {NiceName: Relay 1, ActiveState: closed}
+          - PortId: '9'
+            SupportedModes: [RelayOutput]
+            CurrentMode: RelayOutput
+            CurrentState: closed
+            Active: true
+            OutputProperties: {NiceName: Relay 2, ActiveState: closed}
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  set_port:
+    summary: Update one or more Port data structures (all fields except PortId optional).
+    effect: write
+    write: patch
+    binding: {operation: 'axgpio:SetPort'}
+    params:
+      type: object
+      required: [Port]
+      properties:
+        Port:
+          type: array
+          items: {$ref: '#/types/Port'}
+          description: List of Port items; omitted fields keep their current values.
+    result:
+      type: object
+      required: [PortId]
+      properties:
+        PortId:
+          type: array
+          items: {$ref: '#/types/PortId'}
+          description: PortIds of the updated items.
+    errors:
+      ter:InvalidArgs: {description: The data in the request is missing., kind: invalid_argument}
+      ter:InvalidArgVal: {description: The data in the request is invalid., kind: invalid_argument}
+    examples:
+    - title: Activate ports (JSON)
+      request:
+        params:
+          Port:
+          - {PortId: '0', Active: true}
+          - {PortId: '1', Active: true}
+          - {PortId: '2', Active: true}
+          - {PortId: '3', Active: true}
+          - {PortId: '4', Active: true}
+          - {PortId: '5', Active: true}
+          - {PortId: '6', Active: true}
+          - {PortId: '7', Active: true}
+          - {PortId: '8', Active: true}
+          - {PortId: '9', Active: true}
+          - {PortId: '10', Active: true}
+          - {PortId: '11', Active: true}
+          - {PortId: '12', Active: true}
+          - {PortId: '13', Active: true}
+          - {PortId: '14', Active: true}
+          - {PortId: '15', Active: true}
+      response:
+        data:
+          PortId:
+          - '0'
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '6'
+          - '7'
+          - '8'
+          - '9'
+          - '10'
+          - '11'
+          - '12'
+          - '13'
+          - '14'
+          - '15'
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/input-and-outputs/
+  sha256_md: f2d3a405216420a7ca76179dacbfc2693bd78edc1c5cde37ff851c32da4c12ab
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The access classes are READ_SYSTEM_SENSITIVE (GetPortList, GetPort) and WRITE_SYSTEM (SetPort) and are not mapped
+    to VAPIX roles; the API default admin is kept. GetServiceCapabilities is PRE_AUTH (anonymous).'
+  - The device sends MaxLimit as the string "1000" although the table says Integer (parsed leniently); the voltage
+    capability values are Strings in the tables while the GetPortList example shows bare numbers for MinVoltageRange,
+    MinVoltageLevel and MaxVoltageLevel. The tables are followed and the example is quoted; a device that sends bare
+    numbers would fail response parsing.
+  - The ter:InvalidArgVal fault of GetPortList has an empty description in the table.
+  - Whether GetPort returns an empty Port list or omits Port when no PortId resolves is not stated, so Port is optional.
+  - 'The page documents the SOAP form as well; the JSON form is bound.'
+  migrated_from: v1
+  curated: true

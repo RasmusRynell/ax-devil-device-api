@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: virtual-input
 name: Virtual input API
-summary: Activate/deactivate virtual input ports (/axis-cgi/virtualinput/*.cgi, XML) and the legacy manual trigger
-  (/axis-cgi/io/virtualinput.cgi).
+summary: Activate/deactivate virtual input ports (/axis-cgi/virtualinput/*.cgi, XML) and the legacy manual trigger (/axis-cgi/io/virtualinput.cgi).
 section: network-video
 family: cgi
 status: released
@@ -21,23 +19,51 @@ requires:
 
 binding: {path: /axis-cgi/virtualinput/activate.cgi}
 
+errors:
+  10: {description: Missing argument., kind: invalid_argument}
+  20: {description: The specified virtual input does not exist., kind: not_found}
+  30: {description: The specified schema version is not supported., kind: unsupported}
+  40: {description: Internal server error., kind: internal}
+  50: {description: Invalid duration., kind: invalid_argument}
+
 types:
   ActivateResult:
     type: object
+    x-xml: {root: Success/ActivateSuccess}
+    required: [StateChanged]
     properties:
       StateChanged:
         type: boolean
-        description: true = the port state was changed; false = not changed.
+        description: 'true if the port state was changed, false if it was not changed.'
         x-xml: {child: StateChanged}
-    x-xml: {root: Success/ActivateSuccess}
   DeactivateResult:
     type: object
+    x-xml: {root: Success/DeactivateSuccess}
+    required: [StateChanged]
     properties:
       StateChanged:
         type: boolean
-        description: true = the port state was changed; false = not changed.
+        description: 'true if the port state was changed, false if it was not changed.'
         x-xml: {child: StateChanged}
-    x-xml: {root: Success/DeactivateSuccess}
+  SchemaVersion:
+    type: object
+    required: [MajorVersion, MinorVersion]
+    properties:
+      MajorVersion: {type: integer, description: The major version of the XML schema., x-xml: {child: MajorVersion}}
+      MinorVersion: {type: integer, description: The minor version of the XML schema., x-xml: {child: MinorVersion}}
+      Deprecated:
+        type: string
+        description: '"true" if this version of the XML schema is deprecated and should not be used. The syntax shows an empty element when it is not deprecated.'
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: Success/GetSchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
 
 operations:
   activate:
@@ -50,17 +76,15 @@ operations:
       properties:
         schemaversion:
           type: integer
-          description: Required. The major version of the XML Schema to use for the response.
+          description: The major version of the XML schema to use for the response.
         port:
           type: integer
-          description: Required. The virtual input to activate. The value may vary for different devices. Default
-            value is 64.
+          description: The virtual input to activate. The number of ports may vary between devices; the default is 64.
         duration:
           type: integer
           minimum: 0
-          description: Optional. Seconds until the port is automatically deactivated. If already active it stays
-            active and is deactivated after the time. 0 = activated then deactivated directly. Not specified = not
-            automatically deactivated. (unit=seconds)
+          description: Seconds until the port is automatically deactivated. If the port is already active it stays active and is deactivated after the time. 0 activates and then deactivates the port directly. If not given the port is not deactivated automatically.
+    positional: [port]
     result: {$ref: '#/types/ActivateResult'}
     examples:
     - title: Activate virtual input 10
@@ -70,10 +94,7 @@ operations:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8"?>
-          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1"
-            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1"
-            xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1
-            http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
+          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1" xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1 http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
             <Success>
               <ActivateSuccess>
                 <StateChanged>
@@ -90,10 +111,7 @@ operations:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8"?>
-          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1"
-            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1"
-            xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1
-            http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
+          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1" xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1 http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
             <Success>
               <ActivateSuccess>
                 <StateChanged>
@@ -113,11 +131,11 @@ operations:
       properties:
         schemaversion:
           type: integer
-          description: Required. The major version of the XML Schema to use for the response.
+          description: The major version of the XML schema to use for the response.
         port:
           type: integer
-          description: Required. The virtual input to deactivate. The value may vary for different devices. Default
-            value is 64.
+          description: The virtual input to deactivate. The number of ports may vary between devices; the default is 64.
+    positional: [port]
     result: {$ref: '#/types/DeactivateResult'}
     examples:
     - title: Deactivate virtual input 10
@@ -127,10 +145,7 @@ operations:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8"?>
-          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1"
-            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1"
-            xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1
-            http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
+          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1" xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1 http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
             <Success>
               <DeactivateSuccess>
                 <StateChanged>
@@ -141,12 +156,38 @@ operations:
           </VirtualInputResponse>
       source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
   get_schema_versions:
-    summary: List supported XML schema versions and whether deprecated.
+    summary: List supported XML schema versions and whether they are deprecated.
+    access: operator
     effect: read
     binding: {path: /axis-cgi/virtualinput/getschemaversions.cgi, method: GET, reply: xml}
-    result: {x-xml: true}
+    result: {$ref: '#/types/SchemaVersions'}
+    examples:
+    - title: List schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1" xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1 http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
+            <Success>
+              <GetSchemaVersionsSuccess>
+                <SchemaVersion>
+                  <MajorVersion>1</MajorVersion>
+                  <MinorVersion>0</MinorVersion>
+                  <Deprecated />
+                </SchemaVersion>
+              </GetSchemaVersionsSuccess>
+            </Success>
+          </VirtualInputResponse>
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#get-schema-versions
   manual_trigger:
     summary: Activate/deactivate the manual trigger or simulate physical input ports, optionally for a time.
+    description: >-
+      The action is a sequence of port, action characters and delays: ``[<port>]:<a>[<wait><a>...]`` where ``/``
+      activates, ``\`` deactivates and ``<wait>`` is a delay in milliseconds. The port defaults to input 1. The manual
+      trigger is normally port 6 or port 1. For example ``6:/2000\`` activates port 6, waits 2 seconds and deactivates it.
+      The client percent-encodes the ``:``, ``/`` and ``\`` characters.
     access: viewer
     effect: action
     binding: {path: /axis-cgi/io/virtualinput.cgi, method: GET, reply: text}
@@ -156,7 +197,17 @@ operations:
       properties:
         action:
           type: string
-          description: Set port <Port ID> active/inactive, optionally waiting <wait> ms before the next action.
+          pattern: '^[0-9]*:[/\\]([0-9]+[/\\])*$'
+          description: 'The port and action sequence, e.g. 6:/2000\ to activate port 6 for 2 seconds.'
+    positional: [action]
+    examples:
+    - title: Activate the manual trigger for 2 seconds
+      request:
+        query: {action: '6:/2000\'}
+      response:
+        status: 200
+        text: ''
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#manual-trigger-and-io-port-simulation
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/input-and-outputs/
@@ -166,14 +217,12 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - virtualinput1_0.xsd referenced but not mirrored.
-  - port parameter says "Default value is 64" for a required parameter (likely the number of ports).
-  - Syntax lines like "?<schemaversion>=<value>&=<value>" are malformed in the doc.
-  - Virtual Input event lists ports 1..32 while the API says 64 ports by default.
-  - 'migration: xml-unmapped: get_schema_versions: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: dropped-section: v1 section events not carried over'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - virtualinput1_0.xsd is referenced but not mirrored.
+  - The port argument says "Default value is 64" although it is required; 64 is probably the default number of ports. The virtual input event lists ports 1 to 32 while the text says 64 by default.
+  - The syntax lines like "?<schemaversion>=<value>&=<value>" are malformed in the docs.
+  - Deprecated in the schema versions reply is a string because the syntax shows an empty element, which the XML mapping hands over as an empty string and would fail boolean validation. It should become a boolean once empty elements map to absent.
+  - The get_schema_versions example is constructed from the body syntax (MajorVersion, MinorVersion, Deprecated).
+  - The manual trigger reply body is not documented (content type text/plain); it is treated as an empty text reply.
+  - Only the virtual input half of the Input and outputs page is covered by this spec; the I/O port API (port.cgi, general purpose I/O service) belongs to other specs.
   migrated_from: v1
-  curated: false
+  curated: true

@@ -373,7 +373,7 @@ operations:
             profiles: {minNbrProfilesPerChannel: 0, maxNbrProfilesPerChannel: 20, minLengthName: 1, maxLengthName: 50}
             radarProfile: {values: [area, road], default: area}
         source: https://developer.axis.com/vapix/radar/radar-configuration/#getconfigurationcapabilities
-        x-contract: {skip: "The documented response is a syntax template (placeholders instead of values); the concrete values here are illustrative."}
+        x-contract: {template: true}
 
   get_enabled:
     summary: Determine whether the radar is enabled.

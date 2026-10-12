@@ -1,0 +1,105 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: audio-api
+name: Audio API
+summary: Receive (receive.cgi) and transmit (transmit.cgi) audio over HTTP, and configure audio via the Audio/AudioSource
+  parameter groups.
+section: audio-systems
+family: cgi
+status: released
+python:
+  module: audio
+  class: Audio
+docs:
+- https://developer.axis.com/vapix/audio-systems/audio-api/
+access: viewer
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.Audio.Audio, value: 'yes'}
+- {api_discovery: audio-device-control}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/audio/receive.cgi}
+
+operations:
+  receive_audio:
+    summary: Request and configure an audio stream from the device (singlepart or multipart).
+    effect: read
+    binding: {method: GET, reply: stream}
+    params:
+      type: object
+      properties:
+        audio: {type: integer, enum: [0, 1], description: Enable (1) or disable (0) audio.}
+        audiobitrate: {type: integer, minimum: 8000, description: The audio bit rate in bps. (unit=bps)}
+        audiocodec:
+          type: string
+          enum: [g711, g726, aac, opus, lpcm]
+          description: The audio codec type.
+        audiosamplerate: {type: integer, minimum: 8000, description: The audio sample rate in Hz. (unit=Hz)}
+        camera:
+          type: integer
+          minimum: 1
+          description: Select the audio configuration in Audio.A#. camera=1 -> Audio.A0. Number of configurations
+            is product-dependent.
+        httptype:
+          type: string
+          enum: [singlepart, multipart]
+          description: 'Choose streaming method. Some proxies require multipart. Default: parameter Audio.A#.HTTPMessageType.'
+        audiochannel:
+          type: integer
+          minimum: 1
+          description: Select the audio source in AudioSource.A#. audiochannel=2 -> AudioSource.A1. Mutually exclusive
+            with audiodeviceid+audioinputid.
+        audiodeviceid:
+          type: string
+          description: The audio device ID (id from Audio Device Control API). Supported only if audio-device-control
+            status is official in API discovery. Mutually exclusive with audiochannel.
+        audioinputid:
+          type: string
+          description: The audio device input ID (id from Audio Device Control API). Same support condition as audiodeviceid.
+        audionbrofchannels: {type: integer, minimum: 1, description: The number of audio channels.}
+  rtsp_audio_stream_url:
+    summary: Request an RTSP stream including audio.
+    description: RTSP streams include audio if the request contains audio=1 or if Audio.A#.Enabled and AudioSource.A#.AudioSupport
+      are enabled; audio=0 excludes audio. When AudioSource.A#.AudioSupport is enabled, the camera and audiochannel
+      arguments of receive.cgi can be used; camera specifies both video source and audio configuration.
+    effect: read
+    binding:
+      rtsp: {}
+    params:
+      type: object
+      properties:
+        audio: {type: integer, enum: [0, 1]}
+        camera: {type: integer}
+        audiochannel: {type: integer}
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/audio-api/
+  sha256_md: f2c11d2e3c73a46690335ed76dd5f5e9bf1a28f281c40673c1ae9953c4af879e
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'transmit.cgi: text says ''There are no arguments and values'' but an argument table (audiodeviceid, audiooutputid)
+    is given; syntax shows ''[&=<value>]'' without ''?''.'
+  - transmit.cgi success response body/status not documented ('will generate a server response for every successful
+    playback').
+  - AudioSource.A#.AudioEncoding valid values list 'lcpm' (probably lpcm).
+  - MicrophonePowerType description references 'MicrphonePower' (typo).
+  - Audio.DuplexMode table lists 'get' and 'post' meanings opposite to Properties.Audio.DuplexMode wording ('post'
+    = product can transmit simplex audio vs 'post' = send audio to the product).
+  - Event data nice name rendered as 'Above alarm leve`l' (typo).
+  - Gain parameters accept 'mute'/'inherit' or numbers; typed as string.
+  - 'migration: op-skipped: transmit_audio: a request body, tunnelling headers or a path argument; uploads and RTSP-over-HTTP
+    are not stream replies'
+  - 'migration: effect-unknown: effect could not be inferred from the name: receive_audio'
+  - 'migration: types-dropped: types not referenced by any migrated operation: AudioMime'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'migration: dropped-keywords: x-formats x1'
+  migrated_from: v1
+  curated: false

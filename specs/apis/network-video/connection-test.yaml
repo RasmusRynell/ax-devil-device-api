@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: connection-test
 name: 'Connection test: Ping, ports and IP addresses'
@@ -19,27 +18,26 @@ operations:
   ping_test:
     summary: Ping another device or server by IP address or DNS hostname.
     effect: action
+    positional: [ip]
     binding: {method: GET, reply: text}
+    result: {type: string}
     params:
       type: object
       required: [ip]
       properties:
-        ip:
-          type: string
-          description: IP address or DNS hostname of the device/server to ping. Required-ness inferred from the
-            only documented URL form.
+        ip: {type: string, description: IP address or DNS hostname of the device or server to ping.}
   tcp_test:
     summary: Test whether the device can reach an IP address and port.
     effect: action
+    positional: [address, port]
     binding: {path: /axis-cgi/tcptest.cgi, method: GET, reply: text}
+    result: {type: string}
     params:
       type: object
       required: [address, port]
       properties:
-        address:
-          type: string
-          description: IP address to reach. Required-ness inferred from the only documented URL form.
-        port: {type: integer, description: Port to reach. Integer type inferred.}
+        address: {type: string, description: IP address to reach.}
+        port: {type: integer, minimum: 1, maximum: 65535, description: Port to reach.}
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/
@@ -50,9 +48,7 @@ provenance:
   completeness: partial
   open_questions:
   - Security level, HTTP method alternatives, response format, and errors for pingtest.cgi and tcptest.cgi are not
-    documented.
+    documented; the access level (admin) and the plain-text result are assumptions.
   - Whether tcptest.cgi 'address' accepts hostnames is not stated.
-  - 'migration: status: v1 status ''unknown'' mapped to released'
-  - 'migration: dropped-section: v1 section notes not carried over'
   migrated_from: v1
-  curated: false
+  curated: true

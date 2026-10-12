@@ -12,7 +12,7 @@ from typing import Annotated, Any, Literal, overload
 from pydantic import Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ApiVersion, Applicability, ErrorCode, Family, Model, Operation
+from .._protocols.base import AcapDiscovery, ApiInfo, ApiVersion, Applicability, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -236,6 +236,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 1), ApiVersion(1, 2), ApiVersion(1, 3)),
+    discovery=(AcapDiscovery("vmd"),),
     docs=("https://developer.axis.com/vapix/applications/video-motion-detection-4-api/",),
     errors={
         1000: ErrorCode("Application error. The application failed to handle the request.", "internal"),

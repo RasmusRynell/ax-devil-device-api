@@ -1,0 +1,65 @@
+format: 2
+id: heartbeat
+name: Heartbeat service API
+summary: Send heartbeats from a master (door controller, VMS) to a device; a heartbeat lost event is emitted when
+  a heartbeat expires.
+section: network-video
+family: service_json
+status: released
+python:
+  module: heartbeat
+  class: Heartbeat
+docs:
+- https://developer.axis.com/vapix/network-video/heartbeat-service-api/
+access: admin
+discovery:
+- param: {name: Properties.API.Heartbeat.Heartbeat, value: 'yes'}
+- param: {name: Properties.API.Heartbeat.Version, value: '1.0', compare: '>='}
+
+binding: {path: /vapix/axhbt}
+
+operations:
+  heartbeat:
+    summary: Send a heartbeat.
+    description: Heartbeats should be sent at regular intervals, typically within a few seconds. To keep the heartbeat
+      alive, send a new heartbeat before Duration expires. If a heartbeat expires, the session identifier in the
+      response changes and the heartbeat lost event becomes true.
+    effect: action
+    binding: {operation: 'axhbt:Heartbeat'}
+    params:
+      type: object
+      required: [Duration]
+      properties:
+        Duration:
+          type: integer
+          description: 'Heartbeat duration, that is, the time before a heartbeat lost event is emitted. Unit: milliseconds.'
+    result:
+      type: object
+      required: [SessionId]
+      properties:
+        SessionId:
+          type: string
+          description: Session identifier. It stays the same as long as the heartbeat is kept alive; a change between two
+            successive calls means the heartbeat expired and the heartbeat lost event may have fired.
+    examples:
+    - title: Send a heartbeat with a duration of 10 seconds (JSON)
+      request:
+        params: {Duration: 10000}
+      response:
+        data: {SessionId: 14b795e4-507a-44b8-b68c-f98be55bc1dd}
+      source: https://developer.axis.com/vapix/network-video/heartbeat-service-api/#using-heartbeats
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/heartbeat-service-api/
+  sha256_md: 4329dae5f93aa48e5353d7961df55cdd79d52875a031596c71f554005482982f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The command is documented with access class ACTUATE; its mapping to a user group is not stated, so the API
+    default (admin) is kept.
+  - AXIS OS minimum version not stated.
+  - Duration valid range not documented.
+  migrated_from: v1
+  curated: true

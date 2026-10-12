@@ -112,7 +112,6 @@ operations:
           description: Global HTTP proxy, for example `https://192.168.0.211:80`. An empty string means no proxy. The URL format is not documented.
     examples:
     - title: Set globalHttpProxy
-      x-contract: {skip: 'Harness still fails on camelCase body_field setters (AttributeError: ModelMetaclass has no attribute model_fields).'}
       request:
         path: /globalHttpProxy
         body: {data: 'https://192.168.0.211:80'}
@@ -139,7 +138,6 @@ operations:
           description: Global HTTPS proxy. An empty string means no proxy.
     examples:
     - title: Set globalHttpsProxy
-      x-contract: {skip: 'Harness still fails on camelCase body_field setters (AttributeError: ModelMetaclass has no attribute model_fields).'}
       request:
         path: /globalHttpsProxy
         body: {data: 'https://192.168.0.211:80'}
@@ -170,7 +168,6 @@ operations:
           description: Hosts and addresses that bypass the proxy.
     examples:
     - title: Set globalNoProxyList
-      x-contract: {skip: 'Harness still fails on camelCase body_field setters (AttributeError: ModelMetaclass has no attribute model_fields).'}
       request:
         path: /globalNoProxyList
         body: {data: [192.168.0.1, 192.168.0.2, 192.168.0.3, 192.168.0.4]}

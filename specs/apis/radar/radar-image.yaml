@@ -23,7 +23,7 @@ binding:
   path: /axis-cgi/radar/radarimage.cgi
   major: 1
   versions: ['1.0']
-  negotiation: {fixed: '1.0'}
+  negotiation: {get_supported_versions: {key: value}}
   params_placement: params
 
 errors:
@@ -391,7 +391,7 @@ provenance:
   - The getEchoVisualizationLevel syntax returns value true instead of a level string; the examples and the level table show a string.
   - getTrailLifetime maxValue is 60 in the syntax and 600 in the common example; getImageMetricSize returns a number (72) in the syntax and a string ("57") in the common example. The number is used.
   - The setManualRadarPosition and setManualCalibrationPoint syntax shows the request coordinates echoed in data, while the examples return an empty data; no result is modelled.
-  - getSupportedVersions returns data.value (a list) instead of apiVersions used elsewhere, and its example lists 1.0 and 2.0; only 1.0 is documented as a version of this API, so version 1.0 is used without negotiation.
+  - getSupportedVersions returns data.value (a list) instead of apiVersions used elsewhere, and its example lists 1.0 and 2.0; only 1.0 is documented as a version of this API, so versions is [1.0] and negotiation reads the value key.
   - Properties.AddOnFramework.Version of 1.0 or higher is documented as a range and cannot be expressed as discovery.
   - Whether setCalibrationPoint and the other calibration steps persist on their own is unclear; they are modelled as actions.
   migrated_from: v1

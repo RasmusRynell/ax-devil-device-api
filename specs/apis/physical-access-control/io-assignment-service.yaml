@@ -1,0 +1,260 @@
+format: 2
+id: io-assignment-service
+name: I/O assignment service
+summary: The I/O assignment service is used to assign I/O:s to other services and to retrieve information about
+  available I/O:s and the services’ I/O requirements.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: io_assignment_service
+  class: IoAssignmentService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/io-assignment-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+access: admin
+
+binding: {path: /vapix/pin}
+
+types:
+  PinInfo:
+    type: object
+    description: A physical pin used by an I/O.
+    properties:
+      Name: {type: string, description: "Physical pin. Naming convention connector type name:pinnbr, for example Door IN 1:1:GND, Door IN 1:2:IN, Reader Data 1:5. GND means a dedicated ground pin, IN an input, I/O either an input or an output, OUT an output."}
+      Description: {type: string, description: Description of the pin.}
+
+  IoInfo:
+    type: object
+    description: Which physical pins an I/O uses and which modes it can be used for.
+    required: [IoName]
+    properties:
+      IoName: {type: string, description: Name of the I/O.}
+      IoMode:
+        type: array
+        items: {type: string}
+        description: Modes the I/O can be used with, for example `inout:pu/gnd`.
+      PinInfo:
+        type: array
+        items: {$ref: "#/types/PinInfo"}
+        description: The physical pins the I/O uses.
+
+  IoUser:
+    type: object
+    description: Entity to assign I/Os to, a usage of a specific token.
+    properties:
+      Type: {type: string, description: "Which type of I/O user it is, for example `doorcontrol` or `idpoint`."}
+      token: {type: string, description: Token that identifies the specific entity.}
+      Usage: {type: string, description: "Short name of the usage, for example `Lock_Standard`."}
+      MultiIo: {type: boolean, description: True if multiple I/Os can be assigned to this IoUser.}
+
+  IoUserInfo:
+    type: object
+    description: What an IoUser needs an I/O for, and which modes it can use.
+    properties:
+      Name: {type: string, description: Informative name of the user.}
+      IoMode:
+        type: array
+        items: {type: string}
+        description: Modes the IoUser can use.
+      IoUser: {$ref: "#/types/IoUser"}
+
+  IoAssignment:
+    type: object
+    description: Which mode an I/O uses and which IoUsers it is assigned to. An empty `IoUser` list unassigns the I/O.
+    properties:
+      IoName: {type: string, description: Name of the I/O to assign.}
+      IoMode: {type: string, description: The mode to configure the I/O to use. Must be one of the modes in the I/O's IoInfo and in every assigned IoUser's IoUserInfo.}
+      IoUser:
+        type: array
+        items: {$ref: "#/types/IoUser"}
+        description: IoUsers to assign the I/O to.
+
+  IoAssignmentErrorCode:
+    enum:
+      - Other
+      - Unknown
+      - IoDoesNotExist
+      - IoUserServiceDoesNotExist
+      - IoUserTokenDoesNotExist
+      - IoUserUsageDoesNotExist
+      - MultipleIoNotAllowed
+      - ModeAlreadyAssignedInRequest
+      - ModeNotAllowedForIo
+      - ModeNotAllowedForIoUser
+      - DuplicateIoAssignment
+
+  IoAssignmentError:
+    type: object
+    description: A failed assignment.
+    properties:
+      IoName: {type: string, description: Name of the I/O that could not be assigned.}
+      IoMode: {type: string, description: The mode that was requested.}
+      IoUser:
+        type: array
+        items: {$ref: "#/types/IoUser"}
+        description: The IoUsers the I/O was to be assigned to.
+      Error: {$ref: "#/types/IoAssignmentErrorCode", description: Why the assignment failed.}
+
+  IoAssignmentList:
+    type: object
+    properties:
+      IoAssignment:
+        type: array
+        items: {$ref: "#/types/IoAssignment"}
+
+  IoUserInfoList:
+    type: object
+    properties:
+      IoUserInfo:
+        type: array
+        items: {$ref: "#/types/IoUserInfo"}
+
+  IoInfoList:
+    type: object
+    properties:
+      IoInfo:
+        type: array
+        items: {$ref: "#/types/IoInfo"}
+
+  SetIoAssignmentRequest:
+    type: object
+    properties:
+      IoAssignment:
+        type: array
+        items: {$ref: "#/types/IoAssignment"}
+
+  SetIoAssignmentResult:
+    type: object
+    properties:
+      IoAssignmentError:
+        type: array
+        items: {$ref: "#/types/IoAssignmentError"}
+        description: Failed assignments; empty if all succeeded.
+
+operations:
+  get_io_assignment_list:
+    summary: Get all I/O assignments.
+    effect: read
+    binding: {operation: "axisio:GetIoAssignmentList"}
+    result: {$ref: "#/types/IoAssignmentList"}
+
+  get_io_user_info_list:
+    summary: Get what every IoUser (door, IdPoint and so on) needs an I/O for.
+    effect: read
+    binding: {operation: "axisio:GetIoUserInfoList"}
+    result: {$ref: "#/types/IoUserInfoList"}
+    examples:
+      - title: Get the IoUser requirements
+        request: {params: {}}
+        response:
+          data:
+            IoUserInfo:
+              - Name: Door3
+                IoUser: {Type: doorcontrol, token: "Axis-00408c184bcc:1353593694.250410000", Usage: Lock_Standard, MultiIo: false}
+                IoMode: ["inout:12V/gnd"]
+              - Name: Reader In
+                IoUser: {Type: idpoint, token: "Axis-00408c184bcc:1353593694.316373000", Usage: LedSingle, MultiIo: false}
+                IoMode: ["out:float/gnd", "out:pu/gnd", "inout:float/gnd", "inout:pu/gnd"]
+              - Name: Reader In
+                IoUser: {Type: idpoint, token: "Axis-00408c184bcc:1353593694.316373000", Usage: Wiegand, MultiIo: false}
+                IoMode: [wiegand]
+        source: https://developer.axis.com/vapix/physical-access-control/io-assignment-service/#get-information-about-the-services-io-requirements
+
+  get_io_info_list:
+    summary: Get all I/Os the door controller offers, with the physical pins each uses.
+    effect: read
+    binding: {operation: "axisio:GetIoInfoList"}
+    result: {$ref: "#/types/IoInfoList"}
+    examples:
+      - title: Get the available I/Os
+        request: {params: {}}
+        response:
+          data:
+            IoInfo:
+              - IoName: IO1
+                IoMode: ["inout:pu/gnd", "inout:float/gnd", supervised]
+                PinInfo: [{Name: "Aux I/O:3", Description: "I/O"}]
+              - IoName: H-bridge1
+                IoMode: [h_bridge]
+                PinInfo: [{Name: "Lock:2", Description: "+"}, {Name: "Lock:4", Description: "-"}]
+              - IoName: Ser0fd
+                IoMode: [rs485fd]
+                PinInfo:
+                  - {Name: "Reader Data 1:1", Description: "RX B-"}
+                  - {Name: "Reader Data 1:2", Description: "RX A+"}
+                  - {Name: "Reader Data 1:3", Description: "TX B-"}
+                  - {Name: "Reader Data 1:4", Description: "TX A+"}
+        source: https://developer.axis.com/vapix/physical-access-control/io-assignment-service/#get-information-about-available-io
+
+  set_io_assignment:
+    summary: Assign I/Os to IoUsers, or unassign them with an empty IoUser list.
+    description: >-
+      Assigning an I/O unassigns every other I/O that uses any of the same physical pins. The result lists the
+      assignments that failed; it is empty when all succeeded. The call does not replace the assignments that are not
+      mentioned in the request.
+    effect: write
+    write: patch
+    binding: {operation: "axisio:SetIoAssignment"}
+    params: {$ref: "#/types/SetIoAssignmentRequest"}
+    result: {$ref: "#/types/SetIoAssignmentResult"}
+    examples:
+      - title: Assign one IoUser to one I/O
+        request:
+          params:
+            IoAssignment:
+              - IoName: H1
+                IoMode: "inout:12V/gnd"
+                IoUser:
+                  - {MultiIo: false, Type: doorcontrol, Usage: Lock_Standard, token: "Axis-0408c184bcc:1353672968.091740000"}
+        source: https://developer.axis.com/vapix/physical-access-control/io-assignment-service/#assign-io-to-services
+      - title: Assign several IoUsers to one I/O
+        request:
+          params:
+            IoAssignment:
+              - IoName: IN1
+                IoMode: "in:pu/gnd"
+                IoUser:
+                  - {MultiIo: true, Type: doorcontrol, Usage: DoorOpenMonitor, token: "Axis-00408c184bcc:1353674725.635842000"}
+                  - {MultiIo: false, Type: doorcontrol, Usage: DoorClosedMonitor, token: "Axis-00408c184bcc:1353674725.635842000"}
+        source: https://developer.axis.com/vapix/physical-access-control/io-assignment-service/#assign-io-to-services
+      - title: Assign one IoUser to several I/Os
+        request:
+          params:
+            IoAssignment:
+              - IoName: H1
+                IoMode: "inout:12V/gnd"
+                IoUser:
+                  - {MultiIo: true, Type: doorcontrol, Usage: Lock_Standard, token: "Axis-0408c184bcc:1353672968.091740000"}
+              - IoName: H2
+                IoMode: "inout:12V/gnd"
+                IoUser:
+                  - {MultiIo: true, Type: doorcontrol, Usage: Lock_Standard, token: "Axis-0408c184bcc:1353672968.091740000"}
+        source: https://developer.axis.com/vapix/physical-access-control/io-assignment-service/#assign-io-to-services
+      - title: Unassign an I/O
+        request:
+          params:
+            IoAssignment:
+              - {IoName: IO3, IoMode: "inout:pu/gnd", IoUser: []}
+        source: https://developer.axis.com/vapix/physical-access-control/io-assignment-service/#unassign-ios
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/io-assignment-service/
+  sha256_md: 728e3c051ea0fc286b8ae381c7deb309b30d58d531601f6ab80b0fad3f18e54c
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+    - "No discovery probe: the docs only say to look for the namespace http://www.axis.com/vapix/ws/AxisIo in the entry service's GetServices (SOAP), which is not a supported discovery entry."
+    - The docs do not say which IoAssignment, IoUser and IoInfo fields are always present, so none are marked required. The assignment examples always send IoName, IoMode and IoUser.
+    - The docs map the ONVIF access classes (READ_SYSTEM, READ_SYSTEM_SENSITIVE, WRITE_SYSTEM) to no VAPIX role; the API default admin is kept.
+  migrated_from: v1
+  curated: true

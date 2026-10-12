@@ -1,0 +1,74 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: rtsp-adjustable-live-stream
+name: RTSP Adjustable Live Stream
+summary: Change a subset of an ongoing RTSP stream's settings (compression, fps, keyframe interval, max bitrate,
+  zipstream strength) without restarting it.
+section: network-video
+family: cgi
+status: released
+python:
+  module: rtsp_adjustable_live_stream
+  class: RtspAdjustableLiveStream
+docs:
+- https://developer.axis.com/vapix/network-video/rtsp-adjustable-live-stream/
+access: viewer
+discovery:
+- param: {name: Properties.API.RTSP.AdjustableStreamSettings, value: <one or more settings>}
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  get_adjustable_stream_settings_property:
+    summary: Retrieve the supported adjustable stream settings via param.cgi.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list, group: root.Properties.API.RTSP.AdjustableStreamSettings}
+      reply:
+        text_kv: {strip_prefix: root.}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: get_adjustable_stream_settings_property
+      request:
+        query: {}
+      response:
+        status: 200
+        text: root.Properties.API.RTSP.AdjustableStreamSettings="compression,fps,videokeyframeinterval,videomaxbitrate,videozstrength"
+      source: https://developer.axis.com/vapix/network-video/rtsp-adjustable-live-stream/#propertiesapirtspadjustablestreamsettings
+  open_adjustable_stream_url:
+    summary: Request a video stream with adjustable live stream enabled.
+    effect: read
+    binding:
+      rtsp:
+        query: {adjustablelivestream: '1'}
+    params:
+      type: object
+      properties:
+        videozprofile:
+          type: string
+          description: videozprofile=storage is incompatible with this API; 400 Bad Request is returned if used.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/rtsp-adjustable-live-stream/
+  sha256_md: 6e340c830e2bdff24bab58def36faa0d45af7966677b091e6b54a4a05d971f14
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Request body syntax shows 'Adjustable-Stream-Settings' without a colon, the example uses 'Adjustable-Stream-Settings:'.
+  - Value ranges for each adjustable setting not stated here (refers to the Video streaming API).
+  - AXIS OS minimum version not stated.
+  - 'migration: discovery: discovery method other dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: AdjustableSetting'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'migration: op-skipped: get_adjustable_stream_settings: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER
+    ...), not a URL; RTSP clients drive these'
+  - 'migration: op-skipped: set_adjustable_stream_configuration: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER
+    ...), not a URL; RTSP clients drive these'
+  migrated_from: v1
+  curated: false

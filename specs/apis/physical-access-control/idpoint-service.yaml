@@ -1,0 +1,909 @@
+format: 2
+id: idpoint-service
+name: IdPoint service
+summary: The IdPoint service is used for management of IdPoints.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: id_point_service
+  class: IdPointService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/idpoint-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+- https://developer.axis.com/vapix/physical-access-control/access-control-service/
+- https://developer.axis.com/vapix/physical-access-control/door-control-service/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+- https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+access: admin
+
+binding: {path: /vapix/idpoint}
+
+errors:
+  ter:InvalidArgs: {description: Invalid argument, kind: invalid_argument}
+
+types:
+  ReferenceToken:
+    type: string
+    description: Reference token of an entity.
+
+  NameValue:
+    type: object
+    description: A name and value pair.
+    properties:
+      Name: {type: string}
+      Value: {type: string}
+
+  IdData:
+    type: object
+    description: One identification value, for example a card number or a PIN.
+    properties:
+      Name: {type: string, description: "Name of the field, for example `Card`, `PIN` or `CardNr`."}
+      Value: {type: string, description: The value.}
+
+  ServiceCapabilities:
+    type: object
+    description: Optional functionality of the IdPoint service. Static during device operation.
+    properties:
+      SetIdPoint: {type: boolean, description: True if SetIdPoint is supported.}
+
+  IdPointCapabilities:
+    type: object
+    description: Optional functionality of one IdPoint. It can change during device operation, for example if hardware settings change.
+    properties:
+      Configurable: {type: boolean, description: True if the IdPoint settings can be modified.}
+      SupportCard: {type: boolean, description: True if the IdPoint can read card data.}
+      SupportPIN: {type: boolean, description: True if the IdPoint supports PIN or keypad entry.}
+      SupportREX: {type: boolean, description: True if the IdPoint has a REX input.}
+      SupportBiometric: {type: boolean, description: True if the IdPoint has some kind of biometric input.}
+      SupportedMessageTypes:
+        type: array
+        items: {type: string}
+        description: "Supported mime types of the Message in feedback_message, for example `text/plain`. May be empty."
+      SupportedGraphicsTypes:
+        type: array
+        items: {type: string}
+        description: "Supported mime types of the Graphics in feedback_message, for example `image/jpeg`. May be empty."
+      SupportedAudioTypes:
+        type: array
+        items: {type: string}
+        description: "Supported audio formats of the Audio in feedback_message, for example `audio/basic`."
+      AdditionalCapabilities: {description: "General list of supported features; not specified in the docs."}
+
+  IdPointInfo:
+    type: object
+    description: An IdPoint as a physical object, with its capabilities.
+    required: [Name, Location, Area, Capabilities]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: "A service-unique identifier of the IdPoint. The docs call the field `Token`, the examples elsewhere use `token`."}
+      Name: {type: string, description: Name of the IdPoint.}
+      Location: {type: string, description: Text description of the location.}
+      Area: {type: string, description: The area the IdPoint is in.}
+      Capabilities: {$ref: "#/types/IdPointCapabilities", description: The capabilities of the IdPoint.}
+      Description: {type: string, description: Description of the IdPoint.}
+
+  IdPoint:
+    type: object
+    description: The full configuration of an IdPoint, as returned by the device.
+    required: [token]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: A service-unique identifier of the IdPoint.}
+      Name: {type: string, description: Name of the IdPoint.}
+      Location: {type: string, description: Text description of the location.}
+      Area: {type: string, description: The area the IdPoint is in.}
+      Timeout: {type: string, description: "Timeout between user interactions, as an ISO 8601 duration such as `PT10S`."}
+      HeartbeatInterval: {type: string, description: "Time between heartbeat events, as an ISO 8601 duration such as `PT10M`. A time of 0 means no heartbeat events."}
+      Description: {type: string, description: Description of the IdPoint.}
+      Action: {type: string, description: "The default action of the IdPoint, for example `Access` (assumed if not set) or `AccessDoorWithoutUnlock`."}
+      MinPINSize: {type: integer, description: Minimum number of characters in a PIN.}
+      MaxPINSize: {type: integer, description: Maximum number of characters in a PIN.}
+      EndOfPIN: {type: string, description: Character or string that ends a PIN and triggers sending it.}
+
+  IdPointInput:
+    type: object
+    description: An IdPoint to add or update.
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: "Token of the IdPoint. If empty or absent the device allocates one; if it exists the IdPoint is updated. Use the same token for the IdPointConfiguration."}
+      Name: {type: string, description: Name of the IdPoint.}
+      Location: {type: string, description: Text description of the location.}
+      Area: {type: string, description: The area the IdPoint is in.}
+      Timeout: {type: string, description: "Timeout between user interactions, as an ISO 8601 duration such as `PT10S`."}
+      HeartbeatInterval: {type: string, description: "Time between heartbeat events, as an ISO 8601 duration such as `PT10M`. A time of 0 means no heartbeat events."}
+      Description: {type: string, description: Description of the IdPoint.}
+      Action: {type: string, description: "The default action of the IdPoint, for example `Access` (assumed if not set) or `AccessDoorWithoutUnlock`."}
+      MinPINSize: {type: integer, description: Minimum number of characters in a PIN.}
+      MaxPINSize: {type: integer, description: Maximum number of characters in a PIN.}
+      EndOfPIN: {type: string, description: Character or string that ends a PIN and triggers sending it.}
+
+  IdPointFeedback:
+    enum:
+      - Other
+      - Idle
+      - DoorLocked
+      - DoorUnlocked
+      - DoorOpenTooLong
+      - DoorPreAlarmWarning
+      - RequirePIN
+      - RequireCard
+      - Processing
+      - InvalidCredential
+      - AccessGranted
+      - AccessDenied
+      - Ok
+      - Fault
+      - Warning
+      - Alarm
+      - Custom
+
+  IdPointConfiguration:
+    type: object
+    description: >-
+      The device and hardware configuration of an IdPoint, bound to the IdPoint by the same token. Without a value for
+      every parameter in Configuration, the supplied parameters replace those of an existing configuration, and a new
+      configuration gets the first value of each parameter's list of valid values. The parameters are named like
+      `IdPoint.Reader.Type` (`None`, `Wiegand`, `RS-485FD`, `RS-485HD`, `TCPIP`), `IdPoint.RS-485HD.Protocol`
+      (`None`, `AADP`, `OSDP`, `HADP`), `IdPoint.LED.Type`, `IdPoint.Beeper.Type`, `IdPoint.Tampering.Type`,
+      `IdPoint.REX.Type`, `IdPoint.Keypress.Types`, `IdPoint.Hardware.Address`, `IdPoint.Hardware.DetectionMode`,
+      `IdPoint.SecureChannel.KeyToken` and `IdPoint.SecureChannel.KeyType`; get_id_point_configuration_info lists them.
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: "IdPoint token to use for set, remove and usage."}
+      DeviceUUID: {type: string, description: "The device the IdPoint is on. When empty in a set request it is filled in with the UUID of the device that receives the request."}
+      IdDataConfiguration:
+        type: array
+        items: {$ref: "#/types/ReferenceToken"}
+        description: Tokens of the IdDataConfigurations to use.
+      Configuration:
+        type: array
+        items: {$ref: "#/types/NameValue"}
+        description: The hardware configuration parameters of the IdPoint.
+
+  ConfigurationInfo:
+    type: object
+    description: A configuration setting and its description.
+    properties:
+      Name: {type: string, description: Name of the setting.}
+      Value: {type: string, description: Value of the setting.}
+      Enums:
+        type: array
+        items: {type: string}
+        description: Suggested or allowed values.
+      Type: {type: string, description: "Type of the setting, for example `xs:string`, `xs:boolean` or `xs:int`."}
+      DependOnName: {type: string, description: Name of the setting this one depends on.}
+      DependOnValue: {type: string, description: Value of the setting this one depends on.}
+      Description: {type: string, description: Description of the setting.}
+
+  IdDataEncoding:
+    enum:
+      - Other
+      - BinLE2hex
+      - BinBE2hex
+      - Bin2Base64
+      - Bin2String
+      - BinLEBCD2String
+      - BinBEBCD2String
+      - BinLE2Int
+      - BinBE2Int
+      - BinLEIBO2hex
+      - BinBEIBO2hex
+      - BinIBO2Base64
+      - BinIBO2String
+      - BinLEIBO2Int
+      - BinBEIBO2Int
+
+  IdDataFieldMap:
+    type: object
+    description: How binary card data maps to one IdData name and value.
+    properties:
+      Name: {type: string, description: "Name of the IdData field, for example `CardNr` or `FacilityCode`."}
+      Map: {type: string, description: "Location of the field in the card data: bit `N`, bits `M-N`, constant binary `bBBB`, constant hex `xHHH`, joined by commas. Bit 1 is the first bit received, for example over Wiegand."}
+      Encoding: {$ref: "#/types/IdDataEncoding", description: How the resulting bits are encoded to a value.}
+
+  IdDataConfiguration:
+    type: object
+    description: How binary data from a card reader or keypad maps to the IdData of Request events. The complete raw data is always sent as `Card` and its length as `BitCount`.
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: "Id of the configuration. If empty in a set request the device allocates one."}
+      Name: {type: string, description: Name of the configuration.}
+      Description: {type: string, description: Description of the configuration.}
+      InputBitlength: {type: integer, description: The number of bits the input must have to use this configuration.}
+      IdDataFieldMap:
+        type: array
+        items: {$ref: "#/types/IdDataFieldMap"}
+        description: The field maps.
+
+  SecureChannel:
+    enum: [Unknown, ConnectionLost, ConnectionEstablished, NotSupported, NoKey]
+
+  SecureChannelStatus:
+    type: object
+    description: Status of the secure channel of an IdPoint.
+    properties:
+      Active: {type: boolean, description: True if there is an active secure channel on the IdPoint.}
+      Reason: {$ref: "#/types/SecureChannel", description: Status of the secure channel; more information when Active is false.}
+
+  IdPointWhiteList:
+    description: A whitelist of a lock and the state of its entries (Active, Invalid, PendingAdd or PendingRemove). The docs do not define the structure.
+
+  Activity:
+    type: object
+    description: One activity at a remote IdPoint.
+    required: [Type]
+    properties:
+      Type: {enum: [REX, Card, PIN], description: "The kind of activity."}
+      Params:
+        type: array
+        items: {$ref: "#/types/NameValue"}
+        description: "Custom fields of the Request event. Mandatory for `Card` and `PIN` (for `PIN` a param named `PIN` is mandatory) and not allowed for `REX`."
+
+  ListRequest:
+    type: object
+    properties:
+      Limit: {type: integer, description: "Maximum number of entries to return. If absent, or higher than the device supports, the device decides."}
+      StartReference: {type: string, description: "Start returning entries from this reference. If absent, start from the beginning."}
+
+  TokensRequest:
+    type: object
+    required: [Token]
+    properties:
+      Token:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/ReferenceToken"}
+        description: Tokens of the items.
+
+  TokenRequest:
+    type: object
+    required: [Token]
+    properties:
+      Token: {$ref: "#/types/ReferenceToken", description: Token of the IdPoint.}
+
+  TokenResult:
+    type: object
+    properties:
+      Token:
+        oneOf:
+          - {$ref: "#/types/ReferenceToken"}
+          - {type: array, items: {$ref: "#/types/ReferenceToken"}}
+        description: "Tokens of the added or updated items. The docs' examples show a single token as a plain string and the message tables a list."
+
+  GetServiceCapabilitiesResult:
+    type: object
+    required: [Capabilities]
+    properties:
+      Capabilities: {$ref: "#/types/ServiceCapabilities", description: The capabilities of the service.}
+
+  IdPointInfoList:
+    type: object
+    properties:
+      NextStartReference: {type: string, description: "StartReference to use in the next call to get the following items. Absent when there are no more items."}
+      IdPointInfo:
+        type: array
+        items: {$ref: "#/types/IdPointInfo"}
+        description: The IdPoints.
+
+  IdPointInfos:
+    type: object
+    properties:
+      IdPointInfo:
+        type: array
+        items: {$ref: "#/types/IdPointInfo"}
+
+  IdPoints:
+    type: object
+    properties:
+      IdPoint:
+        type: array
+        items: {$ref: "#/types/IdPoint"}
+
+  SetIdPointRequest:
+    type: object
+    required: [IdPoint]
+    properties:
+      IdPoint:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/IdPointInput"}
+        description: The IdPoints to add or update.
+
+  GetIdPointCapabilitiesResult:
+    type: object
+    required: [IdPointCapabilities]
+    properties:
+      IdPointCapabilities: {$ref: "#/types/IdPointCapabilities", description: The capabilities of the IdPoint.}
+
+  FeedbackMessageRequest:
+    type: object
+    required: [Token, Profile]
+    properties:
+      Token: {$ref: "#/types/ReferenceToken", description: Token of the IdPoint to control.}
+      Profile: {$ref: "#/types/IdPointFeedback", description: The feedback profile to use.}
+      OtherProfile: {type: string, description: "The extended profile information when Profile is `Other`."}
+      Message: {type: string, description: Optional textual feedback message.}
+      Graphics: {description: "Optional graphical message (tt:BinaryData, not defined in the docs)."}
+      Audio: {description: "Optional audio message (tt:BinaryData, not defined in the docs)."}
+
+  IdPointConfigurationList:
+    type: object
+    properties:
+      NextStartReference: {type: string, description: "StartReference to use in the next call to get the following items. Absent when there are no more items."}
+      IdPointConfiguration:
+        type: array
+        items: {$ref: "#/types/IdPointConfiguration"}
+
+  IdPointConfigurations:
+    type: object
+    properties:
+      IdPointConfiguration:
+        type: array
+        items: {$ref: "#/types/IdPointConfiguration"}
+
+  SetIdPointConfigurationRequest:
+    type: object
+    required: [IdPointConfiguration]
+    properties:
+      IdPointConfiguration:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/IdPointConfiguration"}
+        description: The new versions of the configurations. The token should normally refer to an existing IdPoint.
+
+  ConfigurationInfoResult:
+    type: object
+    properties:
+      ConfigurationInfo:
+        type: array
+        items: {$ref: "#/types/ConfigurationInfo"}
+        description: The configuration parameters of the IdPoint.
+
+  LastCredentialResult:
+    type: object
+    properties:
+      IdData:
+        type: array
+        items: {$ref: "#/types/IdData"}
+        description: The last credential, parsed with the IdDataConfiguration. `Card` and `BitCount` are always included.
+
+  IdDataConfigurations:
+    type: object
+    properties:
+      IdDataConfiguration:
+        type: array
+        items: {$ref: "#/types/IdDataConfiguration"}
+
+  SetIdDataConfigurationRequest:
+    type: object
+    required: [IdDataConfiguration]
+    properties:
+      IdDataConfiguration:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/IdDataConfiguration"}
+        description: The IdDataConfigurations to add or modify.
+
+  FeedbackProfileResult:
+    type: object
+    required: [Profile]
+    properties:
+      Profile: {$ref: "#/types/IdPointFeedback", description: The current feedback profile.}
+
+  SecureChannelStatusResult:
+    type: object
+    required: [SecureChannelStatus]
+    properties:
+      SecureChannelStatus: {$ref: "#/types/SecureChannelStatus", description: Status of the secure channel.}
+
+  IdPointWhiteListResult:
+    type: object
+    properties:
+      IdPointWhiteList:
+        type: array
+        items: {$ref: "#/types/IdPointWhiteList"}
+
+  IdPointWhiteListList:
+    type: object
+    properties:
+      NextStartReference: {type: string, description: "StartReference to use in the next call to get the following items. Absent when there are no more items."}
+      IdPointWhiteList:
+        type: array
+        items: {$ref: "#/types/IdPointWhiteList"}
+
+  IndicateRemoteActivitiesRequest:
+    type: object
+    required: [Token, Activities]
+    properties:
+      Token: {$ref: "#/types/ReferenceToken", description: Token of the IdPoint to indicate activities for.}
+      Description: {type: string, description: Description added to the events that are sent.}
+      Activities:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/Activity"}
+        description: The activities.
+      Attributes:
+        type: array
+        items: {$ref: "#/types/NameValue"}
+        description: Reserved for future extension; not in use.
+
+operations:
+  get_service_capabilities:
+    summary: Get the capabilities of the IdPoint service.
+    effect: read
+    access: anonymous
+    binding: {operation: "axtid:GetServiceCapabilities"}
+    result: {$ref: "#/types/GetServiceCapabilitiesResult"}
+
+  get_id_point_info_list:
+    summary: List the summaries and capabilities of all IdPoints.
+    description: >-
+      Pages through the IdPoints. Pass the returned `NextStartReference` as `StartReference` in the next call and never
+      reuse a reference. The device may return fewer items than `Limit`.
+    effect: read
+    binding: {operation: "axtid:GetIdPointInfoList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/IdPointInfoList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning", kind: invalid_argument}
+
+  get_id_point_info:
+    summary: Get the summaries and capabilities of the IdPoints with the given tokens.
+    description: The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axtid:GetIdPointInfo"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/IdPointInfos"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability, kind: invalid_argument}
+
+  get_id_point_list:
+    summary: List all IdPoints.
+    description: >-
+      Pages through the IdPoints. The message table of the docs says the response holds `IdPointInfo` items, although
+      the guide says the call returns the IdPoints with their configuration.
+    effect: read
+    binding: {operation: "axtid:GetIdPointList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/IdPointInfoList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning", kind: invalid_argument}
+
+  get_id_point:
+    summary: Get the IdPoints with the given tokens.
+    description: The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axtid:GetIdPoint"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/IdPoints"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability, kind: invalid_argument}
+
+  set_id_point:
+    summary: Add or update IdPoints.
+    description: >-
+      An IdPoint whose token exists is updated, any other is created, and one with an empty token gets a token from
+      the device. The tokens are returned. An IdPoint works only once an IdPointConfiguration with the same token exists.
+    effect: write
+    write: patch
+    binding: {operation: "axtid:SetIdPoint"}
+    params: {$ref: "#/types/SetIdPointRequest"}
+    result: {$ref: "#/types/TokenResult"}
+    errors:
+      ter:NotSupported: {description: Not allowed to create or modify the IdPoint, kind: unsupported}
+    examples:
+      - title: Create an IdPoint
+        request:
+          params:
+            IdPoint:
+              - token: idpoint1
+                Name: Name1
+                Area: Area1
+                MinPINSize: 4
+                MaxPINSize: 4
+                EndOfPIN: "#"
+                HeartbeatInterval: PT10M
+                Location: Loc1
+                Timeout: PT3S
+                Action: Action1
+                Description: Desc1
+        source: https://developer.axis.com/vapix/physical-access-control/idpoint-service/#creating-the-idpoint
+      - title: Create the IdPoint of a reader
+        request:
+          params:
+            IdPoint:
+              - {token: floor-idpoint-token, Name: Reader Entrance, Action: Access, Timeout: PT10S, MaxPINSize: 4, MinPINSize: 4}
+        response: {data: {Token: floor-idpoint-token}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-an-idpoint
+      - title: Create the IdPoint of an Aperio reader
+        request:
+          params:
+            IdPoint:
+              - {Name: Aperio Reader Entrance, Action: Access, token: aperio_idpoint_reader_entrance_token, MaxPINSize: 4, MinPINSize: 4}
+        response: {data: {Token: aperio_idpoint_reader_entrance_token}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-an-entrance-idpoint-aperio-doors
+
+  remove_id_point:
+    summary: Remove the IdPoints with the given tokens.
+    effect: write
+    write: delete
+    binding: {operation: "axtid:RemoveIdPoint"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotSupported: {description: Not allowed to remove the IdPoint, kind: unsupported}
+      ter:NotFound: {description: IdPoint not found, kind: not_found}
+
+  get_id_point_capabilities:
+    summary: Get the capabilities of one IdPoint.
+    effect: read
+    binding: {operation: "axtid:GetIdPointCapabilities"}
+    params: {$ref: "#/types/TokenRequest"}
+    result: {$ref: "#/types/GetIdPointCapabilitiesResult"}
+    errors:
+      ter:NotFound: {description: IdPoint not found, kind: not_found}
+
+  feedback_message:
+    summary: Make an IdPoint give feedback, with its LED, beeper or display.
+    description: >-
+      The Access Controller uses this to annunciate the state of a door or an access decision to the user. What each
+      profile does is up to the reader.
+    effect: action
+    binding: {operation: "axtid:FeedbackMessage"}
+    params: {$ref: "#/types/FeedbackMessageRequest"}
+    errors:
+      ter:NotFound: {description: The specified token is not found, kind: not_found}
+
+  get_id_point_configuration_list:
+    summary: List all IdPoint configurations.
+    effect: read
+    binding: {operation: "axtid:GetIdPointConfigurationList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/IdPointConfigurationList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning", kind: invalid_argument}
+
+  get_id_point_configuration:
+    summary: Get the IdPoint configurations with the given tokens.
+    description: The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axtid:GetIdPointConfiguration"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/IdPointConfigurations"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability, kind: invalid_argument}
+
+  set_id_point_configuration:
+    summary: Add or update IdPoint configurations.
+    description: >-
+      The token should normally refer to an existing IdPoint. For an existing configuration only the supplied
+      Configuration parameters are replaced; for a new one missing parameters get their default (the first valid value).
+      Settings such as the reader type create IoUsers that are assigned to pins with the I/O assignment service.
+    effect: write
+    write: patch
+    binding: {operation: "axtid:SetIdPointConfiguration"}
+    params: {$ref: "#/types/SetIdPointConfigurationRequest"}
+    result: {$ref: "#/types/TokenResult"}
+    errors:
+      ter:InvalidIdPointConfigurationFault: {description: The IdPoint configuration is invalid, kind: invalid_argument}
+    examples:
+      - title: Configure a Wiegand reader
+        request:
+          params:
+            IdPointConfiguration:
+              - token: ""
+                DeviceUUID: ""
+                IdDataConfiguration: [""]
+                Configuration:
+                  - {Name: IdPoint.Reader.Type, Value: Wiegand}
+                  - {Name: IdPoint.LED.Type, Value: SingleLED}
+                  - {Name: IdPoint.LED.ActiveLevel, Value: ActiveLow}
+                  - {Name: IdPoint.Beeper.Type, Value: ActiveLow}
+                  - {Name: IdPoint.Tampering.Type, Value: ActiveLow}
+        source: https://developer.axis.com/vapix/physical-access-control/idpoint-service/#configuring-a-wiegand-reader
+      - title: Configure an OSDP reader
+        request:
+          params:
+            IdPointConfiguration:
+              - token: floor-idpoint-token
+                Configuration:
+                  - {Name: IdPoint.Reader.Type, Value: RS-485HD}
+                  - {Name: IdPoint.RS-485HD.Protocol, Value: OSDP}
+        response: {data: {Token: floor-idpoint-token}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-an-idpoint
+      - title: Configure an OSDP secure channel reader
+        request:
+          params:
+            IdPointConfiguration:
+              - token: osdp_sc_idpoint
+                Configuration:
+                  - {Name: IdPoint.Reader.Type, Value: RS-485HD}
+                  - {Name: IdPoint.RS-485HD.Protocol, Value: OSDP}
+                  - {Name: IdPoint.SecureChannel.KeyToken, Value: my_key}
+                  - {Name: IdPoint.SecureChannel.KeyType, Value: KeyBase}
+        source: https://developer.axis.com/vapix/physical-access-control/idpoint-service/#configuring-an-open-supervised-device-protocol-osdp-secure-channel-reader
+      - title: Configure an OSDP reader in a multidrop setup
+        request:
+          params:
+            IdPointConfiguration:
+              - token: ""
+                DeviceUUID: ""
+                IdDataConfiguration: [""]
+                Configuration:
+                  - {Name: IdPoint.Reader.Type, Value: RS-485HD}
+                  - {Name: IdPoint.RS-485HD.Protocol, Value: OSDP}
+                  - {Name: IdPoint.Hardware.Address, Value: "0"}
+                  - {Name: IdPoint.Hardware.DetectionMode, Value: Manual}
+        source: https://developer.axis.com/vapix/physical-access-control/idpoint-service/#configuring-an-osdp-reader-for-a-multidrop-setup
+      - title: Configure a REX device
+        request:
+          params:
+            IdPointConfiguration:
+              - token: ""
+                DeviceUUID: ""
+                IdDataConfiguration: [""]
+                Configuration:
+                  - {Name: IdPoint.Reader.Type, Value: None}
+                  - {Name: IdPoint.REX.Type, Value: ActiveLow}
+        source: https://developer.axis.com/vapix/physical-access-control/idpoint-service/#configuring-a-rex-device
+      - title: Configure an Aperio reader
+        request:
+          params:
+            IdPointConfiguration:
+              - token: aperio_idpoint_reader_entrance_token
+                Configuration:
+                  - {Name: IdPoint.Reader.Type, Value: RS-485HD}
+                  - {Name: IdPoint.Hardware.Address, Value: A0B1C2}
+                  - {Name: IdPoint.RS-485HD.Protocol, Value: AADP}
+        response: {data: {Token: aperio_idpoint_reader_entrance_token}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-entrance-idpoint-configuration-aperio-doors
+      - title: Configure a Smart Intego reader
+        request:
+          params:
+            IdPointConfiguration:
+              - Configuration:
+                  - {Name: IdPoint.Reader.Type, Value: TCPIP}
+                  - {Name: IdPoint.TCPIP.Protocol, Value: SmartIntego}
+                  - {Name: IdPoint.Hardware.Address, Value: "0x200"}
+                  - {Name: IdPoint.Hardware.Id, Value: 00E4DR7}
+                  - {Name: IdPoint.TCPIP.Address, Value: 172.25.15.123}
+                  - {Name: IdPoint.TCPIP.Port, Value: "2101"}
+                  - {Name: IdPoint.Hub.Hardware.Address, Value: "0x100"}
+                IdDataConfiguration: []
+                token: Si_idpoint_entrance
+        response: {data: {Token: Si_idpoint_entrance}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-idpoint-configuration-smartintego-doors
+
+  remove_id_point_configuration:
+    summary: Remove the IdPoint configurations with the given tokens.
+    description: >-
+      Normally not needed, since removing an IdPoint removes its configuration too, although a configuration can exist
+      without an IdPoint.
+    effect: write
+    write: delete
+    binding: {operation: "axtid:RemoveIdPointConfiguration"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotFound: {description: IdPointConfiguration not found, kind: not_found}
+
+  get_id_point_configuration_info:
+    summary: Get the configuration parameters of one IdPoint with their allowed values.
+    effect: read
+    binding: {operation: "axtid:GetIdPointConfigurationInfo"}
+    params: {$ref: "#/types/TokenRequest"}
+    result: {$ref: "#/types/ConfigurationInfoResult"}
+    errors:
+      ter:NotFound: {description: IdPoint not found, kind: not_found}
+
+  get_last_credential:
+    summary: Get the last credential entered at a reader.
+    description: The data is parsed with the IdDataConfiguration. `Card` and `BitCount` are always included.
+    effect: read
+    binding: {operation: "axtid:GetLastCredential"}
+    params: {$ref: "#/types/TokenRequest"}
+    result: {$ref: "#/types/LastCredentialResult"}
+    errors:
+      ter:ConfigurationNotFound: {description: Configuration not found, kind: not_found}
+    examples:
+      - title: Get the last card data from a reader
+        request: {params: {Token: idpoint1}}
+        response:
+          data:
+            IdData:
+              - {Name: FullCard, Value: 02004fcb}
+              - {Name: ParityEven, Value: "1"}
+              - {Name: FacilityCode, Value: "0"}
+              - {Name: CardNr, Value: "10213"}
+              - {Name: CardNrHex, Value: 27e5}
+              - {Name: ParityOdd, Value: "1"}
+              - {Name: Card, Value: 02004fcb}
+              - {Name: BitCount, Value: "26"}
+        source: https://developer.axis.com/vapix/physical-access-control/idpoint-service/#getting-card-data-from-a-reader
+
+  get_id_data_configuration_list:
+    summary: List all IdDataConfigurations (access card formats).
+    description: >-
+      Some formats exist by default, for example the Wiegand 26-bit H10301. The message table of the docs says the
+      response holds `IdPointConfiguration` items, which is probably a copy of get_id_point_configuration_list.
+    effect: read
+    binding: {operation: "axtid:GetIdDataConfigurationList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/IdPointConfigurationList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning", kind: invalid_argument}
+
+  get_id_data_configuration:
+    summary: Get the IdDataConfigurations with the given tokens.
+    description: The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axtid:GetIdDataConfiguration"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/IdDataConfigurations"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability, kind: invalid_argument}
+
+  set_id_data_configuration:
+    summary: Add or modify IdDataConfigurations (access card formats).
+    description: A configuration with an empty token gets a token from the device. All supplied and generated tokens are returned.
+    effect: write
+    write: patch
+    binding: {operation: "axtid:SetIdDataConfiguration"}
+    params: {$ref: "#/types/SetIdDataConfigurationRequest"}
+    result: {$ref: "#/types/TokenResult"}
+    errors:
+      ter:InvalidConfigurationFault: {description: The IdDataConfiguration is invalid, kind: invalid_argument}
+    examples:
+      - title: Set the H10301 card format
+        request:
+          params:
+            IdDataConfiguration:
+              - token: ""
+                InputBitlength: 26
+                Name: IdDataConfig example
+                IdDataFieldMap:
+                  - {Map: "1-26", Name: FullCard, Encoding: BinLE2hex}
+                  - {Map: "1", Name: ParityEven, Encoding: BinLE2Int}
+                  - {Map: "2-9", Name: FacilityCode, Encoding: BinLE2Int}
+                  - {Map: "10-25", Name: CardNr, Encoding: BinLE2Int}
+                  - {Map: "10-25", Name: CardNrHex, Encoding: BinLE2hex}
+                  - {Map: "26", Name: ParityOdd, Encoding: BinLE2Int}
+                Description: Test Description
+        source: https://developer.axis.com/vapix/physical-access-control/idpoint-service/#iddataconfiguration-example
+
+  remove_id_data_configuration:
+    summary: Remove the IdDataConfigurations with the given tokens.
+    effect: write
+    write: delete
+    binding: {operation: "axtid:RemoveIdDataConfiguration"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotFound: {description: IdDataConfiguration not found, kind: not_found}
+
+  get_feedback_message:
+    summary: Get the current feedback profile of an IdPoint.
+    effect: read
+    binding: {operation: "axtid:GetFeedbackMessage"}
+    params: {$ref: "#/types/TokenRequest"}
+    result: {$ref: "#/types/FeedbackProfileResult"}
+    errors:
+      ter:NotFound: {description: IdPoint not found, kind: not_found}
+
+  get_secure_channel_status:
+    summary: Get the secure channel status of an IdPoint.
+    effect: read
+    binding: {operation: "axtid:GetSecureChannelStatus"}
+    params: {$ref: "#/types/TokenRequest"}
+    result: {$ref: "#/types/SecureChannelStatusResult"}
+    errors:
+      ter:NotFound: {description: IdPoint not found, kind: not_found}
+
+  get_id_point_white_list:
+    summary: Get the whitelists with the given tokens, with the state of their entries.
+    description: The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axtid:GetIdPointWhiteList"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/IdPointWhiteListResult"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability, kind: invalid_argument}
+
+  get_id_point_white_list_list:
+    summary: List all whitelists, with the state of their entries.
+    effect: read
+    binding: {operation: "axtid:GetIdPointWhiteListList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/IdPointWhiteListList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning", kind: invalid_argument}
+
+  indicate_remote_activities:
+    summary: Report activities, such as a card read, a PIN or a REX press, from a remote device to an IdPoint.
+    description: >-
+      Triggers the same events as a physical reader. For each activity two IdPoint events are sent: first
+      `tns1:IdPoint/tnsaxis:Activity` (Reason `CardPresented`, `REX` or `CodeEntered`), then
+      `tns1:IdPoint/tnsaxis:Request/tnsaxis:IdData`, `...:REX` or `...:PIN`. The IdPoint must have a hardware
+      configuration. Access is granted when the Name/Value pairs of the params match the IdData of a credential in the
+      same order, and each name appears as an IdDataName in an authentication profile of the credential, access point
+      or access profile.
+    effect: action
+    binding: {operation: "axtid:IndicateRemoteActivities"}
+    params: {$ref: "#/types/IndicateRemoteActivitiesRequest"}
+    errors:
+      ter:NotFound: {description: IdPoint not found, kind: not_found}
+    examples:
+      - title: Indicate a REX press
+        request:
+          params:
+            Token: MyToken
+            Description: MyDescr
+            Activities: [{Type: REX}]
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#activity-type-rex
+      - title: Indicate a license plate read as a card
+        request:
+          params:
+            Token: MyToken
+            Description: MyDescr
+            Activities:
+              - Type: Card
+                Params: [{Name: LPN, Value: MyLPN}]
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#activity-type-card-params-and-lpn
+      - title: Indicate a card and a PIN in one activity
+        request:
+          params:
+            Token: MyToken
+            Description: MyDescr
+            Activities:
+              - Type: Card
+                Params:
+                  - {Name: Card, Value: 02004fcb}
+                  - {Name: PIN, Value: "1111"}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#activity-type-card-with-card-and-pin-in-params
+      - title: Indicate a PIN
+        request:
+          params:
+            Token: MyToken
+            Description: MyDescr
+            Activities:
+              - Type: PIN
+                Params: [{Name: PIN, Value: "1111"}]
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/physical-access-control/peripherals/#activity-type-pin-with-pin-in-params
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/idpoint-service/
+  sha256_md: bb9e54f5939ac5d85c27a10205231f39c594266bc3398a3c3cc4617bf4de69b5
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+  sha256_md: df3688f4c13448b099bd1126f31cc26e1eaaae943bf21565bea22dc0dad6d998
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/access-control-service/
+  sha256_md: bad333ab43a4be1d0d81e7842a7712664fe94b17d47936c9e3887df9a322642f
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/door-control-service/
+  sha256_md: 0688c58d04c2fcae47fae066fd898cf059d851fd0b14ee642bf22bb6989dc4ad
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+  sha256_md: e2e79ca5367f918095d6ca5dcd68e85139497cd21469b2eaf7e2569999617080
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
+    - 'Several message tables look copy-pasted. GetIdPointList is documented as returning `IdPointInfo` items (the guide says IdPoints with their configuration) and GetIdDataConfigurationList as returning `IdPointConfiguration` items (probably IdDataConfiguration); both are modelled as documented and need checking against a device.'
+    - 'The tables name the IdPoint identifier `Token` in IdPointInfo, IdPoint and IdPointConfiguration, while every example and the XML use `token`; the examples win. IdPointInfo.token is left optional because no IdPointInfo response is shown.'
+    - 'The JSON response examples show a single token as a plain string (`{"Token": "floor-idpoint-token"}`) although the tables say a list; Token in the set results accepts both.'
+    - 'tt:BinaryData (Graphics and Audio of FeedbackMessage) and axtid:IdPointWhiteList are referenced but not defined in the docs and are left untyped. The structure of the IdPoint WhiteList entries and their state (Active, Invalid, PendingAdd, PendingRemove) is therefore unknown.'
+    - 'SecureChannelStatus.Reason is described as "Status of the secure channel"; it is modelled as the SecureChannel enumeration (Unknown, ConnectionLost, ConnectionEstablished, NotSupported, NoKey) which the docs define just before it.'
+    - 'The IdDataEncoding enumeration in the API section has 15 values, the guide table 10 (a subset); the API list is used. The IdDataFieldMap Map syntax differs between the guide (`bB..B`, `xX..X`) and the API (`0bBBB`, `0xhh`, `sSSS`); the field is a plain string.'
+    - 'SetIdPoint is called `SetIdPointList` in its Name field and has access class READ_SYSTEM although it writes. The Configuration table says `IdPoint.RS-485HD.Protocol` is "valid when Reader.Type is RS-485FD", which should say RS-485HD. The whitelist parameter is `IdPoint.Whitelist.IdData.Name` in the table but spelled differently on the Peripherals page.'
+    - 'The EndOfPIN field is `EndOfPin` in the XML example and `EndOfPIN` in JSON and the field list; the JSON name is used. The set request messages are named `GeSetIdPointConfigurationRequest` and `GetISetIdPointConfigurationResponse`, and the GetIdPoint response field `IdPointI` (typos).'
+    - 'The shown values of Action are `Access` (default) and, on the Peripherals page, `AccessDoorWithoutUnlock`; the example in the guide uses `Action1`. The field is a plain string. IdPointCapabilities.AdditionalCapabilities is "not specified" and left untyped.'
+    - The ONVIF access classes are not mapped to a VAPIX role; the API default admin is kept, except GetServiceCapabilities (PRE_AUTH), which is anonymous.
+  migrated_from: v1
+  curated: true

@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: ptz-control
 name: PTZ control API
-summary: Configure and control mechanical and digital PTZ (pan/tilt/zoom/focus/iris/brightness, presets, OSD, IR
-  cut filter, backlight) via ptz.cgi, ptzconfig.cgi and...
+summary: Control and configure mechanical and digital pan, tilt and zoom (focus, iris, brightness, presets, OSD menu, IR cut filter, backlight).
 section: network-video
 family: cgi
 status: released
@@ -27,238 +25,341 @@ requires:
 
 binding: {path: /axis-cgi/com/ptz.cgi}
 
+types:
+  Camera:
+    type: integer
+    minimum: 1
+    description: The video channel. The default channel (``PTZ.CameraDefault``, 1 unless changed) is used if omitted.
+      Only for products with more than one video channel.
+  CameraOrAll:
+    type: string
+    pattern: ^([0-9]+|all)$
+    description: The video channel number, or ``all`` for every channel. The default channel is used if omitted.
+  ImageRotation:
+    type: integer
+    enum: [0, 90, 180, 270]
+    description: Needed when the command refers to an image stream that is rotated differently than the current image
+      setup, so that the product can compensate. Product and release dependent.
+  Speed:
+    type: integer
+    minimum: 1
+    maximum: 100
+    description: The move speed of pan and tilt.
+  OnOff:
+    type: string
+    enum: ['on', 'off']
+  PresetName:
+    type: string
+    maxLength: 31
+    pattern: ^[^"<>~:]*$
+    description: 'A preset name of at most 31 characters. The characters " < > ~ : are not allowed.'
+  PtzLimits:
+    type: object
+    description: The PTZ limits of the product. Which values are returned depends on the product and its drivers.
+    properties:
+      MinPan: {type: number}
+      MaxPan: {type: number}
+      MinTilt: {type: number}
+      MaxTilt: {type: number}
+      MinZoom: {type: integer}
+      MaxZoom: {type: integer}
+      MinIris: {type: integer}
+      MaxIris: {type: integer}
+      MinFocus: {type: integer}
+      MaxFocus: {type: integer}
+      MinFieldAngle: {type: number}
+      MaxFieldAngle: {type: number}
+      MinBrightness: {type: integer}
+      MaxBrightness: {type: integer}
+  PtzPosition:
+    type: object
+    description: The current position. Which values are returned depends on the product and its drivers.
+    properties:
+      pan: {type: number, description: The absolute pan position in degrees.}
+      tilt: {type: number, description: The absolute tilt position in degrees.}
+      zoom: {type: integer, description: The absolute zoom position.}
+      autofocus: {$ref: "#/types/OnOff"}
+      autoiris: {$ref: "#/types/OnOff"}
+  PtzSpeed:
+    type: object
+    properties:
+      speed: {type: integer, description: The pan and tilt speed.}
+
 operations:
-  ptz_control:
-    summary: Control pan, tilt, zoom, focus, iris, brightness, presets, auxiliary, IR cut filter and backlight of
-      a PTZ unit.
-    description: Device dependent; check the Axis PTZ driver specification for supported arguments and values. Several
-      arguments may be combined in one request.
+  move:
+    summary: Move the image or the device in a direction, go to the home position or stop the pan and tilt movement.
+    description: >-
+      On absolute (digital) PTZ the image moves 25 % of the image field width in the direction; on relative PTZ the
+      device moves roughly 50 to 90 degrees (driver specific). ``home`` moves to the home position and ``stop``
+      stops the pan and tilt movement.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [move]
+      properties:
+        move:
+          type: string
+          enum: [home, up, down, left, right, upleft, upright, downleft, downright, stop]
+          description: The direction.
+        camera: {$ref: "#/types/Camera"}
+        speed: {$ref: "#/types/Speed"}
+        imagerotation: {$ref: "#/types/ImageRotation"}
+    positional: [move]
+  center:
+    summary: Center the camera on pixel coordinates of the client video stream.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [center]
+      properties:
+        center:
+          type: array
+          items: {type: integer}
+          minItems: 2
+          maxItems: 2
+          x-style: csv
+          description: The x and y pixel coordinates in the client video stream.
+        imagewidth:
+          type: integer
+          minimum: 1
+          description: Required if the displayed image width differs from the default (product specific) image width.
+        imageheight:
+          type: integer
+          minimum: 1
+          description: Required if the displayed image height differs from the default (product specific) image height.
+        camera: {$ref: "#/types/Camera"}
+        imagerotation: {$ref: "#/types/ImageRotation"}
+    positional: [center]
+  area_zoom:
+    summary: Center on pixel coordinates and zoom by a factor of z/100.
+    description: >-
+      A z above 100 zooms in (300 zooms in to a third of the current field of view); a z below 100 zooms out (50
+      zooms out to twice the field of view). On some products the precision improves when the lens offset
+      parameters are calibrated.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [areazoom]
+      properties:
+        areazoom:
+          type: array
+          items: {type: integer}
+          minItems: 3
+          maxItems: 3
+          x-style: csv
+          x-python-name: area
+          description: The x and y pixel coordinates and the zoom factor z (at least 1).
+        imagewidth:
+          type: integer
+          minimum: 1
+          description: Required if the displayed image width differs from the default (product specific) image width.
+        imageheight:
+          type: integer
+          minimum: 1
+          description: Required if the displayed image height differs from the default (product specific) image height.
+        camera: {$ref: "#/types/Camera"}
+        imagerotation: {$ref: "#/types/ImageRotation"}
+    positional: [area]
+  absolute_move:
+    summary: Move pan, tilt, zoom, focus, iris and brightness to absolute positions.
+    description: >-
+      Several axes can be combined in one request. Float input to zoom, focus, iris and brightness is handled as an
+      integer, with no guarantee on the rounding. On Panopsis products a position where the fisheye lens is visible
+      switches the product to overview mode.
     effect: action
     binding: {method: GET, reply: text}
     params:
       type: object
       properties:
-        camera: {type: string, description: Selects the video channel.}
-        center:
-          type: string
-          description: 'Center the camera on positions x,y where x,y are pixel coordinates in the client video stream.
-            Valid values: <x>,<y>.'
-        areazoom:
-          type: string
-          description: Centers on positions x,y (like the center command) and zooms by a factor of z/100.
-        imagewidth:
-          type: integer
-          description: Required in conjunction with center or areazoom if the image width displayed is different
-            from the default size of the image, which is product-specific.
-        imageheight:
-          type: integer
-          description: Required in conjunction with center or areazoom if the image height is different from the
-            default size of the image, which is product-specific.
-        move:
-          type: string
-          enum:
-          - home
-          - up
-          - down
-          - left
-          - right
-          - upleft
-          - upright
-          - downleft
-          - downright
-          - stop
-          description: Absolute:Moves the image 25 % of the image field width in the specified direction.
-        pan:
-          type: number
-          minimum: -180.0
-          maximum: 180.0
-          description: Pans the device to the specified absolute coordinates.
-        tilt:
-          type: number
-          minimum: -180.0
-          maximum: 180.0
-          description: Tilts the device to the specified absolute coordinates.
+        pan: {type: number, minimum: -180.0, maximum: 180.0, description: The absolute pan position in degrees.}
+        tilt: {type: number, minimum: -180.0, maximum: 180.0, description: The absolute tilt position in degrees.}
         zoom:
           type: integer
           minimum: 1
-          maximum: 9999
-          description: Zooms the device n steps to the specified absolute position.
-        focus:
-          type: integer
-          minimum: 1
-          maximum: 9999
-          description: Moves focus n steps to the specified absolute position.
-        iris:
-          type: integer
-          minimum: 1
-          maximum: 9999
-          description: Moves iris n steps to the specified absolute position.
-        brightness:
-          type: integer
-          minimum: 1
-          maximum: 9999
-          description: Moves brightness n steps to the specified absolute position.
-        rpan:
-          type: number
-          minimum: -360.0
-          maximum: 360.0
-          description: Pans the device n degrees relative to the current position.
-        rtilt:
-          type: number
-          minimum: -360.0
-          maximum: 360.0
-          description: Tilts the device n degrees relative to the current position.
+          maximum: 19999
+          description: The absolute zoom position; a high value zooms in. The range is 1 to 9999, or 1 to 19999 when
+            Support.S#.DigitalZoom is true.
+        focus: {type: integer, minimum: 1, maximum: 9999, description: The absolute focus position; a high value focuses far (driver specific).}
+        iris: {type: integer, minimum: 1, maximum: 9999, description: The absolute iris position; a high value opens the iris.}
+        brightness: {type: integer, minimum: 1, maximum: 9999, description: The absolute brightness position; a high value is brighter.}
+        speed: {$ref: "#/types/Speed"}
+        camera: {$ref: "#/types/Camera"}
+        imagerotation: {$ref: "#/types/ImageRotation"}
+  relative_move:
+    summary: Move pan, tilt, zoom, focus, iris and brightness relative to the current position.
+    description: >-
+      Several axes can be combined in one request. Positive rzoom zooms in, positive rfocus focuses far, positive
+      riris opens the iris and positive rbrightness gives a brighter image. On Panopsis products the command has no
+      effect in overview mode.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      properties:
+        rpan: {type: number, minimum: -360.0, maximum: 360.0, description: Pan this many degrees.}
+        rtilt: {type: number, minimum: -360.0, maximum: 360.0, description: Tilt this many degrees.}
         rzoom:
           type: integer
-          minimum: -9999
-          maximum: 9999
-          description: Zooms the device n steps relative to the current position.
-        rfocus:
-          type: integer
-          minimum: -9999
-          maximum: 9999
-          description: 'Moves focus n steps relative to the current position. Positive values mean focus far, negative
-            values mean focus near. Valid values: -9999... 9999.'
-        riris:
-          type: integer
-          minimum: -9999
-          maximum: 9999
-          description: 'Moves iris n steps relative to the current position. Positive values mean open iris, negative
-            values mean close iris. Valid values: -9999... 9999.'
-        rbrightness:
-          type: integer
-          minimum: -9999
-          maximum: 9999
-          description: 'Moves brightness n steps relative to the current position. Positive values mean brighter
-            image, negative values mean darker image. Valid values: -9999... 9999.'
-        autofocus:
-          type: string
-          enum: ['on', 'off']
-          description: 'Enable/disable auto focus. on = Enables auto focus. off = Disables auto focus. Valid values:
-            on off.'
-        autoiris:
-          type: string
-          enum: ['on', 'off']
-          description: 'Enable/disable auto iris. on = Enable auto iris. off = Disable auto iris. Valid values:
-            on off.'
-        continuouspantiltmove: {type: string, description: Continuous pan/tilt motion.}
-        continuouszoommove:
-          type: integer
-          minimum: -100
-          maximum: 100
-          description: 'Continuous zoom motion. Positive values mean zoom in and negative values mean zoom out.
-            0 means stop. Valid values: -100... 100. Notes: Products with Panopsis technology: Does not have any
-            effect in Overview mode.'
-        continuousfocusmove:
-          type: integer
-          minimum: -100
-          maximum: 100
-          description: 'Continuous focus motion. Positive values mean focus far and negative values mean focus near.
-            0 means stop. Valid values: -100... 100.'
-        continuousirismove:
-          type: integer
-          minimum: -100
-          maximum: 100
-          description: 'Continuous iris motion. Positive values mean iris open and negative values mean iris close.
-            0 means stop. Valid values: -100... 100.'
-        continuousbrightnessmove:
-          type: integer
-          minimum: -100
-          maximum: 100
-          description: 'Continuous brightness motion. Positive values mean brighter image and negative values mean
-            darker image. 0 means stop. Valid values: -100... 100.'
-        auxiliary:
-          type: string
-          description: Activates/deactivates auxiliary functions of the device where <function name> is the name
-            of the device specific function.
-        gotoserverpresetname:
-          type: string
-          description: 'Move to the position associated with the <preset name>. Valid values: <preset name> Preset
-            positions are configured using /axis-cgi/com/ptzconfig.cgi, see PTZ configuration..'
-        gotoserverpresetno:
-          type: integer
-          description: 'Move to the position associated with the specified preset position number. Valid values:
-            1,... Preset positions are configured using /axis-cgi/com/ptzconfig.cgi, see PTZ configuration.'
-        gotodevicepreset:
-          type: integer
-          description: Bypasses the presetpos interface and tells the device to go directly to the preset position
-            number <preset pos> stored in the device, where the <preset pos> is a device-specific preset position
-            number.
-        speed:
-          type: integer
-          minimum: 1
-          maximum: 100
-          description: 'Sets the move speed of pan and tilt. Valid values: 1... 100.'
-        imagerotation:
-          type: integer
-          enum: [0, 90, 180, 270]
-          description: If PTZ command refers to an image stream that is rotated differently than the current image
-            setup, then the image stream rotation must be added to each command with this argument to allow the
-            Axis product to compensate.
-        ircutfilter: {type: string, enum: [auto, 'on', 'off'], description: Control the IR cut filter.}
-        backlight:
-          type: string
-          enum: ['on', 'off']
-          description: 'Control the backlight compensation. on = Bright mode. off = Normal mode. Valid values: on
-            off.'
+          minimum: -19999
+          maximum: 19999
+          description: Zoom this many steps. The range is -9999 to 9999, or -19999 to 19999 when Support.S#.DigitalZoom is true.
+        rfocus: {type: integer, minimum: -9999, maximum: 9999, description: Move the focus this many steps.}
+        riris: {type: integer, minimum: -9999, maximum: 9999, description: Move the iris this many steps.}
+        rbrightness: {type: integer, minimum: -9999, maximum: 9999, description: Move the brightness this many steps.}
+        speed: {$ref: "#/types/Speed"}
+        camera: {$ref: "#/types/Camera"}
+        imagerotation: {$ref: "#/types/ImageRotation"}
+    examples:
+    - title: Pan camera 3 to the right, 10 degrees
+      request: {query: {rpan: '10', camera: '3'}}
+      response: {status: 204, text: ''}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#common-examples
+  continuous_move:
+    summary: Start a continuous pan, tilt, zoom, focus, iris or brightness movement; 0 stops it.
+    description: >-
+      Speeds range from -100 to 100. Positive pan is right, positive tilt is up, positive zoom zooms in, positive
+      focus focuses far, positive iris opens the iris and positive brightness gives a brighter image. On Panopsis
+      products the zoom, focus, iris and brightness moves have no effect in overview mode.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      properties:
+        continuouspantiltmove:
+          type: array
+          items: {type: integer, minimum: -100, maximum: 100}
+          minItems: 2
+          maxItems: 2
+          x-style: csv
+          x-python-name: pan_tilt
+          description: The pan speed and the tilt speed. ``[0, 0]`` stops the movement.
+        continuouszoommove: {type: integer, minimum: -100, maximum: 100, x-python-name: zoom, description: The zoom speed.}
+        continuousfocusmove: {type: integer, minimum: -100, maximum: 100, x-python-name: focus, description: The focus speed.}
+        continuousirismove: {type: integer, minimum: -100, maximum: 100, x-python-name: iris, description: The iris speed.}
+        continuousbrightnessmove: {type: integer, minimum: -100, maximum: 100, x-python-name: brightness, description: The brightness speed.}
         proportionalspeed:
           type: string
           enum: [disabled]
-          description: 'Optional with continuouspantiltmove: disables proportional speed for this command. Only
-            supported on mechanical PTZ domes with Properties.PTZ.DigitalPTZ=no and Properties.PTZ.DriverManagement=no
-            (API version 1.1).'
-    errors:
-      Error: {description: 'Error:\n[message] (text/plain).'}
-  ptz_query:
-    summary: 'Query current status: limits, mode, position, preset positions, speed, auxiliary commands or attributes.'
-    effect: read
-    binding: {method: GET, reply: text_kv}
+          description: Disables proportional speed for this command. Only supported on mechanical PTZ domes with
+            Properties.PTZ.DigitalPTZ=no and Properties.PTZ.DriverManagement=no (API version 1.1).
+        camera: {$ref: "#/types/Camera"}
+        imagerotation: {$ref: "#/types/ImageRotation"}
+  set_autofocus:
+    summary: Enable or disable auto focus.
+    effect: write
+    write: patch
+    binding: {method: GET, reply: text}
     params:
       type: object
-      required: [query]
+      required: [autofocus]
       properties:
-        query:
-          type: string
-          enum:
-          - limits
-          - mode
-          - position
-          - presetposall
-          - presetposcam
-          - presetposcamdata
-          - speed
-          - auxiliary
-          - attributes
-          description: Returns the current status.
-        camera: {type: string, description: Selects the video channel.}
-        format:
-          type: string
-          enum: [json]
-          description: 'Optional with query=presetposall, presetposcam, presetposcamdata, auxiliary, attributes:
-            return JSON.'
-        group:
-          type: string
-          enum: [zoom, focus, speed, speeddry]
-          description: 'Optional with query=attributes: attribute group. All attributes returned if omitted.'
-    result:
+        autofocus: {$ref: "#/types/OnOff"}
+        camera: {$ref: "#/types/Camera"}
+    positional: [autofocus]
+  set_autoiris:
+    summary: Enable or disable auto iris.
+    effect: write
+    write: patch
+    binding: {method: GET, reply: text}
+    params:
       type: object
-      additionalProperties: {type: string}
+      required: [autoiris]
+      properties:
+        autoiris: {$ref: "#/types/OnOff"}
+        camera: {$ref: "#/types/Camera"}
+    positional: [autoiris]
+  set_ir_cut_filter:
+    summary: Control the IR cut filter.
+    description: >-
+      ``on`` applies the filter and blocks IR light, ``off`` removes it and lets IR light reach the sensor, ``auto``
+      switches depending on the lighting conditions (product and release dependent).
+    effect: write
+    write: patch
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [ircutfilter]
+      properties:
+        ircutfilter: {type: string, enum: [auto, 'on', 'off']}
+        camera: {$ref: "#/types/Camera"}
+    positional: [ircutfilter]
+  set_backlight:
+    summary: Control the backlight compensation.
+    description: '``on`` is bright mode and ``off`` normal mode.'
+    effect: write
+    write: patch
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [backlight]
+      properties:
+        backlight: {$ref: "#/types/OnOff"}
+        camera: {$ref: "#/types/Camera"}
+    positional: [backlight]
+  activate_auxiliary:
+    summary: Activate or deactivate a device specific auxiliary function.
+    description: The function names are driver specific; see ``list_auxiliary_commands`` or ``get_info``.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [auxiliary]
+      properties:
+        auxiliary: {type: string, x-python-name: function, description: The name of the device specific function.}
+        camera: {$ref: "#/types/Camera"}
+    positional: [auxiliary]
+  go_to_server_preset_name:
+    summary: Move to the server preset with a name.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [gotoserverpresetname]
+      properties:
+        gotoserverpresetname: {type: string, x-python-name: name, description: The preset name.}
+        camera: {$ref: "#/types/Camera"}
+        speed: {$ref: "#/types/Speed"}
+    positional: [gotoserverpresetname]
+  go_to_server_preset_number:
+    summary: Move to the server preset with a number.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [gotoserverpresetno]
+      properties:
+        gotoserverpresetno: {type: integer, minimum: 1, x-python-name: number, description: The preset position number.}
+        camera: {$ref: "#/types/Camera"}
+        speed: {$ref: "#/types/Speed"}
+    positional: [gotoserverpresetno]
+  go_to_device_preset:
+    summary: Move to a preset stored in the device, bypassing the preset interface of the product.
+    description: The preset position number is device specific and may also be a device specific special function.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [gotodevicepreset]
+      properties:
+        gotodevicepreset: {type: integer, x-python-name: preset, description: The device specific preset position number.}
+        camera: {$ref: "#/types/Camera"}
+        speed: {$ref: "#/types/Speed"}
+    positional: [gotodevicepreset]
+  get_limits:
+    summary: Get the PTZ limits of the product.
+    effect: read
+    binding: {method: GET, query: {query: limits}, reply: text_kv}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/Camera"}
+    result: {$ref: "#/types/PtzLimits"}
     examples:
-    - title: query=position
-      request:
-        query: {query: position}
-      response:
-        status: 200
-        text: |-
-          pan=[abspos]
-          tilt=[abspos]
-          zoom=[n]
-          autofocus={ on | off }
-          autoiris={ on | off }
-      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-queryposition
-    - title: query=limits
-      request:
-        query: {query: limits}
+    - title: Get the PTZ limits
+      request: {query: {query: limits}}
       response:
         status: 200
         text: |-
@@ -276,28 +377,151 @@ operations:
           MaxFieldAngle=[n]
           MinBrightness=[offset]
           MaxBrightness=[offset]
+      x-contract: {template: true}
       source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-querylimits
-    - title: query=speed
-      request:
-        query: {query: speed}
-      response: {status: 200, text: 'speed=[speed]'}
-      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-queryspeed
-  ptz_info:
-    summary: Return a description of available PTZ commands for the channel.
+  get_mode:
+    summary: Get the current mode (overview or normal) of a product with Panopsis technology.
     effect: read
-    binding:
-      method: GET
-      query: {info: '1'}
-      reply: text
+    binding: {method: GET, query: {query: mode}, reply: text}
     params:
       type: object
       properties:
-        camera: {type: string, description: Selects the video channel.}
+        camera: {$ref: "#/types/Camera"}
+    result: {type: string}
+  get_position:
+    summary: Get the current PTZ position (driver specific).
+    effect: read
+    binding: {method: GET, query: {query: position}, reply: text_kv}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/Camera"}
+    result: {$ref: "#/types/PtzPosition"}
+    examples:
+    - title: Get the current position
+      request: {query: {query: position}}
+      response:
+        status: 200
+        text: |-
+          pan=[abspos]
+          tilt=[abspos]
+          zoom=[n]
+          autofocus={ on | off }
+          autoiris={ on | off }
+      x-contract: {template: true}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-queryposition
+  get_speed:
+    summary: Get the pan and tilt speed.
+    effect: read
+    binding: {method: GET, query: {query: speed}, reply: text_kv}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/Camera"}
+    result: {$ref: "#/types/PtzSpeed"}
+    examples:
+    - title: Get the speed
+      request: {query: {query: speed}}
+      response: {status: 200, text: 'speed=[speed]'}
+      x-contract: {template: true}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-queryspeed
+  list_presets:
+    summary: List the preset positions of a video channel.
+    description: >-
+      The text reply is ``Preset Positions for camera <n>`` followed by ``presetposno<n>=<name>`` lines, encoded as
+      set by ``PTZ.ResponseEncoding``. With ``format=json`` the reply is JSON; both are returned as text.
+    effect: read
+    binding: {method: GET, query: {query: presetposcam}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/CameraOrAll"}
+        format: {type: string, enum: [json], description: Return JSON instead of plain text.}
     result: {type: string}
     examples:
-    - title: info=1 on camera 3
-      request:
-        query: {camera: '3'}
+    - title: List the presets of a video channel
+      request: {query: {query: presetposcam, camera: '1'}}
+      response:
+        status: 200
+        text: |-
+          Preset Positions for camera 1
+          presetposno1=Home
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-querypresetposcam
+  list_all_presets:
+    summary: List the preset positions of all video channels.
+    description: Plain text in the same form as ``list_presets``, one section per channel. With ``format=json`` the reply is JSON.
+    effect: read
+    binding: {method: GET, query: {query: presetposall}, reply: text}
+    params:
+      type: object
+      properties:
+        format: {type: string, enum: [json], description: Return JSON instead of plain text.}
+    result: {type: string}
+    examples:
+    - title: List the presets of all video channels
+      request: {query: {query: presetposall}}
+      response:
+        status: 200
+        text: |-
+          Preset Positions for camera 1
+          presetposno1=Home
+
+          Preset Positions for camera 2
+          presetposno1=Home
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-querypresetposall
+  get_preset_data:
+    summary: Get the configured presets with position data measured in degrees.
+    description: The reply format is not documented; with ``format=json`` it is JSON. Both are returned as text.
+    effect: read
+    binding: {method: GET, query: {query: presetposcamdata}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/CameraOrAll"}
+        format: {type: string, enum: [json], description: Return JSON instead of plain text.}
+    result: {type: string}
+  list_auxiliary_commands:
+    summary: List the supported auxiliary commands (product and release dependent).
+    description: The reply format is not documented; with ``format=json`` it is JSON. Both are returned as text.
+    effect: read
+    binding: {method: GET, query: {query: auxiliary}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/Camera"}
+        format: {type: string, enum: [json], description: Return JSON instead of plain text.}
+    result: {type: string}
+  get_attributes:
+    summary: Get PTZ attributes such as zoom, focus and speed steps (product and release dependent).
+    description: >-
+      Plain text has a section ``Attributes for camera <n>`` per channel with ``<attribute>=<entries>`` lines whose
+      array entries are comma separated and whose keys and values are joined by ``|``. With ``format=json`` the
+      reply is a JSON object keyed by ``Camera <n>``. Both are returned as text. The attributes are speeds, minFocus,
+      maxOpticalZoomMag, maxDigitalZoomMag, zoomSteps and isOverview.
+    effect: read
+    binding: {method: GET, query: {query: attributes}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/CameraOrAll"}
+        format: {type: string, enum: [json], description: Return JSON instead of plain text.}
+        group:
+          type: string
+          enum: [zoom, focus, speed, speeddry]
+          description: The attribute group. All attributes are returned if omitted.
+    result: {type: string}
+  get_info:
+    summary: Describe the available PTZ commands of a video channel.
+    effect: read
+    binding: {method: GET, query: {info: '1'}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/Camera"}
+    result: {type: string}
+    examples:
+    - title: Request the available commands of video channel 3
+      request: {query: {camera: '3'}}
       response:
         status: 200
         text: |-
@@ -346,77 +570,137 @@ operations:
           osdmenu=[cmd]
           query={ speed | position | limits | presetposcam | presetposall }
       source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#success-for-info1
-  ptz_whoami:
-    summary: Return the name of the system-configured device driver.
+  get_driver_name:
+    summary: Get the name of the system-configured device driver.
     effect: read
+    binding: {method: GET, query: {whoami: '1'}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {$ref: "#/types/Camera"}
+    result: {type: string}
+  set_server_preset_name:
+    summary: Save the current position as a named server preset.
+    description: A preset saved with a name also gets a number, and the name and number commands can be used on the same preset.
+    access: admin
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/com/ptzconfig.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [setserverpresetname]
+      properties:
+        setserverpresetname: {$ref: "#/types/PresetName", x-python-name: name}
+        home: {type: string, enum: ['yes'], description: Make the position the home position of the product.}
+        camera: {$ref: "#/types/Camera"}
+    positional: [setserverpresetname]
+    examples:
+    - title: Set a home position named MyPreset at the current location
+      request: {query: {setserverpresetname: MyPreset, home: 'yes'}}
+      response: {status: 204, text: ''}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#common-examples
+  set_server_preset_number:
+    summary: Save the current position as a numbered server preset.
+    access: admin
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/com/ptzconfig.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [setserverpresetno]
+      properties:
+        setserverpresetno: {type: integer, minimum: 1, x-python-name: number, description: The preset position number.}
+        home: {type: string, enum: ['yes'], description: Make the position the home position of the product.}
+        camera: {$ref: "#/types/Camera"}
+    positional: [setserverpresetno]
+  rename_server_preset:
+    summary: Rename a server preset.
+    access: admin
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/com/ptzconfig.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [renameserverpresetno, newname]
+      properties:
+        renameserverpresetno: {type: integer, minimum: 1, x-python-name: number, description: The number of the preset to rename.}
+        newname: {$ref: "#/types/PresetName", x-python-name: new_name}
+        camera: {$ref: "#/types/Camera"}
+    positional: [renameserverpresetno, newname]
+  remove_server_preset_name:
+    summary: Remove the server preset with a name.
+    description: When the home preset is removed a new default home preset is created before the request is answered.
+    access: admin
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/com/ptzconfig.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [removeserverpresetname]
+      properties:
+        removeserverpresetname: {$ref: "#/types/PresetName", x-python-name: name}
+        camera: {$ref: "#/types/Camera"}
+    positional: [removeserverpresetname]
+  remove_server_preset_number:
+    summary: Remove the server preset with a number.
+    description: When the home preset is removed a new default home preset is created before the request is answered.
+    access: admin
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/com/ptzconfig.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [removeserverpresetno]
+      properties:
+        removeserverpresetno: {type: integer, minimum: 1, x-python-name: number, description: The preset position number.}
+        camera: {$ref: "#/types/Camera"}
+    positional: [removeserverpresetno]
+  remove_all_server_presets:
+    summary: Remove all server presets of a video channel, or of every channel.
+    description: With ``camera="all"`` the presets are removed from all active PTZ channels.
+    access: admin
+    effect: write
+    write: delete
     binding:
+      path: /axis-cgi/com/ptzconfig.cgi
       method: GET
-      query: {whoami: '1'}
+      query: {removeallserverpresets: 'yes'}
       reply: text
     params:
       type: object
       properties:
-        camera: {type: string, description: Selects the video channel.}
-    result: {type: string}
-  ptz_config:
-    summary: Set/rename/remove server presets, device presets, home position and control the OSD menu.
-    description: A server preset saved with a name also gets a number and vice versa; name and number commands can
-      be used on the same preset.
+        camera: {$ref: "#/types/CameraOrAll"}
+  set_device_preset:
+    summary: Save the current position as a preset directly in the device, bypassing the preset interface.
+    description: The preset position number is device specific and may also be a device specific special function.
+    access: admin
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/com/ptzconfig.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [setdevicepreset]
+      properties:
+        setdevicepreset: {type: integer, x-python-name: preset, description: The device specific preset position number.}
+        camera: {$ref: "#/types/Camera"}
+    positional: [setdevicepreset]
+  control_osd_menu:
+    summary: Control the OSD menu of the external device.
+    description: Which commands are supported, and how they behave, is driver dependent.
     access: admin
     effect: action
     binding: {path: /axis-cgi/com/ptzconfig.cgi, method: GET, reply: text}
     params:
       type: object
+      required: [osdmenu]
       properties:
-        camera: {type: string, description: The video channel.}
         osdmenu:
           type: string
           enum: [open, close, up, down, left, right, select, back]
-          description: Commands to control the OSD menu in the external device.
-        setserverpresetname:
-          type: string
-          maxLength: 31
-          pattern: ^[^"<>~:]*$
-          description: Associates the current position to <preset name> as a preset position in the Axis product.
-        setserverpresetno:
-          type: integer
-          description: 'Saves the current position as a preset position number in the Axis product. Valid values:
-            1,....'
-        renameserverpresetno:
-          type: integer
-          maxLength: 31
-          pattern: ^[^"<>~:]*$
-          description: Set a new name for the specified preset position number (use together with newname).
-        newname:
-          type: string
-          maxLength: 31
-          description: New preset name, used with renameserverpresetno.
-        home:
-          type: string
-          enum: ['yes']
-          description: 'Makes the current position the home position for the Axis product. Used with setserverpresetname
-            or setserverpresetno. Valid values: yes.'
-        removeserverpresetname:
-          type: string
-          maxLength: 31
-          pattern: ^[^"<>~:]*$
-          description: Removes the specified preset position associated with <preset name>.
-        removeserverpresetno:
-          type: integer
-          description: 'Removes the specified preset position. Valid values: 1.... When a home preset is removed
-            a new default home preset is created before the request is answered.'
-        removeallserverpresets:
-          type: string
-          enum: ['yes']
-          description: 'Removes all presets for a specified camera. Please note that the presets will be removed
-            from all active PTZ channels when camera=all is used. Valid values: yes.'
-        setdevicepreset:
-          type: integer
-          description: Bypasses the presetpos interface and tells the device to save its current position as preset
-            position <preset pos> directly in the device, where <preset pos> is a device-specific preset position
-            number.
-    errors:
-      Error: {description: 'Error:\n[message] (text/plain).'}
+          x-python-name: command
+          description: The OSD menu command.
+        camera: {$ref: "#/types/Camera"}
+    positional: [osdmenu]
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
@@ -424,21 +708,14 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: partial
+  completeness: complete
   open_questions:
-  - ptz.cgi control is modelled as one operation with all arguments optional; which combinations are valid is driver
-    dependent.
-  - PTZ.UserBasic/PTZ.UserAdv group index letters are not stated (written U#); PTZ.Preset.P.Position sub-parameters
-    not listed (deprecated).
-  - PTZ.ImageSource.I#.PTZEnabled valid values true/false but common example uses PTZEnabled=yes.
-  - 'move=: description says Absolute moves 25% of image width and Relative moves 50-90 degrees; meaning of absolute/relative
-    here is unclear.'
-  - info=1 example lists query=status which is not in the query value list; query=mode only for Panopsis products.
-  - Responses for query=presetposcamdata and query=auxiliary not shown.
-  - Common example uses GET /axis-cgi/ptz/ptzuploader.cgi to upload with POST data (see ptz-driver-management).
-  - Parameter access control is kept as text in each description.
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section events not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - ptz.cgi is split into one operation per kind of command; which argument combinations a driver accepts is driver dependent.
+  - The reply of query=mode, query=presetposcamdata and query=auxiliary is not documented, and the presets and attributes replies are not key=value text, so they are returned as text.
+  - The info=1 example lists query=status, which is not in the documented list of query values.
+  - 'The move description mentions absolute and relative behaviour; which products behave which way is not stated.'
+  - The PTZ.UserBasic and PTZ.UserAdv group index letters are not stated (written U#), PTZ.Preset.P.Position sub-parameters are not listed (deprecated), and PTZ.ImageSource.I#.PTZEnabled takes true or false while the docs example uses yes.
+  - The PTZ parameters are read and written through param.cgi and are not modelled here.
+  - The documented position, limits and speed examples contain placeholders and are marked as templates.
   migrated_from: v1
-  curated: false
+  curated: true

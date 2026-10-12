@@ -1,15 +1,13 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: recording-group
-name: Recording group
-summary: Create, update, delete and list recording groups (continuous recording sets with shared storage, retention
-  time and stream options).
+name: Recording group (CGI)
+summary: Create, update, delete and list recording groups (continuous recording sets with shared storage, retention time and stream options) through the classic XML CGIs.
 section: network-video
 family: cgi
 status: released
 python:
-  module: recording_group
-  class: RecordingGroup
+  module: recording_group_cgi
+  class: RecordingGroupCgi
 docs:
 - https://developer.axis.com/vapix/network-video/recording-group/
 access: admin
@@ -18,51 +16,66 @@ discovery:
 
 binding: {path: /axis-cgi/record/recording_group/schemaversions.cgi}
 
+errors:
+  10: {description: An error occurred while processing the request.}
+  20: {description: Invalid request., kind: invalid_argument}
+  40: {description: Specified version not supported., kind: unsupported}
+  110: {description: Recording group not found., kind: not_found}
+  120: {description: Max number of recording groups reached., kind: unavailable}
+  130: {description: Invalid stream options., kind: invalid_argument}
+  140: {description: Recording group in use., kind: unavailable}
+
 types:
   RecordingGroup:
     type: object
-    description: XML element <RecordingGroup> attributes.
+    description: One recording group (the attributes of a RecordingGroup element).
+    required: [RecordingGroupId]
     properties:
       RecordingGroupId: {type: string, description: The name of the recording group.}
       NiceName: {type: string, description: The user friendly name of the recording group.}
-      Description: {type: string}
+      Description: {type: string, description: A description of the recording group.}
       RetentionTime:
         type: integer
-        description: Max number of hours a recording will be saved. Zero means indefinite.
+        description: Maximum number of hours a recording is saved. Zero means indefinite.
       DiskId: {type: string, description: The storage used for recordings in the group.}
-      StreamOptions: {type: string}
+      StreamOptions: {type: string, description: The stream options used for the group.}
       PreDuration: {type: integer, description: Pre-trigger time in milliseconds.}
       PostDuration: {type: integer, description: Post-trigger time in milliseconds.}
-  GetSchemaVersionsResult:
+  RecordingGroups:
     type: object
+    x-xml: {root: ListSuccess}
     properties:
-      SchemaVersionsSuccess:
-        type: object
-        x-name: GetSchemaVersionsResultSchemaVersionsSuccess
-        properties:
-          SchemaVersion:
-            type: array
-            items:
-              type: object
-              x-name: GetSchemaVersionsResultSchemaVersionsSuccessSchemaVersionItem
-              properties:
-                VersionNumber:
-                  type: string
-                  description: major.minor, e.g. 1.0 or 1.1
-                  x-xml: {child: VersionNumber}
-                Deprecated:
-                  type: boolean
-                  x-xml: {child: Deprecated}
-  ListRecordingGroupsResult:
+      RecordingGroup:
+        type: array
+        items: {$ref: '#/types/RecordingGroup'}
+        x-xml: {path: RecordingGroup}
+  CreatedRecordingGroup:
     type: object
+    x-xml: {root: CreateSuccess}
+    required: [RecordingGroupId]
     properties:
-      ListSuccess:
-        type: object
-        x-name: ListRecordingGroupsResultListSuccess
-        properties:
-          RecordingGroup:
-            type: array
-            items: {$ref: '#/types/RecordingGroup'}
+      RecordingGroupId: {type: string, description: The name of the created recording group.}
+  SchemaVersion:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: The schema version in the form major.minor, e.g. 1.0.
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: SchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
 
 operations:
   get_schema_versions:
@@ -70,29 +83,27 @@ operations:
     access: viewer
     effect: read
     binding: {method: GET, reply: xml}
-    result: {$ref: '#/types/GetSchemaVersionsResult'}
+    result: {$ref: '#/types/SchemaVersions'}
     examples:
-    - title: Response body syntax
+    - title: Get supported schema versions
       request:
         query: {}
       response:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8" ?>
-          <RecordingGroupResponse
-              schemaversion="1.0"
-              xmlns:xsi="http://www.w3org/2001/XMLSchema-instance"
-              xsi:noNameSpaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recording_group.xsd">
-              <SchemaVersionsSuccess>
-                  <SchemaVersion>
-                      <VersionNumber>[major1].[minor1]</VersionNumber>
-                      <Deprecated>[deprecated]</Deprecated>
-                  </SchemaVersion>
-              </SchemaVersionsSuccess>
+          <RecordingGroupResponse schemaversion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNameSpaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recording_group.xsd">
+            <SchemaVersionsSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+            </SchemaVersionsSuccess>
           </RecordingGroupResponse>
       source: https://developer.axis.com/vapix/network-video/recording-group/#axis-cgirecordrecording_groupschemaversionscgi
   create_recording_group:
     summary: Create a new recording group.
+    description: An error is returned when the maximum number of recording groups is reached.
     access: operator
     effect: write
     write: create
@@ -106,47 +117,37 @@ operations:
           type: string
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          description: Id of the recording group. Generated if not provided. Valid characters a-z, A-Z, 0-9, _,
-            -; max 50 characters.
+          description: Id of the recording group. Generated if not provided. Valid characters a-z, A-Z, 0-9, _, -; max 50 characters.
         description: {type: string, description: Description of the recording group.}
         nicename: {type: string, description: A user friendly name of the recording group.}
         retentiontime:
           type: integer
           minimum: 0
-          description: Maximum number of hours that recordings in this group will be stored. 0 means unlimited.
-            (unit=hours)
+          description: Maximum number of hours that recordings in this group are stored. 0 means unlimited.
         diskid:
           type: string
           description: The name of the storage that should be used. Cannot be changed after creation.
         streamoptions:
           type: string
-          description: The stream options that should be used when recording in the group (URL-encoded, e.g. resolution%3D1920x1080%26device%3DAABBCCDDEE).
-        preduration: {type: integer, description: Pre-trigger time in milliseconds. (unit=ms)}
-        postduration: {type: integer, description: Post-trigger time in milliseconds. (unit=ms)}
-    errors:
-      120: {description: Max number of recording groups reached.}
-      130: {description: Invalid stream options., kind: invalid_argument}
+          description: The stream options used when recording in the group, e.g. resolution=1920x1080&device=AABBCCDDEE.
+        preduration: {type: integer, description: 'Pre-trigger time in milliseconds: the time included from immediately before a recording is started.'}
+        postduration: {type: integer, description: 'Post-trigger time in milliseconds: the time included from immediately after a recording is stopped.'}
+    result: {$ref: '#/types/CreatedRecordingGroup'}
     examples:
     - title: Create a recording group with retention time 168 h
       request:
-        query:
-          schemaversion: '1'
-          retentiontime: '168'
-          diskid: SD_DISK
-          streamoptions: resolution=1920x1080&device=AABBCCDDEE
+        query: {schemaversion: '1', retentiontime: '168', diskid: SD_DISK, streamoptions: resolution=1920x1080&device=AABBCCDDEE}
       response:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8" ?>
-          <RecordingGroupResponse
-              schemaversion="1.0"
-              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:noNameSpaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recording_group.xsd">
-              <CreateSuccess RecordingGroupId="[recording group id]" />
+          <RecordingGroupResponse schemaversion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNameSpaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recording_group.xsd">
+            <CreateSuccess RecordingGroupId="[recording group id]" />
           </RecordingGroupResponse>
       source: https://developer.axis.com/vapix/network-video/recording-group/#use-a-similar-retention-time-for-a-group-of-recordings
   update_recording_group:
     summary: Update a recording group.
+    description: Only the given fields change. Updating the stream options during an ongoing recording restarts the recording group.
     access: operator
     effect: write
     write: patch
@@ -157,21 +158,29 @@ operations:
       properties:
         schemaversion: {type: integer, description: Specifies the major XML schema that should be used.}
         recordinggroupid: {type: string, description: The recording group ID that should be updated.}
-        description: {type: string}
-        nicename: {type: string}
+        description: {type: string, description: Description of the recording group.}
+        nicename: {type: string, description: A user friendly name of the recording group.}
         retentiontime:
           type: integer
           minimum: 0
-          description: 0 means unlimited. Affects all existing and future recordings of the group. (unit=hours)
-        streamoptions: {type: string}
-        preduration: {type: integer, description: unit=ms}
-        postduration: {type: integer, description: unit=ms}
-    errors:
-      110: {description: Recording group not found., kind: not_found}
-      130: {description: Invalid stream options., kind: invalid_argument}
+          description: Maximum number of hours that recordings in this group are stored. 0 means unlimited. Affects all existing and future recordings of the group.
+        streamoptions: {type: string, description: The stream options used when recording in the group.}
+        preduration: {type: integer, description: Pre-trigger time in milliseconds.}
+        postduration: {type: integer, description: Post-trigger time in milliseconds.}
+    examples:
+    - title: Change the retention time to 336 h
+      request:
+        query: {schemaversion: '1', recordinggroupid: id, retentiontime: '336'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <RecordingGroupResponse schemaversion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNameSpaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recording_group.xsd">
+            <GeneralSuccess />
+          </RecordingGroupResponse>
+      source: https://developer.axis.com/vapix/network-video/recording-group/#use-a-similar-retention-time-for-a-group-of-recordings
   delete_recording_group:
-    summary: Delete a recording group and all of its recordings (only if no recording actions are configured to
-      it).
+    summary: Delete a recording group and all of its recordings (only if no recording actions are configured to it).
     access: operator
     effect: write
     write: delete
@@ -180,10 +189,20 @@ operations:
       type: object
       required: [schemaversion, recordinggroupid]
       properties:
-        schemaversion: {type: integer}
+        schemaversion: {type: integer, description: Specifies the major XML schema that should be used.}
         recordinggroupid: {type: string, description: The recording group ID that should be deleted.}
-    errors:
-      140: {description: Recording group in use.}
+    examples:
+    - title: Delete a recording group
+      request:
+        query: {schemaversion: '1', recordinggroupid: id}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <RecordingGroupResponse schemaversion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNameSpaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recording_group.xsd">
+            <GeneralSuccess />
+          </RecordingGroupResponse>
+      source: https://developer.axis.com/vapix/network-video/recording-group/#axis-cgirecordrecording_groupdeletecgi
   list_recording_groups:
     summary: Retrieve list information for one or all recording groups.
     access: viewer
@@ -193,11 +212,25 @@ operations:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion: {type: integer}
+        schemaversion: {type: integer, description: Specifies the major XML schema that should be used.}
         recordinggroupid:
           type: string
-          description: The recording group ID that should be listed. All groups listed unless specified.
-    result: {$ref: '#/types/ListRecordingGroupsResult'}
+          description: The recording group ID that should be listed. All available groups are listed unless specified.
+    result: {$ref: '#/types/RecordingGroups'}
+    examples:
+    - title: List all recording groups
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <RecordingGroupResponse schemaversion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNameSpaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recording_group.xsd">
+            <ListSuccess>
+              <RecordingGroup RecordingGroupId="group1" NiceName="Group 1" Description="Example" RetentionTime="168" DiskId="SD_DISK" StreamOptions="resolution=1920x1080" PreDuration="1000" PostDuration="2000" />
+            </ListSuccess>
+          </RecordingGroupResponse>
+      source: https://developer.axis.com/vapix/network-video/recording-group/#axis-cgirecordrecording_grouplistcgi
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/recording-group/
@@ -207,20 +240,12 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - recording_group.xsd referenced by the responses returns 404 (raw/specs/specs_index.json); element types derived
-    from prose.
-  - Required/optional status of create/update/delete/list parameters not stated except recordinggroupid on create
-    (optional) and list (optional).
-  - Update/delete success tables describe 'CreateSuccess' though the body shows <GeneralSuccess />; list table says
-    ListSuccess 'will appear in successful creations' (copy/paste).
-  - schemaversions response uses xmlns 'http://www.w3org/...' (missing dot) in one block — doc typo.
-  - Which errors apply to which operation is not stated; operation-level errors are inferred from descriptions.
+  - recording_group.xsd referenced by the responses is not mirrored; element types are derived from the prose.
+  - The docs mark only recordinggroupid as optional (create, list); the other create/update parameters are treated as optional.
+  - The update/delete success tables mention CreateSuccess although the body is GeneralSuccess; the list table says ListSuccess appears in creations (copy/paste errors).
+  - Which errors apply to which operation is not stated; all codes are listed at API level.
+  - The create and list examples are constructed from the documented body syntax (placeholders replaced by sample values).
+  - This CGI API shares the discovery id recording-group with the DCA recording-group API (recording-group-config); the module is named recording_group_cgi to keep them apart.
   - AXIS OS minimum not stated.
-  - 'migration: xml-unmapped: create_recording_group: schema properties not found in the sample reply; result is
-    the raw XML element'
-  - 'migration: xml-unmapped: update_recording_group: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: delete_recording_group: no response schema in v1; result is the raw XML element'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
   migrated_from: v1
-  curated: false
+  curated: true

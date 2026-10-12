@@ -1,9 +1,8 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: demographic-identifier
 name: Demographic identifier API
-summary: Read live and ended face tracks (estimated gender/age/box size), FPS and historical statistics from the
-  Demographic Identifier ACAP; restart the service or...
+summary: 'Demographic Identifier ACAP: live and ended face tracks (estimated gender, age and box size), FPS, historical statistics,
+  service restart and camera reboot.'
 section: applications
 family: cgi
 status: released
@@ -15,123 +14,341 @@ docs:
 access: admin
 requires:
   application: Demographic Identifier (Demographics ACAP)
-
-binding: {path: /local/demographics/.api}
-
+binding:
+  path: /local/demographics/.api
 types:
   LiveTrack:
     type: object
+    required:
+    - time_start
+    - time_end
+    - gender_average
+    - age_average
+    - boxsize_average
+    - gender_last
+    - age_last
+    - boxsize_last
     properties:
-      time_start: {type: number, description: Time of the first face observation in seconds in form of UTC.}
-      time_end: {type: number, description: Time of the last face observation in seconds.}
+      time_start:
+        type: number
+        description: Time of the first face observation, in seconds, UTC.
+      time_end:
+        type: number
+        description: Time of the last face observation, in seconds.
       gender_average:
         type: integer
-        description: -1 for female estimate and 1 for male estimate on average since time_start.
-      age_average: {type: integer, description: Estimated age over the track since time_start.}
-      boxsize_average: {type: integer, description: Average box size over the track since time_start.}
-      gender_last: {type: integer, description: -1 for female guess and 1 for male guess on last observation.}
-      age_last: {type: integer, description: Estimated age on last observation.}
-      boxsize_last: {type: integer, description: Boxsize on last observation.}
+        enum:
+        - -1
+        - 1
+        description: -1 for a female estimate and 1 for a male estimate, on average since time_start.
+      age_average:
+        type: integer
+        description: Estimated age over the track since time_start.
+      boxsize_average:
+        type: integer
+        description: Average box size over the track since time_start.
+      gender_last:
+        type: integer
+        enum:
+        - -1
+        - 1
+        description: -1 for a female guess and 1 for a male guess on the last observation.
+      age_last:
+        type: integer
+        description: Estimated age on the last observation.
+      boxsize_last:
+        type: integer
+        description: Box size on the last observation.
   EndedTrack:
     type: object
+    required:
+    - time_start
+    - time_end
+    - gender_average
+    - age_average
+    - boxsize_average
     properties:
-      time_start: {type: number}
-      time_end: {type: number}
-      gender_average: {type: integer}
-      age_average: {type: integer}
-      boxsize_average: {type: integer}
-  Live:
+      time_start:
+        type: number
+        description: Time of the first face observation, in seconds, UTC.
+      time_end:
+        type: number
+        description: Time of the last face observation, in seconds.
+      gender_average:
+        type: integer
+        enum:
+        - -1
+        - 1
+        description: -1 for a female estimate and 1 for a male estimate, on average since time_start.
+      age_average:
+        type: integer
+        description: Estimated age over the track since time_start.
+      boxsize_average:
+        type: integer
+        description: Average box size over the track since time_start.
+  LiveTracks:
     type: object
+    required:
+    - tracks
     properties:
       tracks:
         type: array
-        items: {$ref: '#/types/LiveTrack'}
-  Ended:
+        items:
+          $ref: '#/types/LiveTrack'
+  EndedTracks:
     type: object
+    required:
+    - time_start
+    - time_end
+    - tracks
     properties:
-      time_start: {type: number}
-      time_end: {type: number}
+      time_start:
+        type: number
+        description: Start of the covered time window.
+      time_end:
+        type: number
+        description: End of the covered time window.
       tracks:
         type: array
-        items: {$ref: '#/types/EndedTrack'}
-
+        items:
+          $ref: '#/types/EndedTrack'
+  LiveTracksResult:
+    type: object
+    required:
+    - live
+    properties:
+      live:
+        $ref: '#/types/LiveTracks'
+  EndedTracksResult:
+    type: object
+    required:
+    - ended
+    properties:
+      ended:
+        $ref: '#/types/EndedTracks'
+  LiveAndEndedTracksResult:
+    type: object
+    required:
+    - live
+    - ended
+    properties:
+      live:
+        $ref: '#/types/LiveTracks'
+      ended:
+        $ref: '#/types/EndedTracks'
+  Fps:
+    type: object
+    required:
+    - fps
+    properties:
+      fps:
+        type: number
+        description: FPS used by the Demographics algorithm.
+  DateSelection:
+    type: string
+    pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+    description: A date YYYYMMDD, a date interval YYYYMMDD-YYYYMMDD, comma separated dates YYYYMMDD,[..],YYYYMMDD, or all
+      (default) for all available data.
+  TracksWindow:
+    type: object
+    x-name: TracksWindow
+    properties:
+      time:
+        type: integer
+        default: 900
+        description: Amount of time, in seconds, to include in the return. The default is 15 minutes (900 s).
 operations:
   get_live_tracks:
-    summary: Return live face tracks (boxes) currently active in the video stream.
+    summary: Return the live face tracks (boxes) currently active in the video stream.
     effect: read
     binding:
       method: GET
-      query: {tracks-live.json: ''}
+      query:
+        tracks-live.json: ''
       reply: json
     result:
-      type: object
-      properties:
-        live: {$ref: '#/types/Live'}
+      $ref: '#/types/LiveTracksResult'
+    examples:
+    - title: 'Get live tracks: no active track found'
+      request:
+        query:
+          tracks-live.json: ''
+      response:
+        status: 200
+        content_type: application/json
+        text: |
+          {
+              "live": {
+                  "tracks": []
+              }
+          }
+      source: https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-live-tracks
+    - title: 'Get live tracks: one active track found'
+      request:
+        query:
+          tracks-live.json: ''
+      response:
+        status: 200
+        content_type: application/json
+        text: |
+          {
+              "live": {
+                  "tracks": [
+                      {
+                          "time_start": 1447749079.091622,
+                          "time_end": 1447749081.011605,
+                          "gender_average": 1,
+                          "age_average": 20,
+                          "boxsize_average": 177,
+                          "gender_last": 1,
+                          "age_last": 21,
+                          "boxsize_last": 180
+                      }
+                  ]
+              }
+          }
+      source: https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-live-tracks
   get_ended_tracks:
     summary: Return previously detected (ended) tracks.
     effect: read
     binding:
       method: GET
-      query: {tracks-ended.json: ''}
+      query:
+        tracks-ended.json: ''
       reply: json
     params:
-      type: object
-      properties:
-        time:
-          type: integer
-          default: 900
-          description: Adjust the amount of time (in seconds) to include in the return. The default value is 15
-            minutes (900 s, converted). (unit=s)
+      $ref: '#/types/TracksWindow'
     result:
-      type: object
-      properties:
-        ended: {$ref: '#/types/Ended'}
+      $ref: '#/types/EndedTracksResult'
+    examples:
+    - title: 'Get ended tracks: no track found'
+      request:
+        query:
+          tracks-ended.json: ''
+      response:
+        status: 200
+        content_type: application/json
+        text: |
+          {
+              "ended": {
+                  "time_start": 1447748743.039911,
+                  "time_end": 1447749643.039911,
+                  "tracks": []
+              }
+          }
+      source: https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-ended-tracks
+    - title: 'Get ended tracks: one ended track found'
+      request:
+        query:
+          tracks-ended.json: ''
+      response:
+        status: 200
+        content_type: application/json
+        text: |
+          {
+              "ended": {
+                  "time_start": 1447749887.539835,
+                  "time_end": 1447749947.539835,
+                  "tracks": [
+                      {
+                          "time_start": 1447749942.930319,
+                          "time_end": 1447749946.210321,
+                          "gender_average": 1,
+                          "age_average": 21,
+                          "boxsize_average": 219
+                      }
+                  ]
+              }
+          }
+      source: https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-ended-tracks
   get_live_and_ended_tracks:
-    summary: Return both live tracks and ended tracks.
+    summary: Return both the live tracks and the ended tracks.
     effect: read
     binding:
       method: GET
-      query: {tracks-live-and-ended.json: ''}
+      query:
+        tracks-live-and-ended.json: ''
       reply: json
     params:
-      type: object
-      properties:
-        time:
-          type: integer
-          default: 900
-          description: Adjust the amount of time (in seconds) to include in the return. The default value is 15
-            minutes (900 s, converted). (unit=s)
+      $ref: '#/types/TracksWindow'
     result:
-      type: object
-      properties:
-        live: {$ref: '#/types/Live'}
-        ended: {$ref: '#/types/Ended'}
+      $ref: '#/types/LiveAndEndedTracksResult'
+    examples:
+    - title: Two live tracks and one ended track
+      request:
+        query:
+          tracks-live-and-ended.json: ''
+          time: '60'
+      response:
+        status: 200
+        content_type: application/json
+        text: |
+          {
+              "live": {
+                  "tracks": [
+                      {
+                          "time_start": 1447750516.809464,
+                          "time_end": 1447750523.329454,
+                          "gender_average": 1,
+                          "age_average": 19,
+                          "boxsize_average": 218,
+                          "gender_last": 1,
+                          "age_last": 19,
+                          "boxsize_last": 218
+                      },
+                      {
+                          "time_start": 1447750521.569459,
+                          "time_end": 1447750523.329454,
+                          "gender_average": -1,
+                          "age_average": 17,
+                          "boxsize_average": 222,
+                          "gender_last": 260,
+                          "age_last": 19,
+                          "boxsize_last": 217
+                      }
+                  ]
+              },
+              "ended": {
+                  "time_start": 1447750463.936758,
+                  "time_end": 1447750523.936758,
+                  "tracks": [
+                      {
+                          "time_start": 1447750514.24947,
+                          "time_end": 1447750515.329465,
+                          "gender_average": 1,
+                          "age_average": 20,
+                          "boxsize_average": 239
+                      }
+                  ]
+              }
+          }
+      source: https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-live-and-ended-tracks
   get_fps:
     summary: Check the FPS used by the Demographics algorithm.
     effect: read
     binding:
       path: /demographics/.api
       method: GET
-      query: {fps.json: ''}
+      query:
+        fps.json: ''
       reply: json
     result:
-      type: object
-      properties:
-        fps: {type: number}
+      $ref: '#/types/Fps'
     examples:
     - title: Get FPS
       request:
-        query: {}
+        query:
+          fps.json: ''
       response:
         status: 200
-        text: |-
-          200 OK
-          Content-Type: application/json
-
+        content_type: application/json
+        text: |
           {
-            "fps": <fps>
+            "fps": 10.0
           }
       source: https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-fps
+      x-contract:
+        template: true
   restart_service:
     summary: Restart the Demographics service.
     access: operator
@@ -139,7 +356,8 @@ operations:
     binding:
       path: /demographics/.apioperator
       method: GET
-      query: {restart: ''}
+      query:
+        restart: ''
       reply: text
   reboot_camera:
     summary: Reboot the camera.
@@ -148,41 +366,48 @@ operations:
     binding:
       path: /demographics/.apioperator
       method: GET
-      query: {reboot: ''}
+      query:
+        reboot: ''
       reply: text
   get_statistics:
     summary: Return historical data in JSON format.
+    description: The docs do not describe the JSON structure, so the result is the parsed JSON document.
     effect: read
     binding:
       method: GET
-      query: {export-json: ''}
+      query:
+        export-json: ''
       reply: json
     params:
       type: object
       properties:
         date:
-          type: string
-          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          $ref: '#/types/DateSelection'
           default: all
-          description: YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
-            or all (default) for all available data.
-        res: {type: string, enum: [15m, 1h, 24h], default: 15m}
-
+        res:
+          type: string
+          enum:
+          - 15m
+          - 1h
+          - 24h
+          default: 15m
+          description: 15m = 15 minute bins (default), 1h = 1 hour bins, 24h = 1 day bins.
+    result: {}
 sources:
 - url: https://developer.axis.com/vapix/applications/demographic-identifier-api/
   sha256_md: 0b789b8ed7ce3eaf2d7e2a3bb4a96ea7eec8762e74c455bde0855a759b9fac16
   retrieved_at: '2026-10-11'
-
 provenance:
   completeness: partial
   open_questions:
-  - get FPS / restart / reboot use /demographics/... while track endpoints use /local/demographics/...; unclear
-    whether the /local prefix is required. https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-fps
-  - Statistics (export-json) response structure, restart/reboot responses, error handling, access levels for read
-    endpoints, identification and AXIS OS requirements are not documented.
+  - get FPS / restart / reboot use /demographics/... while track endpoints use /local/demographics/...; unclear whether the
+    /local prefix is required. https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-fps
+  - Statistics (export-json) response structure, restart/reboot responses, error handling, access levels for read endpoints,
+    identification and AXIS OS requirements are not documented.
   - 'Example ''Two Live and one Ended track'' has gender_last: 260, outside the documented -1/1 values.'
   - Return value table uses '<time-end>' vs field name time_end.
   - Ended-tracks 'No active track found' example title likely meant 'No ended track found'.
-  - 'migration: json-untyped: get_statistics: JSON reply without schema; result is untyped'
+  - The docs write bare query keys (?tracks-live.json, ?restart). The binding sends them as key= with an empty value; this
+    needs device verification.
   migrated_from: v1
-  curated: false
+  curated: true

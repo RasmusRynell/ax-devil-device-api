@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: privacy-mask
 name: Privacy mask API
-summary: Create, update, remove, locate and toggle privacy masks via /axis-cgi/privacymask.cgi (PTZ-aware) and param.cgi
-  Image.I#.Overlay.MaskWindows.
+summary: Create, update, remove, locate and toggle privacy masks through ``privacymask.cgi`` (follows pan/tilt/zoom) and the ``Image.I#.Overlay.MaskWindows`` parameters.
 section: network-video
 family: cgi
 status: released
@@ -11,117 +9,142 @@ python:
   module: privacy_mask
   class: PrivacyMask
 docs:
-- https://developer.axis.com/vapix/network-video/overlay-api/
+  - https://developer.axis.com/vapix/network-video/overlay-api/
 access: admin
 discovery:
-- {api_discovery: privacy-mask}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
-- param: {name: Properties.PrivacyMask.PrivacyMask, value: 'yes'}
-
-binding: {path: /axis-cgi/privacymask.cgi}
+  - api_discovery: privacy-mask
+  - param: {name: Properties.API.HTTP.Version, value: "3"}
+  - param: {name: Properties.PrivacyMask.PrivacyMask, value: "yes"}
+binding:
+  path: /axis-cgi/privacymask.cgi
 
 types:
   PixelPoint:
     type: object
+    required: [x, y]
     properties:
-      x: {type: integer}
-      y: {type: integer}
+      x: {type: integer, description: Horizontal pixel coordinate. Outside the current view it may be negative or larger than the image width.}
+      y: {type: integer, description: Vertical pixel coordinate. Outside the current view it may be negative or larger than the image height.}
+  MaskPixels:
+    type: object
+    description: A privacy mask with pixel coordinates in the camera's maximum resolution at rotation 0.
+    required: [id, name, enabled, zoomlowlimit, position]
+    properties:
+      id: {type: integer}
+      name: {type: string}
+      enabled: {type: boolean}
+      zoomlowlimit: {type: integer, description: Zoom position below which the mask is hidden.}
+      zoom_visible:
+        type: boolean
+        description: Whether the position polygon is visible given the ``zoomlowlimit`` setting. Not always present.
+      position:
+        type: array
+        items: {$ref: "#/types/PixelPoint"}
+        description: >-
+          External corners (set by the user), up to ``Properties.PrivacyMask.MaxNbrOfCorners``. Empty if the
+          mask is not visible at the current camera position.
+      all_position:
+        type: array
+        items: {$ref: "#/types/PixelPoint"}
+        description: The corners in ``position`` plus any helper corners added by the service. Not always present.
+  MaskList:
+    type: object
+    required: [listpx]
+    properties:
+      listpx:
+        type: array
+        items: {$ref: "#/types/MaskPixels"}
+        x-python-name: masks
+  MaskPosition:
+    type: object
+    required: [position]
+    properties:
+      position:
+        type: array
+        items: {$ref: "#/types/PixelPoint"}
+        description: Corners of the mask. Empty if the mask is not visible at the current camera position.
 
 operations:
   add_mask:
-    summary: Add a new mask with unique name.
+    summary: Add a new mask with a unique name.
+    description: >-
+      Give either ``width`` and ``height`` (percent of the image, optionally with ``center``), or
+      ``pxpolygon``. The device replies 204 No content.
     effect: write
     write: create
     binding:
       method: GET
       query: {action: add}
       reply: text
-    params:
+    params: &mask_params
       type: object
       required: [name]
       properties:
-        name:
+        name: &mask_name
           type: string
           maxLength: 128
-          description: 'Unique name to identify a mask. Maximum length is 128 characters. Valid values: `<string>`'
-        imagesource:
+          description: Unique name that identifies the mask.
+        imagesource: &image_source
           type: integer
           minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
+          description: Image source index, 0 to the number of image sources - 1. The device uses 0 when omitted.
         width:
           type: number
           minimum: 0.0
           maximum: 100.0
-          description: 'Width of mask, in percent of image width. Valid values: `0.0... 100.0` (unit=percent)'
+          description: Width of the mask in percent of the image width.
         height:
           type: number
           minimum: 0.0
           maximum: 100.0
-          description: 'Height of mask, in percent of image height. Valid values: `0.0... 100.0` (unit=percent)'
+          description: Height of the mask in percent of the image height.
         center:
           type: string
-          description: Center coordinates, in percentage of image width and image height, of the mask stored as
-            float values in a string, `width,height`.
+          pattern: ^[0-9]+(\.[0-9]+)?,[0-9]+(\.[0-9]+)?$
+          description: >-
+            Center of the mask as ``<x>,<y>`` in percent of the image width and height (0.0 to 100.0), used with
+            ``width`` and ``height``. The mask is placed in the center of the picture when omitted.
         pxpolygon:
           type: string
-          pattern: ^-?\d+,-?\d+(:-?\d+,-?\d+)*$
-          description: Pixel coordinates of the corners of the privacy mask stored as integer values in a string
-            of coordinated pairs, `<x1>,<y1>:<x2>,<y2>:<x3>,<y3>`.
+          pattern: ^-?[0-9]+,-?[0-9]+(:-?[0-9]+,-?[0-9]+)*$
+          description: >-
+            Pixel coordinates of the corners as ``<x1>,<y1>:<x2>,<y2>:...`` in the camera's maximum resolution
+            at rotation 0. The number of corners and the shape follow ``Properties.PrivacyMask.MaxNbrOfCorners``
+            and ``Properties.PrivacyMask.Polygon``.
         zoomlowlimit:
           type: integer
           minimum: 0
           maximum: 19999
-          default: 0
-          description: The minimum VAPIX zoom position for the privacy mask to be rendered.
+          description: >-
+            Minimum VAPIX zoom position for the mask to be rendered; at wider zoom values the mask is not
+            rendered. 0 when omitted. Up to 19999 when digital zoom is supported.
+    positional: [name]
+    examples:
+      - title: Add a privacy mask to the center of the image
+        request: {query: {name: mask1, imagesource: 2, width: 20.0, height: 20.0}}
+        response: {status: 204, text: ""}
+        source: https://developer.axis.com/vapix/network-video/overlay-api/#privacy-mask-api
+      - title: Add and position a privacy mask
+        request: {query: {name: mask1, width: 20.0, height: 20.0, center: "20.0,20.0"}}
+        response: {status: 204, text: ""}
+        source: https://developer.axis.com/vapix/network-video/overlay-api/#privacy-mask-api
+      - title: Add a privacy mask using pixel coordinates
+        request: {query: {name: mask1, pxpolygon: "500,500:800,500:700,700:400,700"}}
+        response: {status: 204, text: ""}
+        source: https://developer.axis.com/vapix/network-video/overlay-api/#privacy-mask-api
+
   update_mask:
-    summary: Change position and/or size of an existing mask.
+    summary: Change the position and/or size of an existing mask.
+    description: Give either ``width`` and ``height`` (optionally with ``center``), or ``pxpolygon``.
     effect: write
     write: patch
     binding:
       method: GET
       query: {action: update}
       reply: text
-    params:
-      type: object
-      required: [name]
-      properties:
-        name:
-          type: string
-          maxLength: 128
-          description: 'Unique name to identify a mask. Maximum length is 128 characters. Valid values: `<string>`'
-        imagesource:
-          type: integer
-          minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
-        width:
-          type: number
-          minimum: 0.0
-          maximum: 100.0
-          description: 'Width of mask, in percent of image width. Valid values: `0.0... 100.0` (unit=percent)'
-        height:
-          type: number
-          minimum: 0.0
-          maximum: 100.0
-          description: 'Height of mask, in percent of image height. Valid values: `0.0... 100.0` (unit=percent)'
-        center:
-          type: string
-          description: Center coordinates, in percentage of image width and image height, of the mask stored as
-            float values in a string, `width,height`.
-        pxpolygon:
-          type: string
-          pattern: ^-?\d+,-?\d+(:-?\d+,-?\d+)*$
-          description: Pixel coordinates of the corners of the privacy mask stored as integer values in a string
-            of coordinated pairs, `<x1>,<y1>:<x2>,<y2>:<x3>,<y3>`.
-        zoomlowlimit:
-          type: integer
-          minimum: 0
-          maximum: 19999
-          default: 0
-          description: The minimum VAPIX zoom position for the privacy mask to be rendered.
+    params: *mask_params
+    positional: [name]
+
   remove_mask:
     summary: Remove an existing mask.
     effect: write
@@ -134,18 +157,12 @@ operations:
       type: object
       required: [name]
       properties:
-        name:
-          type: string
-          maxLength: 128
-          description: 'Unique name to identify a mask. Maximum length is 128 characters. Valid values: `<string>`'
-        imagesource:
-          type: integer
-          minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
+        name: *mask_name
+        imagesource: *image_source
+    positional: [name]
+
   goto_mask:
-    summary: Center camera on an existing mask.
+    summary: Center the camera on an existing mask.
     effect: action
     binding:
       method: GET
@@ -155,18 +172,13 @@ operations:
       type: object
       required: [name]
       properties:
-        name:
-          type: string
-          maxLength: 128
-          description: 'Unique name to identify a mask. Maximum length is 128 characters. Valid values: `<string>`'
-        imagesource:
-          type: integer
-          minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
-  enable_all:
-    summary: Enable all masks (Image.I#.Overlay.MaskWindows.M#.Enabled=yes).
+        name: *mask_name
+        imagesource: *image_source
+    positional: [name]
+
+  enable_all_masks:
+    summary: Enable all masks.
+    description: Sets ``Image.I#.Overlay.MaskWindows.M#.Enabled`` to yes for all configured masks. Needs ``Properties.PrivacyMask.MainSwitch=yes``.
     effect: write
     write: patch
     binding:
@@ -176,14 +188,17 @@ operations:
     params:
       type: object
       properties:
-        imagesource:
-          type: integer
-          minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
-  disable_all:
-    summary: Disable all masks (Enabled=no).
+        imagesource: *image_source
+    positional: [imagesource]
+    examples:
+      - title: Enable all privacy masks
+        request: {query: {}}
+        response: {status: 204, text: ""}
+        source: https://developer.axis.com/vapix/network-video/overlay-api/#privacy-mask-api
+
+  disable_all_masks:
+    summary: Disable all masks, for example in an emergency when nothing vital should be hidden.
+    description: Sets ``Image.I#.Overlay.MaskWindows.M#.Enabled`` to no for all configured masks. Needs ``Properties.PrivacyMask.MainSwitch=yes``.
     effect: write
     write: patch
     binding:
@@ -193,15 +208,19 @@ operations:
     params:
       type: object
       properties:
-        imagesource:
-          type: integer
-          minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
-  list_px_json:
-    summary: 'List all masks with pixel coordinates (max resolution, rotation 0) in JSON: external corners and external+internal
-      corners.'
+        imagesource: *image_source
+    positional: [imagesource]
+    examples:
+      - title: Disable all privacy masks
+        request: {query: {}}
+        response: {status: 204, text: ""}
+        source: https://developer.axis.com/vapix/network-video/overlay-api/#privacy-mask-api
+
+  list_masks:
+    summary: List all masks with pixel coordinates.
+    description: >-
+      Coordinates are in the camera's maximum resolution at rotation 0. Supported if ``listpxjson`` is listed in
+      ``Properties.PrivacyMask.Query``.
     access: operator
     effect: read
     binding:
@@ -211,40 +230,15 @@ operations:
     params:
       type: object
       properties:
-        imagesource:
-          type: integer
-          minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
-    result:
-      type: object
-      properties:
-        listpx:
-          type: array
-          items:
-            type: object
-            x-name: ListPxJsonResultListpxItem
-            properties:
-              id: {type: integer}
-              name: {type: string}
-              enabled: {type: boolean}
-              zoomlowlimit: {type: integer}
-              zoom_visible:
-                type: boolean
-                description: Optional; indicates whether the position polygon is visible due to the zoomlowlimit
-                  setting.
-              position:
-                type: array
-                items: {$ref: '#/types/PixelPoint'}
-                description: Up to Properties.PrivacyMask.MaxNbrOfCorners pairs; empty if not visible in the current
-                  camera position.
-              all_position:
-                type: array
-                items: {$ref: '#/types/PixelPoint'}
-                description: Optional; values in position plus any helper corners added by the service.
-  position_px_json:
-    summary: Pixel coordinates of a named mask in JSON.
+        imagesource: *image_source
+    positional: [imagesource]
+    result: {$ref: "#/types/MaskList"}
+
+  get_mask_position:
+    summary: Pixel coordinates of a named mask.
+    description: >-
+      Coordinates are in the camera's maximum resolution at rotation 0. Supported if ``positionpxjson`` is listed
+      in ``Properties.PrivacyMask.Query``.
     access: operator
     effect: read
     binding:
@@ -255,58 +249,40 @@ operations:
       type: object
       required: [name]
       properties:
-        name:
-          type: string
-          maxLength: 128
-          description: 'Unique name to identify a mask. Maximum length is 128 characters. Valid values: `<string>`'
-        imagesource:
-          type: integer
-          minimum: 0
-          default: 0
-          description: 'Selects the Image source. If the Image source is omitted, the parameter defaults to 0. Valid
-            values: `0... n` (n = number of image sources -1.)'
-    result:
-      type: object
-      properties:
-        position:
-          type: array
-          items: {$ref: '#/types/PixelPoint'}
-  list_privacy_mask_parameters:
-    summary: List the Image.I#.Overlay.MaskWindows parameters (generic Parameter management API).
+        name: *mask_name
+        imagesource: *image_source
+    positional: [name]
+    result: {$ref: "#/types/MaskPosition"}
+
+  list_mask_window_parameters:
+    summary: 'Parameter values as ``{"Image.I0.Overlay.MaskWindows.M0.Name": "..."}`` (``root.`` removed).'
+    description: >-
+      List groups such as ``Image.I0.Overlay.MaskWindows``. Per image source: ``Color``
+      (black, grey, white, red, blurred, or hardware dependent mosaic, chameleon) and ``MosaicScale`` (3-16);
+      per mask ``M#``: ``Enabled``, ``Name``, ``XPos``, ``YPos``, ``Width``, ``Height`` (pixels) and ``ZoomLowLimit``.
     access: operator
     effect: read
     binding:
       path: /axis-cgi/param.cgi
       method: GET
       query: {action: list}
-      reply: text_kv
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
     params:
       type: object
       required: [group]
       properties:
-        group: {type: string, description: 'Parameter group to list, e.g. Image.I0.Overlay.MaskWindows.'}
-    result:
-      type: object
-      additionalProperties: {type: string}
-  update_privacy_mask_parameters:
-    summary: Update one or more Image.I#.Overlay.MaskWindows parameters (generic Parameter management API).
-    effect: write
-    write: patch
-    binding:
-      path: /axis-cgi/param.cgi
-      method: GET
-      query: {action: update}
-      reply: text
-    params:
-      type: object
-      required: [Image.I#.Overlay.MaskWindows.<param>]
-      properties:
-        Image.I#.Overlay.MaskWindows.<param>:
-          type: string
-          description: One or more <full parameter name>=<value> pairs; see param_cgi_groups for parameters and
-            valid values.
-  add_privacy_mask_parameters:
-    summary: Create privacy masks M0, M1, ...
+        group: {type: array, items: {type: string}, minItems: 1, x-style: csv}
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+
+  add_mask_window:
+    summary: Create a mask ``M0``, ``M1``, ... from the ``0_maskwindows`` template with ``param.cgi``.
+    description: >-
+      ``group`` is e.g. ``Image.I0.Overlay.MaskWindows``. Pass initial values as full parameter names with a bare
+      ``M`` for the new mask, e.g. ``{"Image.I0.Overlay.MaskWindows.M.Enabled": "yes",
+      "Image.I0.Overlay.MaskWindows.M.Width": "250", "Image.I0.Overlay.MaskWindows.M.Name": "mask1"}``.
+      Masks made this way do not follow pan/tilt/zoom changes.
     effect: write
     write: create
     binding:
@@ -316,54 +292,60 @@ operations:
       reply: text
     params:
       type: object
-      required: [group]
+      required: [group, parameters]
       properties:
-        group: {type: string, description: e.g. Image.I0.Overlay.MaskWindows}
-        Image.I#.Overlay.MaskWindows.M.<param>: {type: string, description: Initial values for the new mask (see
-            examples).}
-  remove_privacy_mask_parameters:
-    summary: Remove privacy masks via param.cgi.
+        group: {type: string, description: 'Parent group, e.g. ``Image.I0.Overlay.MaskWindows``.'}
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [group, parameters]
+    result: {type: string}
+
+  update_mask_window_parameters:
+    summary: 'Update mask parameters, e.g. ``{"Image.I0.Overlay.MaskWindows.M1.Name": "mask2_old"}``.'
+    description: Only the given parameters change.
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+
+  remove_mask_windows:
+    summary: Remove masks with ``param.cgi``, e.g. ``["Image.I0.Overlay.MaskWindows.M0"]``.
     effect: write
     write: delete
     binding:
       path: /axis-cgi/param.cgi
       method: GET
       query: {action: remove}
-      reply: text
+      reply: text_ok
     params:
       type: object
       required: [group]
       properties:
-        group:
-          type: array
-          items: {type: string}
-          description: Comma separated mask groups, e.g. Image.I0.Overlay.MaskWindows.M0,Image.I0.Overlay.MaskWindows.M1
+        group: {type: array, items: {type: string}, minItems: 1, x-style: csv}
+    positional: [group]
 
 sources:
-- url: https://developer.axis.com/vapix/network-video/overlay-api/
-  sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
-  retrieved_at: '2026-10-11'
-
+  - url: https://developer.axis.com/vapix/network-video/overlay-api/
+    sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
+    retrieved_at: "2026-10-11"
 provenance:
   completeness: complete
   open_questions:
-  - 'Security level stated as Administrator for privacymask.cgi; query access level not separately stated (operator
-    assumed from "List security level: Operator").'
-  - pxpolygon documented as <int> but value is a string of coordinate pairs.
-  - '"Using param.cgi" tables use Image.IO (letter O).'
-  - positionpxjson response syntax has a trailing comma (pseudo-JSON).
-  - Second "Disable all privacy masks" example actually uses action=enable_all.
-  - Exact param.cgi add response for template 0_maskwindows not shown.
-  - 'migration: reply-ok: update_privacy_mask_parameters: notes mention OK; reply read as plain text (check)'
-  - 'migration: reply-ok: add_privacy_mask_parameters: notes mention OK; reply read as plain text (check)'
-  - 'migration: discovery: param_property ''Properties.PrivacyMask.MaxNbrOfPrivacyMasks'' is not a Name=value pair:
-    dropped'
-  - 'migration: discovery: param_property ''Properties.PrivacyMask.Polygon'' is not a Name=value pair: dropped'
-  - 'migration: discovery: param_property ''Properties.PrivacyMask.MaxNbrOfCorners'' is not a Name=value pair: dropped'
-  - 'migration: discovery: param_property ''Properties.PrivacyMask.Query'' is not a Name=value pair: dropped'
-  - 'migration: discovery: param_property ''Properties.PrivacyMask.MainSwitch'' is not a Name=value pair: dropped'
-  - 'migration: discovery: param_property ''ImageSource.NbrOfSources'' is not a Name=value pair: dropped'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section versioning not carried over'
+    - privacymask.cgi success is documented as 204 No content; the examples assume the empty body is accepted by the text reply.
+    - The security level is stated as Administrator for privacymask.cgi; list queries are assumed Operator from "List security level Operator".
+    - pxpolygon is documented as ``<int>`` but the value is a string of coordinate pairs.
+    - The "Using param.cgi" tables name the group Image.IO (letter O) and the first table header reads Image.I#.Overlay:MaskWindows.
+    - The positionpxjson response syntax has a trailing comma (pseudo-JSON); real replies are assumed valid JSON.
+    - The "Disable all privacy masks" step 2 enables all masks (action=enable_all), as documented.
+    - The reply of the param.cgi add action for template 0_maskwindows is not shown; it is returned as text.
+    - 'Whether the camera needs one of width+height or pxpolygon is a runtime rule ("Requires either"); it is not enforced by the schema.'
   migrated_from: v1
-  curated: false
+  curated: true

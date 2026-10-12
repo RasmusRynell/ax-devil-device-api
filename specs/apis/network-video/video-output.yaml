@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: video-output
 name: Video output API
-summary: 'Display video sources on a video output (HDMI): source, sequence, quad view and PiP modes, mirroring,
-  rotation, overlays.'
+summary: 'Display video sources on a video output (HDMI): source, sequence, quad view and PiP modes, mirroring, rotation, overlays.'
 section: network-video
 family: cgi
 status: released
@@ -15,11 +13,234 @@ docs:
 access: operator
 discovery:
 - param: {name: Properties.VideoOutputControl.VideoOutputControl, value: 'yes'}
-- param: {name: Properties.VideoOutputControl.OutputType, value: '[Output type]'}
 requires:
   firmware: '6.10'
 
 binding: {path: /axis-cgi/videooutput/getschemaversions.cgi}
+
+errors:
+  10: {description: Error while processing the request.}
+  20: {description: Invalid value., kind: invalid_argument}
+  30: {description: Invalid action.}
+  40: {description: Specified version is not supported., kind: unsupported}
+  50: {description: Quad view is not configured., kind: unavailable}
+  60: {description: Invalid quad view rotation., kind: invalid_argument}
+  70: {description: Unsupported feature., kind: unsupported}
+
+types:
+  SchemaVersion:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: Schema version.
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: Success/GetSchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
+  VideoSource:
+    type: object
+    required: [Id]
+    properties:
+      Name: {type: string, description: Video source name., x-xml: {child: Name}}
+      Id: {type: string, description: Video source identifier., x-xml: {child: Id}}
+      Active: {type: boolean, description: Whether the video source is used for video output., x-xml: {child: Active}}
+  VideoSources:
+    type: object
+    x-xml: {root: Success/GetVideoSourcesSuccess}
+    required: [VideoSource]
+    properties:
+      VideoSource:
+        type: array
+        items: {$ref: '#/types/VideoSource'}
+        x-xml: {path: VideoSource}
+  Mirroring:
+    type: object
+    x-xml: {root: Success/GetMirroringSuccess}
+    required: [MirroringEnabled]
+    properties:
+      MirroringEnabled: {type: boolean, description: Whether the video output is mirrored., x-xml: {child: MirroringEnabled}}
+  AddedSequenceElement:
+    type: object
+    x-xml: {root: Success/AddSequenceSuccess}
+    required: [SequenceElementId]
+    properties:
+      SequenceElementId: {type: integer, description: The id of the added element; use it to remove or update the element., x-xml: {child: SequenceElementId}}
+  SequenceElement:
+    type: object
+    required: [SequenceElementId]
+    properties:
+      SequenceElementId: {type: integer, description: The element id., x-xml: {child: SequenceElementId}}
+      Source: {type: string, description: The video source Id or the path to a bitmap., x-xml: {child: Source}}
+      Duration: {type: integer, description: Duration in seconds., x-xml: {child: Duration}}
+      Mirror: {type: boolean, description: Whether the source or image is mirrored (sent as 0 or 1)., x-xml: {child: Mirror}}
+  Sequence:
+    type: object
+    x-xml: {root: Success/GetSequenceSuccess}
+    required: [VideoSequenceElement]
+    properties:
+      VideoSequenceElement:
+        type: array
+        items: {$ref: '#/types/SequenceElement'}
+        x-python-name: elements
+        x-xml: {path: VideoSequenceElement}
+  QuadView:
+    type: object
+    x-xml: {root: Success/GetQuadViewSuccess}
+    required: [QuadViewSource]
+    properties:
+      QuadViewSource:
+        type: array
+        items: {type: string}
+        description: The video source Ids, ordered top left, top right, bottom left, bottom right.
+        x-python-name: sources
+        x-xml: {path: QuadViewSource/QuadViewSource}
+  Rotation:
+    type: object
+    required: [Degrees]
+    properties:
+      Degrees: {type: integer, description: The clockwise rotation in degrees., x-xml: {child: Degrees}}
+      QuadViewSupport: {type: boolean, description: Whether this rotation is supported in quad view., x-xml: {child: QuadViewSupport}}
+      Active: {type: boolean, description: Whether this rotation is the active one., x-xml: {child: Active}}
+  Rotations:
+    type: object
+    x-xml: {root: Success/GetRotationSuccess}
+    required: [Rotation]
+    properties:
+      Rotation:
+        type: array
+        items: {$ref: '#/types/Rotation'}
+        x-xml: {path: Rotation}
+  SourceSetting:
+    type: object
+    required: [Id]
+    properties:
+      Id: {type: string, description: Video source Id., x-xml: {child: Id}}
+      Enabled: {type: boolean, description: Whether the Image-parameter settings are used on the video source., x-xml: {child: Enabled}}
+  SourceSettings:
+    type: object
+    x-xml: {root: Success/GetSourceSettingsEnabledSuccess}
+    required: [SourceSetting]
+    properties:
+      SourceSetting:
+        type: array
+        items: {$ref: '#/types/SourceSetting'}
+        x-xml: {path: SourceSetting}
+  SupportedCgis:
+    type: object
+    description: For each CGI whether the product supports it.
+    x-xml: {root: Success/GetSupportedSuccess}
+    properties:
+      GetSchemaVersions: {type: boolean, x-xml: {child: GetSchemaVersions}}
+      GetActiveMode: {type: boolean, x-xml: {child: GetActiveMode}}
+      SetActiveMode: {type: boolean, x-xml: {child: SetActiveMode}}
+      GetMirroring: {type: boolean, x-xml: {child: GetMirroring}}
+      SetMirroring: {type: boolean, x-xml: {child: SetMirroring}}
+      GetVideoSources: {type: boolean, x-xml: {child: GetVideoSources}}
+      SetVideoSources: {type: boolean, x-xml: {child: SetVideoSources}}
+      GetSequence: {type: boolean, x-xml: {child: GetSequence}}
+      AddSequenceElement: {type: boolean, x-xml: {child: AddSequenceElement}}
+      RemoveSequenceElement: {type: boolean, x-xml: {child: RemoveSequenceElement}}
+      UpdateSequenceElement: {type: boolean, x-xml: {child: UpdateSequenceElement}}
+      ClearSequence: {type: boolean, x-xml: {child: ClearSequence}}
+      GetQuadView: {type: boolean, x-xml: {child: GetQuadView}}
+      SetQuadView: {type: boolean, x-xml: {child: SetQuadView}}
+      GetRotation: {type: boolean, x-xml: {child: GetRotation}}
+      SetRotation: {type: boolean, x-xml: {child: SetRotation}}
+      GetSourceSettingsEnabled: {type: boolean, x-xml: {child: GetSourceSettingsEnabled}}
+      SetSourceSettingsEnabled: {type: boolean, x-xml: {child: SetSourceSettingsEnabled}}
+      SetPiP: {type: boolean, x-xml: {child: SetPiP}}
+      GetPiP: {type: boolean, x-xml: {child: GetPiP}}
+      SetDynamicOverlays: {type: boolean, x-xml: {child: SetDynamicOverlays}}
+      GetDynamicOverlays: {type: boolean, x-xml: {child: GetDynamicOverlays}}
+  ActiveMode:
+    type: object
+    required: [Name]
+    properties:
+      Name: {type: string, description: The mode name., x-xml: {child: Name}}
+      Active: {type: boolean, description: Whether the mode is active., x-xml: {child: Active}}
+  ActiveModes:
+    type: object
+    x-xml: {root: Success/GetActiveModeSuccess}
+    required: [Mode]
+    properties:
+      Mode:
+        type: array
+        items: {$ref: '#/types/ActiveMode'}
+        x-python-name: modes
+        x-xml: {path: Mode}
+  PipOption:
+    type: object
+    description: The current value of a PiP setting and the values it can take.
+    properties:
+      CurrentValue: {type: string, description: The current value., x-xml: {child: CurrentValue}}
+      AvailableValues:
+        type: array
+        items: {type: string}
+        description: The available values.
+        x-xml: {path: AvailableValues/Name}
+  PipSwitch:
+    type: object
+    properties:
+      CurrentValue: {type: boolean, description: The current value., x-xml: {child: CurrentValue}}
+  PipSettings:
+    type: object
+    description: The PiP settings. The picture-in-picture is called SubView in the reply and pip in set_pip.
+    x-xml: {root: Success/GetPiPSuccess}
+    properties:
+      BorderEnabled:
+        $ref: '#/types/PipSwitch'
+        x-xml: {path: BorderEnabled}
+      BorderColor:
+        $ref: '#/types/PipOption'
+        x-xml: {path: BorderColor}
+      BorderWidth:
+        $ref: '#/types/PipOption'
+        x-xml: {path: BorderWidth}
+      Height:
+        $ref: '#/types/PipOption'
+        x-xml: {path: Height}
+      MainViewMirroring:
+        $ref: '#/types/PipOption'
+        x-xml: {path: MainViewMirroring}
+      MainViewRotation:
+        $ref: '#/types/PipOption'
+        x-xml: {path: MainViewRotation}
+      MainViewSource:
+        $ref: '#/types/PipOption'
+        x-xml: {path: MainViewSource}
+      Position:
+        $ref: '#/types/PipOption'
+        x-xml: {path: Position}
+      SubViewMirroring:
+        $ref: '#/types/PipOption'
+        x-xml: {path: SubViewMirroring}
+      SubViewRotation:
+        $ref: '#/types/PipOption'
+        x-xml: {path: SubViewRotation}
+      SubViewSource:
+        $ref: '#/types/PipOption'
+        x-xml: {path: SubViewSource}
+      Width:
+        $ref: '#/types/PipOption'
+        x-xml: {path: Width}
+  DynamicOverlays:
+    type: object
+    x-xml: {root: Success/GetDynamicOverlaySuccess}
+    required: [DynamicOverlaysEnabled]
+    properties:
+      DynamicOverlaysEnabled: {type: boolean, description: Whether dynamic overlays are enabled., x-xml: {child: DynamicOverlaysEnabled}}
 
 operations:
   get_schema_versions:
@@ -31,7 +252,26 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/SchemaVersions'}
+    examples:
+    - title: Get schema versions
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetSchemaVersionsSuccess>
+                <SchemaVersion>
+                  <VersionNumber>1.0</VersionNumber>
+                  <Deprecated>false</Deprecated>
+                </SchemaVersion>
+              </GetSchemaVersionsSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-schema-versions
   get_video_sources:
     summary: Retrieve available video sources; sources used as video output are marked active.
     effect: read
@@ -41,7 +281,32 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/VideoSources'}
+    examples:
+    - title: Get video sources
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetVideoSourcesSuccess>
+                <VideoSource>
+                  <Name>Camera 1</Name>
+                  <Id>1</Id>
+                  <Active>true</Active>
+                </VideoSource>
+                <VideoSource>
+                  <Name>Camera 2</Name>
+                  <Id>2</Id>
+                  <Active>false</Active>
+                </VideoSource>
+              </GetVideoSourcesSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-video-sources
   set_video_source:
     summary: Set the video source to display as video output.
     effect: write
@@ -52,10 +317,22 @@ operations:
       required: [schemaversion, id]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        id:
-          type: integer
-          description: 'The video source identifier: content of the <Id> tag returned by getvideosources.cgi. (Requiredness
-            not stated.)'
+        id: {type: string, description: 'The video source identifier: the content of the Id element returned by get_video_sources.'}
+    positional: [id]
+    examples:
+    - title: Set the video source
+      request:
+        query: {schemaversion: '1', id: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-video-source
   get_mirroring:
     summary: Check if the video output is mirrored.
     effect: read
@@ -65,9 +342,25 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/Mirroring'}
+    examples:
+    - title: Get mirroring
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetMirroringSuccess>
+                <MirroringEnabled>true</MirroringEnabled>
+              </GetMirroringSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-mirroring
   set_mirroring:
-    summary: Mirror the video output (only affects the video output; recordings and other streams are not affected).
+    summary: Mirror the video output (recordings and other streams are not affected).
     effect: write
     write: patch
     binding: {path: /axis-cgi/videooutput/setmirroring.cgi, method: GET, reply: xml}
@@ -76,10 +369,22 @@ operations:
       required: [schemaversion, mirroringenabled]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        mirroringenabled:
-          type: string
-          enum: ['true', 'false']
-          description: true = the video output is mirrored. false = not mirrored.
+        mirroringenabled: {type: boolean, description: 'true mirrors the video output, false does not.'}
+    positional: [mirroringenabled]
+    examples:
+    - title: Mirror the video output
+      request:
+        query: {schemaversion: '1', mirroringenabled: 'true'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-mirroring
   add_sequence_element:
     summary: Add an element to the video/image sequence on the video output; returns a SequenceElementId.
     effect: write
@@ -92,12 +397,26 @@ operations:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
         source:
           type: string
-          description: 'Video source/image to add: the Id from getvideosources.cgi, or the path to a bitmap (uploaded
-            with the Overlay API).'
-        duration:
-          type: integer
-          description: Duration (in seconds) of the video source/image in the sequence. (unit=seconds)
-        mirror: {type: boolean, description: Whether the video source/image should be mirrored.}
+          description: 'The video source or image to add: the Id from get_video_sources for a video source, or the path to a bitmap (uploaded with the Overlay API).'
+        duration: {type: integer, description: Duration in seconds of the video source or image in the sequence.}
+        mirror: {type: boolean, description: Whether the video source or image should be mirrored.}
+    result: {$ref: '#/types/AddedSequenceElement'}
+    examples:
+    - title: Add a video source to the sequence
+      request:
+        query: {schemaversion: '1', source: '1', duration: '10'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <AddSequenceSuccess>
+                <SequenceElementId>1</SequenceElementId>
+              </AddSequenceSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#add-element
   remove_sequence_element:
     summary: Remove an element from the video or image sequence.
     effect: write
@@ -108,11 +427,25 @@ operations:
       required: [schemaversion, sequenceelementid]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        sequenceelementid:
-          type: integer
-          description: Element to remove; SequenceElementId returned from addsequenceelement.cgi and getsequence.cgi.
+        sequenceelementid: {type: integer, description: The element to remove; the SequenceElementId returned by add_sequence_element and get_sequence.}
+    positional: [sequenceelementid]
+    examples:
+    - title: Remove a sequence element
+      request:
+        query: {schemaversion: '1', sequenceelementid: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#remove-element
   update_sequence_element:
     summary: Update an element in the video or image sequence.
+    description: At least one of sourceid, duration and mirror must be given.
     effect: write
     write: patch
     binding: {path: /axis-cgi/videooutput/updatesequenceelement.cgi, method: GET, reply: xml}
@@ -121,12 +454,27 @@ operations:
       required: [schemaversion, sequenceelementid]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        sequenceelementid: {type: integer, description: Element to update.}
-        sourceid: {type: string, description: Id from getvideosources.cgi or a path to a bitmap.}
-        duration: {type: integer, description: Duration in seconds. (unit=seconds)}
-        mirror: {type: boolean, description: Whether the source/image should be mirrored.}
+        sequenceelementid: {type: integer, description: The element to update; the SequenceElementId returned by add_sequence_element and get_sequence.}
+        sourceid: {type: string, description: The video source Id from get_video_sources or a path to a bitmap.}
+        duration: {type: integer, description: Duration in seconds of the video source or image in the sequence.}
+        mirror: {type: boolean, description: Whether the video source or image should be mirrored.}
+    positional: [sequenceelementid]
+    examples:
+    - title: Change the duration of a sequence element
+      request:
+        query: {schemaversion: '1', sequenceelementid: '1', duration: '20'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#update-element
   get_sequence:
-    summary: Get the current video sources configured in a sequence (in sequence order).
+    summary: Get the current video sources configured in a sequence, in sequence order.
     effect: read
     binding: {path: /axis-cgi/videooutput/getsequence.cgi, method: GET, reply: xml}
     params:
@@ -134,7 +482,34 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/Sequence'}
+    examples:
+    - title: Get the sequence
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetSequenceSuccess>
+                <VideoSequenceElement>
+                  <SequenceElementId>1</SequenceElementId>
+                  <Source>1</Source>
+                  <Duration>10</Duration>
+                  <Mirror>0</Mirror>
+                </VideoSequenceElement>
+                <VideoSequenceElement>
+                  <SequenceElementId>2</SequenceElementId>
+                  <Source>2</Source>
+                  <Duration>20</Duration>
+                  <Mirror>1</Mirror>
+                </VideoSequenceElement>
+              </GetSequenceSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-sequence
   clear_sequence:
     summary: Remove the sequence.
     effect: write
@@ -145,6 +520,20 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    examples:
+    - title: Clear the sequence
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#clear-sequence
   get_quad_view:
     summary: Get the video sources configured in a quad view (top left, top right, bottom left, bottom right).
     effect: read
@@ -154,7 +543,34 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/QuadView'}
+    examples:
+    - title: Get the quad view
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetQuadViewSuccess>
+                <QuadViewSource>
+                  <QuadViewSource>1</QuadViewSource>
+                </QuadViewSource>
+                <QuadViewSource>
+                  <QuadViewSource>2</QuadViewSource>
+                </QuadViewSource>
+                <QuadViewSource>
+                  <QuadViewSource>3</QuadViewSource>
+                </QuadViewSource>
+                <QuadViewSource>
+                  <QuadViewSource>4</QuadViewSource>
+                </QuadViewSource>
+              </GetQuadViewSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-quad-view
   set_quad_view:
     summary: Configure and enable a quad view of video sources for the video output.
     effect: write
@@ -166,9 +582,27 @@ operations:
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
         id:
-          type: string
-          description: Four comma separated video source ids (from getvideosources.cgi), ordered top left, top right,
-            bottom left, bottom right. (minItems=4, maxItems=4)
+          type: array
+          items: {type: string}
+          minItems: 4
+          maxItems: 4
+          x-style: csv
+          description: 'The four video source Ids from get_video_sources, ordered top left, top right, bottom left, bottom right.'
+    positional: [id]
+    examples:
+    - title: Set a quad view
+      request:
+        query: {schemaversion: '1', id: '1,2,3,4'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-quad-view
   get_rotation:
     summary: Get the current rotation and available rotations on the video output.
     effect: read
@@ -178,9 +612,34 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/Rotations'}
+    examples:
+    - title: Get the rotations
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetRotationSuccess>
+                <Rotation>
+                  <Degrees>0</Degrees>
+                  <QuadViewSupport>true</QuadViewSupport>
+                  <Active>true</Active>
+                </Rotation>
+                <Rotation>
+                  <Degrees>180</Degrees>
+                  <QuadViewSupport>false</QuadViewSupport>
+                  <Active>false</Active>
+                </Rotation>
+              </GetRotationSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-rotation
   set_rotation:
-    summary: Select a rotation on video output (supported rotations from getrotation.cgi).
+    summary: Select a rotation on the video output (the supported rotations come from get_rotation).
     effect: write
     write: patch
     binding: {path: /axis-cgi/videooutput/setrotation.cgi, method: GET, reply: xml}
@@ -189,11 +648,24 @@ operations:
       required: [schemaversion, rotation]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        rotation:
-          type: integer
-          description: Clockwise rotation of the video output in degrees. (unit=degrees)
+        rotation: {type: integer, description: The clockwise rotation of the video output in degrees.}
+    positional: [rotation]
+    examples:
+    - title: Rotate the video output 180 degrees
+      request:
+        query: {schemaversion: '1', rotation: '180'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-rotation
   get_source_settings_enabled:
-    summary: Get whether Image-parameter settings are used (enabled/disabled) on the available video sources.
+    summary: Get whether the Image-parameter settings are used on each available video source.
     effect: read
     binding: {path: /axis-cgi/videooutput/getsourcesettingsenabled.cgi, method: GET, reply: xml}
     params:
@@ -201,9 +673,28 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/SourceSettings'}
+    examples:
+    - title: Get the source settings
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetSourceSettingsEnabledSuccess>
+                <SourceSetting>
+                  <Id>1</Id>
+                  <Enabled>false</Enabled>
+                </SourceSetting>
+              </GetSourceSettingsEnabledSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-source-settings
   set_source_settings_enabled:
-    summary: Enable/disable mirroring, rotation and overlays (Image-parameter settings) on the selected video source.
+    summary: Enable or disable mirroring, rotation and overlays (Image-parameter settings) on the selected video source.
     effect: write
     write: patch
     binding: {path: /axis-cgi/videooutput/setsourcesettingsenabled.cgi, method: GET, reply: xml}
@@ -212,13 +703,24 @@ operations:
       required: [schemaversion, id, enabled]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        id: {type: string, description: Video source Id from getvideosources.cgi.}
-        enabled:
-          type: string
-          enum: ['true', 'false']
-          description: Enable/disable Image-parameter settings on the source.
+        id: {type: string, description: The video source Id from get_video_sources.}
+        enabled: {type: boolean, description: 'Enable or disable mirroring, rotation and overlays (the Image-parameter settings) on the selected video source.'}
+    examples:
+    - title: Enable the Image-parameter settings on a source
+      request:
+        query: {schemaversion: '1', id: '1', enabled: 'true'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-source-settings
   get_supported:
-    summary: Get the supported CGI-APIs for the product.
+    summary: Get the supported CGI APIs for the product.
     effect: read
     binding: {path: /axis-cgi/videooutput/getsupported.cgi, method: GET, reply: xml}
     params:
@@ -226,9 +728,46 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/SupportedCgis'}
+    examples:
+    - title: Get the supported CGIs
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetSupportedSuccess>
+                <GetSchemaVersions>true</GetSchemaVersions>
+                <GetActiveMode>true</GetActiveMode>
+                <SetActiveMode>true</SetActiveMode>
+                <GetMirroring>true</GetMirroring>
+                <SetMirroring>true</SetMirroring>
+                <GetVideoSources>true</GetVideoSources>
+                <SetVideoSources>true</SetVideoSources>
+                <GetSequence>true</GetSequence>
+                <AddSequenceElement>true</AddSequenceElement>
+                <RemoveSequenceElement>true</RemoveSequenceElement>
+                <UpdateSequenceElement>true</UpdateSequenceElement>
+                <ClearSequence>true</ClearSequence>
+                <GetQuadView>true</GetQuadView>
+                <SetQuadView>true</SetQuadView>
+                <GetRotation>true</GetRotation>
+                <SetRotation>true</SetRotation>
+                <GetSourceSettingsEnabled>true</GetSourceSettingsEnabled>
+                <SetSourceSettingsEnabled>true</SetSourceSettingsEnabled>
+                <SetPiP>false</SetPiP>
+                <GetPiP>false</GetPiP>
+                <SetDynamicOverlays>true</SetDynamicOverlays>
+                <GetDynamicOverlays>true</GetDynamicOverlays>
+              </GetSupportedSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-supported-cgi-apis
   get_active_mode:
-    summary: Get all supported modes (none, source, quad, sequence) and whether each is active.
+    summary: Get all supported modes and whether each is active.
     effect: read
     binding: {path: /axis-cgi/videooutput/getactivemode.cgi, method: GET, reply: xml}
     params:
@@ -236,7 +775,30 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/ActiveModes'}
+    examples:
+    - title: Get the active mode
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetActiveModeSuccess>
+                <Mode>
+                  <Name>source</Name>
+                  <Active>true</Active>
+                </Mode>
+                <Mode>
+                  <Name>quad</Name>
+                  <Active>false</Active>
+                </Mode>
+              </GetActiveModeSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-active-mode
   set_active_mode:
     summary: Set the mode (source, sequence, quad or PiP).
     effect: write
@@ -247,12 +809,24 @@ operations:
       required: [schemaversion, mode]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        mode:
-          type: string
-          enum: [source, sequence, quad, PiP]
-          description: The desired mode.
+        mode: {type: string, enum: [source, sequence, quad, PiP], description: The desired mode.}
+    positional: [mode]
+    examples:
+    - title: Set the quad mode
+      request:
+        query: {schemaversion: '1', mode: quad}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-active-mode
   get_pip:
-    summary: Return the current available PiP (picture-in-picture) settings of the video output.
+    summary: Return the current and available PiP (picture-in-picture) settings of the video output.
     effect: read
     binding: {path: /axis-cgi/videooutput/getpip.cgi, method: GET, reply: xml}
     params:
@@ -260,9 +834,40 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/PipSettings'}
+    examples:
+    - title: Get the PiP settings
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetPiPSuccess>
+                <BorderColor>
+                  <CurrentValue>1.0,0,0</CurrentValue>
+                </BorderColor>
+                <BorderEnabled>
+                  <CurrentValue>true</CurrentValue>
+                </BorderEnabled>
+                <Position>
+                  <CurrentValue>top_left</CurrentValue>
+                  <AvailableValues>
+                    <Name>top_left</Name>
+                    <Name>top_right</Name>
+                    <Name>bottom_left</Name>
+                    <Name>bottom_right</Name>
+                  </AvailableValues>
+                </Position>
+              </GetPiPSuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-pip
   set_pip:
     summary: Configure the PiP (picture-in-picture) parameters.
+    description: Only the given parameters change.
     effect: write
     write: patch
     binding: {path: /axis-cgi/videooutput/setpip.cgi, method: GET, reply: xml}
@@ -272,39 +877,43 @@ operations:
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
         bordercolor:
-          type: string
-          description: 'Border color as R,G,B each 0 <= x <= 1.0. Example for red: 1.0,0,0'
-        borderenabled:
-          type: string
-          enum: ['true', 'false']
-          description: Show/hide the border for the picture-in-picture.
+          type: array
+          items: {type: number, minimum: 0, maximum: 1}
+          minItems: 3
+          maxItems: 3
+          x-style: csv
+          description: 'The border color as red, green and blue, each 0 to 1.0. Red is 1.0,0,0.'
+        borderenabled: {type: boolean, description: Show or hide the border of the picture-in-picture.}
         borderweight:
-          type: string
-          description: 'Border weight in fractions of the PiP size: left, top, right, bottom. Example: 0.01, 0.01,
-            0.01, 0.01 for 1 percent.'
-        height:
-          type: string
-          description: Height of the PiP as a fraction of the output resolution height (0.0 < height < 1.0).
-        mainviewmirroring:
-          type: string
-          enum: ['true', 'false']
-          description: Whether the main view should be mirrored.
-        mainviewrotation: {type: string, enum: ['0', '180'], description: Main view rotation. Valid values 0/180.}
-        mainviewsource:
-          type: string
-          description: 'Camera source shown in the main view. Valid values: 1 - number of ports on the camera.'
-        position:
-          type: string
-          enum: [top_left, top_right, bottom_left, bottom_right]
-          description: Position of the picture-in-picture.
-        pipmirroring: {type: string, enum: ['true', 'false'], description: Whether the PiP should be mirrored.}
-        piprotation: {type: string, enum: ['0', '180'], description: PiP rotation. Valid values 0/180.}
-        pipsource:
-          type: string
-          description: 'Camera source shown in the PiP. Valid values: 1 - number of ports on the camera.'
-        width:
-          type: string
-          description: Width of the PiP as a fraction of the output resolution width (0.0 < width < 1.0).
+          type: array
+          items: {type: number, minimum: 0, maximum: 1}
+          minItems: 4
+          maxItems: 4
+          x-style: csv
+          description: 'The border weight in fractions of the picture-in-picture size: left, top, right and bottom. 0.01 for each is a border of 1 percent.'
+        height: {type: number, minimum: 0, maximum: 1, description: 'Height of the picture-in-picture as a fraction of the output resolution height (0.0 < height < 1.0).'}
+        mainviewmirroring: {type: boolean, description: Whether the main view should be mirrored.}
+        mainviewrotation: {type: integer, enum: [0, 180], description: Rotation of the main view in degrees.}
+        mainviewsource: {type: integer, minimum: 1, description: 'The camera source shown in the main view, from 1 to the number of ports on the camera.'}
+        position: {type: string, enum: [top_left, top_right, bottom_left, bottom_right], description: Position of the picture-in-picture.}
+        pipmirroring: {type: boolean, description: Whether the picture-in-picture should be mirrored.}
+        piprotation: {type: integer, enum: [0, 180], description: Rotation of the picture-in-picture in degrees.}
+        pipsource: {type: integer, minimum: 1, description: 'The camera source shown in the picture-in-picture, from 1 to the number of ports on the camera.'}
+        width: {type: number, minimum: 0, maximum: 1, description: 'Width of the picture-in-picture as a fraction of the output resolution width (0.0 < width < 1.0).'}
+    examples:
+    - title: Put the PiP in the bottom right corner
+      request:
+        query: {schemaversion: '1', position: bottom_right, borderenabled: 'true'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-pip
   get_dynamic_overlays:
     summary: Return the current dynamic overlay setting.
     effect: read
@@ -314,9 +923,25 @@ operations:
       required: [schemaversion]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-    result: {x-xml: true}
+    result: {$ref: '#/types/DynamicOverlays'}
+    examples:
+    - title: Get the dynamic overlay setting
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GetDynamicOverlaySuccess>
+                <DynamicOverlaysEnabled>true</DynamicOverlaysEnabled>
+              </GetDynamicOverlaySuccess>
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#get-dynamic-overlays
   set_dynamic_overlays:
-    summary: Enable/disable dynamic overlays; mirrors dynamic overlays to HDMI outputs.
+    summary: Enable or disable dynamic overlays; mirrors dynamic overlays to HDMI outputs.
     effect: write
     write: patch
     binding: {path: /axis-cgi/videooutput/setdynamicoverlays.cgi, method: GET, reply: xml}
@@ -325,7 +950,22 @@ operations:
       required: [schemaversion, dynamicoverlays]
       properties:
         schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
-        dynamicoverlays: {type: boolean, description: Enable/disable dynamic overlays.}
+        dynamicoverlays: {type: boolean, description: Enable or disable dynamic overlays.}
+    positional: [dynamicoverlays]
+    examples:
+    - title: Enable dynamic overlays
+      request:
+        query: {schemaversion: '1', dynamicoverlays: 'true'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <VideoOutputResponse SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </VideoOutputResponse>
+      source: https://developer.axis.com/vapix/network-video/video-output-api/#set-dynamic-overlays
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/video-output-api/
@@ -335,55 +975,15 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Requiredness of id (setvideosource), mirroringenabled, rotation, mode, setquadview id and setsourcesettingsenabled
-    id/enabled is not stated; marked required (inferred).
-  - 'getvideosources: <Id> shown as [int] in syntax but described as string in the table.'
-  - getsequence response syntax is missing the closing </GetSequenceSuccess>; the note says sources show up as <VideoSource>
-    tags while the syntax uses <VideoSequenceElement>; <Mirror> is [int] while mirror request param is boolean.
-  - getpip lists BorderWidth while setpip uses borderweight; getpip uses SubView* while setpip uses pip* parameter
-    names.
-  - setpip description says 'configure the parameters and search for the PiP' (unclear).
-  - getactivemode description lists modes none/source/quad/sequence while setactivemode accepts source/sequence/quad/PiP.
-  - Error code to CGI mapping column is mostly empty; 'etc.' in per-CGI error lists.
-  - XML schema videooutput1 not available in raw/specs.
-  - 'migration: xml-unmapped: get_schema_versions: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: xml-unmapped: get_video_sources: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: xml-unmapped: set_video_source: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_mirroring: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: xml-unmapped: set_mirroring: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: add_sequence_element: no parseable sample reply to derive the x-xml mapping from;
-    result is the raw XML element'
-  - 'migration: xml-unmapped: remove_sequence_element: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: update_sequence_element: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_sequence: no parseable sample reply to derive the x-xml mapping from; result is
-    the raw XML element'
-  - 'migration: xml-unmapped: clear_sequence: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_quad_view: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: xml-unmapped: set_quad_view: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_rotation: no parseable sample reply to derive the x-xml mapping from; result is
-    the raw XML element'
-  - 'migration: xml-unmapped: set_rotation: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_source_settings_enabled: no parseable sample reply to derive the x-xml mapping
-    from; result is the raw XML element'
-  - 'migration: xml-unmapped: set_source_settings_enabled: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_supported: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: xml-unmapped: get_active_mode: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: xml-unmapped: set_active_mode: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_pip: no parseable sample reply to derive the x-xml mapping from; result is the
-    raw XML element'
-  - 'migration: xml-unmapped: set_pip: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_dynamic_overlays: no parseable sample reply to derive the x-xml mapping from;
-    result is the raw XML element'
-  - 'migration: xml-unmapped: set_dynamic_overlays: no response schema in v1; result is the raw XML element'
-  - 'migration: discovery: discovery method http_probe dropped'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - The docs give no reply examples; all examples here are constructed from the documented body syntax with sample values.
+  - Requiredness of id (set_video_source), mirroringenabled, rotation, mode, the quad view id and the source settings id/enabled is not stated; they are required because the calls are meaningless without them.
+  - Video source Ids are documented as integer in some tables, string in others and [int] in the reply syntax; all are modelled as strings.
+  - The getsequence syntax lacks the closing GetSequenceSuccess tag, and its note says sources appear as VideoSource tags while the syntax uses VideoSequenceElement (used here). Mirror is [int] in the reply and boolean in the request; it is modelled as a boolean (0/1 are accepted).
+  - get_pip returns BorderWidth and SubView* elements while set_pip takes borderweight and pip* arguments; the reply values are strings (the border color and weights are comma-separated lists).
+  - get_active_mode lists the modes none/source/quad/sequence while set_active_mode also accepts PiP.
+  - The PiP rotation arguments are documented as strings with the valid values 0/180; they are modelled as integer enums. Border color and weight are modelled as comma-joined number arrays; the docs example puts spaces after the commas in the border weight.
+  - The error code to CGI mapping column is mostly empty and several lists end with etc.
+  - The documented discovery property Properties.VideoOutputControl.OutputType=[Output type] has no concrete value and is omitted from discovery.
+  - The videooutput1 XML schema is not mirrored.
   migrated_from: v1
-  curated: false
+  curated: true

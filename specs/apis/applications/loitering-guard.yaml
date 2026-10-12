@@ -11,6 +11,8 @@ python:
 docs:
   - https://developer.axis.com/vapix/applications/loitering-guard/
 access: admin
+discovery:
+  - acap: {name: LoiteringGuard}
 requires: {firmware: null, application: AXIS Loitering Guard}
 binding:
   path: /local/loiteringguard/control.cgi
@@ -416,7 +418,7 @@ provenance:
   completeness: complete
   open_questions:
     - "The documented examples contain placeholders (r, w, h, resolution) and are not valid JSON; the examples here use concrete values that follow the field tables."
-    - "Discovery: the docs identify the ACAP by Properties.EmbeddedDevelopment.Version >= 2.13 and by /axis-cgi/applications/list.cgi; neither fits the discovery entry types, so no discovery entry is given."
+    - "The ACAP Name reported by applications/list.cgi is not documented (the docs only say to use list.cgi; the example for the related VMD 3 shows name=\"VMD3\"). The acap discovery name LoiteringGuard is inferred from the application's /local/loiteringguard/control.cgi path; verify on a device. The docs' additional identification by Properties.EmbeddedDevelopment.Version is not used."
     - "Capabilities example uses maxNbrPresets while the table says maxNbrPresetsPerProfile; the table name is used."
     - "alarmOverlayEnabled is typed int in the table but documented as true/false; modelled as boolean."
     - "configurationStatus valid values are listed as INT_MAX only; modelled as a non-negative integer."

@@ -1,0 +1,528 @@
+format: 2
+id: event-logger-service
+name: Event logger service
+summary: The event logger service is used for event logging and management of events and alarms.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: event_logger_service
+  class: EventLoggerService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/access-control-service/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+access: admin
+
+binding: {path: /vapix/eventlogger}
+
+errors:
+  ter:InvalidArgVal: {description: Invalid argument value, kind: invalid_argument}
+
+types:
+  FilterKeyValue:
+    type: object
+    description: A key and value to match events or alarms against. Leave out the value to match the key alone.
+    required: [Key]
+    properties:
+      Key: {type: string, description: "Key to match, for example `topic0`, `topic1`, `topic2` for the event topic levels or the name of an event data item."}
+      Value: {type: string, description: Value to match. Absent to match every event that has the key.}
+
+  FilterSet:
+    type: object
+    description: A group of key-value pairs that must all match.
+    properties:
+      Filters:
+        type: array
+        items: {$ref: "#/types/FilterKeyValue"}
+
+  FetchedEventKeyValue:
+    type: object
+    description: A key and value of a logged event.
+    properties:
+      Key: {type: string}
+      Value: {type: string}
+      Tags:
+        type: array
+        items: {type: string}
+        description: "Tags such as `onvif-source`, `onvif-data` or `wstype:pt:ReferenceToken`."
+
+  FetchedEvent:
+    type: object
+    description: A logged event or alarm.
+    properties:
+      rowid: {type: integer, description: "Row id in the log; pass the last one as `RowID` to fetch the next page."}
+      token: {type: string, description: "Token of the event; the token of an alarm is what `remove_logged_alarm` takes."}
+      UUID: {type: string, description: UUID of the producing device.}
+      UtcTime: {type: string, description: "When the event was logged (ISO 8601, UTC)."}
+      KeyValues:
+        type: array
+        items: {$ref: "#/types/FetchedEventKeyValue"}
+        description: The event's data.
+      Tags:
+        type: array
+        items: {type: string}
+
+  FetchLogRequest:
+    type: object
+    properties:
+      Start: {type: string, description: "Start of the time interval (ISO 8601, for example `2012-11-27T00:00:00`). If absent, year 0 is assumed."}
+      Stop: {type: string, description: "End of the time interval (ISO 8601). If absent there is no upper limit."}
+      Filters:
+        type: array
+        items: {$ref: "#/types/FilterKeyValue"}
+        description: Key-value pairs that returned items must match.
+      Limit: {type: integer, description: "Maximum number of items to return. One call returns at most 1000 items."}
+      RowID: {type: integer, description: "Continue after this row id: the rowid of the last item of the previous response when More was true."}
+      Descending: {type: boolean, default: false, description: Sort in descending order. The default is ascending.}
+
+  FetchLog2Request:
+    type: object
+    properties:
+      Start: {type: string, description: "Start of the time interval (ISO 8601, for example `2012-11-27T00:00:00`). If absent, year 0 is assumed."}
+      Stop: {type: string, description: "End of the time interval (ISO 8601). If absent there is no upper limit."}
+      Filters:
+        type: array
+        items: {$ref: "#/types/FilterKeyValue"}
+        description: Key-value pairs that returned items must match.
+      FilterSets:
+        type: array
+        items: {$ref: "#/types/FilterSet"}
+        description: Groups of filters combined with logical OR; the filters within a group must all match.
+      Limit: {type: integer, description: "Maximum number of items to return. One call returns at most 1000 items."}
+      RowID: {type: integer, description: "Continue after this row id: the rowid of the last item of the previous response when More was true."}
+      Descending: {type: boolean, default: false, description: Sort in descending order. The default is ascending.}
+
+  FetchEventsResult:
+    type: object
+    required: [More]
+    properties:
+      Event:
+        type: array
+        items: {$ref: "#/types/FetchedEvent"}
+        description: The events.
+      More: {type: boolean, description: True if more items match than were returned; fetch the rest with RowID.}
+
+  FetchAlarmsResult:
+    type: object
+    required: [More]
+    properties:
+      Alarm:
+        type: array
+        items: {$ref: "#/types/FetchedEvent"}
+        description: The alarms.
+      More: {type: boolean, description: True if more items match than were returned; fetch the rest with RowID.}
+
+  TokensRequest:
+    type: object
+    properties:
+      Token:
+        type: array
+        items: {type: string}
+        description: Tokens to remove.
+
+  TokenList:
+    type: object
+    properties:
+      Token:
+        type: array
+        items: {type: string}
+        description: Tokens of the created or updated filters.
+
+  IgnoreFilter:
+    type: object
+    description: A filter for events that are not stored in the event log. An event matches when it has all the key-value pairs and comes from one of the devices in UUIDs.
+    properties:
+      token: {type: string, description: Token of the filter. Allocated by the device when absent in a set request.}
+      KeyValues:
+        type: array
+        items: {$ref: "#/types/FilterKeyValue"}
+        description: The key-value pairs an event must have.
+      UUIDs:
+        type: array
+        items: {type: string}
+        description: UUIDs of the door controllers the filter applies to. Empty or absent applies to all.
+
+  AlarmFilter:
+    type: object
+    description: A filter for events that become alarms. It overrides ignore filters.
+    properties:
+      token: {type: string, description: Token of the filter. Allocated by the device when absent in a set request.}
+      KeyValues:
+        type: array
+        items: {$ref: "#/types/FilterKeyValue"}
+        description: The key-value pairs an event must have.
+      UUIDs:
+        type: array
+        items: {type: string}
+        description: UUIDs of the door controllers the filter applies to. Empty or absent applies to all.
+
+  SetIgnoreFilterRequest:
+    type: object
+    properties:
+      Filter:
+        type: array
+        items: {$ref: "#/types/IgnoreFilter"}
+
+  IgnoreFilterList:
+    type: object
+    properties:
+      Filter:
+        type: array
+        items: {$ref: "#/types/IgnoreFilter"}
+
+  SetAlarmFilterRequest:
+    type: object
+    properties:
+      Filter:
+        type: array
+        items: {$ref: "#/types/AlarmFilter"}
+
+  AlarmFilterList:
+    type: object
+    properties:
+      Filter:
+        type: array
+        items: {$ref: "#/types/AlarmFilter"}
+
+  ServiceCapabilities:
+    type: object
+    description: Optional functionality of the event logger config service. Static during device operation.
+    properties:
+      EnableGlobalEvents: {type: boolean, description: True if the operations to enable and disable global event distribution are supported.}
+
+  GetServiceCapabilitiesResult:
+    type: object
+    required: [Capabilities]
+    properties:
+      Capabilities: {$ref: "#/types/ServiceCapabilities", description: The capabilities.}
+
+  EventDistributionConfig:
+    type: object
+    description: The current event distribution configuration.
+    properties:
+      GlobalDistributionEnabled: {type: boolean, description: True if events are distributed among all door controllers in the network.}
+
+  EventDistributionConfigResult:
+    type: object
+    properties:
+      EventDistributionConfig:
+        type: array
+        items: {$ref: "#/types/EventDistributionConfig"}
+
+operations:
+  fetch_events:
+    summary: Fetch logged events that match the filters.
+    description: >-
+      The event log holds at most 30000 events and one call returns at most 1000. When `More` is true, call again with
+      `RowID` set to the rowid of the last event returned. With global event distribution enabled (firmware 1.20 and
+      later) events from every door controller in the network can be fetched.
+    effect: read
+    binding: {operation: "axlog:FetchEvents"}
+    params: {$ref: "#/types/FetchLogRequest"}
+    result: {$ref: "#/types/FetchEventsResult"}
+    errors:
+      ter:InvalidStartTime: {description: Invalid start time., kind: invalid_argument}
+      ter:InvalidStopTime: {description: Invalid stop time., kind: invalid_argument}
+    examples:
+      - title: Fetch events in a time interval
+        request: {params: {Start: "2012-11-27T00:00:00", Stop: "2012-11-27T14:00:00"}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#start-and-stop-time
+      - title: Limit the number of events
+        request: {params: {Limit: 2}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#limit-and-rowid
+      - title: Fetch the next events
+        request: {params: {Limit: 2, RowID: 2}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#limit-and-rowid
+      - title: Fetch events in descending order
+        request: {params: {Descending: true}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#descending
+      - title: Fetch events of a type
+        request:
+          params:
+            Filters:
+              - {Key: topic0, Value: Door}
+              - {Key: topic1, Value: State}
+              - {Key: topic2, Value: DoorMode}
+              - {Key: State, Value: Locked}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#filters
+      - title: Fetch events that have a key, whatever its value
+        request: {params: {Filters: [{Key: State}]}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#filters
+      - title: Fetch the access control events
+        request: {params: {Filters: [{Key: topic0, Value: AccessControl}]}}
+        response:
+          data:
+            Event:
+              - rowid: 76
+                token: "Axis-00408c184c74:1382951603.616761001"
+                UUID: "5581ad80-95b0-11e0-b883-00408c184c74"
+                UtcTime: "2013-10-28T09:13:23.018766Z"
+                KeyValues:
+                  - {Key: CredentialHolderName, Value: "Axis-00408c184c74:1382951566.633213000", Tags: [onvif-data]}
+                  - {Key: AccessPointToken, Value: "Axis-00408c184c74:1382951520.315392000", Tags: ["wstype:pt:ReferenceToken", onvif-source]}
+                  - {Key: topic2, Value: Credential, Tags: []}
+                  - {Key: topic1, Value: AccessGranted, Tags: []}
+                  - {Key: topic0, Value: AccessControl, Tags: []}
+                  - {Key: CredentialToken, Value: "Axis-00408c184c74:1382951567.312696000", Tags: ["wstype:pt:ReferenceToken", onvif-data]}
+                Tags: []
+            More: false
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#fetchevents-response
+
+  fetch_events2:
+    summary: Fetch logged events that match the filters or any of the filter sets.
+    description: >-
+      Like fetch_events, with `FilterSets` in addition. The filters in one set must all match and the sets are
+      combined with logical OR.
+    effect: read
+    binding: {operation: "axlog:FetchEvents2"}
+    params: {$ref: "#/types/FetchLog2Request"}
+    result: {$ref: "#/types/FetchEventsResult"}
+    errors:
+      ter:InvalidStartTime: {description: Invalid start time., kind: invalid_argument}
+      ter:InvalidStopTime: {description: Invalid stop time., kind: invalid_argument}
+    examples:
+      - title: Fetch events that match one of two conditions
+        request:
+          params:
+            FilterSets:
+              - Filters:
+                  - {Key: topic2, Value: SystemReady}
+                  - {Key: ready, Value: "0"}
+              - Filters:
+                  - {Key: topic2, Value: DoorPhysicalState}
+                  - {Key: State, Value: Closed}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#filterssets
+
+  fetch_alarms:
+    summary: Fetch logged alarms that match the filters.
+    description: >-
+      Takes the same parameters as fetch_events. The alarm list holds at most 200 alarms, so the default limit of 1000
+      returns all of them in one call. An alarm is acknowledged by removing it with remove_logged_alarm.
+    effect: read
+    binding: {operation: "axlog:FetchAlarms"}
+    params: {$ref: "#/types/FetchLogRequest"}
+    result: {$ref: "#/types/FetchAlarmsResult"}
+    errors:
+      ter:InvalidStartTime: {description: Invalid start time., kind: invalid_argument}
+      ter:InvalidStopTime: {description: Invalid stop time., kind: invalid_argument}
+    examples:
+      - title: Fetch all alarms
+        request: {params: {}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#fetching-alarms
+
+  fetch_alarms2:
+    summary: Fetch logged alarms that match the filters or any of the filter sets.
+    description: Like fetch_alarms, with `FilterSets` in addition, as fetch_events2 does for events.
+    effect: read
+    binding: {operation: "axlog:FetchAlarms2"}
+    params: {$ref: "#/types/FetchLog2Request"}
+    result: {$ref: "#/types/FetchAlarmsResult"}
+    errors:
+      ter:InvalidStartTime: {description: Invalid start time., kind: invalid_argument}
+      ter:InvalidStopTime: {description: Invalid stop time., kind: invalid_argument}
+
+  remove_logged_alarm:
+    summary: Acknowledge alarms by removing them from the alarm list.
+    description: The alarms stay in the event log.
+    effect: write
+    write: delete
+    binding: {operation: "axlog:RemoveLoggedAlarm"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotFound: {description: Alarm not found., kind: not_found}
+    examples:
+      - title: Acknowledge two alarms
+        request:
+          params:
+            Token: ["Axis-00408c184bd0:1382625301.169265000", "Axis-00408c184bd0:1382625330.594026000"]
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#acknowledging-alarms
+
+  set_ignore_filter:
+    summary: Create or update ignore filters.
+    description: >-
+      A filter whose token exists is updated; any other is created. Events that match an ignore filter are not stored,
+      unless they also match an alarm filter.
+    effect: write
+    write: patch
+    binding: {operation: "axloc:SetIgnoreFilter"}
+    params: {$ref: "#/types/SetIgnoreFilterRequest"}
+    result: {$ref: "#/types/TokenList"}
+    errors:
+      ter:NotFound: {description: Filter not found., kind: not_found}
+    examples:
+      - title: Ignore events with a=1 from one door controller
+        request:
+          params:
+            Filter:
+              - KeyValues: [{Key: a, Value: "1"}]
+                UUIDs: [abc]
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#ignore-filter
+      - title: Ignore events with a=1 from all door controllers
+        request:
+          params:
+            Filter:
+              - KeyValues: [{Key: a, Value: "1"}]
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#ignore-filter
+      - title: Ignore all events that have the key b
+        request:
+          params:
+            Filter:
+              - KeyValues: [{Key: b}]
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#ignore-filter
+
+  remove_ignore_filter:
+    summary: Remove ignore filters.
+    effect: write
+    write: delete
+    binding: {operation: "axloc:RemoveIgnoreFilter"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotFound: {description: Filter not found., kind: not_found}
+    examples:
+      - title: Remove an ignore filter
+        request: {params: {Token: ["Axis-00408c184bfa:1381327465.144879000"]}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#ignore-filter
+
+  get_ignore_filter_list:
+    summary: List all ignore filters.
+    effect: read
+    binding: {operation: "axloc:GetIgnoreFilterList"}
+    result: {$ref: "#/types/IgnoreFilterList"}
+    errors:
+      ter:NotFound: {description: Filter not found., kind: not_found}
+    examples:
+      - title: List the ignore filters
+        request: {params: {}}
+        response:
+          data:
+            Filter:
+              - token: "Axis-00408c184bfa:1381327465.144879000"
+                KeyValues: [{Key: a, Value: "1"}]
+                UUIDs: [abc]
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#ignore-filter
+
+  set_alarm_filter:
+    summary: Create or update alarm filters.
+    description: >-
+      A filter whose token exists is updated; any other is created. An event that matches an alarm filter is stored as
+      an alarm as well as an event, even if it matches an ignore filter.
+    effect: write
+    write: patch
+    binding: {operation: "axloc:SetAlarmFilter"}
+    params: {$ref: "#/types/SetAlarmFilterRequest"}
+    result: {$ref: "#/types/TokenList"}
+    errors:
+      ter:NotFound: {description: Filter not found., kind: not_found}
+    examples:
+      - title: Raise an alarm for events with a=1
+        request:
+          params:
+            Filter:
+              - KeyValues: [{Key: a, Value: "1"}]
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#alarm-filter
+
+  remove_alarm_filter:
+    summary: Remove alarm filters.
+    effect: write
+    write: delete
+    binding: {operation: "axloc:RemoveAlarmFilter"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotFound: {description: Filter not found., kind: not_found}
+    examples:
+      - title: Remove an alarm filter
+        request: {params: {Token: ["Axis-00408c184bfa:1381328407.991173000"]}}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#alarm-filter
+
+  get_alarm_filter_list:
+    summary: List all alarm filters.
+    effect: read
+    binding: {operation: "axloc:GetAlarmFilterList"}
+    result: {$ref: "#/types/AlarmFilterList"}
+    errors:
+      ter:NotFound: {description: Filter not found., kind: not_found}
+    examples:
+      - title: List the alarm filters
+        request: {params: {}}
+        response:
+          data:
+            Filter:
+              - token: "Axis-00408c184bfa:1381328407.991173000"
+                KeyValues: [{Key: a, Value: "1"}]
+                UUIDs: []
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#alarm-filter
+
+  get_service_capabilities:
+    summary: Get the capabilities of the event logger config service.
+    effect: read
+    access: anonymous
+    binding: {operation: "axloc:GetServiceCapabilities"}
+    result: {$ref: "#/types/GetServiceCapabilitiesResult"}
+
+  enable_global_distribution:
+    summary: Enable global distribution of events among all connected door controllers.
+    description: Enabled by default, from firmware 1.20.
+    effect: write
+    write: patch
+    binding: {operation: "axloc:EnableGlobalDistribution"}
+    errors:
+      ter:NotSupported: {description: The operation is not supported., kind: unsupported}
+
+  disable_global_distribution:
+    summary: Disable global distribution of events among all connected door controllers.
+    description: Logged events and alarms are then no longer replicated to the other door controllers.
+    effect: write
+    write: patch
+    binding: {operation: "axloc:DisableGlobalDistribution"}
+    errors:
+      ter:NotSupported: {description: The operation is not supported., kind: unsupported}
+
+  get_event_distribution_config:
+    summary: Get the current event distribution configuration.
+    effect: read
+    binding: {operation: "axloc:GetEventDistributionConfig"}
+    result: {$ref: "#/types/EventDistributionConfigResult"}
+    errors:
+      ter:NotSupported: {description: The operation is not supported., kind: unsupported}
+    examples:
+      - title: Check whether global distribution is enabled
+        request: {params: {}}
+        response:
+          data:
+            EventDistributionConfig:
+              - {GlobalDistributionEnabled: true}
+        source: https://developer.axis.com/vapix/physical-access-control/event-logger-service/#event-distribution
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+  sha256_md: df3688f4c13448b099bd1126f31cc26e1eaaae943bf21565bea22dc0dad6d998
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+  sha256_md: df3688f4c13448b099bd1126f31cc26e1eaaae943bf21565bea22dc0dad6d998
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/access-control-service/
+  sha256_md: bad333ab43a4be1d0d81e7842a7712664fe94b17d47936c9e3887df9a322642f
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
+    - 'FetchEvents2 and FetchAlarms2 are described only in the guide, not in the API specification. Their parameters are those of FetchEvents plus FilterSets, and the response shape is assumed to be the same.'
+    - 'The GetEventDistributionConfig message table puts EventDistributionConfig in the request and leaves the response empty; the guide shows it in the response (as an array) and says the call takes no arguments. The guide wins.'
+    - 'The FetchEvents "response" JSON example filters with `{"topic0": "AccessControl"}`; the filter structure and its XML form are Key and Value, so the example is corrected to `{Key: topic0, Value: AccessControl}`.'
+    - 'The RemoveLoggedAlarm example carried a response with EventDistributionConfig in the migrated spec; the docs say the response is empty and no response is kept.'
+    - 'GetIgnoreFilterList has access class WRITE_SYSTEM (GetAlarmFilterList is READ_SYSTEM_SENSITIVE); probably a doc slip. The ONVIF access classes are not mapped to a VAPIX role; the API default admin is kept, except GetServiceCapabilities (PRE_AUTH), which is anonymous.'
+    - 'The ServiceCapabilities description of EnableGlobalEvents names the operations EnableGlobalEvents and DisableGlobalEvents, while the operations are EnableGlobalDistribution and DisableGlobalDistribution.'
+    - Most field types of the event structures (rowid, UtcTime, Tags) are not given and come from the examples, and none of the FetchedEvent fields is marked as always present. The stored-event structures (LoggedEvent, LoggedAlarm, Declaration, DeclKeyValue, KeyValue, LocalSetting, Configuration) are not used by any operation and are not modelled.
+    - Events are also delivered through ONVIF pull-point subscriptions and notification topics; those are not part of this API.
+  migrated_from: v1
+  curated: true

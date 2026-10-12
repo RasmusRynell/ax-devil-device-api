@@ -1,0 +1,47 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: intercom-ws
+name: Intercom service WebSocket
+summary: WebSocket endpoint of the Intercom service for RPC calls and event notifications.
+section: intercom
+family: ws
+status: released
+python:
+  module: intercom_ws
+  class: IntercomWs
+docs:
+- https://developer.axis.com/vapix/intercom/intercom-service/
+access: admin
+discovery:
+- param: {name: Properties.API.Intercom.Intercom, value: '"yes"'}
+- param: {name: Properties.API.Intercom.Version, value: '"1.1"'}
+- {api_discovery: intercom-api}
+- {api_discovery: intercom-reader}
+
+binding: {}
+
+operations:
+  websocket:
+    summary: WebSocket (ws/wss) endpoint for RPC calls (preferably Google JSON or JSONRPC 2.0) and event notifications.
+    description: Methods/types use namespace prefix axdsapi (e.g. axdsapi:UpdateConfiguration) when subscribing
+      to function notifications. Subscribe with axev:subscribe (topics + functions, functions must include axev:notify);
+      list events with axev:getSupported; notifications arrive as axev:notify.
+    effect: read
+    binding:
+      session: {path: /vapix/intercomws}
+
+sources:
+- url: https://developer.axis.com/vapix/intercom/intercom-service/
+  sha256_md: 425e94dc29bf11eaf9699dae16a01894657cddccb624e9c1604ddba1cea5cc6b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'migration: session-codec: websocket: Google JSON / JSON-RPC messages (axev:subscribe ...) are not decoded;
+    send dicts, receive text and json.loads it'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section envelope not carried over'
+  migrated_from: v1
+  curated: false

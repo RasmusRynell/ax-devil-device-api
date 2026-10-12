@@ -1,0 +1,292 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: axis-audio-manager-edge-api
+name: AXIS Audio Manager Edge API
+summary: Integrate external tools with AXIS Audio Manager Edge — list targets (devices/zones), control volume controllers,
+  list/create/stop audio sessions, list audio...
+section: audio-systems
+family: rest
+status: released
+python:
+  module: axis_audio_manager_edge
+  class: AxisAudioManagerEdge
+docs:
+- https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/
+access: admin
+requires:
+  application: AXIS Audio Manager Edge
+
+binding: {root: /vapix/aam-edge/api}
+
+errors:
+  400:
+    description: Bad Request. application/json error object (see envelope.error_schema).
+    kind: invalid_argument
+  404:
+    description: Not found. application/json error object, e.g. reason ResourceInstanceNotFound.
+    kind: not_found
+  415: {description: Invalid content type. application/json error object., kind: invalid_argument}
+  500:
+    description: Internal server error. application/json; body example missing in doc.
+    kind: internal
+
+types:
+  TargetStatus:
+    type: object
+    properties:
+      type: {type: string, enum: [error, warning, pending, ok], description: The status type.}
+  TargetRef:
+    type: object
+    properties:
+      type: {type: string, description: 'device, physicalZone (may be extended).'}
+      id: {type: string, description: A unique ID of the target.}
+  Target:
+    oneOf:
+    - type: object
+      x-nullable: [niceName, ipAddress, serialNumber]
+      properties:
+        type: {const: device}
+        id: {type: string, description: A unique ID of the device.}
+        niceName: {type: string}
+        status: {$ref: '#/types/TargetStatus'}
+        ipAddress: {type: string, description: The LAN IP address of the device.}
+        serialNumber: {type: string}
+    - type: object
+      x-nullable: [niceName]
+      properties:
+        type: {const: physicalZone}
+        id: {type: string, description: A unique ID of the physical zone.}
+        niceName: {type: string}
+        children:
+          type: array
+          items: {$ref: '#/types/TargetRef'}
+          description: A list of devices contained in the zone.
+    description: Enum of variants (discriminator 'type'); may be extended — clients must ignore unknown variants.
+  VolumeController:
+    type: object
+    properties:
+      allowMute: {type: boolean, description: Whether the volume controller can be muted.}
+      contentClasses:
+        type: array
+        items:
+          type: object
+          x-name: VolumeControllerContentClassesItem
+          properties:
+            type: {type: string, enum: [music, paging, announcements, advertisements]}
+        description: Target content classes.
+      id: {type: string}
+      maxVolume: {type: number}
+      minVolume: {type: number}
+      muted: {type: boolean}
+      target:
+        type: array
+        items: {$ref: '#/types/TargetRef'}
+        description: The targets of the volume controller.
+      volume:
+        type: number
+        description: Volume for the content type of all targets associated with the controller; between minVolume
+          and maxVolume.
+  AudioSession:
+    type: object
+    properties:
+      type:
+        type: string
+        enum:
+        - vapixOneWay
+        - vapixTwoWay
+        - sipOneWay
+        - sipTwoWay
+        - lineIn
+        - vapixMediaclip
+        - externalRTP
+        - oneShot
+      intermediaryDevice:
+        type: string
+        description: ID of the physical device used as intermediary. Not available when type is externalRTP.
+      targets:
+        type: array
+        items: {type: string}
+        description: Targets of the session. Not available when type is vapixTwoWay or sipTwoWay.
+      id: {type: string}
+      prio: {type: integer, description: Priority; larger number = higher priority.}
+      niceName: {type: string}
+      multicastAddress: {type: string, description: Only when type is externalRTP.}
+      port: {type: integer, description: Multicast port. Only when type is externalRTP.}
+  AudioFile:
+    type: object
+    properties:
+      trackId: {type: string, description: The unique identifier of the audio file.}
+      name: {type: string}
+
+operations:
+  list_targets:
+    summary: Retrieve all targets managed by AXIS Audio Manager Edge.
+    effect: read
+    binding: {method: GET, path: /v1.0/targets}
+    result:
+      type: array
+      items: {$ref: '#/types/Target'}
+  get_target:
+    summary: Retrieve the detailed information of a specified target.
+    effect: read
+    binding: {method: GET, path: '/v1.0/targets/{targetId}'}
+    params:
+      type: object
+      required: [targetId]
+      properties:
+        targetId: {type: string, description: A unique target ID.}
+    result: {$ref: '#/types/Target'}
+  list_volume_controllers:
+    summary: Retrieve all volume controllers.
+    effect: read
+    binding: {method: GET, path: /v1.1/volumeControllers}
+    result:
+      type: array
+      items: {$ref: '#/types/VolumeController'}
+  get_volume_controller:
+    summary: Retrieve a specified volume controller.
+    effect: read
+    binding: {method: GET, path: '/v1.1/volumeControllers/{volumeControllerId}'}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+    result: {$ref: '#/types/VolumeController'}
+  modify_volume_controller:
+    summary: Modify volume and/or mute status of a volume controller.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/v1.1/volumeControllers/{volumeControllerId}', body: object}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+        volume:
+          type: number
+          description: Volume for the content type of all targets associated with the controller; between minVolume
+            and maxVolume. Optionality inferred (PATCH).
+        muted: {type: boolean}
+    result: {$ref: '#/types/VolumeController'}
+  toggle_mute:
+    summary: Toggle the mute status of a volume controller.
+    effect: action
+    binding: {method: POST, path: '/v1.3/volumeControllers/{volumeControllerId}/toggleMute'}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+    result:
+      type: object
+      properties:
+        muted: {type: boolean}
+  offset_volume:
+    summary: Adjust volume by a specified relative amount.
+    effect: action
+    binding:
+      method: POST
+      path: /v1.3/volumeControllers/{volumeControllerId}/offsetVolume
+      body: object
+    params:
+      type: object
+      required: [volumeControllerId, volumeOffset]
+      properties:
+        volumeControllerId: {type: string}
+        volumeOffset:
+          type: number
+          description: Requested volume change relative to the current value. Negative decreases.
+    result:
+      type: object
+      properties:
+        volume: {type: number, description: The volume after adjustment.}
+  list_audio_sessions:
+    summary: Retrieve all audio sessions.
+    effect: read
+    binding: {method: GET, path: /v1.2/audioSessions}
+    result:
+      type: array
+      items: {$ref: '#/types/AudioSession'}
+  get_audio_session:
+    summary: Retrieve a specified audio session.
+    effect: read
+    binding: {method: GET, path: '/v1.2/audioSessions/{audioSessionId}'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+    result: {$ref: '#/types/AudioSession'}
+  create_oneshot_audio_session:
+    summary: Create a one-shot audio session playing audio files on targets.
+    effect: write
+    write: create
+    binding: {method: POST, path: /v1.2/audioSessions/oneshotPlayAudioFiles, body: object}
+    params:
+      type: object
+      required: [fileIds, targets]
+      properties:
+        fileIds:
+          type: array
+          items: {type: string, description: format=uuid}
+          description: Array of file IDs (UUID format) to be used in the audio session.
+        prio:
+          type: string
+          enum: [high, medium, low]
+          description: The priority level of the audio session.
+        targets:
+          type: array
+          description: Array of target IDs (zones or devices). Documented as 'array of objects' but described as
+            IDs (see open_questions).
+    result:
+      type: object
+      properties:
+        type: {const: oneShot}
+        targets:
+          type: array
+          items: {type: string}
+        prio: {type: integer}
+        niceName: {type: string}
+  stop_audio_session:
+    summary: Stop an audio session.
+    effect: action
+    binding: {method: POST, path: '/v1.2/audioSessions/{audioSessionId}/stopAudioFiles'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string, description: The ID (UUID format) of the audio session to stop.}
+  list_audio_files:
+    summary: List audio files.
+    effect: read
+    binding: {method: GET, path: /v1.2/audioFiles}
+    result:
+      type: array
+      items: {$ref: '#/types/AudioFile'}
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/
+  sha256_md: 3aa6854f194886edb085d747692316dd24c102ffe6fed68fd74af7ceb6a1ae84
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - No discovery mechanism (API discovery id / property) or AXIS OS requirement is documented.
+  - Access levels per endpoint not documented.
+  - 'Create one-shot session: request body example missing; ''targets'' typed ''array of objects'' but described
+    as ''Array of target IDs''; prio is a string enum (high/medium/low) in request but integer in response; required-ness
+    not stated.'
+  - 'Retrieve target reference example uses "type": ok (unquoted, invalid JSON).'
+  - List targets reference response example is mangled in Markdown (nested fences); Example 1 used instead.
+  - Error tables say reason valid values are only 'ResourceInstanceNotFound' even for 400/415 errors.
+  - 500 error response body example is empty in the doc.
+  - Endpoints are spread across version paths v1.0–v1.3; whether older/newer versions serve all endpoints is not
+    stated.
+  - 'migration: versioned-paths: operations carry the API version in their path (for example /v1.1/); versions are
+    not negotiated'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-keywords: title x2'
+  migrated_from: v1
+  curated: false

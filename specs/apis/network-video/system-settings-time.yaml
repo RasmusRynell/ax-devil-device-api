@@ -1,9 +1,8 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: system-settings-time
 name: System date and time (param.cgi Time groups)
-summary: Get or set the system date and time via the Time, Time.DST and Time.NTP parameter groups (legacy; no longer
-  updated).
+summary: Get or set the time zone and time synchronisation through the Time, Time.DST and Time.NTP parameter groups (legacy; no
+  longer updated, see the Time API).
 section: network-video
 family: cgi
 status: deprecated
@@ -21,22 +20,74 @@ requires:
 binding: {path: /axis-cgi/param.cgi}
 
 operations:
-  set_posix_time_zone:
-    summary: Set the time zone (POSIX TZ string) through param.cgi.
+  get_time_settings:
+    summary: 'Read the Time, Time.DST and Time.NTP parameters as ``{"Time.POSIXTimeZone": "GMT0BST,M3.5.0/1,M10.5.0"}``.'
+    description: Operators can read only ``Time.POSIXTimeZone`` and ``Time.DST.Enabled``.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list, group: Time}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+    - title: Read the time parameters
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          root.Time.ObtainFromDHCP=yes
+          root.Time.SyncSource=NTP
+          root.Time.POSIXTimeZone=GMT0BST,M3.5.0/1,M10.5.0
+          root.Time.DST.Enabled=no
+          root.Time.NTP.Server=0.0.0.0
+      source: https://developer.axis.com/vapix/network-video/system-settings/#system-date-and-time
+  set_time_settings:
+    summary: Set the time zone and how the time is synchronised.
+    description: >-
+      Only the given parameters change. ``posix_time_zone`` is a POSIX TZ rule string
+      ``<name><offset>[<dst name>[<dst offset>[,<start rule>,<stop rule>]]]``, for example ``GMT0BST,M3.5.0/1,M10.5.0``
+      (standard time ``GMT``, daylight saving time ``BST`` one hour ahead, from the last Sunday in March 01:00 to the last
+      Sunday in October 02:00). A name is 3 to 6 characters. The ``:`` prefixed format is not allowed.
     effect: write
     write: patch
     binding:
       method: GET
       query: {action: update}
-      reply: text
+      reply: text_ok
     params:
       type: object
-      required: [Time.POSIXTimeZone]
       properties:
+        Time.ObtainFromDHCP:
+          type: boolean
+          x-style: axis_bool
+          x-python-name: obtain_from_dhcp
+          description: Whether local or remote NTP servers may be provided by a DHCP server. The default is yes.
+        Time.SyncSource:
+          type: string
+          enum: ['PC', 'NTP', 'None']
+          x-python-name: sync_source
+          description: >-
+            The source to synchronise the time with: ``PC`` the connected PC, ``NTP`` an NTP server, ``None`` set manually.
+            Product and release dependent.
         Time.POSIXTimeZone:
           type: string
           x-python-name: posix_time_zone
-          description: POSIX TZ rule string (see param_cgi_groups Time.POSIXTimeZone).
+          description: POSIX TZ rule string (IEEE Std 1003.1-2004, chapter 8.3), with or without daylight saving time.
+        Time.DST.Enabled:
+          type: boolean
+          x-style: axis_bool
+          x-python-name: dst_enabled
+          description: Enable or disable daylight saving time. The default is no.
+        Time.NTP.Server:
+          type: string
+          x-python-name: ntp_server
+          description: The IP address or host name of the NTP server. The default is 0.0.0.0.
+    examples:
+    - title: Set the time zone
+      request: {query: {Time.POSIXTimeZone: 'GMT0BST,M3.5.0/1,M10.5.0'}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#parameters
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/system-settings/
@@ -46,9 +97,10 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - POSIXTimeZone syntax in the doc is mangled by Markdown (`dst offset`> etc.); reconstructed from HTML-equivalent
-    prose.
-  - Status 'deprecated' derived from 'This API will no longer receive updates'.
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - The POSIXTimeZone syntax in the docs is mangled by Markdown (``<dst name>``, ``dst offset``); reconstructed from the prose.
+  - Status deprecated is derived from "This API will no longer receive updates".
+  - Time.NTP.VolatileServer (the NTP server received from DHCP, read-only, admin) is returned by get_time_settings but not modelled as a field.
+  - The docs show no reply for the update request; the usual param.cgi reply ``OK`` is assumed. The list request is not shown on this page; it follows param.cgi ``action=list`` (see Parameter management).
+  - The Time parameter access is admin read/write, with operator read for POSIXTimeZone and DST.Enabled.
   migrated_from: v1
-  curated: false
+  curated: true

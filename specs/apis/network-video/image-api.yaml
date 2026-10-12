@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: image-api
 name: Parameter management for video channels
-summary: param.cgi parameters (Image, Image.I#.*, ImageSource.I#, Properties.Image.*) holding per-video-channel
-  stream defaults, and the stream URL options that...
+summary: '``param.cgi`` groups that hold the per-video-channel stream defaults (``Image``, ``Image.I#``, ``ImageSource.I#``) and the stream capabilities (``Properties.Image``).'
 section: network-video
 family: cgi
 status: released
@@ -11,68 +9,71 @@ python:
   module: image_parameters
   class: ImageParameters
 docs:
-- https://developer.axis.com/vapix/network-video/parameter-management/image-api/
+  - https://developer.axis.com/vapix/network-video/parameter-management/image-api/
 access: viewer
-
-binding: {path: /axis-cgi/param.cgi}
+binding:
+  path: /axis-cgi/param.cgi
 
 operations:
-  list_image_parameters:
-    summary: List video channel / image source / Properties.Image parameters.
+  list_parameters:
+    summary: 'Video channel parameters as ``{"Image.I0.Appearance.Resolution": "1920x1080"}`` (``root.`` removed).'
+    description: >-
+      ``group`` entries such as ``Image.I0.Appearance``, ``Image.I0.MPEG``, ``Image.I0.RateControl``,
+      ``Image.I0.Stream``, ``ImageSource.I0`` and ``Properties.Image``. The channel number ``#`` runs from 0 to
+      the number of video channels - 1. The defaults apply to a stream request unless a URL option overrides
+      them. Reading needs viewer access.
     effect: read
     binding:
       method: GET
       query: {action: list}
-      reply: text_kv
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
     params:
       type: object
+      required: [group]
       properties:
         group:
-          type: string
-          description: e.g. Image, Image.I0.Appearance, ImageSource.I0, Properties.Image (see parameter-management
-            list).
-    result:
-      type: object
-      additionalProperties: {type: string}
-  update_image_parameters:
-    summary: Update writable video channel parameters.
+          type: array
+          items: {type: string}
+          minItems: 1
+          x-style: csv
+          description: Parameter groups to list.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+
+  update_parameters:
+    summary: 'Set video channel parameters, e.g. ``{"Image.I0.Appearance.Compression": "30"}``.'
+    description: >-
+      Only the given parameters change. Writable groups include ``Image``, ``Image.I#`` (``Enabled``,
+      ``Name``), ``Image.I#.Appearance``, ``Image.I#.Layers``, ``Image.I#.MPEG``, ``Image.I#.RateControl``,
+      ``Image.I#.Stream`` and ``ImageSource.I#.Rotation``. ``Properties.Image`` is read-only except
+      ``ShowSuboptimalResolutions``.
     access: operator
     effect: write
     write: patch
     binding:
       method: GET
       query: {action: update}
-      reply: text
+      reply: text_ok
     params:
       type: object
-      required: [<group.name>]
+      required: [parameters]
       properties:
-        <group.name>:
-          type: object
-          additionalProperties: {type: string}
-          x-python-name: parameters
-          description: Parameter=value pairs from param_cgi_groups.
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
 
 sources:
-- url: https://developer.axis.com/vapix/network-video/parameter-management/image-api/
-  sha256_md: b8917e63199f7d45975008a6ac8609455c0017527935c276d4f21560c7605e0f
-  retrieved_at: '2026-10-11'
-
+  - url: https://developer.axis.com/vapix/network-video/parameter-management/image-api/
+    sha256_md: b8917e63199f7d45975008a6ac8609455c0017527935c276d4f21560c7605e0f
+    retrieved_at: "2026-10-11"
 provenance:
   completeness: complete
   open_questions:
-  - The URL options list links "Video streaming over HTTP /axis-cgi/mjpg/video.cgi" twice.
-  - Image.I#.MPEG.PCount is "number of delta frames between key frames" while videokeyframeinterval default is PCount
-    + 1.
-  - Exact value set for rotation and resolution is product dependent (see Properties.Image.Rotation / Properties.Image.I#.Resolution).
-  - The id image-api follows the URL slug; the page title is "Parameter management for video channels". Another
-    batch may own a different "image" spec; check for id clashes.
-  - Whether videocodec av1/h265 availability can be detected beyond Properties.Image.Format is not stated.
-  - 'migration: op-skipped: video_url_options: kind stream is not a classic CGI call'
-  - 'migration: object-param: update_image_parameters.<group.name>: object-valued query parameter kept as a free-form
-    map'
-  - 'migration: reply-ok: update_image_parameters: notes mention OK; reply read as plain text (check)'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+    - The URL options table (camera, fps, resolution, videocodec, ...) belongs to the stream URLs of other APIs (image.cgi, video.cgi, media.cgi, RTSP) and is not modelled here.
+    - The URL options list links "Video streaming over HTTP /axis-cgi/mjpg/video.cgi" twice.
+    - Image.I#.MPEG.PCount is "number of delta frames between key frames" while videokeyframeinterval defaults to PCount + 1.
+    - The value sets of rotation and resolution are product dependent (Properties.Image.Rotation, Properties.Image.I#.Resolution).
+    - Whether av1/h265 availability can be detected beyond Properties.Image.Format is not stated.
+    - The parameter names carry the channel number, so values are passed and returned as maps instead of typed models.
   migrated_from: v1
-  curated: false
+  curated: true

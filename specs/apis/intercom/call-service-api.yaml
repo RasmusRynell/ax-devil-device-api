@@ -1,0 +1,1188 @@
+format: 2
+id: call-service-api
+name: Call service API
+summary: 'SIP and VMS calling: make and terminate calls, SIP configuration and accounts, DTMF configurations, events
+  and triggers, VMS call configuration and audio codecs.'
+section: intercom
+family: service_json
+status: released
+python:
+  module: call_service
+  class: CallService
+docs:
+- https://developer.axis.com/vapix/intercom/call-service-api/
+access: admin
+discovery:
+- param: {name: Properties.API.SIP.SIP, value: 'yes'}
+- param: {name: Properties.API.SIP.Version, value: '2.0', compare: '>='}
+
+binding: {path: /vapix/call}
+
+errors:
+  ter:NotFound: {description: Not found., kind: not_found}
+  ter:Failure: {description: The action failed., kind: internal}
+  ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+  ter:InvalidArgs:
+    description: Missing data. The request does not contain all required data.
+    kind: invalid_argument
+  ter:NotSupported: {description: The action is not supported., kind: unsupported}
+
+types:
+  CallId: {type: string, minLength: 0, maxLength: 64, description: The call identifier.}
+  SIPAccountId:
+    type: string
+    minLength: 0
+    maxLength: 64
+    description: SIP account identifier. A default account with id peer-to-peer is created after factory default
+      or when all accounts are removed.
+  DTMFConfigurationId: {type: string, minLength: 0, maxLength: 64}
+  DTMFEventId: {type: string, minLength: 0, maxLength: 64}
+  DTMFTriggerId: {type: string, minLength: 0, maxLength: 64}
+  DTMFSequence:
+    type: string
+    minLength: 0
+    maxLength: 64
+    pattern: ^[0-9A-D*#]*$
+    description: 'A DTMF sequence. Allowed characters are 0-9, A-D, * and #.'
+  ServiceCapabilities:
+    type: object
+    required: [SIP, DTMF]
+    properties:
+      SIP: {type: boolean, description: SIP operations are supported.}
+      DTMF: {type: boolean, description: DTMF operations are supported.}
+      AudioCodec:
+        type: boolean
+        description: Audio codec operations (getting and setting the audio codec priority list) are supported.
+        since: '1.4'
+      MediaEncryption: {type: boolean, description: Media encryption operations are supported., since: '1.7'}
+      Certificate: {type: boolean, description: Certificate operations are supported., since: '1.7'}
+      Attribute:
+        type: boolean
+        description: Attribute operations for SIP accounts and SIP configurations are supported.
+        since: '1.7'
+  CallState:
+    type: string
+    enum: [Idle, Calling, Active, Terminating, Terminated]
+    description: 'Overall state of a call. Idle: no call; Calling: initiated, not yet answered; Active; Terminating;
+      Terminated.'
+  CallDirection:
+    type: string
+    enum: [Outgoing, Incoming]
+    description: 'Outgoing: from the Axis product to a remote device; Incoming: the other way.'
+  CallStatus:
+    type: object
+    required:
+    - CallId
+    - Source
+    - CallState
+    - CallStateReason
+    - StartTime
+    - Direction
+    - DeviceURI
+    - RemoteURI
+    - CallType
+    properties:
+      CallId: {$ref: '#/types/CallId', description: Call identifier.}
+      Source:
+        type: string
+        description: Media source used for the call, for example the video channel on a multichannel product.
+      CallState: {$ref: '#/types/CallState', description: State of the call.}
+      CallStateReason:
+        type: string
+        description: 'Why the call is in the current state. Non-normative CallStateChangeReason: Initiated, Denied,
+          NoAnswer, Busy, Failed, AcceptedByRemote, AcceptedByDevice, Terminated.'
+      StartTime: {type: string, description: Start time of the call (dateTime).}
+      Direction: {$ref: '#/types/CallDirection', description: Direction of the call.}
+      DeviceURI: {type: string, description: The Axis product's address.}
+      RemoteURI: {type: string, description: The remote device's address.}
+      CallType:
+        type: string
+        description: 'The type of call. Non-normative CallType: SIP (a call to a SIP URI) or VMS (a simulated call).'
+      StopTime:
+        type: string
+        description: End time of the call (dateTime). Only available for terminated calls.
+      AudioCodec: {type: string, description: Audio codec used for the call.}
+      VideoCodec: {type: string, description: Video codec used for the call.}
+      SIPAccountId: {$ref: '#/types/SIPAccountId', description: The SIP account used for the call.}
+    description: The current status of a call in progress or recently terminated.
+  SIPTransport: {type: string, enum: [udp, tcp, tls], description: Non-normative enum.}
+  STUNServer:
+    type: object
+    required: [Server]
+    properties:
+      Server: {type: string, description: Address (URI).}
+  TURNServer:
+    type: object
+    required: [Server, Username, Password]
+    properties:
+      Server: {type: string, description: Address (URI) of the server.}
+      Username: {type: string, description: User name for the server.}
+      Password: {type: string, description: Password for the server user.}
+  Attribute:
+    type: object
+    required: [Name, Value]
+    properties:
+      Name: {type: string, description: Attribute name.}
+      Value: {type: string, description: Attribute value.}
+    description: 'An attribute name and value: additional configuration for SIP accounts or SIP configurations.'
+  AttributeInfo:
+    type: object
+    required: [Name, Type]
+    properties:
+      Name: {type: string, description: Attribute name.}
+      Type:
+        type: string
+        description: 'Attribute type. Non-normative AttributeType: string, int or bool.'
+      Default: {type: string, description: The attribute's default value.}
+    description: 'Information about an attribute: additional configuration for SIP accounts or SIP configurations.'
+  SIPConfiguration:
+    type: object
+    description: The SIP configuration. All fields are optional.
+    x-nullable: [AccessListPolicy]
+    properties:
+      SIPEnabled: {type: boolean, default: false, description: SIP is enabled.}
+      SIPPort:
+        type: integer
+        default: 5060
+        description: The port for incoming SIP requests. Traffic is not encrypted.
+      SIPTLSPort:
+        type: integer
+        default: 5061
+        description: The port for incoming SIPS and TLS-secured SIP requests.
+      STUNEnabled: {type: boolean, default: false, description: STUN is enabled.}
+      STUNServers:
+        type: array
+        items: {$ref: '#/types/STUNServer'}
+        description: List of STUN servers.
+      TURNEnabled: {type: boolean, default: false, description: TURN is enabled.}
+      TURNServers:
+        type: array
+        items: {$ref: '#/types/TURNServer'}
+        description: List of TURN servers.
+      ICEEnabled: {type: boolean, default: false, description: ICE is enabled.}
+      AllowIncomingCalls: {type: boolean, default: false, description: Incoming calls are enabled.}
+      ApplyUserAuthentication: {type: boolean, description: For future use.}
+      AllowedUsers:
+        type: array
+        items: {}
+        description: For future use. Array of UserAuthentication (type undefined in doc).
+      ApplyAllowedURIs: {type: boolean, description: Deprecated. Use ApplyAccessList.}
+      AllowedURIs:
+        type: array
+        items: {type: string}
+        description: Deprecated. Use AccessList. (Doc type String; examples show array.)
+      Attribute:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Attributes for additional configuration. Use get_supported_sip_configuration_attributes to
+          list the supported ones.
+      RTPStartPort:
+        type: integer
+        default: 4000
+        description: RTP start port for SIP call media.
+        since: '1.6'
+      CallingTimeout:
+        type: integer
+        maximum: 600
+        default: 60
+        description: Seconds before an initiated call terminates with NoAnswer.
+        since: '1.7'
+      ApplyAccessList: {type: boolean, description: Enables use of AccessList.}
+      AccessList:
+        type: array
+        items: {type: string}
+        description: A list of SIP URIs; AccessListPolicy says whether it is an allowlist or a blocklist (the table
+          types it String, the examples show an array).
+      AccessListPolicy:
+        type: string
+        enum: [Allow, Block, null]
+        description: 'Allow: use AccessList as an allowlist; Block: use it as a blocklist. Null defaults to Allow.'
+  SIPProxy:
+    type: object
+    required: [Server, Username, Password]
+    properties:
+      Server: {type: string, description: Address (URI) of the server.}
+      Username: {type: string, description: User name for the server.}
+      Password: {type: string, description: Password for the server user.}
+  SIPAccount:
+    type: object
+    description: AOR built as sip|sips:UserId[@Domain]. Registrar used for registration; if empty PublicDomain used;
+      if both empty, not registered.
+    required: [UserId]
+    properties:
+      UserId:
+        type: string
+        description: User name for registration in the SIP registrar; can be an extension. Mandatory.
+      Password: {type: string, description: Password for the UserId.}
+      Registrar:
+        type: string
+        description: Address of the SIP registrar used for registration. If empty, PublicDomain is used; if both
+          are empty the account is not registered.
+      PublicDomain: {type: string, description: The SIP registrar's public domain.}
+      SIPProxies:
+        type: array
+        items: {$ref: '#/types/SIPProxy'}
+        description: SIP proxies for outgoing calls from this account, contacted in order.
+      Attribute:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Attributes for additional configuration. Use get_supported_sip_account_attributes to list the
+          supported ones.
+      Id:
+        $ref: '#/types/SIPAccountId'
+        description: Identifier for the SIP account. Created automatically when empty or missing.
+      Enabled: {type: boolean, default: true, description: The account is enabled. Defaults to true.}
+      Name: {type: string, description: Descriptive name displayed in the product's user interface.}
+      CallerId: {type: string, description: CallerId (caller identifier) used in SIP.}
+      AuthenticationId:
+        type: string
+        description: Authentication identifier used in the registration. If empty, it is set to UserId.
+      SecondaryRegistrar:
+        type: string
+        default: ''
+        description: Address of the secondary (backup) registrar. Defaults to empty.
+        since: '1.9'
+      SecondaryPublicDomain:
+        type: string
+        default: ''
+        description: Public domain of the secondary (backup) registrar. Defaults to empty.
+        since: '1.9'
+      IsDefault:
+        type: boolean
+        description: The account is the default SIP account. Only one can be the default; the last set wins.
+      SIPSEnabled:
+        type: boolean
+        description: SIPS (secure SIP) is enabled. If enabled, Transport is set to tls.
+      Transport:
+        $ref: '#/types/SIPTransport'
+        description: The transport protocol for calls from and to this account. tls if SIPSEnabled is true.
+      PrioritizeIPv6:
+        type: boolean
+        description: Prioritize IPv6 over IPv4 (default IPv4). Adding an account checks the network availability
+          and may change this flag.
+      StreamParameters:
+        type: string
+        description: Percent-encoded stream parameters (resolution, fps in API 1.6). If empty, default stream parameters
+          are used.
+      AllowMWI:
+        type: boolean
+        default: false
+        description: Allow a SIP server to convey an updated listen port using MWI (Message Waiting Indication).
+          Default false.
+      DTMFConfigurationId:
+        $ref: '#/types/DTMFConfigurationId'
+        default: ''
+        description: Identifier of the DTMFConfiguration associated with the account. Default empty.
+      MediaEncryption:
+        type: string
+        description: 'Media encryption preference for calls from this account. Non-normative: None, SRTPBestEffort
+          or SRTPMandatory. Anything but None requires Transport tls.'
+        since: '1.7'
+      Certificate:
+        type: string
+        description: The TLS transport certificate to use; applies to all TLS-enabled accounts.
+        since: '1.7'
+      EncryptionProtocols:
+        type: string
+        description: 'Comma-separated list of allowed encryption protocols (non-normative EncryptionProtocol: TLSv1,
+          TLSv12, TLSv13); applies to all TLS-enabled accounts.'
+        since: '1.7'
+      VerifyServerCertificate:
+        type: boolean
+        description: Verify the remote server's certificate; applies to all TLS-enabled accounts.
+        since: '1.7'
+  SIPAccountStatus:
+    type: object
+    x-nullable: [RegURI]
+    properties:
+      SIPAccountId: {$ref: '#/types/SIPAccountId', description: The SIP account.}
+      SIPURI: {type: string, description: The SIP URI of the account.}
+      IsDefault:
+        type: boolean
+        description: The account is the default account (in the examples, not in the table).
+      RegURI: {type: string, description: The registration URI. Empty (or null) if not registered.}
+      Status: {type: integer, description: SIP response code from registrar; 0 if not registered.}
+      StatusText:
+        type: string
+        description: SIP response phrase, or "Does not register" / "SIP disabled".
+  DTMFConfiguration:
+    type: object
+    required: [Name, DTMFTriggerId]
+    properties:
+      Name: {type: string, description: Name of the configuration.}
+      DTMFTriggerId:
+        type: array
+        items: {$ref: '#/types/DTMFTriggerId'}
+        description: The DTMF triggers that belong to the configuration.
+      Id: {$ref: '#/types/DTMFConfigurationId', description: Identifier. Created when empty or missing.}
+      RFC2833:
+        type: boolean
+        default: true
+        description: DTMF is sent over RTP (RFC 2833). Default true.
+      RFC2976:
+        type: boolean
+        default: true
+        description: DTMF is sent over SIP INFO (RFC 2976). Default true.
+  DTMFEvent:
+    type: object
+    required: [Name]
+    properties:
+      Name: {type: string, description: 'Used as nice name in aev:GetEventInstances.'}
+      Id: {$ref: '#/types/DTMFEventId', description: Identifier. Created when empty or missing.}
+  DTMFTrigger:
+    type: object
+    required: [Id, DTMFSequence, DTMFEventId]
+    properties:
+      Id: {$ref: '#/types/DTMFTriggerId', description: Identifier.}
+      DTMFSequence:
+        $ref: '#/types/DTMFSequence'
+        description: 'The DTMF sequence that triggers the event. Allowed characters are 0-9, A-D, * and #.'
+      DTMFEventId:
+        $ref: '#/types/DTMFEventId'
+        description: The DTMF event to emit when the sequence is received.
+  VMSCallConfiguration:
+    type: object
+    required:
+    - Enabled
+    - AudioFromDeviceToNetworkStreams
+    - AudioFromNetworkToDeviceStreams
+    - VideoFromDeviceToNetworkStreams
+    properties:
+      Enabled: {type: boolean, description: VMS calls are enabled.}
+      AudioFromDeviceToNetworkStreams:
+        type: integer
+        description: 'Threshold for the minimum number of audio streams from the product to the VMS at which a VMS
+          call is considered active. 0 or negative: not used.'
+      AudioFromNetworkToDeviceStreams:
+        type: integer
+        description: 'Threshold for the minimum number of audio streams from the VMS to the product at which a VMS
+          call is considered active. 0 or negative: not used.'
+      VideoFromDeviceToNetworkStreams:
+        type: integer
+        description: 'Threshold for the minimum number of video streams from the product to the VMS at which a VMS
+          call is considered active. 0 or negative: not used.'
+      Timeout:
+        type: integer
+        default: 30
+        description: Seconds to wait before an initiated VMS call terminates with NoAnswer. Default 30.
+        since: '1.5'
+  AudioCodec:
+    type: object
+    required: [Name]
+    properties:
+      Name: {type: string, description: The audio codec's name.}
+      Options: {type: string, description: Additional parameters for the audio codec.}
+      SampleRate:
+        type: integer
+        description: Supported sample rate. Returned in responses; not required in set_audio_codecs.
+
+operations:
+  get_service_capabilities:
+    summary: Retrieve the capabilities supported by the service.
+    effect: read
+    binding: {operation: 'axcall:GetServiceCapabilities'}
+    result:
+      type: object
+      properties:
+        Capabilities: {$ref: '#/types/ServiceCapabilities'}
+      required: [Capabilities]
+  call:
+    summary: Make a call; returns a CallId.
+    effect: action
+    binding: {operation: 'axcall:Call'}
+    params:
+      type: object
+      required: [To]
+      properties:
+        SIPAccountId:
+          $ref: '#/types/SIPAccountId'
+          description: The SIP account to use. If not specified, the default account is used.
+        To:
+          type: string
+          description: 'Address to call: sip:ip (peer-to-peer), sip:user@domain (SIP), or VMS_CALL (simulated VMS
+            call).'
+    result:
+      type: object
+      properties:
+        CallId: {$ref: '#/types/CallId'}
+      required: [CallId]
+    errors:
+      ter:Failure: {description: Failed to initiate the call., kind: internal}
+    examples:
+    - title: Make a SIP call
+      request:
+        params: {To: 'sip:6002@example.axis.com'}
+      response:
+        data: {CallId: Out-0-1401964712.117694-gIRuBDTzh7BDKXw-5mDFKF}
+      source: https://developer.axis.com/vapix/intercom/call-service-api/#make-a-sip-call
+  terminate_call:
+    summary: Terminate an ongoing call.
+    effect: action
+    binding: {operation: 'axcall:TerminateCall'}
+    params:
+      type: object
+      required: [CallId]
+      properties:
+        CallId: {$ref: '#/types/CallId', description: Call identifier.}
+    errors:
+      ter:NotFound: {description: There is no ongoing call with the specified CallId., kind: not_found}
+      ter:Failure: {description: Failed to terminate the call., kind: internal}
+  get_call_status:
+    summary: Get the current CallStatus of a given call.
+    effect: read
+    binding: {operation: 'axcall:GetCallStatus'}
+    params:
+      type: object
+      required: [CallId]
+      properties:
+        CallId: {$ref: '#/types/CallId', description: Call identifier.}
+    result:
+      type: object
+      properties:
+        CallStatus: {$ref: '#/types/CallStatus'}
+      required: [CallStatus]
+    errors:
+      ter:NotFound: {description: 'env:Sender ter:InvalidArgVal ter:NotFound — Not found.', kind: not_found}
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_call_statuses:
+    summary: Get CallStatus for multiple calls (all if no CallId given; unresolvable ids ignored).
+    effect: read
+    binding: {operation: 'axcall:GetCallStatuses'}
+    params:
+      type: object
+      properties:
+        CallId:
+          type: array
+          items: {$ref: '#/types/CallId'}
+          description: List of call identifiers.
+    result:
+      type: object
+      properties:
+        CallStatus:
+          type: array
+          items: {$ref: '#/types/CallStatus'}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_supported_sip_configuration_attributes:
+    summary: List supported attributes for the SIP configuration.
+    description: Since 1.7.
+    effect: read
+    binding: {operation: 'axcall:GetSupportedSIPConfigurationAttributes'}
+    result:
+      type: object
+      properties:
+        AttributeInfo:
+          type: array
+          items: {$ref: '#/types/AttributeInfo'}
+    since: '1.7'
+  get_sip_configuration:
+    summary: Retrieve the current SIP configuration.
+    effect: read
+    binding: {operation: 'axcall:GetSIPConfiguration'}
+    result:
+      type: object
+      properties:
+        SIPConfiguration: {$ref: '#/types/SIPConfiguration'}
+      required: [SIPConfiguration]
+  set_sip_configuration:
+    summary: Update the SIP configuration.
+    effect: write
+    write: patch
+    binding: {operation: 'axcall:SetSIPConfiguration'}
+    params:
+      type: object
+      required: [SIPConfiguration]
+      properties:
+        SIPConfiguration: {$ref: '#/types/SIPConfiguration', description: The SIPConfiguration to update.}
+        KeepCurrent:
+          type: boolean
+          default: true
+          description: 'true: keep current values for fields not specified; false: set unspecified fields to default.
+            Null defaults to true.'
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+      ter:NotSupported: {description: The action is not supported., kind: unsupported}
+  get_supported_media_encryption_modes:
+    summary: List supported media encryption modes.
+    description: Since 1.7.
+    effect: read
+    binding: {operation: 'axcall:GetSupportedMediaEncryptionModes'}
+    result:
+      type: object
+      properties:
+        MediaEncryption:
+          type: array
+          items: {type: string}
+    since: '1.7'
+  get_supported_sip_account_attributes:
+    summary: List supported attributes for SIP accounts (unimplemented attributes are silently ignored when set).
+    description: Since 1.7.
+    effect: read
+    binding: {operation: 'axcall:GetSupportedSIPAccountAttributes'}
+    result:
+      type: object
+      properties:
+        AttributeInfo:
+          type: array
+          items: {$ref: '#/types/AttributeInfo'}
+        DisableTCPSwitch:
+          type: boolean
+          description: SIP can temporarily switch from UDP to TCP when a request is within 200 bytes of the MTU
+            or larger than 1300 bytes; can be disabled for compatibility.
+        MaxCallDuration:
+          type: integer
+          description: Seconds; device hangs up SIP calls lasting longer (no effect on VMS calls).
+        RegistrationInterval: {type: integer, description: Seconds; re-registration interval when registering to
+            a PBX.}
+    since: '1.7'
+  get_sip_account:
+    summary: Retrieve a single SIP account.
+    effect: read
+    binding: {operation: 'axcall:GetSIPAccount'}
+    params:
+      type: object
+      required: [SIPAccountId]
+      properties:
+        SIPAccountId: {$ref: '#/types/SIPAccountId', description: Identifier of the SIP account to retrieve.}
+    result:
+      type: object
+      properties:
+        SIPAccount: {$ref: '#/types/SIPAccount'}
+      required: [SIPAccount]
+    errors:
+      ter:NotFound: {description: 'env:Sender ter:InvalidArgVal ter:NotFound — Not found.', kind: not_found}
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_sip_accounts:
+    summary: Retrieve multiple SIP accounts; unresolvable ids ignored; no ids returns all.
+    effect: read
+    binding: {operation: 'axcall:GetSIPAccounts'}
+    params:
+      type: object
+      properties:
+        SIPAccountId:
+          type: array
+          items: {$ref: '#/types/SIPAccountId'}
+          description: Identifiers of the SIP accounts to retrieve.
+    result:
+      type: object
+      properties:
+        SIPAccount:
+          type: array
+          items: {$ref: '#/types/SIPAccount'}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  set_sip_account:
+    summary: Add or update a SIP account (updated if Id matches, otherwise created).
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetSIPAccount'}
+    params:
+      type: object
+      required: [SIPAccount]
+      properties:
+        SIPAccount: {$ref: '#/types/SIPAccount', description: The SIPAccount to add or update.}
+    result:
+      type: object
+      properties:
+        SIPAccountId: {$ref: '#/types/SIPAccountId'}
+      required: [SIPAccountId]
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+    examples:
+    - title: Add a peer-to-peer account
+      request:
+        params:
+          SIPAccount: {UserId: peer-to-peer}
+      response:
+        data: {SIPAccountId: sip_account_0}
+      source: https://developer.axis.com/vapix/intercom/call-service-api/#add-a-peer-to-peer-account
+    - title: Add a registered SIP account
+      request:
+        params:
+          SIPAccount:
+            UserId: '6001'
+            Password: secure
+            Registrar: 192.168.0.1
+            PublicDomain: example.axis.com
+      response:
+        data: {SIPAccountId: sip_account_0}
+      source: https://developer.axis.com/vapix/intercom/call-service-api/#add-a-registered-sip-account
+    - title: Add a registered SIP account with stream parameters
+      request:
+        params:
+          SIPAccount:
+            UserId: '6001'
+            Password: secure
+            Registrar: 192.168.0.1
+            PublicDomain: example.axis.com
+            StreamParameters: resolution=640x480&fps=25
+      response:
+        data: {SIPAccountId: sip_account_0}
+      source: https://developer.axis.com/vapix/intercom/call-service-api/#add-a-registered-sip-account-with-stream-parameters
+    - title: Add a registered SIP account with SIP proxies
+      request:
+        params:
+          SIPAccount:
+            UserId: '6001'
+            Password: secure
+            Registrar: 272.25.25.3
+            SIPProxies:
+            - {Server: 192.168.0.1, Username: username_proxy1, Password: password_proxy1}
+            - {Server: 10.23.23.2, Username: username_proxy2, Password: password_proxy2}
+      response:
+        data: {SIPAccountId: sip_account_0}
+      source: https://developer.axis.com/vapix/intercom/call-service-api/#add-a-registered-sip-account-with-sip-proxies
+  set_sip_accounts:
+    summary: Add or update multiple SIP accounts.
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetSIPAccounts'}
+    params:
+      type: object
+      required: [SIPAccount]
+      properties:
+        SIPAccount:
+          type: array
+          items: {$ref: '#/types/SIPAccount'}
+          description: The SIPAccounts to add or update.
+    result:
+      type: object
+      properties:
+        SIPAccountId:
+          type: array
+          items: {$ref: '#/types/SIPAccountId'}
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+  remove_sip_account:
+    summary: Remove a SIP account; unresolvable id is ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveSIPAccount'}
+    params:
+      type: object
+      required: [SIPAccountId]
+      properties:
+        SIPAccountId: {$ref: '#/types/SIPAccountId', description: Identifier of the SIP account to remove.}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  remove_sip_accounts:
+    summary: Remove multiple SIP accounts; unresolvable ids ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveSIPAccounts'}
+    params:
+      type: object
+      required: [SIPAccountId]
+      properties:
+        SIPAccountId:
+          type: array
+          items: {$ref: '#/types/SIPAccountId'}
+          description: Identifiers of the SIP accounts to remove.
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_sip_account_status:
+    summary: Retrieve the status of a SIP account.
+    effect: read
+    binding: {operation: 'axcall:GetSIPAccountStatus'}
+    params:
+      type: object
+      required: [SIPAccountId]
+      properties:
+        SIPAccountId: {$ref: '#/types/SIPAccountId', description: Identifier of the SIP account.}
+    result:
+      type: object
+      properties:
+        SIPAccountStatus: {$ref: '#/types/SIPAccountStatus'}
+      required: [SIPAccountStatus]
+    errors:
+      ter:NotFound: {description: 'env:Sender ter:InvalidArgVal ter:NotFound — Not found.', kind: not_found}
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+    examples:
+    - title: Peer-to-peer account status
+      request:
+        params: {SIPAccountId: sip_account_0}
+      response:
+        data:
+          SIPAccountStatus:
+            SIPAccountId: sip_account_0
+            SIPURI: sip:192.168.0.90:5060
+            IsDefault: true
+            RegURI: ''
+            Status: 0
+            StatusText: Does not register
+      source: https://developer.axis.com/vapix/intercom/call-service-api/#add-a-peer-to-peer-account
+  get_sip_account_statuses:
+    summary: Retrieve statuses of multiple SIP accounts (all if no ids).
+    effect: read
+    binding: {operation: 'axcall:GetSIPAccountStatuses'}
+    params:
+      type: object
+      properties:
+        SIPAccountId:
+          type: array
+          items: {$ref: '#/types/SIPAccountId'}
+          description: Identifiers of the SIP accounts.
+    result:
+      type: object
+      properties:
+        SIPAccountStatus:
+          type: array
+          items: {$ref: '#/types/SIPAccountStatus'}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_dtmf_configuration:
+    summary: Retrieve a single DTMF configuration.
+    effect: read
+    binding: {operation: 'axcall:GetDTMFConfiguration'}
+    params:
+      type: object
+      required: [DTMFConfigurationId]
+      properties:
+        DTMFConfigurationId:
+          $ref: '#/types/DTMFConfigurationId'
+          description: Identifier of the DTMF configuration to retrieve.
+    result:
+      type: object
+      properties:
+        DTMFConfiguration: {$ref: '#/types/DTMFConfiguration'}
+      required: [DTMFConfiguration]
+    errors:
+      ter:NotFound: {description: 'env:Sender ter:InvalidArgVal ter:NotFound — Not found.', kind: not_found}
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_dtmf_configurations:
+    summary: Retrieve multiple DTMF configurations; unresolvable ids ignored; no ids returns all.
+    effect: read
+    binding: {operation: 'axcall:GetDTMFConfigurations'}
+    params:
+      type: object
+      properties:
+        DTMFConfigurationId:
+          type: array
+          items: {$ref: '#/types/DTMFConfigurationId'}
+          description: Identifiers of the DTMF configurations to retrieve.
+    result:
+      type: object
+      properties:
+        DTMFConfiguration:
+          type: array
+          items: {$ref: '#/types/DTMFConfiguration'}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  set_dtmf_configuration:
+    summary: Add or update a DTMF configuration (updated if Id matches, otherwise created).
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetDTMFConfiguration'}
+    params:
+      type: object
+      required: [DTMFConfiguration]
+      properties:
+        DTMFConfiguration: {$ref: '#/types/DTMFConfiguration', description: The DTMFConfiguration to add or update.}
+    result:
+      type: object
+      properties:
+        DTMFConfigurationId: {$ref: '#/types/DTMFConfigurationId'}
+      required: [DTMFConfigurationId]
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+  set_dtmf_configurations:
+    summary: Add or update multiple DTMF configurations.
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetDTMFConfigurations'}
+    params:
+      type: object
+      required: [DTMFConfiguration]
+      properties:
+        DTMFConfiguration:
+          type: array
+          items: {$ref: '#/types/DTMFConfiguration'}
+          description: The DTMFConfigurations to add or update.
+    result:
+      type: object
+      properties:
+        DTMFConfigurationId:
+          type: array
+          items: {$ref: '#/types/DTMFConfigurationId'}
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+  remove_dtmf_configuration:
+    summary: Remove a DTMF configuration; unresolvable id is ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveDTMFConfiguration'}
+    params:
+      type: object
+      required: [DTMFConfigurationId]
+      properties:
+        DTMFConfigurationId:
+          $ref: '#/types/DTMFConfigurationId'
+          description: Identifier of the DTMF configuration to remove.
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  remove_dtmf_configurations:
+    summary: Remove multiple DTMF configurations; unresolvable ids ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveDTMFConfigurations'}
+    params:
+      type: object
+      required: [DTMFConfigurationId]
+      properties:
+        DTMFConfigurationId:
+          type: array
+          items: {$ref: '#/types/DTMFConfigurationId'}
+          description: Identifiers of the DTMF configurations to remove.
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_dtmf_event:
+    summary: Retrieve a single DTMF event.
+    effect: read
+    binding: {operation: 'axcall:GetDTMFEvent'}
+    params:
+      type: object
+      required: [DTMFEventId]
+      properties:
+        DTMFEventId: {$ref: '#/types/DTMFEventId', description: Identifier of the DTMF event to retrieve.}
+    result:
+      type: object
+      properties:
+        DTMFEvent: {$ref: '#/types/DTMFEvent'}
+      required: [DTMFEvent]
+    errors:
+      ter:NotFound: {description: 'env:Sender ter:InvalidArgVal ter:NotFound — Not found.', kind: not_found}
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_dtmf_events:
+    summary: Retrieve multiple DTMF events; unresolvable ids ignored; no ids returns all.
+    effect: read
+    binding: {operation: 'axcall:GetDTMFEvents'}
+    params:
+      type: object
+      properties:
+        DTMFEventId:
+          type: array
+          items: {$ref: '#/types/DTMFEventId'}
+          description: Identifiers of the DTMF events to retrieve.
+    result:
+      type: object
+      properties:
+        DTMFEvent:
+          type: array
+          items: {$ref: '#/types/DTMFEvent'}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  set_dtmf_event:
+    summary: Add or update a DTMF event (updated if Id matches, otherwise created).
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetDTMFEvent'}
+    params:
+      type: object
+      required: [DTMFEvent]
+      properties:
+        DTMFEvent:
+          $ref: '#/types/DTMFEvent'
+          description: The DTMFEvent to add or update. (Request table spells the field 'DTMEvent'; syntax uses DTMFEvent.)
+    result:
+      type: object
+      properties:
+        DTMFEventId: {$ref: '#/types/DTMFEventId'}
+      required: [DTMFEventId]
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+  set_dtmf_events:
+    summary: Add or update multiple DTMF events.
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetDTMFEvents'}
+    params:
+      type: object
+      required: [DTMFEvent]
+      properties:
+        DTMFEvent:
+          type: array
+          items: {$ref: '#/types/DTMFEvent'}
+          description: The DTMFEvents to add or update.
+    result:
+      type: object
+      properties:
+        DTMFEventId:
+          type: array
+          items: {$ref: '#/types/DTMFEventId'}
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+  remove_dtmf_event:
+    summary: Remove a DTMF event; unresolvable id is ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveDTMFEvent'}
+    params:
+      type: object
+      required: [DTMFEventId]
+      properties:
+        DTMFEventId: {$ref: '#/types/DTMFEventId', description: Identifier of the DTMF event to remove.}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  remove_dtmf_events:
+    summary: Remove multiple DTMF events; unresolvable ids ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveDTMFEvents'}
+    params:
+      type: object
+      required: [DTMFEventId]
+      properties:
+        DTMFEventId:
+          type: array
+          items: {$ref: '#/types/DTMFEventId'}
+          description: Identifiers of the DTMF events to remove.
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_dtmf_trigger:
+    summary: Retrieve a single DTMF trigger.
+    effect: read
+    binding: {operation: 'axcall:GetDTMFTrigger'}
+    params:
+      type: object
+      required: [DTMFTriggerId]
+      properties:
+        DTMFTriggerId: {$ref: '#/types/DTMFTriggerId', description: Identifier of the DTMF trigger to retrieve.}
+    result:
+      type: object
+      properties:
+        DTMFTrigger: {$ref: '#/types/DTMFTrigger'}
+      required: [DTMFTrigger]
+    errors:
+      ter:NotFound: {description: 'env:Sender ter:InvalidArgVal ter:NotFound — Not found.', kind: not_found}
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_dtmf_triggers:
+    summary: Retrieve multiple DTMF triggers; unresolvable ids ignored; no ids returns all.
+    effect: read
+    binding: {operation: 'axcall:GetDTMFTriggers'}
+    params:
+      type: object
+      properties:
+        DTMFTriggerId:
+          type: array
+          items: {$ref: '#/types/DTMFTriggerId'}
+          description: Identifiers of the DTMF triggers to retrieve.
+    result:
+      type: object
+      properties:
+        DTMFTrigger:
+          type: array
+          items: {$ref: '#/types/DTMFTrigger'}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  set_dtmf_trigger:
+    summary: Add or update a DTMF trigger (updated if Id matches, otherwise created).
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetDTMFTrigger'}
+    params:
+      type: object
+      required: [DTMFTrigger]
+      properties:
+        DTMFTrigger:
+          $ref: '#/types/DTMFTrigger'
+          description: The DTMFTrigger to add or update. (Request table spells the field 'DTMTrigger'.)
+    result:
+      type: object
+      properties:
+        DTMFTriggerId: {$ref: '#/types/DTMFTriggerId'}
+      required: [DTMFTriggerId]
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+  set_dtmf_triggers:
+    summary: Add or update multiple DTMF triggers.
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetDTMFTriggers'}
+    params:
+      type: object
+      required: [DTMFTrigger]
+      properties:
+        DTMFTrigger:
+          type: array
+          items: {$ref: '#/types/DTMFTrigger'}
+          description: The DTMFTriggers to add or update.
+    result:
+      type: object
+      properties:
+        DTMFTriggerId:
+          type: array
+          items: {$ref: '#/types/DTMFTriggerId'}
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+  remove_dtmf_trigger:
+    summary: Remove a DTMF trigger; unresolvable id is ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveDTMFTrigger'}
+    params:
+      type: object
+      required: [DTMFTriggerId]
+      properties:
+        DTMFTriggerId: {$ref: '#/types/DTMFTriggerId', description: Identifier of the DTMF trigger to remove.}
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  remove_dtmf_triggers:
+    summary: Remove multiple DTMF triggers; unresolvable ids ignored.
+    effect: write
+    write: delete
+    binding: {operation: 'axcall:RemoveDTMFTriggers'}
+    params:
+      type: object
+      required: [DTMFTriggerId]
+      properties:
+        DTMFTriggerId:
+          type: array
+          items: {$ref: '#/types/DTMFTriggerId'}
+          description: Identifiers of the DTMF triggers to remove.
+    errors:
+      ter:Failure: {description: 'env:Receiver ter:Action ter:Failure — operation failed.', kind: internal}
+  get_vms_call_configuration:
+    summary: Retrieve the VMS call configuration.
+    effect: read
+    binding: {operation: 'axcall:GetVMSCallConfiguration'}
+    result:
+      type: object
+      properties:
+        VMSCallConfiguration: {$ref: '#/types/VMSCallConfiguration'}
+      required: [VMSCallConfiguration]
+  set_vms_call_configuration:
+    summary: Update the VMS call configuration.
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetVMSCallConfiguration'}
+    params:
+      type: object
+      required: [VMSCallConfiguration]
+      properties:
+        VMSCallConfiguration: {$ref: '#/types/VMSCallConfiguration', description: The updated VMSCallConfiguration.}
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+      ter:NotSupported: {description: The action is not supported., kind: unsupported}
+  get_default_audio_codecs:
+    summary: Default audio codec priority list (highest priority first).
+    description: Since 1.4.
+    effect: read
+    binding: {operation: 'axcall:GetDefaultAudioCodecs'}
+    result:
+      type: object
+      properties:
+        AudioCodec:
+          type: array
+          items: {$ref: '#/types/AudioCodec'}
+    since: '1.4'
+  get_supported_audio_codecs:
+    summary: All audio codecs available in the product.
+    description: Since 1.4.
+    effect: read
+    binding: {operation: 'axcall:GetSupportedAudioCodecs'}
+    result:
+      type: object
+      properties:
+        AudioCodec:
+          type: array
+          items: {$ref: '#/types/AudioCodec'}
+    since: '1.4'
+  get_audio_codecs:
+    summary: Current audio codec priority list sent to call recipients.
+    description: Since 1.4.
+    effect: read
+    binding: {operation: 'axcall:GetAudioCodecs'}
+    result:
+      type: object
+      properties:
+        AudioCodec:
+          type: array
+          items: {$ref: '#/types/AudioCodec'}
+    since: '1.4'
+  set_audio_codecs:
+    summary: Update the audio codec priority list (first = highest priority).
+    description: Since 1.4.
+    effect: write
+    write: replace
+    binding: {operation: 'axcall:SetAudioCodecs'}
+    params:
+      type: object
+      required: [AudioCodec]
+      properties:
+        AudioCodec:
+          type: array
+          items: {$ref: '#/types/AudioCodec'}
+          description: AudioCodecs in priority order.
+    errors:
+      ter:InvalidArgVal: {description: Invalid data. The request contains invalid values., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: Missing data. The request does not contain all required data.
+        kind: invalid_argument
+    since: '1.4'
+
+sources:
+- url: https://developer.axis.com/vapix/intercom/call-service-api/
+  sha256_md: b20672e5352912addf046575bf17b074cbbb733a379db9c3181e944a4b2bcccc
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The page states no access levels; the API default admin is kept. The page gives no discovery for the service
+    beyond the SIP properties.
+  - The 'with stream parameters' and 'with SIP proxies' JSON examples are wrong against the SIPAccount table (StreamParameters
+    is placed beside SIPAccount, and the proxy list is named SIPAccount); the examples are corrected to StreamParameters
+    inside SIPAccount and SIPProxies.
+  - SIPAccount lists Password, Registrar, PublicDomain, SIPProxies and Attribute as mandatory fields, but the prose
+    says only UserId is mandatory and the peer-to-peer example sends only UserId; only UserId is required.
+  - The Set* operations 'add or update' an item by its identifier; the page does not say whether omitted fields
+    of an existing item are kept, so they are marked replace. SetSIPConfiguration documents KeepCurrent (default
+    true keeps current values, false resets to defaults).
+  - The service capabilities section contains a stray ServiceCapabilities table with MaxLimit for GetPortList/GetPort,
+    copied from another API; it is ignored.
+  - The fault example on the page uses /vapix/axast and axast:PerformSpeakerTest (copied from the Auto speaker test
+    service); HTTP 400 is assumed for axcall faults too.
+  - GetSupportedSIPAccountAttributes lists DisableTCPSwitch, MaxCallDuration and RegistrationInterval as data fields
+    next to AttributeInfo; modelled as documented.
+  - SetDTMFEvent and SetDTMFTrigger request tables spell DTMEvent and DTMTrigger; the DTMFEvent and DTMFTrigger
+    names from the syntax are used.
+  - AllowedURIs and AccessList are typed String in the table while the examples show arrays; modelled as arrays
+    of strings. AllowedUsers has the undefined type UserAuthentication and is an untyped list.
+  - SIPAccountStatus.IsDefault appears in examples but not in the table; RegURI is null in the simple response.
+  - Responses with a single item in a list (for example the plural Set* results) may be returned as a scalar by
+    the device (see GAP(single-element-list) in other specs); no example here shows it.
+  - The simplified Call response CallId differs from the JSON example.
+  - The version history is not on the page; since values come from the 'Supported from API version' notes. The service
+    has no version negotiation, so they are documentation only.
+  migrated_from: v1
+  curated: true

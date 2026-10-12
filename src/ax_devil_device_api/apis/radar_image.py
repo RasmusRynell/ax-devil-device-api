@@ -13,7 +13,7 @@ from pydantic import Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation, ParamDiscovery
-from .._protocols.jsonrpc import FixedVersion, JsonRpcBinding
+from .._protocols.jsonrpc import GetSupportedVersions, JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -161,14 +161,14 @@ class OPS:
     start_calibration_tracking = Operation(
         INFO,
         "start_calibration_tracking",
-        JsonRpcBinding("startCalibrationTracking", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("startCalibrationTracking", PATH, negotiation=GetSupportedVersions(key="value")),
         access="operator",
         effect="action",
     )
     set_calibration_point = Operation(
         INFO,
         "set_calibration_point",
-        JsonRpcBinding("setCalibrationPoint", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("setCalibrationPoint", PATH, negotiation=GetSupportedVersions(key="value")),
         params=CalibrationPointRequest,
         access="operator",
         effect="action",
@@ -202,7 +202,7 @@ class OPS:
     stop_calibration_tracking = Operation(
         INFO,
         "stop_calibration_tracking",
-        JsonRpcBinding("stopCalibrationTracking", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("stopCalibrationTracking", PATH, negotiation=GetSupportedVersions(key="value")),
         access="operator",
         effect="action",
         errors={
@@ -214,14 +214,14 @@ class OPS:
     abort_calibration = Operation(
         INFO,
         "abort_calibration",
-        JsonRpcBinding("abortCalibration", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("abortCalibration", PATH, negotiation=GetSupportedVersions(key="value")),
         access="operator",
         effect="action",
     )
     reset_calibration = Operation(
         INFO,
         "reset_calibration",
-        JsonRpcBinding("resetCalibration", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("resetCalibration", PATH, negotiation=GetSupportedVersions(key="value")),
         access="operator",
         effect="write",
         write="delete",
@@ -229,7 +229,7 @@ class OPS:
     get_calibration_state = Operation(
         INFO,
         "get_calibration_state",
-        JsonRpcBinding("getCalibrationState", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("getCalibrationState", PATH, negotiation=GetSupportedVersions(key="value")),
         result=CalibrationStateResult,
         access="operator",
         effect="read",
@@ -237,7 +237,7 @@ class OPS:
     set_manual_radar_position = Operation(
         INFO,
         "set_manual_radar_position",
-        JsonRpcBinding("setManualRadarPosition", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("setManualRadarPosition", PATH, negotiation=GetSupportedVersions(key="value")),
         params=CalibrationPointRequest,
         access="operator",
         effect="write",
@@ -246,7 +246,7 @@ class OPS:
     set_manual_calibration_point = Operation(
         INFO,
         "set_manual_calibration_point",
-        JsonRpcBinding("setManualCalibrationPoint", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("setManualCalibrationPoint", PATH, negotiation=GetSupportedVersions(key="value")),
         params=SetManualCalibrationPointRequest,
         access="operator",
         effect="write",
@@ -255,7 +255,7 @@ class OPS:
     get_trail_lifetime = Operation(
         INFO,
         "get_trail_lifetime",
-        JsonRpcBinding("getTrailLifetime", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("getTrailLifetime", PATH, negotiation=GetSupportedVersions(key="value")),
         result=TrailLifetime,
         access="operator",
         effect="read",
@@ -263,7 +263,7 @@ class OPS:
     set_trail_lifetime = Operation(
         INFO,
         "set_trail_lifetime",
-        JsonRpcBinding("setTrailLifetime", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("setTrailLifetime", PATH, negotiation=GetSupportedVersions(key="value")),
         params=SetTrailLifetimeRequest,
         access="operator",
         effect="write",
@@ -272,7 +272,7 @@ class OPS:
     get_color_scheme = Operation(
         INFO,
         "get_color_scheme",
-        JsonRpcBinding("getColorScheme", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("getColorScheme", PATH, negotiation=GetSupportedVersions(key="value")),
         result=ColorScheme,
         access="operator",
         effect="read",
@@ -280,7 +280,7 @@ class OPS:
     set_color_scheme = Operation(
         INFO,
         "set_color_scheme",
-        JsonRpcBinding("setColorScheme", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("setColorScheme", PATH, negotiation=GetSupportedVersions(key="value")),
         params=SetColorSchemeRequest,
         access="operator",
         effect="write",
@@ -289,7 +289,7 @@ class OPS:
     get_grid_opaque = Operation(
         INFO,
         "get_grid_opaque",
-        JsonRpcBinding("getGridOpaque", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("getGridOpaque", PATH, negotiation=GetSupportedVersions(key="value")),
         result=GridOpaque,
         access="operator",
         effect="read",
@@ -297,7 +297,7 @@ class OPS:
     set_grid_opaque = Operation(
         INFO,
         "set_grid_opaque",
-        JsonRpcBinding("setGridOpaque", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("setGridOpaque", PATH, negotiation=GetSupportedVersions(key="value")),
         params=SetGridOpaqueRequest,
         access="operator",
         effect="write",
@@ -306,7 +306,7 @@ class OPS:
     get_echo_visualization_level = Operation(
         INFO,
         "get_echo_visualization_level",
-        JsonRpcBinding("getEchoVisualizationLevel", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("getEchoVisualizationLevel", PATH, negotiation=GetSupportedVersions(key="value")),
         result=EchoVisualizationLevel,
         access="operator",
         effect="read",
@@ -314,7 +314,7 @@ class OPS:
     set_echo_visualization_level = Operation(
         INFO,
         "set_echo_visualization_level",
-        JsonRpcBinding("setEchoVisualizationLevel", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("setEchoVisualizationLevel", PATH, negotiation=GetSupportedVersions(key="value")),
         params=SetEchoVisualizationLevelRequest,
         access="operator",
         effect="write",
@@ -323,7 +323,7 @@ class OPS:
     get_image_metric_size = Operation(
         INFO,
         "get_image_metric_size",
-        JsonRpcBinding("getImageMetricSize", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("getImageMetricSize", PATH, negotiation=GetSupportedVersions(key="value")),
         result=ImageMetricSize,
         access="operator",
         effect="read",
@@ -331,7 +331,7 @@ class OPS:
     get_filename = Operation(
         INFO,
         "get_filename",
-        JsonRpcBinding("getFilename", PATH, negotiation=FixedVersion(ApiVersion(1, 0))),
+        JsonRpcBinding("getFilename", PATH, negotiation=GetSupportedVersions(key="value")),
         result=Filename,
         access="operator",
         effect="read",

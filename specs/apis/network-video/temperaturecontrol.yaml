@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: temperaturecontrol
 name: Temperature control
-summary: Monitor temperature sensors and control heaters and fans via /axis-cgi/temperaturecontrol.cgi; trigger
-  levels via param.cgi TemperatureControl.*.
+summary: Monitor temperature sensors and control heaters and fans with ``temperaturecontrol.cgi``; read and set the ``TemperatureControl.*`` parameters with ``param.cgi``.
 section: network-video
 family: cgi
 status: released
@@ -16,69 +14,70 @@ access: operator
 discovery:
 - {api_discovery: temperaturecontrol}
 - param: {name: Properties.TemperatureSensor.TemperatureControl, value: 'yes'}
-- param: {name: Properties.TemperatureSensor.Fan, value: yes | no}
-- param: {name: Properties.TemperatureSensor.Heater, value: yes | no}
+- param: {name: Properties.TemperatureSensor.Fan}
+- param: {name: Properties.TemperatureSensor.Heater}
 
 binding: {path: /axis-cgi/temperaturecontrol.cgi}
 
+types:
+  TemperatureDevice:
+    type: string
+    enum: [heater, fan, sensor]
+    description: 'The type of temperature device: ``heater``, ``fan`` or ``sensor`` (a temperature sensor).'
+  ControllableDevice:
+    type: string
+    enum: [heater, fan]
+    description: 'The type of temperature device: ``heater`` or ``fan``.'
+  TemperatureUnit:
+    type: string
+    enum: [celsius, fahrenheit]
+  DeviceRequest:
+    type: object
+    required: [device, id]
+    properties:
+      device: {$ref: '#/types/TemperatureDevice'}
+      id: {type: integer, minimum: 0, description: The index number of the temperature device.}
+
 operations:
   start:
-    summary: Manually start the heater/fan for the duration set in the ManualControlDuration parameter.
+    summary: Manually start a heater or fan for the duration set in its ``ManualControlDuration`` parameter.
+    description: Which devices exist and can be controlled depends on the product hardware.
     effect: action
     binding:
       method: GET
       query: {action: start}
-      reply: text
-    params:
-      type: object
-      properties:
-        device:
-          type: string
-          enum: [heater, fan, sensor]
-          description: 'Optional parameter that defines the type of temperature device. Values: heater: The device
-            is a heater; fan: The device is a fan; sensor: The device is a temperature sensor'
-        id:
-          type: integer
-          description: Optional parameter that defines the index number of the temperature device as an integer
-            value.
+      reply: text_ok
+    params: {$ref: '#/types/DeviceRequest'}
+    positional: [device, id]
     examples:
     - title: Initiate the heater manually (id 0)
-      request:
-        query: {device: heater, id: '0'}
+      request: {query: {device: heater, id: '0'}}
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#remove-fog-on-camera-window
     - title: Fail to start heater (non-existing heater id 1)
-      request:
-        query: {device: heater, id: '1'}
+      request: {query: {device: heater, id: '1'}}
       response: {status: 400, text: Unknown device type or bad id.}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#remove-fog-on-camera-window
   stop:
-    summary: Manually stop the heater/fan.
+    summary: Manually stop a heater or fan. Any duration left is reset.
     effect: action
     binding:
       method: GET
       query: {action: stop}
-      reply: text
-    params:
-      type: object
-      properties:
-        device:
-          type: string
-          enum: [heater, fan, sensor]
-          description: 'Optional parameter that defines the type of temperature device. Values: heater: The device
-            is a heater; fan: The device is a fan; sensor: The device is a temperature sensor'
-        id:
-          type: integer
-          description: Optional parameter that defines the index number of the temperature device as an integer
-            value.
+      reply: text_ok
+    params: {$ref: '#/types/DeviceRequest'}
+    positional: [device, id]
     examples:
     - title: Stop the fan (id 1)
-      request:
-        query: {device: fan, id: '1'}
+      request: {query: {device: fan, id: '1'}}
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#remove-fog-on-camera-window
   query:
-    summary: Retrieve information about a heater/fan (status) or a temperature sensor (temperature value).
+    summary: Read a heater or fan status, or the temperature of a sensor, as text.
+    description: >-
+      A sensor returns the temperature as a number (``46.71``), a heater or fan returns its status: ``Running``,
+      ``Running[XX]`` (XX is the intensity, for example ``Running[100%]``), ``Stopped``, ``Heater Failure`` or
+      ``Fan Failure``.
     effect: read
     binding:
       method: GET
@@ -86,73 +85,56 @@ operations:
       reply: text
     params:
       type: object
+      required: [device, id]
       properties:
-        device:
-          type: string
-          enum: [heater, fan, sensor]
-          description: Type of temperature device.
-        id: {type: integer, description: Index number of the temperature device.}
-        temperatureunit:
-          type: string
-          enum: [celsius, fahrenheit]
-          description: Optional parameter that defines the temperature unit.
+        device: {$ref: '#/types/TemperatureDevice'}
+        id: {type: integer, minimum: 0, description: The index number of the temperature device.}
+        temperatureunit: {$ref: '#/types/TemperatureUnit'}
+    positional: [device, id]
     result: {type: string}
     examples:
     - title: Read temperature sensor 2 in Celsius
-      request:
-        query: {device: sensor, id: '2'}
+      request: {query: {device: sensor, id: '2'}}
       response: {status: 200, text: '46.71'}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#retrieve-temperature-information
     - title: Read temperature sensor 2 in Fahrenheit
-      request:
-        query: {device: sensor, id: '2', temperatureunit: fahrenheit}
+      request: {query: {device: sensor, id: '2', temperatureunit: fahrenheit}}
       response: {status: 200, text: '116.07'}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#retrieve-temperature-information
     - title: Read current heater status
-      request:
-        query: {device: heater, id: '1'}
+      request: {query: {device: heater, id: '1'}}
       response: {status: 200, text: 'Running[100%]'}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#retrieve-temperature-information
   time_until_stop:
-    summary: Retrieve the number of seconds left until the heater/fan stops following a manual start.
+    summary: Read the number of seconds left until a heater or fan stops following a manual start.
     effect: read
     binding:
       method: GET
       query: {action: timeuntilstop}
       reply: text
-    params:
-      type: object
-      properties:
-        device:
-          type: string
-          enum: [heater, fan, sensor]
-          description: 'Optional parameter that defines the type of temperature device. Values: heater: The device
-            is a heater; fan: The device is a fan; sensor: The device is a temperature sensor'
-        id:
-          type: integer
-          description: Optional parameter that defines the index number of the temperature device as an integer
-            value.
+    params: {$ref: '#/types/DeviceRequest'}
+    positional: [device, id]
     result: {type: string}
     examples:
-    - title: time_until_stop
-      request:
-        query: {device: heater, id: '1'}
+    - title: Time until heater 1 stops
+      request: {query: {device: heater, id: '1'}}
       response: {status: 200, text: '95'}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#retrieve-temperature-information
   status_all:
-    summary: Retrieve status information on all heaters, fans and sensors.
+    summary: 'Read the status of all sensors, heaters and fans as ``{"Sensor.S0.Celsius": "43.50", "Heater.H0.Status": "Stopped"}``.'
+    description: >-
+      Entries are ``Sensor.S#.Name``, ``Sensor.S#.Celsius``, ``Sensor.S#.Fahrenheit``, ``Heater.H#.Status``,
+      ``Heater.H#.TimeUntilStop``, ``Fan.F#.Status`` and ``Fan.F#.TimeUntilStop``. This is the one action that does not
+      depend on the hardware.
     effect: read
     binding:
       method: GET
       query: {action: statusall}
       reply: text_kv
-    result:
-      type: object
-      additionalProperties: {type: string}
+    result: {type: object, additionalProperties: {type: string}}
     examples:
-    - title: status_all
-      request:
-        query: {}
+    - title: Get all temperature information
+      request: {query: {}}
       response:
         status: 200
         text: |-
@@ -176,56 +158,86 @@ operations:
           Fan.F0.TimeUntilStop=0
       source: https://developer.axis.com/vapix/network-video/temperature-control/#retrieve-temperature-information
   set_user_control_mode:
-    summary: Enable/disable manual (user) control of a heater/fan and optionally set its intensity.
-    description: The control is reset to false whenever the device is rebooted. Dependent on device and heater/fan
-      capabilities.
+    summary: Enable or disable manual (user) control of a heater or fan, and optionally set its intensity.
+    description: >-
+      The control is reset to false whenever the device is rebooted. Dependent on the device and heater/fan capabilities;
+      products where ``UserControlSupport`` is ``no`` reply with an error.
     effect: write
     write: patch
-    binding: {method: GET, reply: text}
+    binding:
+      method: GET
+      reply: text_ok
     params:
       type: object
+      required: [device, id, usercontrolmode]
       properties:
-        device: {type: string, enum: [heater, fan], description: Type of temperature device.}
-        id: {type: integer, description: Index number of the device.}
-        usercontrolmode:
-          type: string
-          enum: ['true', 'false']
-          description: Enable/disable manual control of a heater/fan. Reset to false on reboot.
+        device: {$ref: '#/types/ControllableDevice'}
+        id: {type: integer, minimum: 0, description: The index number of the heater or fan.}
+        usercontrolmode: {type: boolean, description: Enable (true) or disable (false) manual control. Reset to false on reboot.}
         intensity:
           type: integer
           minimum: 0
           maximum: 100
-          description: Intensity of the heater/fan as an integer in the range between 0-100 percent. (unit=percent)
+          description: The intensity of the heater or fan in percent.
     examples:
     - title: Activate user control mode at 50%
-      request:
-        query: {device: heater, id: '1', usercontrolmode: 'true', intensity: '50'}
+      request: {query: {device: heater, id: '1', usercontrolmode: 'true', intensity: '50'}}
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#remove-fog-on-camera-window
     - title: User control mode not supported
-      request:
-        query: {device: heater, id: '0', usercontrolmode: 'true'}
+      request: {query: {device: heater, id: '0', usercontrolmode: 'true'}}
       response: {status: 400, text: Could not set the requested mode for the device.}
       source: https://developer.axis.com/vapix/network-video/temperature-control/#remove-fog-on-camera-window
-  set_trigger_level:
-    summary: Configure temperature trigger levels (and other TemperatureControl.* parameters) through param.cgi.
+  get_parameters:
+    summary: 'Read the ``TemperatureControl.*`` parameters (trigger levels, control policy, manual duration) as ``{"TemperatureControl.Sensor.S0.TriggerHigh": "60"}``.'
+    access: viewer
+    effect: read
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: list, group: TemperatureControl}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    result: {type: object, additionalProperties: {type: string}}
+  set_parameters:
+    summary: 'Set ``TemperatureControl.*`` parameters, e.g. ``{"TemperatureControl.Sensor.S2.TriggerLow": "-10"}``.'
+    description: >-
+      Keys are ``TemperatureControl.Sensor.S#.Name``, ``.TriggerLow`` and ``.TriggerHigh`` (the limits of the
+      ``Temperature`` below and above events; an integer in Celsius, or with an ``F`` suffix for Fahrenheit, such as
+      ``30F``), and ``TemperatureControl.Heater.H#`` or ``TemperatureControl.Fan.F#`` with ``.ManualControlDuration``
+      (seconds), ``.ControlPolicyLimit`` and ``.ControlPolicyDelta``. ``#`` runs from 0 to the number of devices minus 1.
+      ``UserControlSupport`` is read-only, and the heater and fan parameters cannot be updated when it is ``no``. Only the
+      given parameters change.
     effect: write
     write: patch
     binding:
       path: /axis-cgi/param.cgi
       method: GET
       query: {action: update}
-      reply: text
+      reply: text_ok
     params:
       type: object
+      required: [parameters]
       properties:
-        TemperatureControl.Sensor.S#.TriggerLow:
-          type: string
-          description: Low trigger; integer in Celsius, or with F suffix for Fahrenheit (e.g. 30F).
-        TemperatureControl.Sensor.S#.TriggerHigh: {type: string, description: High trigger; e.g. 30F for 30 degrees
-            Fahrenheit.}
-        TemperatureControl.Heater.H#.ManualControlDuration: {type: integer, description: Duration in seconds of
-            a manual start.}
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+    examples:
+    - title: Set the manual control duration of heater 0
+      request: {query: {TemperatureControl.Heater.H0.ManualControlDuration: '120'}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/temperature-control/#remove-fog-on-camera-window
+    - title: Set the low trigger for sensor 2 in Celsius
+      request: {query: {TemperatureControl.Sensor.S2.TriggerLow: '-10'}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/temperature-control/#configure-temperature-triggers
+    - title: Set the high trigger for sensor 3 in Fahrenheit
+      request: {query: {TemperatureControl.Sensor.S3.TriggerHigh: 30F}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/temperature-control/#configure-temperature-triggers
+    - title: Set the low trigger for a sensor with a bad id
+      request: {query: {TemperatureControl.Sensor.S20.TriggerLow: '-10'}}
+      response: {status: 200, text: "# Error: Error setting 'root.TemperatureControl.Sensor.S20.TriggerLow' to '-10'!"}
+      source: https://developer.axis.com/vapix/network-video/temperature-control/#configure-temperature-triggers
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/temperature-control/
@@ -235,20 +247,13 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - action table lists 'timeuntiltimestop' in the description while the value list and examples use 'timeuntilstop'.
-  - Fan/Sensor groups say '# ranges from 0 to the number of heaters ... -1' (copy/paste of heater text).
-  - TriggerHigh is documented as <integer> but the example uses '30F'; unit semantics of TriggerLow/High and ControlPolicyLimit
-    not stated.
-  - Success Content-Type documented as text/html; numeric query results' content type not stated.
-  - AXIS OS minimum version not stated. Events 'Temperature above/below' are referenced but topics not documented
-    here.
-  - Response bodies for 400 errors are shown as plain text; exact HTTP status in error examples is inferred from
-    the error table.
-  - 'migration: reply-ok: start: notes mention OK; reply read as plain text (check)'
-  - 'migration: reply-ok: stop: notes mention OK; reply read as plain text (check)'
-  - 'migration: reply-ok: set_user_control_mode: notes mention OK; reply read as plain text (check)'
-  - 'migration: reply-ok: set_trigger_level: notes mention OK; reply read as plain text (check)'
-  - 'migration: types-dropped: types not referenced by any migrated operation: FanStatus, HeaterStatus'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - The parameter table calls action, device and id optional, because statusall needs none; device and id are required in the generated start, stop, query, time_until_stop and set_user_control_mode (and usercontrolmode in the last).
+  - The table describes ``timeuntiltimestop`` while its value list and the examples use ``timeuntilstop``; the examples are followed.
+  - The Fan and Sensor groups say "# ranges from 0 to the number of heaters ... -1" (copy of the heater text).
+  - TriggerHigh and TriggerLow are documented as ``<integer>`` but an example uses ``30F``; the unit semantics and the meaning of ControlPolicyLimit/Delta are not stated, so the parameters are strings.
+  - Success is documented as Content-Type text/html with body ``OK``; the content type of numeric query results is not stated.
+  - Errors are HTTP 400 with a plain text body; the 500 internal error has no body documented.
+  - The AXIS OS minimum version is not stated. The Temperature above/below event topics are not documented here.
+  - The channel index sits inside the parameter name (TemperatureControl.Sensor.S#...), which the cgi binding cannot template; set_parameters takes full parameter names.
   migrated_from: v1
-  curated: false
+  curated: true

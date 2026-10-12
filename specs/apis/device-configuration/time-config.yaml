@@ -171,7 +171,6 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
-      x-contract: {skip: "runtime/harness bug: dca.py _field_for calls type(params).model_fields on a model class (AttributeError) for body_field setters"}
   get_active_time_zone:
     summary: Get the currently active time zone (IANA or POSIX format).
     effect: read
@@ -231,7 +230,6 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
-      x-contract: {skip: "runtime/harness bug: dca.py _field_for calls type(params).model_fields on a model class (AttributeError) for body_field setters"}
   get_iana:
     summary: Get the IANA time zone settings.
     effect: read
@@ -259,7 +257,6 @@ operations:
         status: 200
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/time-api/
-      x-contract: {skip: "runtime/harness bug: dca.py _field_for calls type(params).model_fields on a model class (AttributeError) for body_field setters"}
   get_time_zone_list:
     summary: List the IANA time zones available on the device.
     access: operator

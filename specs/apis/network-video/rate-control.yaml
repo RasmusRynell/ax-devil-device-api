@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: rate-control
 name: Rate control
-summary: Control the bitrate (VBR / MBR / ABR) of video streams via param.cgi defaults (Image.I#.RateControl) and
-  RTSP URL options.
+summary: Read and change the default bitrate control (VBR, MBR, ABR) of the video streams of an image view through param.cgi.
 section: network-video
 family: cgi
 status: released
@@ -15,80 +13,75 @@ docs:
 access: admin
 discovery:
 - param: {name: Properties.Image.RateControl.ABR.ABR, value: 'yes'}
+- param: {name: Properties.Image.RateControl.Version, value: '1.1', compare: '>='}
 
 binding: {path: /axis-cgi/param.cgi}
 
 operations:
   list_rate_control:
-    summary: Get the current default rate control parameters for an image view.
+    summary: 'Get the default rate control parameters of an image view as ``{"Image.I0.RateControl.Mode": "vbr"}`` (``root.`` removed).'
+    description: >-
+      Pass the parameter group of the image view, for example ``Image.I0.RateControl``; the number ranges from 0 to
+      Properties.Image.NbrOfViews minus one. The values are Mode (vbr, mbr or abr), Priority (none, quality,
+      framerate or fullframerate), MaxBitrate, ABR.TargetBitrate, ABR.MaxBitrate (all in kbit/s, 0 means the
+      product default of at least 50000) and ABR.RetentionTime (days, 1 to 3652).
     effect: read
     binding:
       method: GET
       query: {action: list}
-      reply: text_kv
+      reply: {text_kv: {strip_prefix: "root."}}
     params:
       type: object
       required: [group]
       properties:
-        group:
-          type: string
-          description: 'Image.I#.RateControl, # is 0–N where N is Properties.Image.NbrOfViews.'
-    result:
-      type: object
-      additionalProperties: {type: string}
+        group: {type: string, description: 'The parameter group, Image.I<n>.RateControl.'}
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+    - title: Get the default rate control parameters of image view 0
+      request: {query: {group: Image.I0.RateControl}}
+      response:
+        status: 200
+        text: "root.Image.I0.RateControl.Mode=vbr\nroot.Image.I0.RateControl.Priority=framerate\nroot.Image.I0.RateControl.MaxBitrate=0\n"
+      source: https://developer.axis.com/vapix/network-video/rate-control/#getting-and-setting-the-default-rate-control-parameters-for-image-view
   update_rate_control:
-    summary: Set default rate control parameters for an image view.
+    summary: 'Set default rate control parameters, e.g. ``{"root.Image.I0.RateControl.Mode": "mbr"}``.'
+    description: >-
+      The keys are parameters of Image.I<n>.RateControl, written with the ``root.`` prefix as in the docs. Mode is
+      vbr, mbr or abr (default vbr). In MBR mode MaxBitrate and Priority apply. In ABR mode ABR.TargetBitrate,
+      ABR.MaxBitrate and ABR.RetentionTime apply
+      and MaxBitrate and Priority are ignored. Only the given parameters change.
     effect: write
     write: patch
     binding:
       path: /axis-cgi/admin/param.cgi
       method: GET
       query: {action: update}
-      reply: text
+      reply: text_ok
     params:
       type: object
+      required: [parameters]
       properties:
-        root.Image.I#.RateControl.Mode:
-          type: string
-          enum: [vbr, mbr, abr]
-          default: vbr
-          x-python-name: mode
-          description: Specifies whether the rate controller should operate in VBR, MBR or ABR. MaxBitrate and Priority
-            are ignored in ABR mode; ABR.TargetBitrate and ABR.MaxBitrate are used instead.
-        root.Image.I#.RateControl.Priority:
-          type: string
-          enum: [none, quality, framerate, fullframerate]
-          default: framerate
-          x-python-name: priority
-          description: 'MBR only. Prioritize frame rate or quality. none: used if Mode is ABR or VBR. fullframerate:
-            tries to prevent frame drops in the rate controller.'
-        root.Image.I#.RateControl.MaxBitrate:
-          type: integer
-          minimum: 0
-          default: 0
-          x-python-name: max_bitrate
-          description: MBR only. The maximum bitrate allowed for the stream. If 0, at least 50000 will be used depending
-            of product, resolution or frame rate. (unit=kbit/s)
-        root.Image.I#.RateControl.ABR.TargetBitrate:
-          type: integer
-          minimum: 0
-          default: 0
-          x-python-name: abr_target_bitrate
-          description: ABR only. The maximum average bitrate allowed over ABR.RetentionTime days. If 0, at least
-            50000 will be used. Not all values are realistic. (unit=kbit/s)
-        root.Image.I#.RateControl.ABR.MaxBitrate:
-          type: integer
-          minimum: 0
-          default: 0
-          x-python-name: abr_max_bitrate
-          description: ABR only. The maximum instantaneous bitrate allowed. If 0, at least 50000 will be used. (unit=kbit/s)
-        root.Image.I#.RateControl.ABR.RetentionTime:
-          type: integer
-          minimum: 1
-          maximum: 3652
-          default: 7
-          x-python-name: abr_retention_time
-          description: ABR only. The desired retention, measured in days. (unit=days)
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+    examples:
+    - title: Set the maximum bitrate to 1000 kbit/s and prioritize quality
+      request:
+        query:
+          root.Image.I0.RateControl.Mode: mbr
+          root.Image.I0.RateControl.MaxBitrate: '1000'
+          root.Image.I0.RateControl.Priority: quality
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/rate-control/#getting-and-setting-the-default-rate-control-parameters-for-image-view
+    - title: Set the average bitrate parameters
+      request:
+        query:
+          root.Image.I0.RateControl.Mode: abr
+          root.Image.I0.RateControl.ABR.TargetBitrate: '500'
+          root.Image.I0.RateControl.ABR.MaxBitrate: '1000'
+          root.Image.I0.RateControl.ABR.RetentionTime: '30'
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/rate-control/#set-the-average-bitrate-parameters-in-axis-cgiparamcgi
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/rate-control/
@@ -96,25 +89,15 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - Identification lists 'Image.IO.RateControl.Mode' (letter O) — presumably Image.I0 (zero).
-  - Event data fields other than 'abr error' (low_bitrate, scale_width, ...) are only named in prose; their XML
-    types/names are not shown in the declaration example. Types inferred.
-  - dynamic_fps described as '1 if dynamic GOP is turned on' (copy/paste error).
-  - Event data item declared Name='abr error' (with space) vs prose 'abr_error'.
-  - Security levels for list/update not stated; examples use /axis-cgi/param.cgi for list and /axis-cgi/admin/param.cgi
-    for update.
-  - Exact event topic namespace prefixes (tns1:VideoSource/tnsaxis:ABR) taken from the TopicSet example.
-  - 'migration: op-skipped: stream_with_rate_control: kind rtsp_request is not a classic CGI call'
-  - 'migration: discovery: param_property ''Image.I0.RateControl.Mode'' is not a Name=value pair: dropped'
-  - 'migration: discovery: param_property ''Image.I0.RateControl.MaxBitrate'' is not a Name=value pair: dropped'
-  - 'migration: discovery: param_property ''Properties.Image.RateControl.Version>=1.1'' is not a Name=value pair:
-    dropped'
-  - 'migration: types-dropped: types not referenced by any migrated operation: RateControlMode, RateControlPriority'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section events not carried over'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'BLOCKED(templated-param-name): typed RateControl settings (mode, priority, max bitrate, ABR parameters): the wire names Image.I<n>.RateControl.* embed the image view index, so list_rate_control returns the key/value map and update_rate_control takes the parameter map.'
+  - 'BLOCKED(rtsp-url): stream_with_rate_control: RTSP URL options videobitratemode, videobitratepriority, videomaxbitrate, videoabrtargetbitrate, videoabrmaxbitrate and videoabrretentiontime.'
+  - The identification lists Image.IO.RateControl.Mode and MaxBitrate (letter O), presumably Image.I0 (zero); these are not Name=value probes and are not used for discovery.
+  - The event data of the ABR stream status (abr error, low_bitrate, scale_width and others) is only named in prose; the events are not modelled.
+  - dynamic_fps is described as "1 if dynamic GOP is turned on" (a copy and paste error).
+  - The security levels are not stated; the examples use /axis-cgi/param.cgi for list and /axis-cgi/admin/param.cgi for update.
+  - The body of the update reply is not shown; param.cgi answers OK, so the reply is read as OK.
+  - The list example reply is a constructed sample; the docs show only the request.
   migrated_from: v1
-  curated: false
+  curated: true

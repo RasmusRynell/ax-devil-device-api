@@ -1,0 +1,68 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: event-data-streaming
+name: Event data streaming
+summary: Receive ONVIF XML event notifications in the RTSP/RTP metadata stream (/axis-media/media.amp?event=on&eventtopic=...&eventcontent=...).
+section: network-video
+family: rtsp
+status: released
+python:
+  module: event_data_streaming
+  class: EventDataStreaming
+docs:
+- https://developer.axis.com/vapix/network-video/event-data-streaming/
+access: admin
+discovery:
+- param: {name: Properties.API.Metadata.Metadata, value: 'yes'}
+- param: {name: Properties.API.Metadata.Version, value: '1.00'}
+requires:
+  firmware: '5.50'
+
+binding: {}
+
+operations:
+  subscribe_event_stream_url:
+    summary: Subscribe to the event stream over RTSP (same syntax as video/audio streams plus event arguments).
+    description: Only subscribe to events of interest; subscriptions start internal services and may cause performance
+      problems. On connect, all stateful events send a notification with their current state.
+    effect: read
+    binding:
+      rtsp: {}
+    params:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: ['on', 'off']
+          default: 'off'
+          description: Whether event metadata should be available in the stream.
+        eventtopic:
+          type: string
+          default: ''
+          description: Comma-separated list of event topic filters (ONVIF ConcreteSet dialect, using filter namespaces
+            onvif/axis instead of tns1/tnsaxis).
+        eventcontent:
+          type: string
+          default: ''
+          description: Event content filter (ONVIF ItemFilter dialect), e.g. boolean(//SimpleItem[@Name="port" and
+            @Value="1"]). Spaces and special characters (incl. quotes) should be percent-encoded.
+        video: {type: integer, enum: [0, 1], default: 1, description: '0 = no video, 1 = video.'}
+        audio: {type: integer, enum: [0, 1], default: 1, description: '0 = no audio, 1 = audio.'}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/event-data-streaming/
+  sha256_md: ff0b7c1e0f9207afc25b0db466f227d0a2c86dd1301dc9db99c9bd775d7df516
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Content filter example uses eventtopic=onvif:Device/axis:IO/port//. (lowercase 'port') whereas the topic is
+    IO/Port.
+  - Video streaming over RTSP is referred to as 'RSTP' (typo).
+  - Access level required to subscribe is not stated.
+  - 'migration: op-skipped: get_event_instances: a SOAP call; the Event service spec covers it'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import MISSING
 
@@ -206,7 +206,7 @@ class ParameterManagementApi(SyncApi):
 
         Access: operator.
         """
-        args = {"template": template, "group": group, "force": force}
+        args: dict[str, Any] = {"template": template, "group": group, "force": force}
         if parameters is not MISSING:
             args["parameters"] = dict(parameters)
         return self._run(OPS.add, None, args, request_options)
@@ -275,7 +275,7 @@ class AsyncParameterManagementApi(AsyncApi):
 
         Access: operator.
         """
-        args = {"template": template, "group": group, "force": force}
+        args: dict[str, Any] = {"template": template, "group": group, "force": force}
         if parameters is not MISSING:
             args["parameters"] = dict(parameters)
         return await self._run(OPS.add, None, args, request_options)

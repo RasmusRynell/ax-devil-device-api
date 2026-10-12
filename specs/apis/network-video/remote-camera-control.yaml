@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: remote-camera-control
 name: Remote camera control API
-summary: 'Manage the connection from a local camera (AXIS Q6000-E) to a remote PTZ camera: get/set connection parameters,
-  connection status, remote URL.'
+summary: 'Manage the connection from a local camera (AXIS Q6000-E) to a remote PTZ camera: get/set connection parameters, connection status, remote URL.'
 section: network-video
 family: cgi
 status: released
@@ -19,46 +17,109 @@ discovery:
 
 binding: {path: /axis-cgi/remotecameracontrol/getvapixparams.cgi}
 
+errors:
+  10: {description: Error while processing the request.}
+  20: {description: Invalid request., kind: invalid_argument}
+  40: {description: Specified version is not supported., kind: unsupported}
+
 types:
-  GetVapixParamsSuccess:
+  DiscoveryMode:
+    type: string
+    enum: [auto, manual]
+  BaseConnectionParams:
     type: object
+    required: [MACAddress, Host, DiscoveryMode]
+    properties:
+      MACAddress: {type: string, description: The remote camera Ethernet MAC address., x-xml: {child: MACAddress}}
+      Host: {type: string, description: 'The host name, IPv4 address or IPv6 address used when connecting to the remote camera.', x-xml: {child: Host}}
+      DiscoveryMode:
+        $ref: '#/types/DiscoveryMode'
+        description: 'Address discovery mode: auto discovers the remote IPv4 address automatically; manual uses the configured host.'
+        x-xml: {child: DiscoveryMode}
+  VapixConnectionParams:
+    type: object
+    required: [HTTPPort, HTTPSPort, RTSPPort, Username]
+    properties:
+      HTTPPort: {type: integer, minimum: 0, description: The HTTP port used in the connection to the remote camera., x-xml: {child: HTTPPort}}
+      HTTPSPort: {type: integer, minimum: 0, description: The HTTPS port used in the connection to the remote camera., x-xml: {child: HTTPSPort}}
+      RTSPPort: {type: integer, minimum: 0, description: The RTSP port used in the connection to the remote camera., x-xml: {child: RTSPPort}}
+      Username: {type: string, description: User name for a user account on the remote camera., x-xml: {child: Username}}
+  VapixParams:
+    type: object
+    x-xml: {root: GetVapixParamsSuccess}
+    required: [BaseConnectionParams, VapixConnectionParams]
     properties:
       BaseConnectionParams:
-        type: object
-        x-name: GetVapixParamsSuccessBaseConnectionParams
-        properties:
-          MACAddress:
-            type: string
-            x-xml: {child: MACAddress}
-          Host:
-            type: string
-            x-xml: {child: Host}
-          DiscoveryMode:
-            type: string
-            x-xml: {child: DiscoveryMode}
+        $ref: '#/types/BaseConnectionParams'
+        x-xml: {path: BaseConnectionParams}
       VapixConnectionParams:
-        type: object
-        x-name: GetVapixParamsSuccessVapixConnectionParams
-        properties:
-          HTTPPort:
-            type: integer
-            minimum: 0
-            x-xml: {child: HTTPPort}
-          HTTPSPort:
-            type: integer
-            minimum: 0
-            x-xml: {child: HTTPSPort}
-          RTSPPort:
-            type: integer
-            minimum: 0
-            x-xml: {child: RTSPPort}
-          Username:
-            type: string
-            x-xml: {child: Username}
-  GetVapixParamsResult:
+        $ref: '#/types/VapixConnectionParams'
+        x-xml: {path: VapixConnectionParams}
+  ConnectionStatus:
     type: object
+    required: [StatusCode, Description]
     properties:
-      GetVapixParamsSuccess: {$ref: '#/types/GetVapixParamsSuccess'}
+      StatusCode:
+        type: integer
+        minimum: 0
+        description: '0 Connection OK, 1 Trying to connect, 2 No connection, 3 Not authorized.'
+        x-xml: {child: StatusCode}
+      Description: {type: string, description: Status description., x-xml: {child: Description}}
+  VapixConnectionStatus:
+    type: object
+    required: [HTTPStatus, HTTPSStatus, RTSPStatus]
+    properties:
+      HTTPStatus:
+        $ref: '#/types/ConnectionStatus'
+        description: HTTP connection status.
+        x-xml: {path: HTTPStatus}
+      HTTPSStatus:
+        $ref: '#/types/ConnectionStatus'
+        description: HTTPS connection status.
+        x-xml: {path: HTTPSStatus}
+      RTSPStatus:
+        $ref: '#/types/ConnectionStatus'
+        description: RTSP connection status.
+        x-xml: {path: RTSPStatus}
+  VapixStatus:
+    type: object
+    x-xml: {root: '*'}
+    required: [BaseConnectionStatus, VapixConnectionStatus]
+    properties:
+      BaseConnectionStatus:
+        $ref: '#/types/ConnectionStatus'
+        description: Base connection status.
+        x-xml: {path: BaseConnectionStatus}
+      VapixConnectionStatus:
+        $ref: '#/types/VapixConnectionStatus'
+        x-xml: {path: VapixConnectionStatus}
+  RemoteUrl:
+    type: object
+    x-xml: {root: '*'}
+    required: [Url]
+    properties:
+      Url: {type: string, description: The URL to the remote camera., x-xml: text}
+  SchemaVersion:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: The version number of the XML schema, major.minor.
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used. Defaults to false.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: '*'}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
 
 operations:
   get_vapix_params:
@@ -72,9 +133,8 @@ operations:
         schemaversion:
           type: string
           pattern: ^[0-9]+(\.[0-9]+)?$
-          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
-            is required; if minor is not specified the latest minor version is used.
-    result: {$ref: '#/types/GetVapixParamsResult'}
+          description: The version of the XML schema to use for the response, in the form major[.minor]. The major version is required; if the minor version is omitted the latest minor version is used.
+    result: {$ref: '#/types/VapixParams'}
     examples:
     - title: Get the connection parameters
       request:
@@ -83,27 +143,25 @@ operations:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8" ?>
-          <RemoteCameraControlResponse
-              SchemaVersion="1.0"
-              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
-              <GetVapixParamsSuccess>
-                  <BaseConnectionParams>
-                      <MACAddress>ac:cc:8e:08:47:68</MACAddress>
-                      <Host>169.254.0.123</Host>
-                      <DiscoveryMode>auto</DiscoveryMode>
-                  </BaseConnectionParams>
-                  <VapixConnectionParams>
-                      <HTTPPort>80</HTTPPort>
-                      <HTTPSPort>443</HTTPSPort>
-                      <RTSPPort>553</RTSPPort>
-                      <Username>root</Username>
-                  </VapixConnectionParams>
-              </GetVapixParamsSuccess>
+          <RemoteCameraControlResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
+            <GetVapixParamsSuccess>
+              <BaseConnectionParams>
+                <MACAddress>ac:cc:8e:08:47:68</MACAddress>
+                <Host>169.254.0.123</Host>
+                <DiscoveryMode>auto</DiscoveryMode>
+              </BaseConnectionParams>
+              <VapixConnectionParams>
+                <HTTPPort>80</HTTPPort>
+                <HTTPSPort>443</HTTPSPort>
+                <RTSPPort>553</RTSPPort>
+                <Username>root</Username>
+              </VapixConnectionParams>
+            </GetVapixParamsSuccess>
           </RemoteCameraControlResponse>
       source: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/#common-examples
   set_vapix_params:
     summary: Set connection parameters (only used in the connection; remote camera settings are not changed).
+    description: Parameters that are not given keep the remote camera's current settings.
     effect: write
     write: patch
     binding: {path: /axis-cgi/remotecameracontrol/setvapixparams.cgi, method: GET, reply: xml}
@@ -114,30 +172,26 @@ operations:
         schemaversion:
           type: string
           pattern: ^[0-9]+(\.[0-9]+)?$
-          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
-            is required; if minor is not specified the latest minor version is used.
-        host: {type: string, description: 'The remote camera host address, IPv4 address or IPv6 address.'}
+          description: The version of the XML schema to use for the response, in the form major[.minor]. The major version is required; if the minor version is omitted the latest minor version is used.
+        host: {type: string, description: 'The remote camera host address: host name, IPv4 address or IPv6 address.'}
         discoverymode:
-          type: string
-          enum: [auto, manual]
-          default: auto
-          description: auto = local camera discovers the remote camera IPv4 address automatically; manual = address
-            must be set using host. IPv6 requires manual mode and host.
+          $ref: '#/types/DiscoveryMode'
+          description: 'auto: the local camera discovers the remote camera IPv4 address automatically (the default). manual: the address is not discovered and must be set using host. IPv6 requires manual mode and host.'
         httpport:
           type: integer
           minimum: 1
           maximum: 65535
-          description: 'The remote camera''s HTTP port. Default: the remote camera''s current HTTP port setting.'
+          description: "The remote camera's HTTP port. Default: the current HTTP port setting."
         httpsport:
           type: integer
           minimum: 1
           maximum: 65535
-          description: 'The remote camera''s HTTPS port. Default: current setting.'
+          description: "The remote camera's HTTPS port. Default: the current HTTPS port setting."
         rtspport:
           type: integer
           minimum: 1
           maximum: 65535
-          description: 'The remote camera''s RTSP port. Default: current setting.'
+          description: "The remote camera's RTSP port. Default: the current RTSP port setting."
         username: {type: string, description: User name for a user account on the remote camera.}
         password: {type: string, description: Password for the user account.}
     examples:
@@ -148,11 +202,8 @@ operations:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8" ?>
-          <RemoteCameraControlResponse
-              SchemaVersion="1.0"
-              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
-              <GeneralSuccess />
+          <RemoteCameraControlResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
+            <GeneralSuccess />
           </RemoteCameraControlResponse>
       source: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/#common-examples
   get_vapix_status:
@@ -167,9 +218,8 @@ operations:
         schemaversion:
           type: string
           pattern: ^[0-9]+(\.[0-9]+)?$
-          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
-            is required; if minor is not specified the latest minor version is used.
-    result: {x-xml: true}
+          description: The version of the XML schema to use for the response, in the form major[.minor]. The major version is required; if the minor version is omitted the latest minor version is used.
+    result: {$ref: '#/types/VapixStatus'}
     examples:
     - title: Get connection status
       request:
@@ -178,30 +228,27 @@ operations:
         status: 200
         text: |-
           <?xml version="1.0" encoding="utf-8" ?>
-          <RemoteCameraControlResponse
-              SchemaVersion="1.0"
-              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
-              <GetStatusSuccess>
-                  <BaseConnectionStatus>
-                      <StatusCode>0</StatusCode>
-                      <Description>Connection OK</Description>
-                  </BaseConnectionStatus>
-                  <VapixConnectionStatus>
-                      <HTTPStatus>
-                          <StatusCode>0</StatusCode>
-                          <Description>Connection OK</Description>
-                      </HTTPStatus>
-                      <HTTPSStatus>
-                          <StatusCode>0</StatusCode>
-                          <Description>Connection OK</Description>
-                      </HTTPSStatus>
-                      <RTSPStatus>
-                          <StatusCode>0</StatusCode>
-                          <Description>Connection OK</Description>
-                      </RTSPStatus>
-                  </VapixConnectionStatus>
-              </GetStatusSuccess>
+          <RemoteCameraControlResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
+            <GetStatusSuccess>
+              <BaseConnectionStatus>
+                <StatusCode>0</StatusCode>
+                <Description>Connection OK</Description>
+              </BaseConnectionStatus>
+              <VapixConnectionStatus>
+                <HTTPStatus>
+                  <StatusCode>0</StatusCode>
+                  <Description>Connection OK</Description>
+                </HTTPStatus>
+                <HTTPSStatus>
+                  <StatusCode>0</StatusCode>
+                  <Description>Connection OK</Description>
+                </HTTPSStatus>
+                <RTSPStatus>
+                  <StatusCode>0</StatusCode>
+                  <Description>Connection OK</Description>
+                </RTSPStatus>
+              </VapixConnectionStatus>
+            </GetStatusSuccess>
           </RemoteCameraControlResponse>
       source: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/#common-examples
   get_remote_url:
@@ -216,15 +263,43 @@ operations:
         schemaversion:
           type: string
           pattern: ^[0-9]+(\.[0-9]+)?$
-          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
-            is required; if minor is not specified the latest minor version is used.
-    result: {x-xml: true}
+          description: The version of the XML schema to use for the response, in the form major[.minor]. The major version is required; if the minor version is omitted the latest minor version is used.
+    result: {$ref: '#/types/RemoteUrl'}
+    examples:
+    - title: Get the remote URL
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <RemoteCameraControlResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
+            <GetRemoteURLSuccess>http://169.254.0.123</GetRemoteURLSuccess>
+          </RemoteCameraControlResponse>
+      source: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/#get-remote-url
   get_schema_versions:
     summary: List supported XML schema versions and whether they are deprecated.
     access: viewer
     effect: read
     binding: {path: /axis-cgi/remotecameracontrol/schemaversions.cgi, method: GET, reply: xml}
-    result: {x-xml: true}
+    result: {$ref: '#/types/SchemaVersions'}
+    examples:
+    - title: List schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <RemoteCameraControlResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/RemoteCameraControl1.xsd">
+            <SchemaVersionSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+            </SchemaVersionSuccess>
+          </RemoteCameraControlResponse>
+      source: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/#xml-schema-versions
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/
@@ -234,21 +309,12 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'Element names differ between doc and XSD: GetStatusSuccess vs GetVapixStatusSuccess; GetRemoteURLSuccess vs
-    GetRemoteUrlSuccess; SchemaVersionSuccess vs SchemaVersionsSuccess; error table lists ErrorDescription while
-    body/XSD use Description.'
-  - Example response shows RTSPPort 553 (doc example value).
+  - 'Element names differ between the docs and RemoteCameraControl1.xsd: GetStatusSuccess vs GetVapixStatusSuccess, GetRemoteURLSuccess vs GetRemoteUrlSuccess, SchemaVersionSuccess vs SchemaVersionsSuccess. The result mappings therefore read the first child of the document root (root "*") for status, URL and schema versions; GetVapixParamsSuccess is the same in both.'
+  - The error table lists ErrorDescription while the body and XSD use Description; the runtime reads both.
+  - The docs show reply examples only for get_vapix_params, set_vapix_params and get_vapix_status; the remote URL and schema version examples are constructed from the body syntax.
+  - The set_vapix_params password is sent in the query string as documented (no POST form is documented).
+  - The documented methods are GET/POST; GET is used.
+  - StatusCode is an integer without an enum because integer-valued Literals do not accept the string form read from XML.
   - AXIS OS minimum not stated.
-  - 'migration: xml-unmapped: set_vapix_params: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_vapix_status: schema properties not found in the sample reply; result is the raw
-    XML element'
-  - 'migration: xml-unmapped: get_remote_url: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: xml-unmapped: get_schema_versions: no parseable sample reply to derive the x-xml mapping from; result
-    is the raw XML element'
-  - 'migration: types-dropped: types not referenced by any migrated operation: GeneralError, GetVapixStatusSuccess,
-    SchemaVersion, StatusType'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
   migrated_from: v1
-  curated: false
+  curated: true

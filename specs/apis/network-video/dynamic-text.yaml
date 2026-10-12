@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: dynamic-text
 name: Dynamic text
-summary: 'GET /axis-cgi/dynamicoverlay.cgi?action=settext|gettext sets/gets dynamic text slots mapped to overlay
-  modifiers #D1..#D16.'
+summary: Set and get the dynamic text slots that text overlays show through the D1 to D16 modifiers.
 section: network-video
 family: cgi
 status: released
@@ -21,14 +19,16 @@ operations:
     summary: Set the dynamic text.
     effect: write
     write: patch
+    positional: [text]
     binding:
       method: GET
       query: {action: settext}
       reply: text
     params:
       type: object
+      required: [text]
       properties:
-        text: {type: string, description: 'The overlay text to apply, only applicable with action=settext.'}
+        text: {type: string, description: The overlay text to apply.}
         text_index:
           type: integer
           minimum: 1
@@ -38,11 +38,13 @@ operations:
         camera:
           type: array
           items: {type: string}
-          default: ['1']
-          description: Selects the video channel.
+          x-style: csv
+          description: Video channels to select. The device uses channel 1 when omitted. Only valid on products with
+            more than one video channel.
   get_text:
     summary: Get the dynamic text.
     effect: read
+    positional: [text_index]
     binding:
       method: GET
       query: {action: gettext}
@@ -59,8 +61,9 @@ operations:
         camera:
           type: array
           items: {type: string}
-          default: ['1']
-          description: Selects the video channel.
+          x-style: csv
+          description: Video channels to select. The device uses channel 1 when omitted. Only valid on products with
+            more than one video channel.
     result: {type: string}
 
 sources:
@@ -72,8 +75,8 @@ provenance:
   completeness: partial
   open_questions:
   - Response format of settext/gettext is not documented.
-  - Requirements/discovery properties not given.
-  - text_index described as selecting a slot; whether it is required (and default) is not stated.
-  - Path /axis-cgi/dynamicoverlay.cgi differs from Dynamic overlay API path /axis-cgi/dynamicoverlay/dynamicoverlay.cgi.
+  - No discovery properties are given for dynamic text.
+  - Whether text_index is required, and which slot is used when it is omitted, is not stated.
+  - The path /axis-cgi/dynamicoverlay.cgi differs from the Dynamic overlay API path /axis-cgi/dynamicoverlay/dynamicoverlay.cgi.
   migrated_from: v1
-  curated: false
+  curated: true

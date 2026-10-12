@@ -70,12 +70,10 @@ operations:
     result: {$ref: "#/types/HeaderMap"}
     examples:
       - title: Set CORS header
-        x-contract: {skip: "The contract harness cannot build wrapped (non-object) JSON-RPC params; the request model has one field, headers."}
         request: {params: {Access-Control-Allow-Origin: "http://axis.trusted.example.server.com"}}
         response: {data: {Access-Control-Allow-Origin: "http://axis.trusted.example.server.com"}}
         source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#set-cors-header
       - title: Set a Cookie header
-        x-contract: {skip: "The contract harness cannot build wrapped (non-object) JSON-RPC params; the request model has one field, headers."}
         request: {params: {Set-Cookie: "deviceId=123; Max-Age=200"}}
         response: {data: {Set-Cookie: "deviceId=123; Max-Age=200"}}
         source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#set-a-cookie-header
@@ -97,7 +95,6 @@ operations:
     result: {$ref: "#/types/HeaderMap"}
     examples:
       - title: Remove the Set-Cookie header
-        x-contract: {skip: "The contract harness cannot build wrapped (non-object) JSON-RPC params; the request model has one field, headers."}
         request: {params: {Set-Cookie: "deviceId=123; Max-Age=200"}}
         response: {data: {Set-Cookie: "deviceId=123; Max-Age=200"}}
         source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#remove-a-custom-header

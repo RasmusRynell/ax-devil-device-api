@@ -95,7 +95,6 @@ operations:
       items: {$ref: "#/types/FilterSetting"}
     examples:
       - title: Invert the pencil filter and set its threshold
-        x-contract: {skip: "contract harness cannot build requests for array-wrapped params (the example sends the raw array)"}
         request:
           params:
             - {type: pencil, flags: {inverted: true, threshold: 45}}
@@ -117,7 +116,6 @@ operations:
       items: {$ref: "#/types/FilterSetting"}
     examples:
       - title: Check the pencil filter settings
-        x-contract: {skip: "contract harness cannot build requests for array-wrapped params (the example sends the raw array)"}
         request:
           params:
             - {type: pencil}
@@ -139,7 +137,6 @@ operations:
       items: {$ref: "#/types/FilterType"}
     examples:
       - title: Deactivate the filter
-        x-contract: {skip: "contract harness cannot build requests for array-wrapped params (the example sends the raw array)"}
         request:
           params:
             - {type: none}

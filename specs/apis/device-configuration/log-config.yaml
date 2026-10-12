@@ -119,7 +119,6 @@ operations:
     binding: {method: POST, path: /persistent/clearLog, body: object}
     examples:
     - title: Clear the log file from the persistent storage
-      x-contract: {skip: "docs send an empty body {}; the runtime sends {data: {}}"}
       request:
         path: /persistent/clearLog
         body: {}

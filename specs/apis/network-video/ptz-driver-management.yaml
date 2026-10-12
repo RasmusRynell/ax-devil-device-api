@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: ptz-driver-management
 name: PTZ driver management API
-summary: List embedded/uploaded PTZ drivers and activate/deactivate an external PTZ device driver (device type,
-  device ID) per video channel.
+summary: List the PTZ drivers and activate or deactivate an external PTZ device driver (device type, device ID) per video channel.
 section: network-video
 family: cgi
 status: released
@@ -22,36 +20,123 @@ requires:
 
 binding: {path: /axis-cgi/ptz/ptzuploader.cgi}
 
+types:
+  DriverState:
+    type: integer
+    minimum: 0
+    maximum: 2
+    description: 0 means not installed, 1 malfunction, 2 active.
+  DeviceIdRange:
+    type: object
+    properties:
+      minimum:
+        type: integer
+        description: The lowest device ID the driver accepts.
+        x-xml: {child: min}
+      maximum:
+        type: integer
+        description: The highest device ID the driver accepts.
+        x-xml: {child: max}
+  DriverEntry:
+    type: object
+    required: [id]
+    properties:
+      id: {type: integer, description: 'The driver ID.', x-xml: {child: id}}
+      driver: {type: string, description: 'The driver name.', x-xml: {child: driver}}
+      driverVersion:
+        type: string
+        description: The driver version.
+        x-xml: {child: driverversion}
+      installed:
+        type: array
+        items: {type: integer}
+        description: The video channels where the driver is active. Empty when it is active on none.
+        x-xml: {path: installed/ch}
+      deviceTypes:
+        type: array
+        items: {type: string}
+        description: The device types the driver supports. Only present when the driver supports selecting a device type.
+        x-xml: {path: deviceTypes/deviceType}
+      deviceIdRange:
+        $ref: "#/types/DeviceIdRange"
+        description: The range of device IDs that can be assigned to a device managed by the driver.
+  ActiveDriver:
+    type: object
+    properties:
+      status:
+        $ref: "#/types/DriverState"
+        x-xml: {child: driverStatus}
+      driverId:
+        type: integer
+        description: The ID of the active driver.
+        x-xml: {child: driverId}
+      deviceType:
+        type: string
+        description: The device type of the active driver.
+        x-xml: {child: driverDeviceType}
+      deviceId:
+        type: integer
+        description: The device ID of the active driver.
+        x-xml: {child: driverDeviceId}
+  ChannelStatus:
+    type: object
+    required: [channel]
+    properties:
+      channel:
+        type: integer
+        description: The video channel number.
+        x-xml: {attribute: id}
+      activeDriver:
+        $ref: "#/types/ActiveDriver"
+        description: The driver active on the channel. Absent when the channel has no driver.
+  DriverStatus:
+    type: object
+    x-xml: {root: status}
+    properties:
+      channels:
+        type: array
+        items: {$ref: "#/types/ChannelStatus"}
+        x-xml: {path: channel}
+  DriverList:
+    type: object
+    properties:
+      drivers:
+        type: array
+        items: {$ref: "#/types/DriverEntry"}
+        x-xml: {path: driverentry}
+      status:
+        $ref: "#/types/DriverStatus"
+        description: The driver status of every channel. Present when ``status`` was requested.
+
 operations:
   list_drivers:
-    summary: List available PTZ drivers (XML), optionally with per-channel driver status.
+    summary: List the available PTZ drivers, optionally with the driver status of every channel.
     effect: read
-    binding: {method: GET, reply: xml}
+    binding:
+      method: GET
+      query: {list: 'yes'}
+      reply: xml
     params:
       type: object
       properties:
-        list:
-          type: string
-          enum: ['yes']
-          default: 'yes'
-          description: 'yes: list the uploaded/available drivers in an XML listing.'
         status:
-          type: string
-          enum: ['yes', 'no']
-          default: 'no'
-          description: 'yes: append the driver status for all channels in the response.'
-    result: {x-xml: true}
+          type: boolean
+          x-style: axis_bool
+          default: false
+          description: Append the driver status of all channels to the reply.
+    positional: [status]
+    result: {$ref: "#/types/DriverList"}
     errors:
-      400: {description: Listing failed.}
-      409: {description: Product is not configured to use uploadable PTZ driver mode.}
+      400: {description: The listing failed., kind: invalid_argument}
+      409: {description: The product is not configured to use uploadable PTZ driver mode., kind: unsupported}
     examples:
-    - title: List drivers with status
-      request:
-        query: {list: 'yes', status: 'yes'}
+    - title: List the drivers with the driver status
+      request: {query: {list: 'yes', status: 'yes'}}
       response:
         status: 200
         text: |-
           <?xml version="1.0"?>
+          <root>
             <driverentry>
               <id>1</id>
               <driver>Pelco</driver>
@@ -79,7 +164,6 @@ operations:
                 <max>255</max>
               </deviceIdRange>
             </driverentry>
-            ...
             <status>
               <channel id="1">
                 <activeDriver>
@@ -92,12 +176,52 @@ operations:
               <channel id="2"></channel>
               <channel id="3"></channel>
               <channel id="4"></channel>
-            <status>
+            </status>
           </root>
       source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#list-all-ptz-drivers
+    - title: List the drivers without status
+      request: {query: {list: 'yes'}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0"?>
+          <root>
+            <driverentry>
+              <id>2</id>
+              <driver>Visca/EVI</driver>
+              <driverversion>4.11</driverversion>
+              <installed></installed>
+              <deviceTypes>
+                <deviceType>EVI-G20/G21</deviceType>
+                <deviceType>EVI-D30/D31</deviceType>
+              </deviceTypes>
+              <deviceIdRange>
+                <min>1</min>
+                <max>7</max>
+              </deviceIdRange>
+            </driverentry>
+            <driverentry>
+              <id>3</id>
+              <driver>ARTP</driver>
+              <driverversion>1.1.0</driverversion>
+              <installed></installed>
+            </driverentry>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#list-all-ptz-drivers
+  get_driver_status:
+    summary: Get the driver status of every video channel.
+    effect: read
+    binding:
+      method: GET
+      query: {status: 'yes'}
+      reply: xml
+    result: {$ref: "#/types/DriverStatus"}
+    errors:
+      400: {description: The status request failed., kind: invalid_argument}
+      409: {description: The product is not configured to use uploadable PTZ driver mode., kind: unsupported}
+    examples:
     - title: Check if a PTZ driver is active
-      request:
-        query: {status: 'yes'}
+      request: {query: {status: 'yes'}}
       response:
         status: 200
         text: |-
@@ -119,10 +243,12 @@ operations:
           </root>
       source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#check-if-a-ptz-driver-is-active
   activate_driver:
-    summary: Activate (install) or deactivate (driverid=0) a driver on a video channel; change device type / device
-      ID.
+    summary: Activate a driver on a video channel, change its device type or device ID, or deactivate it (driverid 0).
+    description: >-
+      An external PTZ device driver active on the channel is deactivated when a new driver is activated. Only one
+      external driver can be active at a time. Check the result with ``get_driver_status``.
     effect: action
-    binding: {path: /axis-cgi/ptz/ptzupgrader.cgi, method: GET, reply: xml}
+    binding: {path: /axis-cgi/ptz/ptzupgrader.cgi, method: GET, reply: text}
     params:
       type: object
       properties:
@@ -130,45 +256,35 @@ operations:
           type: integer
           minimum: 0
           default: 0
-          description: Driver ID from ptzuploader.cgi?list=yes. 0 deactivates the currently active driver without
-            installing another. (Examples also use driverId.)
+          description: The driver ID from ``list_drivers``. 0 deactivates the active driver without installing another.
         channel:
           type: integer
           minimum: 1
           default: 1
-          description: Video channel. An external driver active on the channel is deactivated when a new driver
-            is activated.
+          description: The video channel where the driver is installed.
         deviceType:
           type: string
-          description: Device type for drivers supporting hardware variants (from <deviceTypes>). Defaults to the
-            first listed device type, without guarantee of successful communication.
+          description: The device type for drivers that support hardware variants (see ``DriverEntry.device_types``).
+            Defaults to the first listed device type, without a guarantee that communication succeeds.
         deviceId:
           type: integer
-          description: Device address for daisy-chained devices; defaults to the channel number. Range from <deviceIdRange>.
-        status:
-          type: string
-          enum: ['yes', 'no']
-          default: 'no'
-          description: 'yes: append the driver status for all channels in the response.'
-        port:
-          type: string
-          description: Deprecated since API 1.1; the port is always set to the one required by the driver.
+          description: The address of the device when several are daisy chained (see ``DriverEntry.device_id_range``).
+            Defaults to the channel number.
+    positional: [driverid]
     errors:
       400: {description: Invalid request., kind: invalid_argument}
-      409: {description: Product is not configured to use uploadable PTZ driver mode.}
-      500: {description: Misconfiguration or hardware errors.}
+      409: {description: The product is not configured to use uploadable PTZ driver mode., kind: unsupported}
+      500: {description: Misconfiguration or hardware error., kind: internal}
       501: {description: A driver is already installed on the channel.}
-  upload_driver:
-    summary: Upload a driver file as HTTP POST data (deprecated in 1.1, removed in 2.0).
-    description: Deprecated.
-    effect: write
-    write: create
-    binding: {method: POST, encoding: form, reply: xml}
-    params:
-      type: object
-      required: [body]
-      properties:
-        body: {type: string, description: Driver file contents as HTTP POST data.}
+    examples:
+    - title: Install driver 2 on video channel 1 with a device type and device ID
+      request: {query: {driverid: '2', channel: '1', deviceType: Generic, deviceId: '1'}}
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#install-a-ptz-driver
+    - title: Uninstall the driver from video channel 1
+      request: {query: {driverid: '0', channel: '1'}}
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#uninstall-a-ptz-driver
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
@@ -176,21 +292,15 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - driverid vs driverId spelling differs between table and examples.
-  - Upload request format for the deprecated upload (multipart vs raw POST) is not specified; common example shows
-    GET.
-  - Driver status values differ between XML driverStatus (0-2) and parameter Driver#Status (0-3).
-  - XML list syntax shows <deviceId> but table/example use <deviceIdRange>; example XML lacks <root>.
-  - Version 2.0/2.1 identification not listed; only 1.0, 1.1, 2.2.
-  - 'migration: xml-unmapped: list_drivers: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: activate_driver: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: upload_driver: no response schema in v1; result is the raw XML element'
-  - 'migration: discovery: param_property ''Properties.PTZ.DriverManagementChannels'' is not a Name=value pair:
-    dropped'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'BLOCKED(raw-body): upload_driver: ptzuploader.cgi upload of a driver file as HTTP POST data (deprecated since API 1.1, removed in 2.0).'
+  - The table spells the argument driverid while the examples use driverId; the spec follows the table.
+  - The documented list examples are not well-formed XML (no root element, "..." elisions, unclosed status element); the spec examples add the root and drop the elisions.
+  - The syntax block shows deviceId in the driver entry while the table and examples use deviceIdRange; the spec follows the table.
+  - Driver status values differ between the XML driverStatus (0-2) and the parameter PTZ.PTZDriverStatuses.Driver#Status (0-3).
+  - activate_driver documents status=yes to append the driver status to the reply, but the success replies shown are empty; use get_driver_status instead.
+  - The deprecated port argument of ptzupgrader.cgi (since API 1.1) is not modelled.
+  - The identification of API versions 1.0, 1.1 and 2.2 (and Properties.PTZ.DriverManagementChannels) is not used for discovery.
   migrated_from: v1
-  curated: false
+  curated: true

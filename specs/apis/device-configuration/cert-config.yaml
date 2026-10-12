@@ -154,8 +154,8 @@ operations:
     binding: {method: POST, path: /create_certificate, body: object}
     params: {$ref: '#/types/CreateCertificateRequest'}
     errors:
-      5: {description: 'The key type is not supported by the selected keystore, kind: invalid_argument'}
-      100: {description: 'Maintenance is required on the device before the key type can be generated, kind: unavailable'}
+      5: {description: "The key type is not supported by the selected keystore", kind: invalid_argument}
+      100: {description: "Maintenance is required on the device before the key type can be generated", kind: unavailable}
     examples:
     - title: Generate a new certificate
       request:
@@ -201,8 +201,8 @@ operations:
     binding: {method: POST, path: /install_from_pkcs12, body: object}
     params: {$ref: '#/types/InstallFromPkcs12Request'}
     errors:
-      5: {description: 'The private key type is not supported by the selected keystore, kind: invalid_argument'}
-      100: {description: 'Maintenance is required on the device before the private key type can be uploaded, kind: unavailable'}
+      5: {description: "The private key type is not supported by the selected keystore", kind: invalid_argument}
+      100: {description: "Maintenance is required on the device before the private key type can be uploaded", kind: unavailable}
     examples:
     - title: Upload a passphrase protected PKCS#12 archive
       request:

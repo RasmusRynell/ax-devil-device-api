@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: speed-dry
 name: Speed dry API
@@ -22,14 +21,17 @@ binding: {path: /axis-cgi/com/ptz.cgi}
 
 operations:
   speed_dry:
-    summary: Execute a one-shot speed dry operation.
+    summary: Execute a one-shot speed dry operation through ptz.cgi.
+    description: >-
+      After the operation has finished the device is idle for about 20 seconds, during which other speed dry requests are
+      discarded. The reply carries no success or failure information.
     effect: action
     binding:
       method: GET
       query: {auxiliary: speeddry}
-      reply: text
+      reply: xml
   get_capabilities:
-    summary: Get speed dry capabilities.
+    summary: Get the speed dry capabilities (one ``path type`` line per supported attribute).
     effect: read
     binding: {path: /axis-cgi/speeddry/getcapabilities.cgi, method: GET, reply: text}
     result: {type: string}
@@ -42,12 +44,18 @@ operations:
         text: |-
           operations/oneshot/@method xs:enum
           operations/oneshot/@runtime xs:integer
-          operations/oneshot/@idletime sx:integer
+          operations/oneshot/@idletime xs:integer
       source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#common-examples-2
   oneshot:
-    summary: Initiate a speed dry operation.
+    summary: Initiate a one-shot speed dry operation.
     effect: action
-    binding: {path: /axis-cgi/speeddry/oneshot.cgi, method: GET, reply: text}
+    binding: {path: /axis-cgi/speeddry/oneshot.cgi, method: GET, reply: xml}
+    examples:
+    - title: Initiate a speed dry operation
+      request:
+        query: {}
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#common-examples-2
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
@@ -57,10 +65,10 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - getcapabilities/oneshot.cgi appear only in common examples; parameters (method, runtime, idletime) of oneshot.cgi
-    not documented.
-  - General success/error responses list both 200 application/json and 204 No content.
-  - Capabilities response type "sx:integer" (typo for xs:integer).
-  - No API Discovery id stated.
+  - The arguments of oneshot.cgi (the method, runtime and idletime attributes listed by getcapabilities.cgi) are not documented, so oneshot takes none.
+  - The general success response lists both 200 application/json and 204 No content; the documented bodies are empty. An error replies with a speeddryResponse/GeneralError XML body; the xml codec raises it and accepts an empty success body.
+  - The capabilities response in the docs says "sx:integer" for idletime (typo for xs:integer); corrected in the example.
+  - Access is "Administrator, Operator, Viewer with PTZ control" for the ptz.cgi call; getcapabilities.cgi and oneshot.cgi access is not stated.
+  - No API Discovery id is stated.
   migrated_from: v1
-  curated: false
+  curated: true

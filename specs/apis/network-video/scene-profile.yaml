@@ -1,8 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: scene-profile
 name: Scene profile API
-summary: Switch between predefined sets of image settings (scene profiles) via the ImageSource.I#.SceneProfile parameter.
+summary: Switch between predefined sets of image settings (scene profiles) through the ImageSource.I#.SceneProfile parameter.
 section: network-video
 family: cgi
 status: released
@@ -21,7 +20,10 @@ binding: {path: /axis-cgi/param.cgi}
 
 operations:
   list_scene_profiles:
-    summary: List the supported scene profile values and names.
+    summary: List the supported scene profile values and their display names.
+    description: >-
+      The reply is the XML schema definition of the parameter, whose ``<entry value="..." niceValue="..."/>`` elements
+      list the supported profiles. Valid profiles are product dependent.
     effect: read
     binding:
       method: GET
@@ -31,12 +33,13 @@ operations:
       type: object
       required: [group]
       properties:
-        group: {type: string, description: ImageSource.I<n>.SceneProfile}
-        responseformat: {type: string, description: Example uses rfc.}
-        responsecharset: {type: string, description: Example uses 'utrf' (sic).}
+        group: {type: string, description: 'The parameter to describe, ImageSource.I<n>.SceneProfile, for example ImageSource.I0.SceneProfile.'}
+        responseformat: {type: string, description: 'The example uses rfc.'}
+        responsecharset: {type: string, description: 'The example uses utrf (sic).'}
+    positional: [group]
     result: {x-xml: true}
     examples:
-    - title: list_scene_profiles
+    - title: List the supported scene profiles
       request:
         query: {responseformat: rfc, responsecharset: utrf, group: ImageSource.I0.SceneProfile}
       response:
@@ -46,23 +49,32 @@ operations:
           <entry value="vivid" niceValue="Vivid" />
           <entry value="traffic_overview" niceValue="Traffic Overview" />
           <entry value="license_plate" niceValue="License Plate" />
+      x-contract: {skip: "The documented reply is a fragment of several root-level entry elements, not a complete XML document."}
       source: https://developer.axis.com/vapix/network-video/video-streaming/#list-supported-scene-profiles
   set_scene_profile:
-    summary: Change scene profile.
+    summary: 'Change the scene profile, e.g. ``{"ImageSource.I0.SceneProfile": "vivid"}``.'
+    description: >-
+      The key is the parameter name ImageSource.I<n>.SceneProfile and the value one of forensic, vivid,
+      traffic_overview, indoor, outdoor or license_plate (product dependent). The device answers 200 OK and changes
+      nothing when the value is invalid. All streams are affected. The obsolete profile0, profile1 and profile2 are
+      replaced by forensic, vivid and traffic_overview.
     effect: write
     write: patch
     binding:
       method: GET
       query: {action: update}
-      reply: text
+      reply: text_ok
     params:
       type: object
-      required: [ImageSource.I#.SceneProfile]
+      required: [parameters]
       properties:
-        ImageSource.I#.SceneProfile:
-          type: string
-          enum: [forensic, vivid, traffic_overview, indoor, outdoor, license_plate]
-          description: Scene profile (valid values product dependent).
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+    examples:
+    - title: Switch to the Vivid scene profile
+      request: {query: {ImageSource.I0.SceneProfile: vivid}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#change-scene-profiles
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/video-streaming/
@@ -70,12 +82,12 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
+  - 'BLOCKED(templated-param-name): typed set_scene_profile(image_source, profile): the wire name ImageSource.I<n>.SceneProfile embeds the image source index, so the operation takes the parameter map instead.'
+  - The documented list reply is a fragment of entry elements without an enclosing document, so the result stays the raw XML element until the full reply is known.
   - responsecharset=utrf in the example is likely a typo for utf8.
-  - Response body for update not shown (only HTTP 200).
-  - 'migration: xml-unmapped: list_scene_profiles: no response schema in v1; result is the raw XML element'
-  - 'migration: discovery: param_property ''ImageSource.I#.SceneProfile'' is not a Name=value pair: dropped'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - The body of the update reply is not shown (only HTTP 200); param.cgi answers OK, so the reply is read as OK.
+  - The discovery property ImageSource.I#.SceneProfile is not a Name=value probe and is not used for discovery.
   migrated_from: v1
-  curated: false
+  curated: true

@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: system-settings
 name: System settings
-summary: Legacy system maintenance CGIs - factory default, hard factory default, AXIS OS upgrade, restart, server
-  report, system/access logs and log parameters.
+summary: Legacy system maintenance CGIs - factory default, hard factory default, restart, server report and the system and access logs.
 section: network-video
 family: cgi
 status: released
@@ -23,22 +21,29 @@ binding: {path: /axis-cgi/factorydefault.cgi}
 operations:
   factory_default:
     summary: Reset to factory default except network/IP settings, system time and IEEE 802.1X; the product restarts.
-    description: All settings are set to their factory default values except the boot protocol (Network.BootProto),
-      the static IP address (Network.IPAddress), the default router (Network.DefaultRouter), the subnet mask (Network.SubnetMask),
-      the broadcast IP address (Network.Broadcast), the system time and the IEEE 802.1X settings. Since these are
-      not reset the product can be accessed on the same address (important with NAT routers). The product is restarted.
+    description: >-
+      All settings are set to their factory default values except the boot protocol (``Network.BootProto``), the static IP
+      address (``Network.IPAddress``), the default router (``Network.DefaultRouter``), the subnet mask
+      (``Network.SubnetMask``), the broadcast IP address (``Network.Broadcast``), the system time and the IEEE 802.1X
+      settings. Since these are not reset the product can be accessed on the same address (important with NAT routers).
+      The product is restarted. Superseded by ``factoryDefault`` in the Firmware management API.
     effect: action
     binding: {method: GET, reply: text}
   hard_factory_default:
     summary: Reset all settings, including the IP addresses, to factory default; the product restarts.
+    description: Superseded by ``factoryDefault`` in the Firmware management API.
     effect: action
     binding: {path: /axis-cgi/hardfactorydefault.cgi, method: GET, reply: text}
   restart:
     summary: Restart the Axis product.
+    description: Superseded by ``reboot`` in the Firmware management API.
     effect: action
     binding: {path: /axis-cgi/restart.cgi, method: GET, reply: text}
   server_report:
-    summary: Generate and return a server report (product information, parameter settings and system logs).
+    summary: Generate and return a server report (product information, parameter settings and system logs) as bytes.
+    description: >-
+      Useful as input when requesting support. The body is text for ``mode=text`` (the default), and a ``.zip`` or ``.tar``
+      file for the other modes.
     effect: read
     binding: {path: /axis-cgi/serverreport.cgi, method: GET, reply: binary}
     params:
@@ -48,10 +53,11 @@ operations:
           type: string
           enum: [tar_all, text, zip, zip_with_image]
           default: text
-          description: 'The server report presentation mode. If mode is not specified, the value defaults to text.
-            Values: tar_all: Return all log files (including system log, access log, audit log, etc) as a.tar file;
-            text: Return the server report as text; zip: Return the server report as a.zip-file; zip_with_image:
-            Return report together with a snapshot image taken using the Image Appearance settings as a single.zip-file'
+          description: >-
+            The server report presentation mode. ``tar_all``: all log files (system log, access log, audit log, etc) as a .tar
+            file; ``text``: the report as text; ``zip``: the report as a .zip file; ``zip_with_image``: the report together with
+            a snapshot image taken using the Image Appearance settings as a single .zip file. ``zip_with_image`` and ``tar_all``
+            are only available on products with application support.
     result: {type: string, format: binary}
     examples:
     - title: Server report as text
@@ -59,18 +65,18 @@ operations:
         query: {mode: text}
       response: {status: 200, text: <server report>}
       source: https://developer.axis.com/vapix/network-video/system-settings/#server-report
-    - title: Server report as.zip
+    - title: Server report as .zip
       request:
         query: {mode: zip}
       response: {status: 200, text: <.zip-file>}
       source: https://developer.axis.com/vapix/network-video/system-settings/#server-report
-    - title: Server report and snapshot image as.zip
+    - title: Server report and snapshot image as .zip
       request:
         query: {mode: zip_with_image}
       response: {status: 200, text: <message>}
       source: https://developer.axis.com/vapix/network-video/system-settings/#server-report
   system_log:
-    summary: Retrieve system log information (level set by Log.System group).
+    summary: Retrieve the system log (the level of detail is set by the ``Log.System`` group).
     effect: read
     binding: {path: /axis-cgi/systemlog.cgi, method: GET, reply: text}
     params:
@@ -79,11 +85,10 @@ operations:
         text:
           type: string
           pattern: ^[A-Za-z0-9]+$
-          description: Any string that contains only letters and digits. The log entries are filtered on this text.
-            Available on AXIS OS 11.11.45 and later.
+          description: Only log entries that contain this text are returned. Available on AXIS OS 11.11.45 and later.
     result: {type: string}
   access_log:
-    summary: Retrieve client access log information (level set by Log.Access group).
+    summary: Retrieve the client access log (the level of detail is set by the ``Log.Access`` group).
     effect: read
     binding: {path: /axis-cgi/accesslog.cgi, method: GET, reply: text}
     result: {type: string}
@@ -94,16 +99,13 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - Factory default text says 'All settings are set to their factory default values except.' (sentence fragment)
-    then lists exceptions.
-  - firmwareupgrade.cgi success/failure response is not documented on this page.
-  - Content type of serverreport.cgi?mode=tar_all is not stated; zip_with_image example body is '<message>'.
-  - Log.Access/Log.System are 'not available in AXIS OS 5.60 and later' while the page minimum is 5.00; MailLogd
-    availability not stated.
-  - 'migration: op-skipped: firmware_upgrade: request body of type multipart/form-data is not supported by the cgi
-    binding'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'BLOCKED(multipart-upload): firmware_upgrade: POST /axis-cgi/firmwareupgrade.cgi?type=normal|factorydefault with a multipart/form-data body holding the AXIS OS file; the cgi binding has no multipart request body. Superseded by the Firmware management API.'
+  - The Log.Access, Log.System and MailLogd parameter groups (MaxSize, Critical, Warning, Informational, LogSendLevel, ToEmail) are set through param.cgi and are not modelled here. Log.Access and Log.System are not available from AXIS OS 5.60.
+  - User account management (pwdgrp.cgi) on the same page is the user-management API; date and time is system-settings-time.
+  - The docs show only placeholder replies (``<html response>``); success and failure of factory_default, hard_factory_default and restart cannot be told apart.
+  - The content type of serverreport.cgi?mode=tar_all is not stated; the zip_with_image example body is "<message>".
+  - serverreport.cgi accepts GET and POST; only GET is modelled.
   migrated_from: v1
-  curated: false
+  curated: true

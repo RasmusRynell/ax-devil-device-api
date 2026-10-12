@@ -1,0 +1,66 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: axis-audio-manager-pro-ws
+name: AXIS Audio Manager Pro WebSocket audio
+summary: Send and receive binary audio of an Audio Manager Pro audio session over a WebSocket.
+section: audio-systems
+family: ws
+status: released
+python:
+  module: axis_audio_manager_pro_ws
+  class: AxisAudioManagerProWs
+docs:
+- https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+access: admin
+requires:
+  application: AXIS Audio Manager Pro (server software)
+
+binding: {}
+
+operations:
+  ws_recv_audio:
+    summary: WebSocket to receive binary audio from a WS session (only if a duplex device is configured).
+    effect: read
+    binding:
+      session: {path: '/api/v1.2/audioSessions/{audioSessionId}/ws/recv'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+  ws_send_audio:
+    summary: WebSocket to send binary audio to a WS session.
+    effect: read
+    binding:
+      session: {path: '/api/v1.2/audioSessions/{audioSessionId}/ws/send'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+  ws_sendrecv_audio:
+    summary: Bidirectional WebSocket to send and receive binary audio.
+    effect: read
+    binding:
+      session: {path: '/api/v1.2/audioSessions/{audioSessionId}/ws/sendrecv'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+  sha256_md: 89322d1075108ff822e8902b659d7862b1a178df9f5ea217077686d8978d0a81
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'migration: op-skipped: notifications: STOMP notifications over WebSocket: needs a STOMP codec (not available);
+    the payload formats are undocumented'
+  - 'migration: session-codec: binary audio frames pass through unchanged (raw sessions); send bytes as binary frames'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section envelope not carried over'
+  migrated_from: v1
+  curated: false

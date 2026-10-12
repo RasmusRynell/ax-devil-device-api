@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: on-screen-directional-indicator
 name: On-screen directional indicator
-summary: Name PTZ zones (pan/tilt/zoom ranges) so the zone name can be shown in the text overlay; parameter based
-  (PTZ.Locator).
+summary: Name PTZ zones (pan/tilt/zoom ranges) through the ``PTZ.Locator`` parameters so the zone name can be shown in the text overlay.
 section: network-video
 family: cgi
 status: released
@@ -11,30 +9,49 @@ python:
   module: osdi
   class: OnScreenDirectionalIndicator
 docs:
-- https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/
+  - https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/
 access: operator
-
-binding: {path: /axis-cgi/param.cgi}
+discovery:
+  - param: {name: PTZ.Locator.L0.MaxZones, value: "1", compare: ">="}
+binding:
+  path: /axis-cgi/param.cgi
 
 operations:
-  get_max_zones:
-    summary: Check the number of supported OSDI zones for an image source.
+  list_parameters:
+    summary: 'Parameter values as ``{"PTZ.Locator.L0.MaxZones": "..."}`` (``root.`` removed).'
+    description: >-
+      List ``PTZ.Locator.L<n>.MaxZones`` (read-only: the maximum number of ``Zone.Z<m>`` groups for image
+      source ``n``) or the zones with ``PTZ.Locator.L<n>.Zone``. If ``MaxZones`` is present and greater than 0,
+      the device supports OSDI.
     access: viewer
     effect: read
     binding:
       method: GET
       query: {action: list}
-      reply: text_kv
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
     params:
       type: object
       required: [group]
       properties:
-        group: {type: string, description: root.PTZ.Locator.L<n>.MaxZones}
-    result:
-      type: object
-      additionalProperties: {type: string}
+        group:
+          type: array
+          items: {type: string}
+          minItems: 1
+          x-style: csv
+          description: Parameter groups to list, e.g. ``root.PTZ.Locator.L0.MaxZones`` or ``root.PTZ.Locator.L0.Zone``.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+
   add_zone:
     summary: Create an OSDI zone parameter group.
+    description: >-
+      ``group`` is ``root.PTZ.Locator.L<n>.Zone``. Pass the new zone's values as full parameter names with
+      a bare ``Z`` for the new group, e.g. ``{"root.PTZ.Locator.L0.Zone.Z.Name": "NewZone",
+      "root.PTZ.Locator.L0.Zone.Z.Pan": "0.06:29.54", "root.PTZ.Locator.L0.Zone.Z.Tilt": "-44.99:-30.06",
+      "root.PTZ.Locator.L0.Zone.Z.Enabled": "yes"}``. Pan and tilt are ``<float>:<float>`` in degrees; zoom
+      is ``<unsigned integer>:<unsigned integer>`` and, when unset, the zoom level is not considered.
+      The device replies with the reply of the underlying ``param.cgi`` add action.
     effect: write
     write: create
     binding:
@@ -43,90 +60,61 @@ operations:
       reply: text
     params:
       type: object
-      required: [group]
+      required: [group, parameters]
       properties:
-        group: {type: string, description: root.PTZ.Locator.L<n>.Zone}
-        root.PTZ.Locator.L#.Zone.Z.Enabled:
-          type: boolean
-          enum: ['yes', 'no']
-          x-python-name: enabled
-          description: Determines if the zone is currently used.
-        root.PTZ.Locator.L#.Zone.Z.Name: {type: string, x-python-name: name, description: Identifies the zone.}
-        root.PTZ.Locator.L#.Zone.Z.Pan:
-          type: string
-          pattern: ^-?[0-9.]+:-?[0-9.]+$
-          x-python-name: pan
-          description: The pan coordinates, presented in degrees, for the zone. Format <float>:<float>. (unit=degrees)
-        root.PTZ.Locator.L#.Zone.Z.Tilt:
-          type: string
-          pattern: ^-?[0-9.]+:-?[0-9.]+$
-          x-python-name: tilt
-          description: The tilt coordinates, presented in degrees, for the zone. Format <float>:<float>. (unit=degrees)
-        root.PTZ.Locator.L#.Zone.Z.Zoom:
-          type: string
-          pattern: ^[0-9]+:[0-9]+$
-          x-python-name: zoom
-          description: If set, specifies the zoom levels and when the zone should be considered active. If not set,
-            the zoom level is not taken into consideration for this zone.
-  list_zones:
-    summary: List the PTZ.Locator.L#.Zone.Z# parameters (generic Parameter management API).
-    access: viewer
-    effect: read
-    binding:
-      method: GET
-      query: {action: list}
-      reply: text_kv
-    params:
-      type: object
-      required: [group]
-      properties:
-        group: {type: string, description: 'Parameter group to list, e.g. root.PTZ.Locator.L0.Zone.'}
-    result:
-      type: object
-      additionalProperties: {type: string}
+        group: {type: string, description: 'Zone group to add to, e.g. ``root.PTZ.Locator.L0.Zone``.'}
+        parameters:
+          type: object
+          additionalProperties: {type: string}
+          x-style: spread
+          description: Initial values as full parameter names mapped to values.
+    positional: [group, parameters]
+    result: {type: string}
+
   update_zones:
-    summary: Update one or more PTZ.Locator.L#.Zone.Z# parameters (generic Parameter management API).
+    summary: 'Update parameters of existing zones, e.g. ``{"PTZ.Locator.L0.Zone.Z0.Enabled": "no"}``.'
+    description: >-
+      Per zone: ``Enabled`` (``yes``/``no``), ``Name``, ``Pan`` and ``Tilt`` (``<float>:<float>`` degrees) and
+      ``Zoom`` (``<unsigned integer>:<unsigned integer>``). Only the given parameters change.
     effect: write
     write: patch
     binding:
       method: GET
       query: {action: update}
-      reply: text
+      reply: text_ok
     params:
       type: object
-      required: [PTZ.Locator.L#.Zone.Z#.<param>]
+      required: [parameters]
       properties:
-        PTZ.Locator.L#.Zone.Z#.<param>:
-          type: string
-          description: One or more <full parameter name>=<value> pairs; see param_cgi_groups for parameters and
-            valid values.
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+
   remove_zone:
-    summary: Delete a zone parameter group (removes the zone).
+    summary: Delete a zone parameter group, which removes the zone.
     effect: write
     write: delete
     binding:
       method: GET
       query: {action: remove}
-      reply: text
+      reply: text_ok
     params:
       type: object
       required: [group]
       properties:
-        group: {type: string, description: root.PTZ.Locator.L<n>.Zone.Z<m>}
+        group: {type: string, description: 'Zone group, e.g. ``root.PTZ.Locator.L0.Zone.Z1``.'}
+    positional: [group]
 
 sources:
-- url: https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/
-  sha256_md: 20fad3e1a8e7a8f72286dc3cac36099f4625280dc4f819a045f042b1f4fa007c
-  retrieved_at: '2026-10-11'
-
+  - url: https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/
+    sha256_md: 20fad3e1a8e7a8f72286dc3cac36099f4625280dc4f819a045f042b1f4fa007c
+    retrieved_at: "2026-10-11"
 provenance:
   completeness: complete
   open_questions:
-  - Zone table lists "Tilt<float>:<float>" without "=" (doc typo).
-  - The overlay modifier used to display the zone name is not named on this page.
-  - AXIS OS minimum not stated.
-  - 'migration: reply-ok: update_zones: notes mention OK; reply read as plain text (check)'
-  - 'migration: discovery: param_property ''PTZ.Locator.L#.MaxZones>0'' is not a Name=value pair: dropped'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+    - The Tilt row of the zone table reads "Tilt<float>:<float>" without "=" (doc typo); treated as Tilt=<float>:<float>.
+    - The overlay modifier used to display the zone name is not named on this page.
+    - AXIS OS minimum is not stated.
+    - Reply texts for the add and remove actions are not shown in the docs; add returns the device's text, remove is read as OK (as for parameter management).
+    - Update security level is stated as "Operator or N/A" without saying which parameters are N/A (MaxZones is read-only).
   migrated_from: v1
-  curated: false
+  curated: true

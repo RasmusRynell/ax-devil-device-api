@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: overlay-modifiers
 name: Overlay modifiers
-summary: GET /axis-cgi/overlaymodifiers.cgi lists supported overlay modifier groups and modifiers (%/# markup expanded
-  in overlay text, file names, notifications).
+summary: List the overlay modifiers (``%`` and ``#`` markup expanded in overlay text, file names and notifications) the device supports, grouped by function.
 section: network-video
 family: cgi
 status: released
@@ -11,14 +9,14 @@ python:
   module: overlay_modifiers
   class: OverlayModifiers
 docs:
-- https://developer.axis.com/vapix/network-video/overlay-api/
-access: admin
+  - https://developer.axis.com/vapix/network-video/overlay-api/
+access: operator
 discovery:
-- param: {name: Properties.OverlayModifiers.OverlayModifiers, value: 'yes'}
+  - param: {name: Properties.OverlayModifiers.OverlayModifiers, value: "yes"}
 requires:
-  firmware: '5.1'
-
-binding: {path: /axis-cgi/overlaymodifiers.cgi}
+  firmware: "5.1"
+binding:
+  path: /axis-cgi/overlaymodifiers.cgi
 
 types:
   Modifier:
@@ -27,15 +25,36 @@ types:
     properties:
       mod:
         type: string
-        description: 'A modifier always starts with % or # followed by one or two characters and an index.'
+        description: The modifier. It starts with ``%`` or ``#``, followed by one or two characters.
       index:
         type: boolean
-        description: 'Present (true) for modifiers that require an additional index, e.g. #U, #TC, #TF.'
+        description: >-
+          True for modifiers that need an additional index to be complete, such as ``#U`` (fan) and ``#TC``
+          (temperature sensor in Celsius): fan 1 is ``#U1`` and sensor 2 in Celsius is ``#TC2``. Absent otherwise.
+  ModifiersData:
+    type: object
+    required: [groups]
+    properties:
+      groups:
+        type: object
+        description: >-
+          Modifiers by group name: date, time, year, month, week, day, hour, minute, second, sysinfo, vidinfo,
+          ptzinfo, eventinfo, sensor, zwave, mqtt, autotracking, others. Which groups exist depends on the device.
+        additionalProperties:
+          type: array
+          items: {$ref: "#/types/Modifier"}
+  ModifiersResponse:
+    type: object
+    required: [apiVersion, data]
+    properties:
+      apiVersion: {type: string, description: The API version the data complies with.}
+      context: {type: integer, description: 'The ``context`` of the request, or 0 when it was left out.'}
+      method: {type: string, description: 'The requested method, ``getOverlayModifiers``.'}
+      data: {$ref: "#/types/ModifiersData"}
 
 operations:
   get_overlay_modifiers:
-    summary: Retrieve supported overlay modifiers grouped by functional group.
-    access: operator
+    summary: Retrieve the supported overlay modifiers grouped by function.
     effect: read
     binding: {method: GET, reply: json}
     params:
@@ -43,72 +62,49 @@ operations:
       properties:
         context:
           type: integer
-          description: Integer user data either echoed in the response or returned as 0 when left out. [in=query
-            inferred; syntax shows no query string]
-    result:
-      type: object
-      properties:
-        apiVersion: {type: string}
-        context: {type: integer}
-        method: {type: string}
-        data:
-          type: object
-          x-name: GetOverlayModifiersResultData
-          properties:
-            groups:
-              type: object
-              additionalProperties:
-                type: array
-                items: {$ref: '#/types/Modifier'}
-              description: Map group name -> array of modifiers.
+          description: Integer user data echoed in the response, or returned as 0 when left out.
+    result: {$ref: "#/types/ModifiersResponse"}
     examples:
-    - title: Present supported modifiers
-      request:
-        query: {}
-      response:
-        status: 200
-        text: |-
-          {
-            "apiVersion": "0.2",
-            "context": 1,
-            "method": "getOverlayModifiers",
-            "data": {
-              "groups": {
-                "data": [
-                  {"mod": "%c"},
-                  {"mod": "%D"},
-                  {"mod": "%F"},
-                  {"mod": "%X"}
-                ],
-                ........
-                "sysinfo": [
-                  {"mod": "#i"},
-                  {"mod": "#m"},
-                  {"mod": "#M"},
-                  {"mod": "#n"},
-                  {"mod": "#TC", "index": true},
-                  {"mod": "#TF", "index": true}
-                ],
-                ........
+      - title: Present supported modifiers
+        request: {query: {}}
+        response:
+          status: 200
+          text: |-
+            {
+              "apiVersion": "0.2",
+              "context": 1,
+              "method": "getOverlayModifiers",
+              "data": {
+                "groups": {
+                  "data": [
+                    {"mod": "%c"},
+                    {"mod": "%D"},
+                    {"mod": "%F"},
+                    {"mod": "%X"}
+                  ],
+                  "sysinfo": [
+                    {"mod": "#i"},
+                    {"mod": "#m"},
+                    {"mod": "#M"},
+                    {"mod": "#n"},
+                    {"mod": "#TC", "index": true},
+                    {"mod": "#TF", "index": true}
+                  ]
+                }
               }
             }
-          }
-      source: https://developer.axis.com/vapix/network-video/overlay-api/#present-supported-modifiers
+        source: https://developer.axis.com/vapix/network-video/overlay-api/#present-supported-modifiers
 
 sources:
-- url: https://developer.axis.com/vapix/network-video/overlay-api/
-  sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
-  retrieved_at: '2026-10-11'
-
+  - url: https://developer.axis.com/vapix/network-video/overlay-api/
+    sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
+    retrieved_at: "2026-10-11"
 provenance:
   completeness: complete
   open_questions:
-  - 'Doc says "Return value - Failure: N/A" but a common example shows an error JSON with context "1" (string) vs
-    integer elsewhere.'
-  - Response syntax uses "........" elisions; complete structure only in the JSON schema.
-  - Identification says Properties.OverlayModifiers.OverlayModifiers="yes" (quoted).
-  - 'migration: types-dropped: types not referenced by any migrated operation: ModifierCatalog, ModifierGroup, OverlayModifiersResponse'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-keywords: x-catalog x1, x-json-schema x1'
+    - The docs say failure is "N/A, can only fail on a HTTP level", but an error example shows a 200-style JSON body with an error object (code 1000) and context "1" as a string. Such a body is not mapped to an API error; it fails result validation.
+    - The documented example elides groups with "........" and lists a group named "data" that the schema does not define; the example here drops the elisions.
+    - The JSON schema places `required` inside `properties`, so which top-level fields are guaranteed is inferred (apiVersion and data).
+    - The groups table lists zwave, which the JSON schema omits; groups are therefore a free-form map.
   migrated_from: v1
-  curated: false
+  curated: true

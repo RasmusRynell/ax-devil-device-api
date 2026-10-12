@@ -94,7 +94,6 @@ operations:
         fusionMode: {$ref: '#/types/FusionModeEnum', description: The mode of the thermal visual fusion.}
     examples:
     - title: Change fusion mode
-      x-contract: {skip: 'Harness still fails on camelCase body_field setters (AttributeError: ModelMetaclass has no attribute model_fields).'}
       request:
         path: /fusionMode
         body: {data: VISUAL}
@@ -120,7 +119,6 @@ operations:
         transparency: {$ref: '#/types/Transparency', description: Transparency of the overlaid stream.}
     examples:
     - title: Change transparency setting
-      x-contract: {skip: 'Harness still fails on camelCase body_field setters (AttributeError: ModelMetaclass has no attribute model_fields).'}
       request:
         path: /transparency
         body: {data: 0.5}

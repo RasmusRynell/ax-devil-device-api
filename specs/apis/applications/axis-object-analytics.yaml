@@ -11,6 +11,8 @@ python:
 docs:
 - https://developer.axis.com/vapix/applications/axis-object-analytics-api/
 access: operator
+discovery:
+  - acap: {name: objectanalytics}
 requires:
   application: AXIS Object Analytics
 
@@ -509,7 +511,7 @@ provenance:
   - 'Counts: the table says resettime/timestamp while the example uses resetTime/timeStamp (camelCase used). Example values are string placeholders; counts are modelled as integers.'
   - sizePercentage filter width/height are described as 'ONVIF coordinates' in the configuration but as 'percentage of the image' in capabilities.
   - 'Scenario param scenario=<uid> has no stated type; integer inferred from the scenario id type. Events emitted by AOA scenarios are not documented on this page.'
-  - No AXIS OS / AOA version requirements are stated, and the docs give no discovery method beyond /axis-cgi/applications/list.cgi, so no discovery entry is set.
+  - "The ACAP Name reported by applications/list.cgi is not documented (the docs only say to use list.cgi; the example for the related VMD 3 shows name=\"VMD3\"). The acap discovery name objectanalytics is inferred from the application's /local/objectanalytics/control.cgi path; verify on a device. The docs' additional identification by Properties.EmbeddedDevelopment.Version is not used."
   - The request examples for setConfiguration and sendAlarmEvent lack a comma after the method field (invalid JSON); the documented examples use placeholder values and are not included, except the how-to scenario.
   migrated_from: v1
   curated: true

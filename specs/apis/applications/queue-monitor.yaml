@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: queue-monitor
 name: Queue monitor API
-summary: Read live people-in-queue counts per region, export historical queue data as CSV, clear data, read/set
-  application parameters and fetch logs from the Queue...
+summary: 'Queue Monitor ACAP: live people-in-queue counts per region, CSV queue history, data clearing, parameters and logs.'
 section: applications
 family: cgi
 status: released
@@ -15,82 +13,125 @@ docs:
 access: admin
 requires:
   application: Queue Monitor ACAP
-
-binding: {path: /local/queue/.api}
-
+binding:
+  path: /local/queue/.api
 types:
+  DateSelection:
+    type: string
+    pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+    description: A date YYYYMMDD, a date interval YYYYMMDD-YYYYMMDD, comma separated dates YYYYMMDD,[..],YYYYMMDD, or all
+      (default) for all available data.
+  MinutesResolution:
+    type: string
+    enum:
+    - 15m
+    - 1h
+    - 24h
+    description: 15m = 15 minute bins (default), 1h = 1 hour bins, 24h = 1 day bins.
+  PeopleResolution:
+    type: string
+    enum:
+    - 1m
+    - 15m
+    - 1h
+    - 24h
+    description: 1m = 1 minute bins, 15m = 15 minute bins (default), 1h = 1 hour bins, 24h = 1 day bins.
   LiveSumPeople:
     type: object
-    description: Region fields repeat for region1..region3 in the examples.
+    required:
+    - serial
+    - name
+    - timestamp
     properties:
-      serial: {type: string, description: camera serial number}
-      name: {type: string, description: name of the counter}
-      timestamp: {type: string, description: time in the camera in the format YYYYMMDDhhmmss}
-      region1name: {type: string, description: name of region 1}
-      region1people: {type: integer, description: number of people standing in region 1}
-      region2name: {type: string}
-      region2people: {type: integer}
-      region3name: {type: string}
-      region3people: {type: integer}
-
+      serial:
+        type: string
+        description: Camera serial number.
+      name:
+        type: string
+        description: Name of the counter.
+      timestamp:
+        type: string
+        description: Time in the camera, YYYYMMDDhhmmss.
+      region1name:
+        type: string
+        description: Name of region 1.
+      region1people:
+        type: integer
+        description: Number of people standing in region 1.
+      region2name:
+        type: string
+        description: Name of region 2.
+      region2people:
+        type: integer
+        description: Number of people standing in region 2.
+      region3name:
+        type: string
+        description: Name of region 3.
+      region3people:
+        type: integer
+        description: Number of people standing in region 3.
+    description: The docs list only the region 1 fields; the examples show regions 1 to 3.
 operations:
   get_live_sum_people:
-    summary: Get real time people in queue data (number of people standing in queue at this moment).
+    summary: Get real-time people-in-queue data (people standing in queue at this moment).
     effect: read
     binding:
       method: GET
-      query: {live-sum-people.json: ''}
+      query:
+        live-sum-people.json: ''
       reply: json
-    result: {$ref: '#/types/LiveSumPeople'}
+    result:
+      $ref: '#/types/LiveSumPeople'
     examples:
-    - title: Get real time people in queue data (template)
+    - title: Get real time people in queue data
       request:
-        query: {}
+        query:
+          live-sum-people.json: ''
       response:
         status: 200
-        text: |-
+        content_type: application/json
+        text: |
           {
-            "serial":"<camera-serial>",
-            "name":"<counter-name>",
-            "timestamp":"<timestamp>",
-            "region1name":"<name1>",
-            "region1people":<people1>,
-            "region2name":"<name2>",
-            "region2people":<people2>,
-            "region3name":"<name3>",
-            "region3people":<people3>
+              "serial": "ACCC8E20F09B",
+              "name": "Service Counter",
+              "timestamp": "20170113181132",
+              "region1name": "Product Display",
+              "region1people": 1,
+              "region2name": "Aisle Display",
+              "region2people": 0,
+              "region3name": "Service Counter",
+              "region3people": 3
           }
       source: https://developer.axis.com/vapix/applications/queue-monitor-api/#get-real-time-people-in-queue-data
   export_csv_minutes:
-    summary: Request CSV minute data — minutes per region with High/Mid/Low queue.
-    description: Returns plain text comma-separated values. The first line is a comma-separated header describing
-      each column. Each integer value states the number of minutes for which there has been a certain amount of
-      queue (High/Mid/Low) for a certain region.
+    summary: 'Request CSV minute data: minutes per region with High, Mid and Low queue.'
+    description: Returns plain text comma-separated values. The first line is a comma-separated header describing each column.
+      Each integer value states the number of minutes for which there has been a certain amount of queue (High/Mid/Low) for
+      a certain region.
     effect: read
     binding:
       method: GET
-      query: {export-csv-minutes: ''}
+      query:
+        export-csv-minutes: ''
       reply: text
     params:
       type: object
+      x-name: ExportRequest
       properties:
         date:
-          type: string
-          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          $ref: '#/types/DateSelection'
           default: all
-          description: a date YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
-            or all (default) for all available data.
         res:
-          type: string
-          enum: [15m, 1h, 24h]
+          $ref: '#/types/MinutesResolution'
           default: 15m
-          description: 'Bin resolution. Note: the example uses res=5h, which is not in the documented list. Values:
-            15m: data in 15 minute bins (default); 1h: data in 1 hour bins; 24h: data in 1 day bins'
-    result: {type: string}
+    result:
+      type: string
     examples:
     - title: Historical minutes of queue data for 1st and 3rd May 2017 with a 5 hour resolution
       request:
-        query: {date: '20170501,20170503', res: 5h}
+        query:
+          date: 20170501,20170503
+          res: 5h
       response:
         status: 200
         text: |-
@@ -103,36 +144,36 @@ operations:
           2017-05-03 00:00:00,2017-05-03 05:00:00,00XXXXXXXXXX,Camera1,0,0,300,0,0,300,0,0,300
           2017-05-03 05:00:00,2017-05-03 10:00:00,00XXXXXXXXXX,Camera1,0,34,266,0,17,283,8,67,225
       source: https://developer.axis.com/vapix/applications/queue-monitor-api/#request-csv-minute-data
+      x-contract:
+        skip: The example uses a resolution (res=5h) that is not in the documented value list; the table wins for the schema.
   export_csv_people:
-    summary: Request CSV people data — average number of people per region.
-    description: Returns plain text comma-separated values. The first line is a comma separated header describing
-      each column. Each integer value states the average number of people within a certain region of interest.
+    summary: 'Request CSV people data: average number of people per region.'
+    description: Returns plain text comma-separated values. The first line is a comma separated header describing each column.
+      Each integer value states the average number of people within a certain region of interest.
     effect: read
     binding:
       method: GET
-      query: {export-csv-people: ''}
+      query:
+        export-csv-people: ''
       reply: text
     params:
       type: object
+      x-name: ExportPeopleRequest
       properties:
         date:
-          type: string
-          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          $ref: '#/types/DateSelection'
           default: all
-          description: a date YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
-            or all (default) for all available data.
         res:
-          type: string
-          enum: [1m, 15m, 1h, 24h]
+          $ref: '#/types/PeopleResolution'
           default: 15m
-          description: 'Bin resolution. Note: the example uses res=120m, which is not in the documented list. Values:
-            1m: data in 1 minute bins; 15m: data in 15 minute bins (default); 1h: data in 1 hour bins; 24h: data
-            in 1 day bins'
-    result: {type: string}
+    result:
+      type: string
     examples:
     - title: Historical people in queue data with a 120 minute resolution
       request:
-        query: {date: '20170428,20170503', res: 120m}
+        query:
+          date: 20170428,20170503
+          res: 120m
       response:
         status: 200
         text: |-
@@ -143,83 +184,84 @@ operations:
           2017-05-03 06:00:00,2017-05-03 08:00:00,00XXXXXXXXXX,Camera2,1,0,2
           2017-05-03 08:00:00,2017-05-03 10:00:00,00XXXXXXXXXX,Camera2,1,0,1
       source: https://developer.axis.com/vapix/applications/queue-monitor-api/#request-csv-people-data
+      x-contract:
+        skip: The example uses a resolution (res=120m) that is not in the documented value list; the table wins for the schema.
   clear_data:
-    summary: Clear local queue data.
+    summary: Clear the local queue data.
+    access: operator
     effect: write
     write: delete
     binding:
       path: /local/queue/.apioperator
       method: GET
-      query: {clear-data: ''}
+      query:
+        clear-data: ''
       reply: text_ok
     examples:
     - title: Clear local queue data
       request:
-        query: {}
-      response: {status: 200, text: OK}
+        query:
+          clear-data: ''
+      response:
+        status: 200
+        text: OK
       source: https://developer.axis.com/vapix/applications/queue-monitor-api/#clear-local-queue-data
   get_params:
-    summary: List application parameters.
+    summary: List the application parameters.
     effect: read
     binding:
       method: GET
-      query: {params.json: ''}
+      query:
+        params.json: ''
       reply: json
-    result: {type: object, additionalProperties: true}
-  set_params:
-    summary: Set application related parameters.
-    description: The post format specifies pairs of parameter names and values, e.g. &p1=Counter.Enabled&v1=1&p2=WebReportUpload.Enabled&v2=1.
-    effect: write
-    write: patch
-    binding:
-      path: /local/queue/.apioperator
-      method: POST
-      query: {setparams: ''}
-      reply: text_ok
-    params:
+    result:
       type: object
-      required: [p<n>, v<n>]
-      properties:
-        p<n>:
-          type: object
-          x-python-name: params
-          description: Parameter name for pair n (n = 1, 2,...), e.g.
-        v<n>: {type: string, x-python-name: values, description: 'Value for pair n, e.g. v1=1.'}
+      additionalProperties: true
   show_logs:
     summary: Show the system log.
+    access: operator
     effect: read
     binding:
       path: /local/queue/.apioperator
       method: GET
-      query: {show-logs: ''}
+      query:
+        show-logs: ''
       reply: text
-    result: {type: string}
+    result:
+      type: string
   generate_logs:
-    summary: Generate a log archive (tar.gz).
+    summary: Generate and download a log archive (tar.gz).
+    access: operator
     effect: read
     binding:
       path: /local/queue/.apioperator
       method: GET
-      query: {generate-logs: ''}
+      query:
+        generate-logs: ''
       reply:
-        binary: {media_types: [application/gzip]}
-    result: {type: string, format: binary}
-
+        binary:
+          media_types:
+          - application/gzip
+    result:
+      type: string
+      format: binary
 sources:
 - url: https://developer.axis.com/vapix/applications/queue-monitor-api/
   sha256_md: 7da5fd184429b85931523bcb607d8551339177b1ab0c7c8279ea5b76933e2555
   retrieved_at: '2026-10-11'
-
 provenance:
   completeness: partial
   open_questions:
-  - Examples use res=5h and res=120m, which are not in the documented res value lists (15m/1h/24h and 1m/15m/1h/24h).
-    https://developer.axis.com/vapix/applications/queue-monitor-api/#common-examples
+  - Examples use res=5h and res=120m, which are not in the documented res value lists (15m/1h/24h and 1m/15m/1h/24h). https://developer.axis.com/vapix/applications/queue-monitor-api/#common-examples
   - Example title says '4th of April' but the request uses date=20170428,20170503 and the output only shows 2017-05-03.
   - 'setparams: the curl example carries no p/v pairs and no body; unclear whether pairs are query or form parameters.'
-  - params.json response structure, error responses, access levels and AXIS OS/ACAP version requirements are not
-    documented.
+  - params.json response structure, error responses, access levels and AXIS OS/ACAP version requirements are not documented.
   - Return value table only lists region1 fields; number of regions not stated (examples show 3).
-  - 'migration: object-param: set_params.p<n>: object-valued query parameter kept as a free-form map'
+  - 'BLOCKED(mixed-query-form): set_params: POST /local/queue/.apioperator?setparams with pairs p<n>=<parameter name>&v<n>=<value>
+    (for example &p1=Counter.Enabled&v1=1). The setparams marker is in the query string and the docs do not say where the
+    pairs go.'
+  - The docs write bare query keys (?live-sum-people.json, ?export-csv-minutes&date=...). The binding sends them as key= with
+    an empty value; this needs device verification.
+  - Access levels are not documented; clear_data, show_logs and generate_logs are marked operator from the .apioperator path.
   migrated_from: v1
-  curated: false
+  curated: true

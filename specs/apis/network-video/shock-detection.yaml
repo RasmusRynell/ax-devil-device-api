@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: shock-detection
 name: Shock detection API
-summary: Enable/disable shock detection and control its sensitivity on products with built-in orientation devices;
-  emits tns1:Device/tnsaxis:Tampering/ShockDetected.
+summary: Enable/disable shock detection and control its sensitivity on products with built-in orientation devices; emits tns1:Device/tnsaxis:Tampering/ShockDetected.
 section: network-video
 family: cgi
 status: released
@@ -14,29 +12,66 @@ docs:
 - https://developer.axis.com/vapix/network-video/shock-detection-api/
 access: operator
 discovery:
-- param: {name: root.Properties.Tampering.ShockDetection, value: 'yes'}
+- param: {name: Properties.Tampering.ShockDetection, value: 'yes'}
 requires:
   firmware: '5.50'
 
 binding: {path: /axis-cgi/shockdetection/getenabled.cgi}
 
+errors:
+  10: {description: Error while processing the request.}
+  20: {description: Invalid request., kind: invalid_argument}
+  40: {description: Specified version is not supported., kind: unsupported}
+
+types:
+  ShockDetectionStatus:
+    type: object
+    x-xml: {root: Success/GetEnabledSuccess}
+    required: [Enabled]
+    properties:
+      Enabled: {type: boolean, description: 'True if shock detection is enabled, false if it is disabled.', x-xml: {child: Enabled}}
+  SensitivityLevel:
+    type: object
+    x-xml: {root: Success/GetSensitivityLevelSuccess/SensitivityLevel}
+    required: [Level]
+    properties:
+      Level: {type: integer, minimum: 0, maximum: 100, description: 'The sensitivity level: 0 is low sensitivity and 100 is high.', x-xml: {child: Level}}
+  SchemaVersion:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: Schema version in the form major.minor.
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: string
+        description: '"true" if this version of the XML schema is deprecated and should not be used, otherwise "false". The device may send an empty element, which means false.'
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: Success/GetSchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
+
 operations:
   get_enabled:
     summary: Check if shock detection is enabled.
+    access: operator
     effect: read
     binding: {method: GET, reply: xml}
     params:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion: {type: integer, description: The major version of the XML Schema to use for the response.}
-    result: {x-xml: true}
-    errors:
-      10: {description: ''}
-      20: {description: ''}
-      40: {description: ''}
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {$ref: '#/types/ShockDetectionStatus'}
     examples:
-    - title: get_enabled
+    - title: Check if shock detection is enabled
       request:
         query: {schemaversion: '1'}
       response:
@@ -60,15 +95,22 @@ operations:
       type: object
       required: [schemaversion, enabled]
       properties:
-        schemaversion: {type: integer, description: The major version of the XML Schema to use for the response.}
-        enabled:
-          type: boolean
-          enum: ['true', 'false']
-          description: true = Enable shock detection. false = Disable shock detection. (required-ness not stated)
-    errors:
-      10: {description: ''}
-      20: {description: ''}
-      40: {description: ''}
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        enabled: {type: boolean, description: 'true enables shock detection, false disables it.'}
+    examples:
+    - title: Enable shock detection
+      request:
+        query: {schemaversion: '1', enabled: 'true'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ShockDetectionResponse xmlns="http://www.axis.com/vapix/http_cgi/shockdetection1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/shockdetection1 http://www.axis.com/vapix/http_cgi/shockdetection1" SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </ShockDetectionResponse>
+      source: https://developer.axis.com/vapix/network-video/shock-detection-api/#common-examples
   get_sensitivity_level:
     summary: Retrieve the current sensitivity level.
     effect: read
@@ -77,14 +119,10 @@ operations:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion: {type: integer}
-    result: {x-xml: true}
-    errors:
-      10: {description: ''}
-      20: {description: ''}
-      40: {description: ''}
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {$ref: '#/types/SensitivityLevel'}
     examples:
-    - title: get_sensitivity_level
+    - title: Retrieve the sensitivity level
       request:
         query: {schemaversion: '1'}
       response:
@@ -102,7 +140,7 @@ operations:
           </ShockDetectionResponse>
       source: https://developer.axis.com/vapix/network-video/shock-detection-api/#common-examples
   set_sensitivity_level:
-    summary: Set the shock detection sensitivity level (0 low – 100 high).
+    summary: Set the shock detection sensitivity level (0 low to 100 high).
     effect: write
     write: patch
     binding: {path: /axis-cgi/shockdetection/setsensitivitylevel.cgi, method: GET, reply: xml}
@@ -110,34 +148,41 @@ operations:
       type: object
       required: [schemaversion, level]
       properties:
-        schemaversion: {type: integer}
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
         level:
           type: integer
           minimum: 0
           maximum: 100
-          description: 0 = Low sensitivity, 100 = High sensitivity.
+          description: 'The shock detection sensitivity level: 0 is low sensitivity and 100 is high.'
     errors:
-      10: {description: ''}
-      20: {description: ''}
-      30: {description: Unable to set shock detection sensitivity. Specified value is out of range.}
-      40: {description: ''}
+      30: {description: Unable to set shock detection sensitivity. Specified value is out of range., kind: invalid_argument}
+    examples:
+    - title: Set the sensitivity level to 60
+      request:
+        query: {schemaversion: '1', level: '60'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <ShockDetectionResponse xmlns="http://www.axis.com/vapix/http_cgi/shockdetection1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/shockdetection1 http://www.axis.com/vapix/http_cgi/shockdetection1" SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </ShockDetectionResponse>
+      source: https://developer.axis.com/vapix/network-video/shock-detection-api/#common-examples
   get_schema_versions:
     summary: Retrieve the supported XML schema versions.
     effect: read
     binding: {path: /axis-cgi/shockdetection/getschemaversion.cgi, method: GET, reply: xml}
-    result: {x-xml: true}
-    errors:
-      10: {description: ''}
-      20: {description: ''}
-      40: {description: ''}
+    result: {$ref: '#/types/SchemaVersions'}
     examples:
-    - title: get_schema_versions
+    - title: Retrieve supported XML schema versions
       request:
         query: {}
       response:
         status: 200
         text: |-
-          <?xml version="1.0" encoding="utf-8"?>
+          <?xml version="1.0" encoding="UTF-8"?>
           <ShockDetectionResponse xmlns="http://www.axis.com/vapix/http_cgi/shockdetection1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/shockdetection1 http://www.axis.com/vapix/http_cgi/shockdetection1" SchemaVersion="1.0">
             <Success>
               <GetSchemaVersionsSuccess>
@@ -158,20 +203,11 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - The id 'shock-detection' is derived from the URL slug minus '-api' (no API Discovery id stated).
-  - Required-ness of enabled (setenabled) and level (setsensitivitylevel) not stated.
-  - No XSD for namespace shockdetection1 mirrored.
-  - 'migration: xml-unmapped: get_enabled: schema properties not found in the sample reply; result is the raw XML
-    element'
-  - 'migration: xml-unmapped: set_enabled: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_sensitivity_level: schema properties not found in the sample reply; result is
-    the raw XML element'
-  - 'migration: xml-unmapped: set_sensitivity_level: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_schema_versions: schema properties not found in the sample reply; result is the
-    raw XML element'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section events not carried over'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
+  - The id shock-detection is derived from the URL slug minus -api (no API Discovery id stated).
+  - The docs identify the API by the property root.Properties.Tampering.ShockDetection=yes; discovery uses the name without the root. prefix, which the param reader strips.
+  - Required-ness of enabled (set_enabled) and level (set_sensitivity_level) is not stated; both are required because the call is meaningless without them.
+  - Deprecated is a string because the documented example sends an empty element, which the XML mapping hands over as an empty string and would fail boolean validation. It should become a boolean once empty elements map to absent.
+  - No XSD for the shockdetection1 namespace is mirrored.
+  - The docs show errors wrapped in an Error element; the runtime matches GeneralError anywhere in the document.
   migrated_from: v1
-  curated: false
+  curated: true

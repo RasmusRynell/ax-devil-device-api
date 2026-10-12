@@ -17,12 +17,54 @@ discovery:
 
 binding: {path: /axis-cgi/orientation/getschemaversions.cgi}
 
+errors:
+  10: {description: Error while processing the request.}
+  20: {description: Invalid request., kind: invalid_argument}
+  40: {description: Specified version is not supported., kind: unsupported}
+
+types:
+  SchemaVersion:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: Schema version, major.minor.
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: Success/GetSchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
+  LongitudinalAngle:
+    type: object
+    description: The lens rotation around its longitudinal axis.
+    x-xml: {root: Success/GetLongitudinalValueSuccess/LongitudinalValue}
+    required: [Value]
+    properties:
+      Value: {type: integer, minimum: 0, maximum: 359, description: The angle in degrees (0 to 359)., x-xml: {child: Value}}
+  LateralAngle:
+    type: object
+    description: The angle between the lens longitudinal axis and a line perpendicular to the ground; 0 is straight down, 180 straight up.
+    x-xml: {root: Success/GetLateralValueSuccess/LateralValue}
+    required: [Value]
+    properties:
+      Value: {type: integer, minimum: 0, maximum: 180, description: The angle in degrees (0 to 180)., x-xml: {child: Value}}
+
 operations:
   get_schema_versions:
     summary: Retrieve supported XML schema versions.
     effect: read
     binding: {method: GET, reply: xml}
-    result: {x-xml: true}
+    result: {$ref: '#/types/SchemaVersions'}
     examples:
     - title: Retrieve supported XML schema versions.
       request:
@@ -52,8 +94,8 @@ operations:
       properties:
         schemaversion:
           type: integer
-          description: Required. The major version of the XML Schema to use for the response.
-    result: {x-xml: true}
+          description: The major version of the XML schema to use for the response.
+    result: {$ref: '#/types/LongitudinalAngle'}
     examples:
     - title: Get the longitudinal angle.
       request:
@@ -82,8 +124,8 @@ operations:
       properties:
         schemaversion:
           type: integer
-          description: Required. The major version of the XML Schema to use for the response.
-    result: {x-xml: true}
+          description: The major version of the XML schema to use for the response.
+    result: {$ref: '#/types/LateralAngle'}
     examples:
     - title: Get the lateral angle.
       request:
@@ -111,17 +153,10 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Get longitudinal angle success text says "returns the lateral angle" (copy/paste error).
-  - Angle value type not stated (examples are integers 180, 72); integer inferred.
+  - The get_longitudinal_value success text says it returns the lateral angle (copy/paste error in the docs).
+  - Angle value type is not stated (examples are integers); integer with the documented ranges is used.
+  - The docs show errors wrapped in an Error element; the runtime matches GeneralError anywhere in the document.
   - AXIS OS minimum not stated.
-  - XSD orientation1 referenced by schemaLocation but not mirrored.
-  - 'migration: xml-unmapped: get_schema_versions: schema properties not found in the sample reply; result is the
-    raw XML element'
-  - 'migration: xml-unmapped: get_longitudinal_value: schema properties not found in the sample reply; result is
-    the raw XML element'
-  - 'migration: xml-unmapped: get_lateral_value: schema properties not found in the sample reply; result is the
-    raw XML element'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - The orientation1 XSD referenced by schemaLocation is not mirrored.
   migrated_from: v1
-  curated: false
+  curated: true

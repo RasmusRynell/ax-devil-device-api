@@ -1,0 +1,889 @@
+format: 2
+id: intercom-service
+name: Intercom service
+summary: 'Configure the intercom: card reader and access control integration (OSDP, Wiegand, IP), card types and
+  card data, tags, PIN keypad and user interface feedback.'
+section: intercom
+family: service_json
+status: released
+python:
+  module: intercom_service
+  class: IntercomService
+docs:
+- https://developer.axis.com/vapix/intercom/intercom-service/
+access: admin
+discovery:
+- param: {name: Properties.API.Intercom.Intercom, value: 'yes'}
+- param: {name: Properties.API.Intercom.Version, value: '1.1'}
+- {api_discovery: intercom-api}
+- {api_discovery: intercom-reader}
+
+binding: {path: /vapix/intercom}
+
+errors:
+  ter:TagMismatch:
+    description: A field in the request is not recognised (JSON parse error).
+    kind: invalid_argument
+  ter:InvalidArgVal:
+    description: The request contains an invalid argument, for example BeeperVolume should be <= 100.
+    kind: invalid_argument
+  ter:InvalidArgs:
+    description: The request is missing something or has an invalid combination of inputs.
+    kind: invalid_argument
+  ter:NotSupported: {description: The method is not supported., kind: unsupported}
+  ter:NotFound: {description: No matching item was found., kind: not_found}
+  ter:Failure: {description: The operation failed., kind: internal}
+
+types:
+  Attribute:
+    type: object
+    properties:
+      Name: {type: string, description: The attribute name.}
+      Value: {type: string, description: The value of the attribute.}
+  AttributeInfo:
+    type: object
+    properties:
+      Name: {type: string}
+      Value: {type: string}
+      Type:
+        type: string
+        enum: [bool, int, string]
+        description: bool = boolean, int = integer, string.
+  CardType:
+    type: object
+    description: Description of a card type.
+    properties:
+      Name: {type: string, description: Card type identifier (see CardTypeNames).}
+      DisplayName: {type: string, description: UI-friendly name.}
+      Category: {$ref: '#/types/CardTypeCategory'}
+      DataSources:
+        type: array
+        items: {type: string}
+        description: Supported data sources (see CardDataSources).
+  CardTypeCategory:
+    type: string
+    enum: [HighFrequency, LowFrequency]
+    description: HighFrequency = 13.56 MHz; LowFrequency = 125 kHz.
+  CustomOutputFormatConfiguration:
+    type: object
+    description: Custom parameters used when cardFormat is Custom.
+    properties:
+      facilityCodeSize: {type: integer}
+      cardNumberSize: {type: integer}
+      startParity: {type: string, default: None, description: ParityType.}
+      startParityBits: {type: integer, description: Number of data bits used for start parity}
+      stopParity: {type: string, default: None, description: ParityType.}
+      stopParityBits: {type: integer, description: Number of data bits used for stop parity}
+  OutputFormatConfiguration:
+    type: object
+    properties:
+      cardFormat:
+        type: string
+        default: Raw
+        description: CardOutputFormat; Raw means all following fields are disregarded.
+      cardFacilityCodeOverrideMode: {type: string, default: Auto, description: FacilityCodeOverrideMode.}
+      cardFacilityCode:
+        type: integer
+        description: Override facility code (Optional/Override modes); max 255 for Wiegand26, 65535 for Wiegand34
+          and Wiegand37FacilityCode.
+      Custom: {$ref: '#/types/CustomOutputFormatConfiguration'}
+  WiegandConfiguration:
+    type: object
+    description: All fields optional; existing values kept if not set.
+    properties:
+      nbrOfLEDPins:
+        type: integer
+        enum: [0, 1, 2]
+        description: Number of LED control pins connected to the access control system.
+      beeper: {type: boolean, description: True if a beeper control line is connected.}
+      beeperPin: {type: string, description: IOPinName of the beeper input.}
+      LED1Pin: {type: string, description: IOPinName for LED1 (normally green or red/green).}
+      LED2Pin: {type: string, description: IOPinName for LED2 (normally red).}
+      pulseWidth:
+        type: integer
+        minimum: 20
+        maximum: 100
+        default: 40
+        description: Data pulse time in µs.
+      pulseInterval:
+        type: integer
+        minimum: 200
+        maximum: 20000
+        default: 2000
+        description: Time between data pulses in µs.
+      frameInterval:
+        type: integer
+        minimum: 20000
+        maximum: 1000000
+        default: 25000
+        description: Minimum time between data transfers in µs.
+      LEDColorDefault:
+        type: string
+        description: 'Color when no wires connected (nbrOfLEDPins=0). ColorName or #RRGGBB.'
+      LEDColor0: {type: string, description: 1 wire}
+      LEDColor1: {type: string, description: 1 wire}
+      LEDColor00: {type: string, description: 2 wires}
+      LEDColor01: {type: string, description: '2 wires, state 01 (LED1=1, LED2=0), typically red.'}
+      LEDColor10: {type: string, description: '2 wires, state 10 (LED1=0, LED2=1), typically green.'}
+      LEDColor11: {type: string, description: '2 wires, state 11, typically amber.'}
+      keypressFormat: {type: string, default: FourBit, description: KeypressOutputFormat.}
+      keypressFacilityCode:
+        type: integer
+        default: 0
+        description: Facility code for PIN; max 255 for Wiegand26, 65535 for Wiegand34/Wiegand37FacilityCode.
+  OSDPConfiguration:
+    type: object
+    properties:
+      OSDPAddress:
+        type: integer
+        minimum: 0
+        maximum: 126
+        default: 0
+        description: The OSDP PD address (client).
+  PinConfiguration:
+    type: object
+    description: Should match the Access Control Unit configuration.
+    properties:
+      pinLength:
+        type: integer
+        minimum: 0
+        maximum: 32
+        default: 4
+        description: Number of PIN digits; 0 disables PIN.
+      pinTimeout:
+        type: integer
+        minimum: 1
+        maximum: 60
+        default: 10
+        description: Seconds before returning to idle when no PIN is received.
+  RequestAccessConfiguration:
+    type: object
+    description: Axis Request Access protocol configuration; name derived from Target and Source unless present
+      in the AccessPoint.
+    properties:
+      Name: {type: string, description: Nice name of the Access point.}
+      Id: {type: string, description: Internal ID of the RequestAccess (Access point) configuration.}
+      Address: {type: string, description: Address used to access the correct controller.}
+      AccessControllerToken: {type: string}
+      SourceToken: {type: string, description: Source token (Reader / IdPoint).}
+      TargetToken: {type: string, description: Target token (Door).}
+      AccessPointToken: {type: string}
+  IPAccessConfiguration:
+    type: object
+    properties:
+      Scheme: {type: string, description: Optional. IPAccessScheme.}
+      Address: {type: string, description: 'Controller address, typically hostname[:port].'}
+      Username: {type: string}
+      Password: {type: string}
+      VerifyCertificate: {type: boolean, default: true}
+      IPProtocol: {type: string, description: Optional. IPIntegrationProtocol.}
+      RequestAccessConfiguration: {$ref: '#/types/RequestAccessConfiguration'}
+  CompatibilityConfiguration:
+    type: object
+    properties:
+      CompatibilityConfigs:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Compatibility configuration values (see ServiceCapabilities / CompatibilityFlag).
+  CardReaderConfiguration:
+    type: object
+    description: All fields optional; current values kept unless specified in SetConfiguration/UpdateConfiguration.
+    properties:
+      Protocol: {type: string, description: AccesscontrolIntegrationProtocol.}
+      CardTypes:
+        type: array
+        items: {type: string}
+        description: Accepted card types (CardTypeNames).
+      WiegandConfiguration: {$ref: '#/types/WiegandConfiguration'}
+      OSDPConfiguration: {$ref: '#/types/OSDPConfiguration'}
+      PinConfiguration: {$ref: '#/types/PinConfiguration'}
+      IPAccessConfiguration: {$ref: '#/types/IPAccessConfiguration'}
+      CompatibilityConfiguration: {$ref: '#/types/CompatibilityConfiguration'}
+      CardDataConfigs:
+        type: array
+        items: {$ref: '#/types/CardDataConfig'}
+        description: Optional. Ways to extract CardData.
+      RegisteredReaderConfiguration: {$ref: '#/types/RegisteredReaderConfiguration'}
+      OutputFormat: {$ref: '#/types/OutputFormatConfiguration'}
+      SensitiveRFIDEventEnabled: {type: boolean, description: True if actual UID and card number are present in
+          events.}
+      SensitivePINEventEnabled: {type: boolean, description: True if the actual PIN is present in events.}
+  TagPresentedInfo:
+    type: object
+    description: Describes the tag together with metadata.
+    x-nullable: [FacilityCode, CardNumber]
+    properties:
+      TagUid:
+        type: string
+        maxLength: 64
+        description: UID of the tag. ASCII encoded hex value (32 bytes max), right justified.
+      BitCount: {type: integer, description: Number of bits in TagUid.}
+      TagType: {type: string, description: 'Tag type, e.g. MIFARE_Classic (CardTypeNames).'}
+      ReaderId:
+        type: string
+        description: Reader ID; 'Internal' is the built-in reader; can be set with InjectTag.
+      Age: {type: integer, description: Seconds since the tag was presented.}
+      FacilityCode:
+        type: string
+        description: Facility code in decimals (<64-bit). Null or empty = unavailable.
+      CardNumber: {type: string, description: Card number in decimals (<64-bit). Null or empty = unavailable.}
+      Format: {type: string, default: Raw, description: Detected card data format (CardOutputFormat).}
+      Masked: {type: boolean, default: false, description: True if the reader is masked.}
+  CardData:
+    type: object
+    description: Data chunk extracted from an RFID card (GetCardData result, InjectTag parameter).
+    properties:
+      name: {type: string, description: Name of the data chunk (from the CardDataConfig).}
+      bitCount: {type: integer, description: Number of valuable data bits (left-justified).}
+      byteCount: {type: integer, description: Bytes holding the chunk (bitCount <= byteCount*8).}
+      data: {type: string, description: The data chunk.}
+  CardDataConfig:
+    type: object
+    description: How to extract a data chunk from an RFID card, including addressing and (sensitive) credentials.
+    properties:
+      name:
+        type: string
+        description: Unique identifier (e.g. face template, fingerprint, employee_id); the resulting CardData uses
+          this name.
+      cardType: {type: string, description: Card type this configuration is valid for (CardTypeNames).}
+      dataSource: {type: string, default: CSN, description: CardDataSources.}
+      enabled: {type: boolean, description: Disabled configs are kept but not used.}
+      required:
+        type: boolean
+        description: If true and extraction fails, the call fails and the swipe is ignored; if false the chunk is
+          omitted.
+      useAsUid:
+        type: boolean
+        description: Replace the original UID with extracted data; multiple are concatenated.
+      offsetByte: {type: integer, default: 0}
+      lengthInBytes: {type: integer, default: 0, description: 0 = all.}
+      offsetBits: {type: integer, default: 0}
+      lengthInBits: {type: integer, default: 0, description: 0 = all. Bytes and bits sum (bytes*8+bits).}
+      attributes:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: For future use.
+      DESFireEncryption: {$ref: '#/types/DESFireEncryption'}
+      MifareClassicEncryption: {$ref: '#/types/MifareClassicEncryption'}
+      MifareULEncryption: {$ref: '#/types/MifareULEncryption'}
+  KeyFormat: {type: string, enum: [Plaintext, Protected]}
+  DESFireKeyType: {type: string, enum: [Compatible_3DES, EV1_3DES, EV1_3K3DES, EV1_AES]}
+  DESFireCommMode: {type: string, enum: [Auto, Plain, Plain_MACed, Encrypted]}
+  DESFireEncryption:
+    type: object
+    description: Only used if cardType=MIFARE_DESFire.
+    properties:
+      AID: {type: string, description: 'Application ID, 3 bytes little endian first.'}
+      keyFormat: {$ref: '#/types/KeyFormat'}
+      key: {type: string, description: '16 bytes for 3DES and AES, 24 bytes for 3K3DES.'}
+      keyType: {$ref: '#/types/DESFireKeyType'}
+      commMode: {$ref: '#/types/DESFireCommMode'}
+      keyNbr: {type: integer, minimum: 0, maximum: 13, description: 0 is the main key.}
+      fileNbr: {type: integer, minimum: 0, maximum: 31}
+  MifareClassicEncryption:
+    type: object
+    description: Only used if cardType=MIFARE_Classic. Sectors 0-31 have 4 blocks, 32-39 have 16 (4K cards); 16-byte
+      blocks; total offset (+length) up to 4096 bytes.
+    properties:
+      keyAFormat: {$ref: '#/types/KeyFormat'}
+      keyA: {type: string, description: Key A}
+      keyBFormat: {$ref: '#/types/KeyFormat'}
+      keyB: {type: string, description: Key B}
+      startSector: {type: integer, minimum: 0, maximum: 39, default: 0}
+      startBlock: {type: integer, minimum: 0, maximum: 15, default: 0}
+      skipLastBlockInSector: {type: boolean}
+  MifareULEncryption:
+    type: object
+    description: Ultralight C credentials only.
+    properties:
+      keyFormat: {$ref: '#/types/KeyFormat'}
+      key: {type: string, description: Optional 16-byte key (Ultralight C only).}
+  RegisteredReaderConfiguration:
+    type: object
+    properties:
+      ReaderIds:
+        type: array
+        items: {type: string}
+        default: [Internal]
+        description: Readers allowed to InjectTag (only when Policy is Fixed).
+      Policy: {type: string, description: RegisteredReaderPolicy.}
+  ReaderIdWithMask:
+    type: object
+    properties:
+      readerId: {type: string}
+      isMasked: {type: boolean, description: True if card data is not sent using the configured protocol.}
+  CallButtonConfiguration:
+    type: object
+    properties:
+      callButtonKeyTrigger: {type: string, description: 'The call button, represented by the letter ''C''.'}
+      suppressionTimeout: {type: integer, default: 1, description: Seconds the call button is suppressed.}
+      suppressionMode: {$ref: '#/types/SuppressionMode'}
+  SuppressionMode:
+    type: string
+    enum: [None, Timeout, NeverHangUp]
+    description: None = always available to end call; Timeout = only after suppressionTimeout; NeverHangUp = only
+      recipient can end.
+  IntegerValidator:
+    type: object
+    properties:
+      Name: {type: string}
+      Min: {type: integer}
+      Max: {type: integer}
+  ServiceCapabilities:
+    type: object
+    properties:
+      Version: {type: string}
+      Call: {type: boolean}
+      DTMFEvent: {type: boolean}
+      CallButton: {type: boolean}
+      CallKeypad: {type: boolean}
+      PinKeypad: {type: boolean}
+      Reader: {type: boolean}
+      uiLeds:
+        type: array
+        items: {$ref: '#/types/UiLed'}
+      AccesscontrolIntegrationProtocols:
+        type: array
+        items: {type: string}
+      SupportedCards:
+        type: array
+        items: {$ref: '#/types/CardType'}
+      SupportedIOPins:
+        type: array
+        items: {type: string}
+      SupportedColorNames:
+        type: array
+        items: {type: string}
+      IntegerValidators:
+        type: array
+        items: {$ref: '#/types/IntegerValidator'}
+      CompatibilityConfigs:
+        type: array
+        items: {$ref: '#/types/AttributeInfo'}
+      SupportedKeypressOutputFormatWiegand:
+        type: array
+        items: {type: string}
+      SupportedCardOutputFormat:
+        type: array
+        items: {type: string}
+      SupportedFacilityCodeOverrideMode:
+        type: array
+        items: {type: string}
+      SupportedParityType:
+        type: array
+        items: {type: string}
+      SupportedCallButtonIdleBehavior:
+        type: array
+        items: {type: string}
+      SupportedDefaultContactSorting:
+        type: array
+        items: {type: string}
+      SupportedDefaultNameFormat:
+        type: array
+        items: {type: string}
+  DefaultContactSorting: {type: string, enum: [SortByFirstName, SortByLastName]}
+  DefaultNameFormat:
+    type: string
+    enum: [FirstNameFirst, LastNameFirst]
+    description: FirstNameFirst = FirstName + " " + LastName; LastNameFirst = LastName + ", " + FirstName.
+  Configuration:
+    type: object
+    description: General intercom configuration. Optional fields not set keep current value.
+    properties:
+      Version: {type: string}
+      CallTriggersEnabled: {type: boolean, description: Processing triggers in PhonebookEntries enabled.}
+      CallByNumbersEnabled: {type: boolean, description: Calls to dialed numbers not matching any CallRule enabled.}
+      DefaultContactSorting: {$ref: '#/types/DefaultContactSorting'}
+      DefaultNameFormat: {$ref: '#/types/DefaultNameFormat'}
+      DefaultCallByNumberSIPAccountId: {type: string, description: Optional. Default SIPAccount used by CallByNumber.}
+      AudioclipVolume:
+        type: integer
+        minimum: 0
+        maximum: 1000
+        default: 100
+        description: Volume for built-in audio files (button presses, calling, ringing).
+      BeeperVolume:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 80
+        description: Beeper (Wiegand and OSDP) feedback volume.
+      PresenceTimeout:
+        type: integer
+        minimum: 2
+        maximum: 86400
+        default: 12
+        description: Seconds before user presence times out.
+      CardReaderConfiguration: {$ref: '#/types/CardReaderConfiguration'}
+      CallButtonConfigurations:
+        type: array
+        items: {$ref: '#/types/CallButtonConfiguration'}
+      CallButtonIdleBehavior: {type: string, description: CallButtonIdleBehavior.}
+  CallButtonInformation:
+    type: object
+    properties:
+      VMSCallEnabled: {type: boolean, description: Current status of the CallButtonVMS.}
+      NumberOfRecipients: {type: integer}
+  ContactsInformation:
+    type: object
+    properties:
+      NumberOfContacts: {type: integer}
+      NumberOfOrganizations: {type: integer}
+  IPAccessOption:
+    type: object
+    properties:
+      Name: {type: string, description: Door name visible to the user.}
+      Id: {type: string}
+      IPProtocol: {type: string, description: Detected IPIntegrationProtocol.}
+  TargetLedType:
+    type: string
+    enum: [backlight, callButton, stripe, statusDoor, statusCall, statusSpeak]
+  LedControlType: {type: string, enum: [none, onoff, pwm, rgb, rgbpwm]}
+  UiLed:
+    type: object
+    properties:
+      ledId: {$ref: '#/types/TargetLedType'}
+      ledType: {$ref: '#/types/LedControlType'}
+  UiLedFeedback:
+    type: object
+    description: 'ColorName or #RRGGBB (monochrome: LSB only; RGB: LSB blue, 2nd green, 3rd red). PWM: 0-255; non-PWM:
+      0 off, 1-255 on.'
+    properties:
+      led: {type: string, description: TargetLedType.}
+      runStyle: {type: string, description: RunStyleType.}
+      durationOnMillisec: {type: integer}
+      durationOffMillisec: {type: integer}
+      valueOn: {type: string}
+      valueOff: {type: string}
+      loops: {type: integer}
+      handled: {type: boolean, description: Initially false; marks feedback as displayed.}
+  UiAudioFeedback:
+    type: object
+    properties:
+      durationOnMillisec: {type: integer}
+      durationOffMillisec: {type: integer}
+      loops: {type: integer}
+      handled: {type: boolean}
+      file: {type: string, description: Audio file to play.}
+  UiGraphicFeedback:
+    type: object
+    properties:
+      image: {type: string, description: Path to image or base64 data URL.}
+      durationMillisec: {type: integer}
+
+operations:
+  get_service_capabilities:
+    summary: Return the capabilities of the service.
+    effect: read
+    binding: {operation: GetServiceCapabilities}
+    result:
+      type: object
+      properties:
+        Capabilities: {$ref: '#/types/ServiceCapabilities', description: The capabilities of the service.}
+      required: [Capabilities]
+  set_configuration:
+    summary: Set the general intercom configuration (optional fields not set keep current value).
+    effect: write
+    write: patch
+    binding: {operation: SetConfiguration}
+    params:
+      type: object
+      required: [Configuration]
+      properties:
+        Configuration: {$ref: '#/types/Configuration', description: The configuration to set.}
+    errors:
+      ter:InvalidArgVal: {description: The request contains an invalid argument., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: The request is missing something or has an invalid combination of inputs.
+        kind: invalid_argument
+  update_configuration:
+    summary: Update selected parts of the configuration; omitted fields keep their values.
+    effect: write
+    write: patch
+    binding: {operation: UpdateConfiguration}
+    params:
+      type: object
+      required: [Configuration]
+      properties:
+        Configuration: {$ref: '#/types/Configuration', description: Partial configuration.}
+    errors:
+      ter:InvalidArgVal: {description: The request contains an invalid argument., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: The request is missing something or has an invalid combination of inputs.
+        kind: invalid_argument
+    examples:
+    - title: Configure the OSDP reader integration protocol
+      request:
+        params:
+          Configuration:
+            CardReaderConfiguration: {Protocol: OSDP}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/intercom/intercom-service/#configure-reader-integration-protocols
+    - title: Change the card types
+      request:
+        params:
+          Configuration:
+            CardReaderConfiguration: {CardTypes: [MIFARE_Classic]}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/intercom/intercom-service/#configure-card-types
+    - title: Change the PIN length and timeout
+      request:
+        params:
+          Configuration:
+            CardReaderConfiguration:
+              PinConfiguration: {pinLength: 6, pinTimeout: 20}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/intercom/intercom-service/#configure-pin-setting
+  get_configuration:
+    summary: Get the full intercom configuration.
+    effect: read
+    binding: {operation: GetConfiguration}
+    params:
+      type: object
+      properties:
+        includeImageFile: {type: boolean, description: 'If true, all imageFile fields are included in the response.'}
+    result:
+      type: object
+      properties:
+        Configuration: {$ref: '#/types/Configuration', description: The configuration.}
+      required: [Configuration]
+    examples:
+    - title: Get the configuration
+      request:
+        params: {}
+      x-contract: {skip: The documented response is abridged and not valid JSON.}
+      source: https://developer.axis.com/vapix/intercom/intercom-service/#simple-curl-example
+  get_server_report:
+    summary: Return the safe parts of the server report (sensitive fields discarded).
+    effect: read
+    binding: {operation: GetServerReport}
+    result:
+      type: object
+      properties:
+        Configuration:
+          $ref: '#/types/Configuration'
+          description: The configuration fields that are safe to report.
+        DiscardedFields:
+          type: array
+          items: {type: string}
+          description: The configuration fields discarded because they contain sensitive data.
+        CallButtonInformation: {$ref: '#/types/CallButtonInformation'}
+        ContactsInformation: {$ref: '#/types/ContactsInformation'}
+      required: [Configuration, DiscardedFields]
+  get_card_reader_configuration:
+    summary: Get only the CardReaderConfiguration.
+    effect: read
+    binding: {operation: GetCardReaderConfiguration}
+    result:
+      type: object
+      properties:
+        CardReaderConfiguration: {$ref: '#/types/CardReaderConfiguration', description: The card reader configuration.}
+      required: [CardReaderConfiguration]
+  get_supported_tag_types:
+    summary: List tag types supported by the reader.
+    effect: read
+    binding: {operation: GetSupportedTagTypes}
+    result:
+      type: object
+      properties:
+        CardTypes:
+          type: array
+          items: {$ref: '#/types/CardType'}
+          description: The tag types the reader supports.
+  get_default_tag_types:
+    summary: List card types enabled by default.
+    effect: read
+    binding: {operation: GetDefaultTagTypes}
+    result:
+      type: object
+      properties:
+        CardTypes:
+          type: array
+          items: {type: string}
+          description: The card types enabled by default.
+  get_last_tag:
+    summary: Get the UID of the last presented tag.
+    effect: read
+    binding: {operation: GetLastTag}
+    params:
+      type: object
+      properties:
+        ReaderId:
+          type: string
+          description: Reader to get the last tag from; if omitted the last tag is returned.
+    result:
+      type: object
+      properties:
+        Tag: {$ref: '#/types/TagPresentedInfo', description: The tag last seen.}
+      required: [Tag]
+    errors:
+      ter:NotFound: {description: No tag with the specified reader ID was found., kind: not_found}
+      ter:NotSupported: {description: The method is not supported., kind: unsupported}
+  get_tag:
+    summary: Get the last tag or a recent tag matching a timestamp from the Device/Intercom/RFID event.
+    effect: read
+    binding: {operation: GetTag}
+    params:
+      type: object
+      properties:
+        ReaderId: {type: string, description: Reader ID.}
+        timestamp:
+          type: string
+          description: Timestamp from the RFID event notification; ensures data matches the event.
+    result:
+      type: object
+      properties:
+        Tag: {$ref: '#/types/TagPresentedInfo', description: The tag matching the input parameters.}
+      required: [Tag]
+    errors:
+      ter:NotFound: {description: No tag with the specified reader ID and timestamp was found., kind: not_found}
+      ter:NotSupported: {description: The method is not supported., kind: unsupported}
+  inject_tag:
+    summary: Simulate presenting an RFID tag (third-party filtering/transforming).
+    effect: action
+    binding: {operation: InjectTag}
+    params:
+      type: object
+      required: [Tag]
+      properties:
+        Tag: {$ref: '#/types/TagPresentedInfo', description: Tag to inject.}
+        CardData:
+          type: array
+          items: {$ref: '#/types/CardData'}
+          description: Card data to inject.
+    errors:
+      ter:InvalidArgVal: {description: The request contains an invalid argument., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: The request is missing something or has an invalid combination of inputs.
+        kind: invalid_argument
+      ter:NotSupported: {description: The method is not supported., kind: unsupported}
+  register_reader:
+    summary: Register an external/application reader; optionally mask readers so swipes are not sent over the integration
+      protocol.
+    effect: action
+    binding: {operation: RegisterReader}
+    params:
+      type: object
+      required: [ReaderId]
+      properties:
+        ReaderId: {type: string, description: ID of the external reader.}
+        DisableInternalReader: {type: boolean, description: 'If true, all internal readers are added to MaskedReaderIds.'}
+        MaskedReaderIds:
+          type: array
+          items: {type: string}
+          description: Readers to mask (data still available as RFID events). Default masks nothing.
+        UnmaskIfLost:
+          type: boolean
+          default: false
+          description: Release masked readers when the registration times out.
+    result:
+      type: object
+      properties:
+        Timeout: {type: integer, description: Seconds until registration expires.}
+      required: [Timeout]
+    errors:
+      ter:InvalidArgVal: {description: The request contains an invalid argument., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: The request is missing something or has an invalid combination of inputs.
+        kind: invalid_argument
+      ter:Failure: {description: The operation failed., kind: internal}
+  unregister_reader:
+    summary: Unregister an external or application reader.
+    effect: action
+    binding: {operation: UnregisterReader}
+    params:
+      type: object
+      required: [ReaderId]
+      properties:
+        ReaderId: {type: string, description: ID of the external reader.}
+    errors:
+      ter:InvalidArgVal: {description: The request contains an invalid argument., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: The request is missing something or has an invalid combination of inputs.
+        kind: invalid_argument
+  keep_alive_reader:
+    summary: Extend a RegisterReader registration; error if not registered or already timed out.
+    effect: action
+    binding: {operation: KeepAliveReader}
+    params:
+      type: object
+      required: [ReaderId]
+      properties:
+        ReaderId: {type: string, description: ID of the external reader.}
+    result:
+      type: object
+      properties:
+        Timeout: {type: integer, description: Seconds until registration expires.}
+      required: [Timeout]
+    errors:
+      ter:InvalidArgVal: {description: The request contains an invalid argument., kind: invalid_argument}
+      ter:InvalidArgs:
+        description: The request is missing something or has an invalid combination of inputs.
+        kind: invalid_argument
+  get_current_readers:
+    summary: List currently available readers with mask flag.
+    effect: read
+    binding: {operation: GetCurrentReaders}
+    result:
+      type: object
+      properties:
+        Readers:
+          type: array
+          items: {$ref: '#/types/ReaderIdWithMask'}
+          description: The available ReaderIds together with a masked flag.
+  probe_ip_access_configuration:
+    summary: Probe an IP access controller and list the selectable configurations.
+    effect: write
+    binding: {operation: ProbeIPAccessConfiguration}
+    params:
+      type: object
+      required: [IPAccessConfiguration]
+      properties:
+        IPAccessConfiguration: {$ref: '#/types/IPAccessConfiguration', description: The IPAccessConfiguration.}
+    result:
+      type: object
+      properties:
+        Status: {type: string, description: The status of the probe request (ProbeIPAccessStatus).}
+        StatusText: {type: string, description: Textual status related to Status.}
+        IPAccessOptions:
+          type: array
+          items: {$ref: '#/types/IPAccessOption'}
+          description: The selectable configurations.
+        SuggestedId:
+          type: string
+          description: A configuration ID that matches the current configuration; omitted if none matches.
+        CurrentName:
+          type: string
+          description: The name of the current configuration, a hint when SuggestedId is absent.
+      required: [Status, IPAccessOptions]
+    write: patch
+    description: Any current IP access configuration is overridden by the given input. Pass the Id of the desired
+      option to update_ip_access_configuration.
+  update_ip_access_configuration:
+    summary: Apply an IPAccessOption returned by ProbeIPAccessConfiguration.
+    effect: write
+    write: patch
+    binding: {operation: UpdateIPAccessConfiguration}
+    params:
+      type: object
+      required: [Id]
+      properties:
+        Id: {type: string, description: ID from an IPAccessOption.}
+    result:
+      type: object
+      properties:
+        IPAccessConfiguration: {$ref: '#/types/IPAccessConfiguration', description: The resulting configuration.}
+  get_card_data:
+    summary: Read data stored on tags using pre-loaded config names or ad-hoc CardDataConfigs.
+    effect: read
+    binding: {operation: GetCardData}
+    params:
+      type: object
+      properties:
+        DataConfigNames:
+          type: array
+          items: {type: string}
+          description: Names under CardReaderConfiguration/CardDataConfigs.
+        CardDataConfigs:
+          type: array
+          items: {$ref: '#/types/CardDataConfig'}
+          description: Ad-hoc configurations (not stored).
+    result:
+      type: object
+      properties:
+        CardData:
+          type: array
+          items: {$ref: '#/types/CardData'}
+          description: The extracted card data.
+  get_last_key_sequence:
+    summary: 'Get the latest completed key sequence (completed by #, C, or reaching pin length in PIN mode).'
+    effect: read
+    binding: {operation: GetLastKeySequence}
+    params:
+      type: object
+      properties:
+        Source:
+          type: string
+          description: Source to get from; default last source (PinSourceType reserved ids).
+        timestamp: {type: string, description: Exact timestamp from Device/Intercom/KeyPin event.}
+    result:
+      type: object
+      properties:
+        KeySequence: {type: string, description: The latest completed key sequence.}
+        Source: {type: string, description: The source of the key sequence.}
+        timestamp: {type: string, description: When the key sequence was completed.}
+  inject_key_sequence:
+    summary: Simulate key presses.
+    effect: action
+    binding: {operation: InjectKeySequence}
+    params:
+      type: object
+      required: [KeySequence]
+      properties:
+        KeySequence: {type: string, description: The key sequence.}
+        Source: {type: string, description: Component posting the call.}
+  set_ui_feedback:
+    summary: Set user interface feedback (high-level, LED, audio, text, graphic).
+    effect: action
+    binding: {operation: SetUiFeedback}
+    params:
+      type: object
+      properties:
+        highlevelFeedbacks:
+          type: array
+          items: {type: string}
+          description: UIHighLevelFeedback values.
+        ledFeedbacks:
+          type: array
+          items: {$ref: '#/types/UiLedFeedback'}
+          description: LED feedbacks.
+        audioFeedback: {$ref: '#/types/UiAudioFeedback', description: Audio feedback.}
+        source:
+          type: string
+          description: Identifier of the posting component (FeedbackSourceType reserved).
+        text: {type: string, description: Text to display or speak.}
+        attributes:
+          type: array
+          items: {$ref: '#/types/Attribute'}
+          description: Additional attributes.
+        graphicFeedback: {$ref: '#/types/UiGraphicFeedback', description: Graphic feedback.}
+    result:
+      type: object
+      properties:
+        Result: {type: boolean, description: The result of the operation.}
+      required: [Result]
+
+sources:
+- url: https://developer.axis.com/vapix/intercom/intercom-service/
+  sha256_md: 425e94dc29bf11eaf9699dae16a01894657cddccb624e9c1604ddba1cea5cc6b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'BLOCKED(websocket): the WebSocket functions on /vapix/intercomws (axev:subscribe, axev:getSupported, axev:notify
+    and the axdsapi: prefixed function subscriptions) are not bound; the Intercom events (RFID, KeyPin, MainState,
+    KeypadState) are delivered through them or the event service.'
+  - 'Not bound: the REST resource /vapix/intercom/Configuration (GET, POST for UpdateConfiguration, PUT for SetConfiguration)
+    duplicates get_configuration, update_configuration and set_configuration. Its imageFile and includeImageFile
+    members use an ImageFile type that is not defined.'
+  - 'The service also accepts JSON-RPC 2.0 and Google JSON requests; only the raw form {"<function>": {...}} is
+    bound, with unprefixed function names as in the cURL examples.'
+  - Which request fields are required is mostly not documented (only '(optional)' markers in syntax blocks); required
+    flags are inferred.
+  - No access levels are documented; the API default admin is kept. Error codes for ProbeIPAccessConfiguration,
+    UpdateIPAccessConfiguration, GetCardData, SetUiFeedback and InjectKeySequence are not documented.
+  - Several string members are documented as non-normative enums (AccesscontrolIntegrationProtocol, CardTypeNames,
+    ColorName, IOPinName, ParityType, CardOutputFormat, RunStyleType, UIHighLevelFeedback, ProbeIPAccessStatus...)
+    whose supported values come from ServiceCapabilities; they are plain strings.
+  - AttributeInfo has Name, Value and Type here, unlike the Call service (Name, Type, Default).
+  - The KeyPin event refers to SensitiveKeyPinEventEnabled while CardReaderConfiguration defines SensitivePINEventEnabled.
+  - The Configuration table gives CallButtonConfigurations the type CallButtonConfigurations; the syntax block shows
+    an array of CallButtonConfiguration.
+  - The GetConfiguration cURL example response is abridged ('..' inside CardTypes) and is skipped.
+  - The Password of IPAccessConfiguration and the card keys are not documented as masked in responses.
+  migrated_from: v1
+  curated: true

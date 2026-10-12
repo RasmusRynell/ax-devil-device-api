@@ -1,0 +1,361 @@
+format: 2
+id: schedule-service
+name: Schedule service
+summary: The Schedule service manages schedules for use by other services.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: schedule_service
+  class: ScheduleService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/schedule-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+- https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+access: admin
+
+binding: {path: /vapix/schedule}
+
+errors:
+  ter:InvalidArgs: {description: Invalid argument, kind: invalid_argument}
+
+types:
+  ReferenceToken:
+    type: string
+    description: Reference token of an entity.
+
+  ServiceCapabilities:
+    type: object
+    description: What the schedule service supports.
+    properties:
+      Component: {description: "The iCalendar components supported; `VEVENT` must be supported. The docs do not give the encoding (string or list)."}
+      SetSchedule: {type: boolean, description: If the SetSchedule operation is supported.}
+      GetSchedule: {type: boolean, description: If the GetSchedule operation is supported.}
+      RemoveSchedule: {type: boolean, description: If the RemoveSchedule operation is supported.}
+      ScheduleActive: {type: boolean, description: If the ScheduleActive operation is supported.}
+      EventSupport: {type: boolean, description: If the service supports sending events.}
+
+  Attribute:
+    type: object
+    description: A typed name and value pair.
+    properties:
+      type: {type: string}
+      Name: {type: string}
+      Value: {type: string}
+
+  ScheduleInfo:
+    type: object
+    description: Summary of a schedule.
+    required: [token]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: A service-unique identifier of the schedule.}
+      Name: {type: string, description: Short name of the schedule.}
+      Description: {type: string, description: Detailed description of the schedule.}
+
+  Schedule:
+    type: object
+    description: >-
+      A schedule as returned by the device. The definitions are in iCalendar syntax (RFC 5545, a subset), with only
+      local time. A definition with a DTEND in its VEVENT is an interval schedule; one without is a pulse schedule.
+    required: [token]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: A service-unique identifier of the schedule.}
+      Name: {type: string, description: Short name of the schedule.}
+      Description: {type: string, description: Detailed description of the schedule.}
+      ScheduleDefinition: {type: string, description: "When the schedule is active, in iCalendar syntax."}
+      Attribute:
+        type: array
+        items: {$ref: "#/types/Attribute"}
+        description: Attributes of the schedule.
+      ExceptionScheduleDefinition: {type: string, description: "When the schedule is in exception, in iCalendar syntax. Exceptions are subtracted from the schedule definition, so the schedule is never active while in exception."}
+
+  ScheduleInput:
+    type: object
+    description: A schedule to add or update.
+    required: [ScheduleDefinition]
+    x-nullable: [ExceptionScheduleDefinition]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: "Token of the schedule to update. If empty or absent the device generates a token and adds a new schedule."}
+      Name: {type: string, description: Short name of the schedule.}
+      Description: {type: string, description: Detailed description of the schedule.}
+      ScheduleDefinition: {type: string, description: "When the schedule is active, in iCalendar syntax (VCALENDAR with VEVENT). Local time only."}
+      Attribute:
+        type: array
+        items: {$ref: "#/types/Attribute"}
+        description: Attributes of the schedule.
+      ExceptionScheduleDefinition: {type: string, description: "When the schedule is in exception, in iCalendar syntax."}
+
+  ScheduleStatus:
+    type: object
+    description: Status of one schedule.
+    required: [Token, Active, Exception]
+    properties:
+      Token: {$ref: "#/types/ReferenceToken", description: Schedule token.}
+      Active: {type: boolean, description: Whether the schedule is active now. Never true while Exception is true.}
+      Exception: {type: boolean, description: Whether the schedule is in exception now.}
+
+  GetServiceCapabilitiesResult:
+    type: object
+    required: [Capabilities]
+    properties:
+      Capabilities: {$ref: "#/types/ServiceCapabilities", description: The capabilities of the service.}
+
+  ListRequest:
+    type: object
+    properties:
+      Limit: {type: integer, description: "Maximum number of entries to return. If absent, or higher than the device supports, the device decides."}
+      StartReference: {type: string, description: "Start returning entries from this reference. If absent, start from the beginning."}
+
+  TokensRequest:
+    type: object
+    required: [Token]
+    properties:
+      Token:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/ReferenceToken"}
+        description: Tokens of the schedules.
+
+  ScheduleInfoList:
+    type: object
+    properties:
+      NextStartReference: {type: string, description: "StartReference to use in the next call to get the following items. Absent when there are no more items."}
+      ScheduleInfo:
+        type: array
+        items: {$ref: "#/types/ScheduleInfo"}
+
+  ScheduleInfos:
+    type: object
+    properties:
+      ScheduleInfo:
+        type: array
+        items: {$ref: "#/types/ScheduleInfo"}
+
+  ScheduleList:
+    type: object
+    properties:
+      NextStartReference: {type: string, description: "StartReference to use in the next call to get the following items. Absent when there are no more items."}
+      Schedule:
+        type: array
+        items: {$ref: "#/types/Schedule"}
+
+  Schedules:
+    type: object
+    properties:
+      Schedule:
+        type: array
+        items: {$ref: "#/types/Schedule"}
+
+  SetScheduleRequest:
+    type: object
+    required: [Schedule]
+    properties:
+      Schedule:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/ScheduleInput"}
+        description: The schedules to add or update.
+
+  TokenList:
+    type: object
+    properties:
+      Token:
+        type: array
+        items: {$ref: "#/types/ReferenceToken"}
+        description: Tokens of the schedules that were set.
+
+  ScheduleActiveRequest:
+    type: object
+    required: [Token]
+    x-nullable: [LocalTime, UtcTime]
+    properties:
+      Token:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/ReferenceToken"}
+        description: Tokens of the schedules to check.
+      LocalTime: {type: string, description: "Local time (xs:dateTime) to check against. If absent it is deduced from the device time zone and UtcTime if given, otherwise the device's current local time."}
+      UtcTime: {type: string, description: "UTC time (xs:dateTime) to check against. If absent it is deduced from the device time zone and LocalTime if given, otherwise the device's current UTC time."}
+
+  ScheduleActiveResult:
+    type: object
+    required: [Active, Exception]
+    properties:
+      Active: {type: boolean, description: True if any of the schedules is active at the time and there is no exception.}
+      Exception: {type: boolean, description: True if any of the schedules has an exception at the time.}
+
+  ScheduleStatusReportResult:
+    type: object
+    properties:
+      Status:
+        type: array
+        items: {$ref: "#/types/ScheduleStatus"}
+
+operations:
+  get_service_capabilities:
+    summary: Get the capabilities of the schedule service.
+    effect: read
+    access: anonymous
+    binding: {operation: "axsch:GetServiceCapabilities"}
+    result: {$ref: "#/types/GetServiceCapabilitiesResult"}
+
+  get_schedule_info_list:
+    summary: List the summaries of all schedules.
+    description: >-
+      Pages through the schedules. Pass the returned `NextStartReference` as `StartReference` in the next call and never
+      reuse a reference. The device may return fewer items than `Limit`.
+    effect: read
+    binding: {operation: "axsch:GetScheduleInfoList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/ScheduleInfoList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning.", kind: invalid_argument}
+
+  get_schedule_info:
+    summary: Get the summaries of the schedules with the given tokens.
+    description: The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axsch:GetScheduleInfo"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/ScheduleInfos"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability., kind: invalid_argument}
+
+  get_schedule_list:
+    summary: List all schedules with their definitions.
+    description: >-
+      Pages through the schedules. Pass the returned `NextStartReference` as `StartReference` in the next call and never
+      reuse a reference. The system has default schedules, such as `standard_office_hours`, which can be removed.
+    effect: read
+    binding: {operation: "axsch:GetScheduleList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/ScheduleList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning.", kind: invalid_argument}
+
+  get_schedule:
+    summary: Get the schedules with the given tokens.
+    description: The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axsch:GetSchedule"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/Schedules"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability., kind: invalid_argument}
+
+  set_schedule:
+    summary: Add or update schedules.
+    description: >-
+      A schedule whose token exists is updated, any other is added, and a schedule without a token gets one
+      generated by the device. The tokens are returned.
+    effect: write
+    write: patch
+    binding: {operation: "axsch:SetSchedule"}
+    params: {$ref: "#/types/SetScheduleRequest"}
+    result: {$ref: "#/types/TokenList"}
+    errors:
+      ter:InvalidScheduleFault: {description: The schedule definition is invalid., kind: invalid_argument}
+    examples:
+      - title: Add a weekly interval schedule
+        request:
+          params:
+            Schedule:
+              - ExceptionScheduleDefinition: null
+                Attribute: []
+                ScheduleDefinition: "BEGIN:VCALENDAR\nBEGIN:VEVENT\nDTSTART:20120312T080000\nDTEND:20120312T170000\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR\nEND:VEVENT\nEND:VCALENDAR\n"
+                token: ""
+                Description: Desc1
+                Name: Name1
+        source: https://developer.axis.com/vapix/physical-access-control/schedule-service/#setting-a-schedule
+
+  remove_schedule:
+    summary: Remove the schedules with the given tokens.
+    description: >-
+      Removing an active interval schedule sends a Schedule/Interval event with Active and Exception false.
+    effect: write
+    write: delete
+    binding: {operation: "axsch:RemoveSchedule"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotFound: {description: Schedule not found., kind: not_found}
+
+  schedule_active:
+    summary: Check whether any of the schedules is active at a given or the current time.
+    description: >-
+      Several schedules are combined as "any schedule active and no exception". If any schedule has a matching
+      exception, the result is `Active` false and `Exception` true. Without `LocalTime` and `UtcTime` the device's
+      current time is used; with one of them the other is deduced from the device time zone.
+    effect: read
+    binding: {operation: "axsch:ScheduleActive"}
+    params: {$ref: "#/types/ScheduleActiveRequest"}
+    result: {$ref: "#/types/ScheduleActiveResult"}
+    errors:
+      ter:NotFound: {description: Schedule not found., kind: not_found}
+    examples:
+      - title: Check two schedules now
+        request:
+          params: {Token: [standard_office_hours, standard_weekends], UtcTime: null, LocalTime: null}
+        response:
+          data: {Active: true, Exception: false}
+        source: https://developer.axis.com/vapix/physical-access-control/schedule-service/#checking-schedule-status
+
+  schedule_status_report:
+    summary: Get the status of the given schedules.
+    effect: read
+    binding: {operation: "axsch:ScheduleStatusReport"}
+    params:
+      type: object
+      x-name: ScheduleStatusReportRequest
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          minItems: 1
+          items: {$ref: "#/types/ReferenceToken"}
+          description: Tokens of the schedules to report on.
+    result: {$ref: "#/types/ScheduleStatusReportResult"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability., kind: invalid_argument}
+    examples:
+      - title: Report the status of all schedules
+        request: {params: {}}
+        response:
+          data:
+            Status:
+              - {Token: standard_weekends, Active: false, Exception: false}
+              - {Token: standard_office_hours, Active: true, Exception: false}
+              - {Token: standard_always, Active: true, Exception: false}
+        source: https://developer.axis.com/vapix/physical-access-control/schedule-service/#checking-schedule-status
+        x-contract: {skip: "The guide sends no Token to report on all schedules, but the message table makes Token mandatory ([1][unbounded])."}
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/schedule-service/
+  sha256_md: 9ad6608e84bf1cc264539b5343fd0716905edf6665032616799b2e70be2a25a6
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+  sha256_md: df3688f4c13448b099bd1126f31cc26e1eaaae943bf21565bea22dc0dad6d998
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+  sha256_md: e2e79ca5367f918095d6ca5dcd68e85139497cd21469b2eaf7e2569999617080
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
+    - 'The ScheduleStatusReport example sends no Token, and the guide describes it as a report for all schedules, but the message table makes Token mandatory ([1][unbounded]). The table wins here, so the example is skipped; the device apparently accepts omission, which would make Token optional.'
+    - 'The encoding of ServiceCapabilities.Component (a list of supported iCalendar components) is not documented; it is left untyped.'
+    - 'The Interval and Pulse notification topics are spelled `tns1:Schedule/Interval` and `tns1:Schedule/Pulse` on the service page but `tns1:Schedule/tnsaxis:Interval` and `tns1:Schedule/tnsaxis:Pulse` in the event logger notification topics table.'
+    - 'One JSON example in the system integration examples page uses the key `axschSetSchedule` (missing colon; presumably `axsch:SetSchedule`).'
+    - The docs do not say which Schedule fields are always returned, so only token (and Token, Active and Exception of a status) are required in responses. The InitializationDone data structure (a device UUID token) belongs to an event and is not modelled.
+    - The ONVIF access classes are not mapped to a VAPIX role; the API default admin is kept, except GetServiceCapabilities (PRE_AUTH), which is anonymous. ScheduleActive and ScheduleStatusReport have class ACTUATE but only read state.
+  migrated_from: v1
+  curated: true

@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: onvif-replay-extension
 name: Onvif Replay Extension
-summary: RTP header extension with NTP timestamp (ONVIF replay extension) for video/audio streams; enable per RTSP
-  stream (onvifreplayext=1) or by default...
+summary: Check for and enable by default the ONVIF replay RTP header extension (NTP timestamps) on video and audio streams.
 section: network-video
 family: cgi
 status: released
@@ -11,50 +9,69 @@ python:
   module: onvif_replay_extension
   class: OnvifReplayExtension
 docs:
-- https://developer.axis.com/vapix/network-video/onvif-replay-extension/
-access: admin
+  - https://developer.axis.com/vapix/network-video/onvif-replay-extension/
+access: viewer
 discovery:
-- param: {name: Properties.API.RTP.OnvifReplayExt, value: 'yes'}
+  - param: {name: Properties.API.RTP.OnvifReplayExt, value: "yes"}
 requires:
-  firmware: '10.11'
+  firmware: "10.11"
+binding:
+  path: /axis-cgi/param.cgi
 
-binding: {path: /axis-cgi/param.cgi}
+types:
+  OnvifReplayExtSupport:
+    type: object
+    required: [Properties.API.RTP.OnvifReplayExt]
+    properties:
+      Properties.API.RTP.OnvifReplayExt:
+        type: boolean
+        x-python-name: supported
+        description: True when the device supports the RTP header extension.
+  OnvifReplayExtDefault:
+    type: object
+    required: [Network.RTP.OnvifReplayExt]
+    properties:
+      Network.RTP.OnvifReplayExt:
+        type: boolean
+        x-python-name: enabled
+        description: True when the RTP header extension is used by default, without ``onvifreplayext=1`` in the RTSP setup.
 
 operations:
-  check_supported:
-    summary: Check if RTP with the OnvifReplayExt feature is supported.
+  get_support:
+    summary: Check whether the device supports the RTP header extension.
+    description: A device without support answers with a ``# Error`` text, which raises an API error.
     effect: read
     binding:
       method: GET
       query: {action: list, group: Properties.API.RTP.OnvifReplayExt}
-      reply: text_kv
-    result:
-      type: object
-      additionalProperties: {type: string}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    result: {$ref: "#/types/OnvifReplayExtSupport"}
     examples:
-    - title: Check if the feature is supported
-      request:
-        query: {}
-      response: {status: 200, text: Properties.API.RTP.OnvifReplayExt=yes}
-      source: https://developer.axis.com/vapix/network-video/onvif-replay-extension/#check-if-the-feature-is-supported
+      - title: Check if the feature is supported
+        request: {query: {}}
+        response: {status: 200, text: Properties.API.RTP.OnvifReplayExt=yes}
+        source: https://developer.axis.com/vapix/network-video/onvif-replay-extension/#check-if-the-feature-is-supported
+
   get_default_enabled:
-    summary: Check if RTP with the OnvifReplayExt feature is enabled by default.
+    summary: Check whether the RTP header extension is enabled by default.
+    access: admin
     effect: read
     binding:
       method: GET
       query: {action: list, group: Network.RTP.OnvifReplayExt}
-      reply: text_kv
-    result:
-      type: object
-      additionalProperties: {type: string}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    result: {$ref: "#/types/OnvifReplayExtDefault"}
     examples:
-    - title: Check if the feature is enabled by default
-      request:
-        query: {}
-      response: {status: 200, text: Network.RTP.OnvifReplayExt=yes}
-      source: https://developer.axis.com/vapix/network-video/onvif-replay-extension/#check-if-the-feature-is-enabled-by-default
+      - title: Check if the feature is enabled by default
+        request: {query: {}}
+        response: {status: 200, text: Network.RTP.OnvifReplayExt=yes}
+        source: https://developer.axis.com/vapix/network-video/onvif-replay-extension/#check-if-the-feature-is-enabled-by-default
+
   set_default_enabled:
     summary: Enable or disable the RTP header extension by default.
+    access: admin
     effect: write
     write: patch
     binding:
@@ -67,27 +84,25 @@ operations:
       properties:
         Network.RTP.OnvifReplayExt:
           type: boolean
-          enum: ['yes', 'no']
+          x-style: axis_bool
           x-python-name: enabled
-          description: The new default value for Network.RTP.OnvifReplayExt.
+          description: The new default for ``Network.RTP.OnvifReplayExt``.
+    positional: [enabled]
     examples:
-    - title: Enable the feature by default
-      request:
-        query: {Network.RTP.OnvifReplayExt: 'yes'}
-      response: {status: 200, text: OK}
-      source: https://developer.axis.com/vapix/network-video/onvif-replay-extension/#enable-or-disable-the-feature-by-default
+      - title: Enable the feature by default
+        request: {query: {Network.RTP.OnvifReplayExt: "yes"}}
+        response: {status: 200, text: OK}
+        source: https://developer.axis.com/vapix/network-video/onvif-replay-extension/#enable-or-disable-the-feature-by-default
 
 sources:
-- url: https://developer.axis.com/vapix/network-video/onvif-replay-extension/
-  sha256_md: 3d9cd420dc664901d50af7d686611165b9b99c34070ebd1f29ce97510916ead6
-  retrieved_at: '2026-10-11'
-
+  - url: https://developer.axis.com/vapix/network-video/onvif-replay-extension/
+    sha256_md: 3d9cd420dc664901d50af7d686611165b9b99c34070ebd1f29ce97510916ead6
+    retrieved_at: "2026-10-11"
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - Response "Schema" blocks are pseudo-syntax ({ [ ... ] }), not real JSON; actual response is plain text.
-  - Security levels for the param.cgi list/update calls are not stated.
-  - 'migration: op-skipped: rtsp_stream_with_replay_extension: kind rtsp_request is not a classic CGI call'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+    - 'BLOCKED(rtsp_url): stream_with_replay_extension: rtsp://<host>:554/axis-media/media.amp?videocodec=h264&onvifreplayext=1 (0 disables it when enabled by default)'
+    - The response "Schema" blocks are pseudo-syntax ({ [ ... ] }); the actual response is plain text key=value.
+    - Security levels of the param.cgi calls are not stated; Properties is read as viewer and Network.RTP as admin (as in the network settings docs).
   migrated_from: v1
-  curated: false
+  curated: true

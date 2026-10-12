@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: geolocation
 name: Geolocation API
-summary: Set and get the geographical position (latitude, longitude, heading, free text) of a device; orientation
-  API mentioned.
+summary: Set and get the geographical position (latitude, longitude, heading, free text) of a device.
 section: network-video
 family: cgi
 status: released
@@ -14,54 +12,62 @@ docs:
 - https://developer.axis.com/vapix/network-video/geolocation-api/
 access: admin
 discovery:
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.Geolocation.Geolocation, value: 'yes'}
 - param: {name: Properties.Geolocation.Version, value: '0.01'}
-- param: {name: Properties.Geoorientation.Geoorientation, value: 'yes'}
-- param: {name: Properties.Geoorientation.Version, value: '0.01'}
 requires:
   firmware: '6.25'
 
 binding: {path: /axis-cgi/geolocation/get.cgi}
 
 types:
-  Coordinate: {type: string, description: ISO-6709 Annex H coordinate.}
-  GetPositionResult:
+  Coordinate:
+    type: string
+    description: >-
+      ISO-6709 Annex H coordinate in DD, DDMM or DDMMSS form with a fixed number of integer digits (2 for latitude,
+      3 for longitude, or 4/5 and 6/7 with minutes and seconds). The device returns the format that was set.
+  Heading:
+    type: integer
+    minimum: 0
+    maximum: 360
+    description: Direction of the device in degrees, 0 = North, 90 = East, 270 = West.
+  GeoLocation:
     type: object
-    description: PositionResponse (SchemaVersion=1.0) / Success / GetSuccess
+    properties:
+      Lat:
+        $ref: '#/types/Coordinate'
+        x-xml: {child: Lat}
+      Lng:
+        $ref: '#/types/Coordinate'
+        x-xml: {child: Lng}
+      Heading:
+        $ref: '#/types/Heading'
+        x-xml: {child: Heading}
+  Position:
+    type: object
+    description: The position of the device. Default values (0 and an empty string) are returned when nothing is set.
     properties:
       Location:
-        type: object
-        x-name: GetPositionResultLocation
-        properties:
-          Lat:
-            $ref: '#/types/Coordinate'
-            x-xml: {child: Lat}
-          Lng:
-            $ref: '#/types/Coordinate'
-            x-xml: {child: Lng}
-          Heading:
-            type: integer
-            minimum: 0
-            maximum: 360
-            x-xml: {child: Heading}
+        $ref: '#/types/GeoLocation'
       Text:
         type: string
+        description: Free text such as a location tag.
         x-xml: {child: Text}
       ValidPosition:
         type: boolean
+        description: False when no geographical position is available or the data is outdated.
         x-xml: {child: ValidPosition}
       ValidHeading:
         type: boolean
+        description: False when no valid heading is available or the data is outdated.
         x-xml: {child: ValidHeading}
     x-xml: {root: Success/GetSuccess}
 
 operations:
   get_position:
-    summary: Get position information (latitude, longitude, heading, text, validity flags).
+    summary: Get the position (latitude, longitude, heading, free text) and its validity flags.
     effect: read
     binding: {method: GET, reply: xml}
-    result: {$ref: '#/types/GetPositionResult'}
+    result: {$ref: '#/types/Position'}
     examples:
     - title: Get complete position data
       request:
@@ -85,27 +91,23 @@ operations:
           </PositionResponse>
       source: https://developer.axis.com/vapix/network-video/geolocation-api/#get-complete-position-data
   set_position:
-    summary: Set new position information (some or all fields).
+    summary: Set some or all of the position fields.
+    description: >-
+      Only the given fields change. The device stores coordinates as given, without conversion between DD, DDMM and
+      DDMMSS.
     effect: write
     write: patch
     binding:
       path: /axis-cgi/geolocation/set.cgi
       method: GET
       reply:
-        xml: {error_elements: [Error, GeneralError, SetError]}
+        xml: {error_elements: [Error]}
     params:
       type: object
       properties:
-        lat:
-          $ref: '#/types/Coordinate'
-          description: New value for latitude (DD, DDMM or DDMMSS, WGS-84).
-        lng: {$ref: '#/types/Coordinate', description: New value for longitude.}
-        heading:
-          type: integer
-          minimum: 0
-          maximum: 360
-          description: New value for heading. Direction of the device in degrees; integers 0–360, 0 = North (e.g.
-            90 = East, 270 = West). (unit=degrees)
+        lat: {$ref: '#/types/Coordinate', description: New value for latitude (WGS-84).}
+        lng: {$ref: '#/types/Coordinate', description: New value for longitude (WGS-84).}
+        heading: {$ref: '#/types/Heading', description: New value for heading.}
         text: {type: string, description: 'New value for free text (location tag, e.g. "floor 2").'}
     errors:
       1: {description: Invalid parameter, kind: invalid_argument}
@@ -138,7 +140,7 @@ operations:
       source: https://developer.axis.com/vapix/network-video/geolocation-api/#set-position
     - title: Set position using DDMMSS units
       request:
-        query: {lat: '511234.5678', lng: '0131234.5678', heading: '30', text: '"free'}
+        query: {lat: '511234.5678', lng: '0131234.5678', heading: '30', text: '"free text"'}
       response:
         status: 200
         text: |-
@@ -149,6 +151,7 @@ operations:
           </PositionResponse>
       source: https://developer.axis.com/vapix/network-video/geolocation-api/#set-position
 
+
 sources:
 - url: https://developer.axis.com/vapix/network-video/geolocation-api/
   sha256_md: d0f8e666851770f9a01612742ccbc9ff386eb305eb90dc22911e73e0cac44f95
@@ -157,18 +160,11 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - Orientation API (geoorientation, action=get/set, heading/installation height/tilt/roll, AXIS OS 11.5) is announced
-    but no CGI path, parameters or responses are documented; the 'API specification' section instead repeats position/get
-    and position/set twice (second copy adds heading). Mirrored HTML matches; likely a doc defect.
-  - How ValidPosition / ValidHeading are set is not documented (no set.cgi parameter for them).
-  - position/set parameter table omits heading; the duplicate section includes it.
-  - Examples quote text values (text="freetext"); whether quotes are stored literally is unclear. Spaces in 'free
-    text' / 'floor 2' are unencoded in examples.
-  - Error response lists ErrorCode 1/2/3 in one SetError element — syntax listing of possible codes, not a real
-    response.
-  - Return value 'Error' of get.cgi is only described as defaults (0 and empty string).
-  - Mentioned unit types DMS/DMM vs DDMM/DDMMSS naming inconsistent.
-  - 'migration: xml-unmapped: set_position: no response schema in v1; result is the raw XML element'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - The Orientation API (geoorientation: heading, installation height, tilt and roll, AXIS OS 11.5, selected with action=get/set) is announced but no CGI path, parameters or responses are documented, so it is not modelled.
+  - How ValidPosition and ValidHeading are set is not documented; set.cgi has no parameter for them.
+  - Examples quote the text value (text="freetext"); whether the quotes are stored literally is unclear. The examples also leave spaces in 'free text' unencoded.
+  - The error response lists ErrorCode 1, 2 and 3 in one SetError element as a syntax listing of the possible codes; a real reply carries one.
+  - The docs say GET/POST for both CGIs; only GET is modelled.
+  - The unit names DD, DDMM and DDMMSS are used in the examples but DMS and DMM in the introduction.
   migrated_from: v1
-  curated: false
+  curated: true

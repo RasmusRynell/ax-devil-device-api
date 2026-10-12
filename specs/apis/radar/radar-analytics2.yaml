@@ -271,7 +271,7 @@ operations:
             detectionSensitivity: {values: [low, medium, high], default: medium}
             lanes: {maxNameLength: 32, maxNodes: 10}
         source: https://developer.axis.com/vapix/radar/radar-configuration/#getconfigurationcapabilities-1
-        x-contract: {skip: "The documented response is a syntax template; the concrete values are illustrative."}
+        x-contract: {template: true}
       - title: Invalid parameter value
         request: {params: {}}
         response: {error: {code: 1000, message: Invalid parameter value.}}

@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: audit-log
 name: Audit log
@@ -22,6 +21,7 @@ operations:
     summary: Request a list of the entire audit log, or the tail end of it.
     effect: read
     binding: {method: GET, reply: text}
+    positional: [tail]
     params:
       type: object
       properties:
@@ -63,15 +63,6 @@ operations:
       method: GET
       query: {version: 'true'}
       reply: text
-    params:
-      type: object
-      properties:
-        version:
-          type: boolean
-          enum: ['true', 'false']
-          default: false
-          description: Specifies whether to retrieve the CGI version. Defaults to false. If set to true, it takes
-            precedence over other parameters and only the version number is retrieved.
     result: {type: string}
     errors:
       400: {description: An invalid request method was provided., kind: invalid_argument}
@@ -93,7 +84,7 @@ provenance:
   open_questions:
   - AXIS OS minimum version not stated; only API discovery id=audit-log.
   - Valid range of tail (e.g. 0 or negative) not documented.
-  - Doc says 'tail end of the audio log' — typo for audit log.
   - Error 500 is listed for the log retrieval but not for the version request.
+  - The reply is plain text, not documented as structured; it is returned as a string.
   migrated_from: v1
-  curated: false
+  curated: true

@@ -1,0 +1,95 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: entry-service
+name: Entry service API
+summary: Web services (SOAP) API to query the product for supported services, their XAddr, versions and capabilities.
+section: network-video
+family: soap
+status: released
+python:
+  module: entry_service
+  class: EntryService
+docs:
+- https://developer.axis.com/vapix/network-video/entry-service-api/
+access: admin
+discovery:
+- param: {name: Properties.API.WebService.EntryService, value: 'yes'}
+requires:
+  firmware: '5.60'
+
+binding: {namespace: 'http://www.axis.com/vapix/ws/entry'}
+
+types:
+  Version:
+    type: object
+    required: [Major, Minor]
+    properties:
+      Major: {type: integer, description: 'Major version number (xs:int).'}
+      Minor:
+        type: integer
+        description: Two digit minor version number (e.g. 1 maps to "01" and 20 maps to "20") (xs:int).
+  Service:
+    type: object
+    required: [Namespace, XAddr, Version]
+    properties:
+      Namespace:
+        type: string
+        description: Namespace of the service being described. Allows matching the service capabilities to the service.
+          Only one set of capabilities is supported per namespace. (format=uri)
+      XAddr:
+        type: string
+        description: The transport address where the service can be reached. The schema and IP part shall match
+          the one used in the GetServices request. Absolute URL; modify as required to support NAT. (format=uri)
+      Capabilities:
+        description: Optional (minOccurs=0). Untyped placeholder (xs:any, lax) for the service capability element,
+          e.g. tds:DeviceServiceCapabilities for the device service.
+      Version: {$ref: '#/types/Version'}
+
+operations:
+  get_services:
+    summary: Returns information about the services available in the Axis product (namespace, XAddr, version and
+      optionally untyped capabilities).
+    effect: read
+    binding: {action: 'http://www.axis.com/vapix/ws/entry/GetServices', element: GetServices}
+    params:
+      type: object
+      required: [IncludeCapability]
+      properties:
+        IncludeCapability:
+          type: boolean
+          description: Indicates if the service capabilities (untyped) should be included in the response. GetServices(false)
+            lists services without capabilities; GetServices(true) with.
+    result:
+      type: object
+      properties:
+        Service:
+          type: array
+          items: {$ref: '#/types/Service'}
+          description: minItems=1
+  get_service_capabilities:
+    summary: Returns the capabilities supported by the entry service (typed answer).
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/entry/GetServiceCapabilities
+      element: GetServiceCapabilities
+    result:
+      type: object
+      properties:
+        Capabilities: {description: 'aentry:Capabilities — empty sequence with anyAttribute (lax).'}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/entry-service-api/
+  sha256_md: 521c072b768b425e00b57a2777c23e51b21479e85b841ccd4fa58fb499502daf
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Service endpoint URL and security level are not stated on the page; /vapix/services assumed from the generic
+    web-service convention.
+  - WSDL has no wsdl:service element; the endpoint address therefore isn't machine-specified.
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
+    documented examples for children in other namespaces'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

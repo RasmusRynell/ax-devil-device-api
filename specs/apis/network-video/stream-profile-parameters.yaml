@@ -1,8 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: stream-profile-parameters
 name: Stream profiles (StreamProfile parameter group)
-summary: Management of stream profiles through param.cgi (StreamProfile.S# dynamic parameter group, template streamprofile).
+summary: Add, configure, list and remove stream profiles through param.cgi (``StreamProfile.S#`` dynamic parameter group, template ``streamprofile``).
 section: network-video
 family: cgi
 status: released
@@ -21,7 +20,11 @@ binding: {path: /axis-cgi/param.cgi}
 
 operations:
   add_stream_profile:
-    summary: Add a new stream profile (optionally with values).
+    summary: Add a new stream profile, optionally with name, description and parameters; returns the device reply (``"S4 OK"``).
+    description: >-
+      The new profile gets the next free group number (``S4`` in the documented example). Creating a dynamic parameter
+      group needs administrator or operator access. The name may contain ``A-Z``, ``a-z``, ``0-9``, ``-`` and ``_`` and
+      must be unique.
     effect: write
     write: create
     binding:
@@ -31,27 +34,34 @@ operations:
     params:
       type: object
       properties:
-        StreamProfile.S.Name: {type: string}
-        StreamProfile.S.Description: {type: string}
+        StreamProfile.S.Name: {type: string, x-python-name: name, description: The name of the stream profile used in requests. Must be unique.}
+        StreamProfile.S.Description: {type: string, x-python-name: description, description: User-friendly description of the profile.}
         StreamProfile.S.Parameters:
           type: string
-          description: Percent-encoded argument list (space %20, = %3d, & %26, % %25; so a space inside becomes
-            %2520).
+          x-python-name: parameters
+          description: >-
+            List of image request arguments, for example ``videocodec=h264&resolution=4CIF``, percent-encoded (space ``%20``,
+            ``=`` ``%3d``, ``&`` ``%26``, ``%`` ``%25``; a space inside the list becomes ``%2520``).
+    result: {type: string}
     examples:
-    - title: add_stream_profile
-      request:
-        query: {}
+    - title: Add a new stream profile
+      request: {query: {}}
       response: {status: 200, text: S4 OK}
-      source: https://developer.axis.com/vapix/network-video/video-streaming/#stream-profiles
-    - title: add_stream_profile
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#common-examples-3
+    - title: Add and configure a stream profile in one request
       request:
         query:
-          StreamProfile.S.Name: myprofile2StreamProfile.S.Description=My 4CIF profile
-          StreamProfile.S.Parameters: videocodec=h264&resolution=4CIF&text=1&textstring=4CIF%20profile
+          StreamProfile.S.Name: myprofile2
+          StreamProfile.S.Description: My 4CIF profile
+          StreamProfile.S.Parameters: videocodec%3dh264%26resolution%3d4CIF%26text%3d1%26textstring%3d4CIF%2520profile
       response: {status: 200, text: S5 OK}
-      source: https://developer.axis.com/vapix/network-video/video-streaming/#stream-profiles
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#common-examples-3
   update_stream_profile:
-    summary: Configure a stream profile.
+    summary: 'Configure stream profiles, e.g. ``{"StreamProfile.S4.Name": "myprofile"}``.'
+    description: >-
+      Keys are ``StreamProfile.S#.Name``, ``StreamProfile.S#.Description`` and ``StreamProfile.S#.Parameters`` where ``#``
+      is the group number of the profile. ``Parameters`` is a percent-encoded argument list (see ``add_stream_profile``).
+      Only the given parameters change.
     effect: write
     write: patch
     binding:
@@ -60,40 +70,60 @@ operations:
       reply: text_ok
     params:
       type: object
+      required: [parameters]
       properties:
-        StreamProfile.S#.Name: {type: string}
-        StreamProfile.S#.Description: {type: string}
-        StreamProfile.S#.Parameters: {type: string}
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+    examples:
+    - title: Configure a stream profile
+      request:
+        query:
+          StreamProfile.S4.Name: myprofile
+          StreamProfile.S4.Description: My CIF profile
+          StreamProfile.S4.Parameters: resolution%3dCIF%26text%3d1%26textstring%3dCIF%2520profile
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#common-examples-3
   list_stream_profile:
-    summary: List the parameters of a stream profile.
+    summary: 'List the parameters of a stream profile or of all profiles, as ``{"StreamProfile.S5.Name": "myprofile2"}``.'
     access: viewer
     effect: read
     binding:
       method: GET
       query: {action: list}
-      reply:
-        text_kv: {strip_prefix: root.}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
     params:
       type: object
       required: [group]
       properties:
-        group: {type: string, description: e.g. StreamProfile.S5}
-    result:
-      type: object
-      additionalProperties: {type: string}
+        group: {type: string, pattern: '^StreamProfile(\.S[0-9]+)?$', description: 'The group to list, for example ``StreamProfile.S5`` or ``StreamProfile``.'}
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
     examples:
-    - title: list_stream_profile
-      request:
-        query: {group: StreamProfile.S5}
+    - title: List the parameters of a stream profile
+      request: {query: {group: StreamProfile.S5}}
       response:
         status: 200
         text: |-
           root.StreamProfile.S5.Name=myprofile2
           root.StreamProfile.S5.Description=My%204CIF%20profile
-          root.StreamProfile.S5.Parameters=videocodec%3dh264
-          %26resolution%3d4CIF%26text%3d1
-          %26textstring%3d4CIF%2520profile
-      source: https://developer.axis.com/vapix/network-video/video-streaming/#stream-profiles
+          root.StreamProfile.S5.Parameters=videocodec%3dh264%26resolution%3d4CIF%26text%3d1%26textstring%3d4CIF%2520profile
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#common-examples-3
+  remove_stream_profile:
+    summary: Remove a user-created stream profile, e.g. ``StreamProfile.S4``.
+    description: Predefined stream profiles cannot be removed.
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {action: remove}
+      reply: text_ok
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, pattern: '^StreamProfile\.S[0-9]+$', description: 'The profile group, for example ``StreamProfile.S4``.'}
+    positional: [group]
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/video-streaming/
@@ -101,14 +131,14 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - Combined add example is missing '&' between StreamProfile.S.Name=myprofile2 and StreamProfile.S.Description
-    (doc typo).
-  - Update example contains a literal space ('%2520 profile').
-  - Name valid characters listed as 'A-Z a-z 0-9 -, _' - unclear whether comma is allowed.
-  - Removal of a user-created profile is mentioned but no example (presumably param.cgi action=remove).
-  - 'migration: reply-ok: add_stream_profile: notes mention OK; reply read as plain text (check)'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'BLOCKED(streaming): the Motion JPEG request with ``streamprofile=<name>`` on /axis-cgi/mjpg/video.cgi (see video-streaming) and the RTSP request with ``streamprofile`` (BLOCKED(rtsp-url)) use these profiles but are not stream-profile operations.'
+  - The profile group number sits inside the parameter name (StreamProfile.S#...), which the cgi binding cannot template; update_stream_profile takes full parameter names.
+  - The percent-encoding of the Parameters value is ambiguous. The list reply shows the value stored percent-encoded (``videocodec%3dh264``) while the request URLs carry the same text; whether a client should encode it once more on the wire is not stated.
+  - The combined add example in the docs misses the ``&`` between ``StreamProfile.S.Name=myprofile2`` and ``StreamProfile.S.Description`` (doc typo, corrected here); the update example has a literal space in ``%2520 profile`` (typo, corrected).
+  - The Name valid characters are listed as "A-Z a-z 0-9 -, _"; whether the comma is allowed is unclear.
+  - Removal of a user-created profile has no example; remove_stream_profile follows param.cgi ``action=remove`` from the Parameter management API.
+  - The add reply ``S4 OK`` is returned as text; its parse (entry name) is not modelled.
   migrated_from: v1
-  curated: false
+  curated: true

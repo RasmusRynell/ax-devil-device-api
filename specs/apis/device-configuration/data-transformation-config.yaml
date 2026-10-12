@@ -160,7 +160,7 @@ operations:
   get_transform:
     summary: Get one transform.
     effect: read
-    binding: {method: GET, path: "/transforms/{outputTopic}"}
+    binding: {method: GET, path: "/transforms/{outputTopic}", key_styles: {outputTopic: dots_to_slashes}}
     params:
       type: object
       x-name: TransformOutputTopicRequest
@@ -173,7 +173,7 @@ operations:
     summary: Runtime statistics of one transform.
     access: operator
     effect: read
-    binding: {method: GET, path: "/transforms/{outputTopic}/statistics"}
+    binding: {method: GET, path: "/transforms/{outputTopic}/statistics", key_styles: {outputTopic: dots_to_slashes}}
     params:
       type: object
       x-name: TransformOutputTopicRequest
@@ -183,7 +183,7 @@ operations:
     result: {$ref: "#/types/Statistics"}
     examples:
       - title: Get transform statistics
-        request: {path: /transforms/com.axis.dt.output.topic/statistics}
+        request: {path: /transforms/com/axis/dt/output/topic/statistics}
         response:
           status: 200
           body:
@@ -225,13 +225,13 @@ operations:
     description: Only the given settings change.
     effect: write
     write: patch
-    binding: {method: PATCH, path: "/transforms/{outputTopic}", body: object}
+    binding: {method: PATCH, path: "/transforms/{outputTopic}", key_styles: {outputTopic: dots_to_slashes}, body: object}
     params: {$ref: "#/types/UpdateTransformRequest"}
     examples:
       - title: Update an existing transform
         x-contract: {skip: "The documented request sends outputTopic in the body, but outputTopic is the key and not a settable property in the entity definition."}
         request:
-          path: /transforms/com.axis.dt.output.topic
+          path: /transforms/com/axis/dt/output/topic
           body:
             data: {outputTopic: com.axis.dt.output.topic.v2}
         response: {status: 200, body: {status: success}}
@@ -241,7 +241,7 @@ operations:
     summary: Remove a transform.
     effect: write
     write: delete
-    binding: {method: DELETE, path: "/transforms/{outputTopic}"}
+    binding: {method: DELETE, path: "/transforms/{outputTopic}", key_styles: {outputTopic: dots_to_slashes}}
     params:
       type: object
       x-name: TransformOutputTopicRequest
@@ -250,7 +250,7 @@ operations:
         outputTopic: {$ref: "#/types/Topic"}
     examples:
       - title: Remove a transform
-        request: {path: /transforms/com.axis.dt.output.topic}
+        request: {path: /transforms/com/axis/dt/output/topic}
         response: {status: 200, body: {status: success}}
         source: https://developer.axis.com/vapix/device-configuration/data-transformation/#remove-a-transform
 
@@ -258,7 +258,7 @@ operations:
     summary: Set the input topic of a transform.
     effect: write
     write: patch
-    binding: {method: PATCH, path: "/transforms/{outputTopic}/inputTopic", body: value, body_field: inputTopic}
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/inputTopic", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: inputTopic}
     params:
       type: object
       required: [outputTopic, inputTopic]
@@ -270,7 +270,7 @@ operations:
     summary: Set the jq expression of a transform.
     effect: write
     write: patch
-    binding: {method: PATCH, path: "/transforms/{outputTopic}/jqExpression", body: value, body_field: jqExpression}
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/jqExpression", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: jqExpression}
     params:
       type: object
       required: [outputTopic, jqExpression]
@@ -282,7 +282,7 @@ operations:
     summary: Set the output topic description of a transform.
     effect: write
     write: patch
-    binding: {method: PATCH, path: "/transforms/{outputTopic}/outputTopicDescription", body: value, body_field: outputTopicDescription}
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/outputTopicDescription", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: outputTopicDescription}
     params:
       type: object
       required: [outputTopic, outputTopicDescription]
@@ -294,7 +294,7 @@ operations:
     summary: Set the output topic version of a transform.
     effect: write
     write: patch
-    binding: {method: PATCH, path: "/transforms/{outputTopic}/outputTopicVersion", body: value, body_field: outputTopicVersion}
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/outputTopicVersion", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: outputTopicVersion}
     params:
       type: object
       required: [outputTopic, outputTopicVersion]
@@ -311,11 +311,6 @@ provenance:
   completeness: complete
   open_questions:
     - >-
-      Item paths: the docs address a transform as /transforms/com/axis/dt/output/topic (dots of the
-      output topic key turned into slashes), but the runtime fills {outputTopic} as one
-      percent-encoded segment (com.axis.dt.output.topic). Item operations may need a runtime
-      path-key transform; verify on a device.
-    - >-
       The documented "Get available input topics" example requests /availableTopics/topics but
       returns the object {topics: [...]}, which is the shape of /availableTopics. The example is
       kept with the path /availableTopics.
@@ -324,4 +319,4 @@ provenance:
       definition does not make it settable. Skipped in the contract tests.
     - The Topic pattern is shown as ``...)\*$`` in the docs; it is read as ``)*$`` (markdown escaping).
   migrated_from: v1
-  curated: false
+  curated: true

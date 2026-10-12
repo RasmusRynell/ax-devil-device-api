@@ -1,0 +1,309 @@
+format: 2
+id: user-service
+name: User service
+summary: The user service is tightly coupled with the AccessControl service, and provides storage of user specific
+  data.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: user_service
+  class: UserService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/user-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+- https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+access: admin
+
+binding: {path: /vapix/pacs}
+
+errors:
+  ter:InvalidArgs: {description: Invalid argument, kind: invalid_argument}
+
+types:
+  ReferenceToken:
+    type: string
+    description: Reference token of an entity.
+
+  ServiceCapabilities:
+    type: object
+    description: The capabilities of the user service.
+    properties:
+      MaxLimit: {type: integer, description: The maximum number of entries the device returns in one list response.}
+
+  Attribute:
+    type: object
+    description: A typed name and value pair.
+    properties:
+      type: {type: string, description: "Value type; `string` in every example."}
+      Name: {type: string}
+      Value: {type: string}
+
+  UserInfo:
+    type: object
+    description: Summary of a user.
+    required: [token, Name]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: A service-unique identifier of the user.}
+      Name: {type: string, description: Name of the user.}
+      Description: {type: string, description: Description of the user.}
+
+  User:
+    type: object
+    description: A user as returned by the device.
+    required: [token, Name]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: A service-unique identifier of the user.}
+      Name: {type: string, description: Name of the user.}
+      Description: {type: string, description: Description of the user.}
+      Attribute:
+        type: array
+        items: {$ref: "#/types/Attribute"}
+        description: Attributes of the user, for example first and last name.
+
+  UserInput:
+    type: object
+    description: A user to add or update. It holds the complete information about the user.
+    required: [Name]
+    properties:
+      token: {$ref: "#/types/ReferenceToken", description: "Token of the user to update. If empty or absent the device allocates a token and adds a new user."}
+      Name: {type: string, description: Name of the user.}
+      Description: {type: string, description: Description of the user.}
+      Attribute:
+        type: array
+        items: {$ref: "#/types/Attribute"}
+        description: Attributes of the user, for example first and last name.
+
+  GetServiceCapabilitiesResult:
+    type: object
+    required: [Capabilities]
+    properties:
+      Capabilities: {$ref: "#/types/ServiceCapabilities", description: The capabilities.}
+
+  ListRequest:
+    type: object
+    properties:
+      Limit: {type: integer, description: "Maximum number of entries to return. If absent, or higher than the device supports, the device decides."}
+      StartReference: {type: string, description: "Start returning entries from this reference. If absent, start from the beginning."}
+
+  TokensRequest:
+    type: object
+    required: [Token]
+    properties:
+      Token:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/ReferenceToken"}
+        description: Tokens of the users.
+
+  UserInfoList:
+    type: object
+    properties:
+      NextStartReference: {type: string, description: "StartReference to use in the next call to get the following items. Absent when there are no more items."}
+      UserInfo:
+        type: array
+        items: {$ref: "#/types/UserInfo"}
+        description: The users.
+
+  UserList:
+    type: object
+    properties:
+      NextStartReference: {type: string, description: "StartReference to use in the next call to get the following items. Absent when there are no more items."}
+      User:
+        type: array
+        items: {$ref: "#/types/User"}
+        description: The users.
+
+  UserInfos:
+    type: object
+    properties:
+      UserInfo:
+        type: array
+        items: {$ref: "#/types/UserInfo"}
+
+  Users:
+    type: object
+    properties:
+      User:
+        type: array
+        items: {$ref: "#/types/User"}
+
+  SetUserRequest:
+    type: object
+    required: [User]
+    properties:
+      User:
+        type: array
+        minItems: 1
+        items: {$ref: "#/types/UserInput"}
+        description: The users to add or update.
+
+  TokenList:
+    type: object
+    properties:
+      Token:
+        type: array
+        items: {$ref: "#/types/ReferenceToken"}
+        description: Tokens of the added or updated users.
+
+  GetUserInfoByCredentialTokenRequest:
+    type: object
+    required: [CredentialToken]
+    properties:
+      CredentialToken: {$ref: "#/types/ReferenceToken", description: The credential to look up the users for.}
+
+operations:
+  get_service_capabilities:
+    summary: Get the capabilities of the user service.
+    effect: read
+    access: anonymous
+    binding: {operation: "axudb:GetServiceCapabilities"}
+    result: {$ref: "#/types/GetServiceCapabilitiesResult"}
+
+  get_user_info_list:
+    summary: List the summaries of all users.
+    description: >-
+      Pages through the users. Pass the returned `NextStartReference` as `StartReference` in the next call and never
+      reuse a reference. The device may return fewer items than `Limit`.
+    effect: read
+    binding: {operation: "axudb:GetUserInfoList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/UserInfoList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning.", kind: invalid_argument}
+
+  get_user_info:
+    summary: Get the summaries of the users with the given tokens.
+    description: >-
+      The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axudb:GetUserInfo"}
+    params: {$ref: "#/types/TokensRequest"}
+    result: {$ref: "#/types/UserInfos"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability., kind: invalid_argument}
+
+  get_user_list:
+    summary: List all users with their attributes.
+    description: >-
+      Pages through the users. Pass the returned `NextStartReference` as `StartReference` in the next call and never
+      reuse a reference.
+    effect: read
+    binding: {operation: "axudb:GetUserList"}
+    params: {$ref: "#/types/ListRequest"}
+    result: {$ref: "#/types/UserList"}
+    errors:
+      ter:InvalidStartReference: {description: "StartReference is invalid or has timed out; start again from the beginning.", kind: invalid_argument}
+
+  get_user:
+    summary: Get the users with the given tokens.
+    description: >-
+      The device ignores tokens it cannot resolve and may return an empty list.
+    effect: read
+    binding: {operation: "axudb:GetUser"}
+    params:
+      type: object
+      x-name: GetUserRequest
+      properties:
+        Token:
+          type: array
+          items: {$ref: "#/types/ReferenceToken"}
+          description: Tokens of the users to get.
+    result: {$ref: "#/types/Users"}
+    errors:
+      ter:TooManyItems: {description: Too many items were requested; see the MaxLimit capability., kind: invalid_argument}
+
+  set_user:
+    summary: Add or update users.
+    description: >-
+      Each user item holds the complete information about the user. A user whose token exists is updated, any other is
+      added, and a user without a token gets one allocated by the device. All tokens are returned.
+    effect: write
+    write: patch
+    binding: {operation: "axudb:SetUser"}
+    params: {$ref: "#/types/SetUserRequest"}
+    result: {$ref: "#/types/TokenList"}
+    errors:
+      ter:ActionNotSupported: {description: Action not supported., kind: unsupported}
+      ter:NotAllowed: {description: Not allowed.}
+    examples:
+      - title: Add a user and let the device allocate the token
+        request:
+          params:
+            User:
+              - Name: "Freeman, Gordon"
+                Description: ""
+                Attribute:
+                  - {type: string, Name: FirstName, Value: Gordon}
+                  - {type: string, Name: LastName, Value: Freeman}
+        response:
+          data: {Token: ["Axis-00408c184bd9:1350638010.566278000"]}
+        source: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/#examples-users-and-credentials
+      - title: Set a user with a token
+        request:
+          params:
+            User:
+              - token: user_token1
+                Name: "Name, User"
+                Description: User description
+                Attribute:
+                  - {type: string, Name: First name, Value: User}
+                  - {type: string, Name: Last name, Value: Name}
+        source: https://developer.axis.com/vapix/physical-access-control/user-service/#setting-the-user
+
+  remove_user:
+    summary: Remove the users with the given tokens.
+    effect: write
+    write: delete
+    binding: {operation: "axudb:RemoveUser"}
+    params: {$ref: "#/types/TokensRequest"}
+    errors:
+      ter:NotFound: {description: User not found., kind: not_found}
+
+  get_user_info_by_credential_token:
+    summary: Get the summaries of the users linked to a credential.
+    description: >-
+      A user is linked to a credential by setting the user's token as `UserToken` of the credential in the access
+      control service.
+    effect: read
+    binding: {operation: "axudb:GetUserInfoByCredentialToken"}
+    params: {$ref: "#/types/GetUserInfoByCredentialTokenRequest"}
+    result: {$ref: "#/types/UserInfos"}
+    errors:
+      ter:NotFound: {description: User not found., kind: not_found}
+    examples:
+      - title: Get the user of a credential
+        request:
+          params: {CredentialToken: "Axis-00408c184bdb:1351593020.016190000"}
+        response:
+          data:
+            UserInfo:
+              - {token: user_token1, Name: "Name, User", Description: User description}
+        source: https://developer.axis.com/vapix/physical-access-control/user-service/#setting-the-user
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/user-service/
+  sha256_md: 99395aa7345df56bc04a49b113f6a8dd6272ff683ec31bce8080ac6b8d846149
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+  sha256_md: e2e79ca5367f918095d6ca5dcd68e85139497cd21469b2eaf7e2569999617080
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
+    - 'The message tables say GetUserInfoResponse and GetUserListResponse "shall be empty"; this is taken as a copy-paste error and the responses are modelled as UserInfo and User lists, like GetUserInfoListResponse and GetUserResponse. GetUserList is also assumed to return NextStartReference.'
+    - 'The tables name the MaxLimit capability a "GetList" limit and give no type; it is modelled as an integer. Because the capabilities are extendable and MaxLimit is not marked optional or required, it is left optional.'
+    - 'Only the fields the docs list apart from "optional fields" (token, Name) are required in responses. The User Extension field ("for future extension") is not modelled, and the type of the Attribute `type` field is only shown as `string`.'
+    - The ONVIF access classes are not mapped to a VAPIX role; the API default admin is kept, except GetServiceCapabilities (PRE_AUTH), which is anonymous.
+    - ter:NotAllowed and ter:ActionNotSupported have no description in the docs.
+  migrated_from: v1
+  curated: true

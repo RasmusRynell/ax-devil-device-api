@@ -237,8 +237,7 @@ operations:
       request:
         params: {locale: sv-sv, acceptLocaleMismatch: false}
       response:
-        error: {code: 2002, message: The given locale is not supported.}
-      x-contract: {skip: "The docs show this error as {errorCode, errorMsg} instead of {code, message}."}
+        error: {errorCode: 2002, errorMsg: The given locale is not supported.}
       source: https://developer.axis.com/vapix/network-video/on-screen-controls/#get-a-list-of-features-that-support-the-swedish-language
     - title: Use a feature that accepts audio data
       request:

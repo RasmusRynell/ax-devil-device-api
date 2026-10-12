@@ -1,343 +1,475 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: external-ip-device-info
-name: External IP Device Information
-summary: Store connection information (address, credentials, protocol, cert validation) for external IP devices
-  such as cameras, enable their events and configure CA...
+name: External IP device information
+summary: Store connection information (address, credentials, protocol, certificate validation) for external IP devices
+  such as cameras, enable their events and configure the CA certificates.
 section: network-video
 family: cgi
 status: released
-python:
-  module: external_ip_device_info
-  class: ExternalIpDeviceInfo
+python: {module: external_ip_device_info, class: ExternalIpDeviceInfo}
 docs:
 - https://developer.axis.com/vapix/network-video/external-ip-device-information/
 access: admin
 discovery:
 - {api_discovery: ext-ip-dev-info}
-
 binding: {path: /axis-cgi/externalipdeviceinfo/create.cgi}
-
 operations:
-  create:
-    summary: Creates an external IP device (can be created with only the id parameter).
-    description: Since latest version 2.1.
+  create_device:
+    summary: Create an external IP device.
+    description: Only id is needed; the other settings can be added later with update_device. Latest schema version
+      2.1.
     effect: write
     write: create
-    binding:
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
+    binding: {path: /axis-cgi/externalipdeviceinfo/create.cgi, method: GET, query: {schemaversion: '2'}, reply: xml}
+    positional: [id]
     params:
       type: object
       required: [id]
       properties:
-        schemaversion:
-          type: integer
-          description: The major XML schema version that should be used. Not listed in this method's parameter table
-            but used in all page examples (schemaversion=2).
-        id: {type: string, description: The unique external IP device identifier.}
+        id: {type: string, x-python-name: id, description: The unique external IP device identifier.}
         description: {type: string, description: The external IP device description.}
         serialnumber:
           type: string
-          description: The external IP device serial number. Can be either MAC-addresses or alpha numeric strings.
+          x-python-name: serial_number
+          description: 'The external IP device serial number: a MAC address or an alphanumeric string.'
         address:
           type: string
-          description: The external IP device address or hostname. Both username and password are required when
-            an address is set.
+          description: The external IP device address or hostname. username and password are required when an address
+            is set.
         username:
           type: string
-          description: The IP device account name. Mandatory when address is set. Presumes an account with those
-            credentials already exists on the device.
-        password:
-          type: string
-          description: The password connected to username. Mandatory when address is set.
-        protocol:
-          type: string
-          enum: [rtspt, rtsph, rtspsh]
-          default: rtspt
-          description: Protocol used to retrieve an event stream.
-        certvalidation:
-          type: string
-          enum: [standard, limited, 'off']
-          default: 'off'
-          description: 'standard: enables certificate validation (protocol must support it); remote signature validated
-            against installed CA certificates.'
+          description: The IP device account name. Required when address is set; the account must already exist
+            on the external IP device.
+        password: {type: string, description: The password of username. Required when address is set.}
+        protocol: {$ref: '#/types/Protocol'}
+        certvalidation: {$ref: '#/types/CertificateValidation', x-python-name: certificate_validation}
         port:
           type: integer
           minimum: 0
           maximum: 65535
-          default: 0
-          description: Port used to fetch the event stream. 0 = standard port of the protocol (rtspt 554, rtsph
-            80, rtspsh 443).
+          description: 'Port used to fetch the event stream. The default 0 means the standard port of the protocol:
+            554 for rtspt, 80 for rtsph and 443 for rtspsh.'
     errors:
-      10: {description: An error occurred at system level.}
-      30: {description: Maximum amount of devices reached.}
+      10: {description: An error occurred at system level., kind: internal}
+      30: {description: Maximum amount of devices reached., kind: unavailable}
       40: {description: Invalid or no id., kind: invalid_argument}
       60: {description: Unsupported schema version., kind: unsupported}
       70: {description: Invalid request., kind: invalid_argument}
-      80: {description: Processing error.}
-      150: {description: Device already exists.}
+      80: {description: Processing error., kind: internal}
+      150: {description: Device already exists., kind: invalid_argument}
       170: {description: Invalid description., kind: invalid_argument}
       180: {description: Invalid serialnumber., kind: invalid_argument}
       190: {description: Invalid protocol., kind: invalid_argument}
       200: {description: Invalid port., kind: invalid_argument}
       210: {description: Invalid certificate validation., kind: invalid_argument}
-  update:
-    summary: Updates parameter values on an existing external IP device.
-    description: Since latest version 2.1.
+    examples:
+    - title: Create the first external IP device
+      request:
+        query:
+          id: example-id_123
+          address: 192.168.0.123
+          username: device1
+          password: pass1
+          description: Exampleextipdev
+          serialnumber: AABBCCDDEEFF1234
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <GeneralSuccess />
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
+    - title: Create the second external IP device
+      request:
+        query:
+          id: example-id_124
+          address: fe80::aecc:8eff:fee3:64fd
+          username: device2
+          password: pass2
+          description: Second example extipdev
+          serialnumber: AABBCCDDEEFF5678
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <GeneralSuccess />
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
+  update_device:
+    summary: Change settings of an existing external IP device.
+    description: Only the given settings change. The changes take effect when the recording is restarted manually.
+      Latest schema version 2.1.
     effect: write
     write: patch
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/update.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
+    binding: {path: /axis-cgi/externalipdeviceinfo/update.cgi, method: GET, query: {schemaversion: '2'}, reply: xml}
+    positional: [id]
     params:
       type: object
       required: [id]
       properties:
-        schemaversion:
-          type: integer
-          description: The major XML schema version that should be used. Not listed in this method's parameter table
-            but used in all page examples (schemaversion=2).
-        id: {type: string, description: The unique external IP device identifier.}
+        id: {type: string, x-python-name: id, description: The unique external IP device identifier.}
         description: {type: string, description: The external IP device description.}
         serialnumber:
           type: string
-          description: The external IP device serial number. Can be either MAC-addresses or alpha numeric strings.
+          x-python-name: serial_number
+          description: 'The external IP device serial number: a MAC address or an alphanumeric string.'
         address:
           type: string
-          description: The external IP device address or hostname. Both username and password are required when
-            an address is set.
+          description: The external IP device address or hostname. username and password are required when an address
+            is set.
         username:
           type: string
-          description: The IP device account name. Mandatory when address is set. Presumes an account with those
-            credentials already exists on the device.
-        password:
-          type: string
-          description: The password connected to username. Mandatory when address is set.
-        protocol:
-          type: string
-          enum: [rtspt, rtsph, rtspsh]
-          default: rtspt
-          description: Protocol used to retrieve an event stream.
-        certvalidation:
-          type: string
-          enum: [standard, limited, 'off']
-          default: 'off'
-          description: 'standard: enables certificate validation (protocol must support it); remote signature validated
-            against installed CA certificates.'
+          description: The IP device account name. Required when address is set; the account must already exist
+            on the external IP device.
+        password: {type: string, description: The password of username. Required when address is set.}
+        protocol: {$ref: '#/types/Protocol'}
+        certvalidation: {$ref: '#/types/CertificateValidation', x-python-name: certificate_validation}
         port:
           type: integer
           minimum: 0
           maximum: 65535
-          default: 0
-          description: Port used to fetch the event stream. 0 = standard port of the protocol (rtspt 554, rtsph
-            80, rtspsh 443).
+          description: 'Port used to fetch the event stream. The default 0 means the standard port of the protocol:
+            554 for rtspt, 80 for rtsph and 443 for rtspsh.'
     errors:
-      10: {description: An error occurred at system level.}
+      10: {description: An error occurred at system level., kind: internal}
       40: {description: Invalid or no id., kind: invalid_argument}
       60: {description: Unsupported schema version., kind: unsupported}
-      80: {description: Processing error.}
-      90: {description: No device.}
+      80: {description: Processing error., kind: internal}
+      90: {description: No device., kind: not_found}
       170: {description: Invalid description., kind: invalid_argument}
       180: {description: Invalid serialnumber., kind: invalid_argument}
       190: {description: Invalid protocol., kind: invalid_argument}
       200: {description: Invalid port., kind: invalid_argument}
       210: {description: Invalid certificate validation., kind: invalid_argument}
-  delete:
-    summary: Removes an external IP device.
-    description: Since latest version 2.0.
+    examples:
+    - title: Use https and certificate validation on device 1
+      request:
+        query:
+          id: example-id_123
+          address: 192.168.0.123
+          username: device1
+          password: pass1
+          protocol: rtspsh
+          certvalidation: standard
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <GeneralSuccess />
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
+    - title: Use https, port 443 and certificate validation on device 2
+      request:
+        query:
+          id: example-id_124
+          address: fe80::aecc:8eff:fee3:64fd
+          username: device2
+          password: pass2
+          protocol: rtspsh
+          port: '443'
+          certvalidation: standard
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <GeneralSuccess />
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
+  delete_device:
+    summary: Delete an external IP device.
+    description: Latest schema version 2.0. To delete single settings of a device, use update_device.
     effect: write
     write: delete
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/delete.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
-    params:
-      type: object
-      required: [id]
-      properties:
-        schemaversion:
-          type: integer
-          description: The major XML schema version that should be used. Not listed in this method's parameter table
-            but used in all page examples (schemaversion=2).
-        id: {type: string, description: The unique external IP device identifier.}
+    binding: {path: /axis-cgi/externalipdeviceinfo/delete.cgi, method: GET, query: {schemaversion: '2'}, reply: xml}
+    positional: [id]
+    params: {type: object, required: [id], properties: {id: {type: string, x-python-name: id, description: The unique
+            external IP device identifier.}}}
     errors:
-      10: {description: An error occurred at system level.}
+      10: {description: An error occurred at system level., kind: internal}
       40: {description: Invalid or no id., kind: invalid_argument}
       60: {description: Unsupported schema version., kind: unsupported}
-      80: {description: Processing error.}
-      90: {description: No device.}
-  list:
-    summary: Lists created external IP devices.
-    description: Since latest version 2.1.
+      80: {description: Processing error., kind: internal}
+      90: {description: No device., kind: not_found}
+  list_devices:
+    summary: List the external IP devices.
+    description: Latest schema version 2.1. Passwords are not returned.
     effect: read
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/list.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
-    params:
-      type: object
-      properties:
-        schemaversion:
-          type: integer
-          description: The major XML schema version that should be used. Not listed in this method's parameter table
-            but used in all page examples (schemaversion=2).
-    result: {x-xml: true}
-    errors:
-      10: {description: An error occurred at system level.}
-      60: {description: Unsupported schema version., kind: unsupported}
-      80: {description: Processing error.}
+    binding: {path: /axis-cgi/externalipdeviceinfo/list.cgi, method: GET, query: {schemaversion: '2'}, reply: xml}
+    result: {$ref: '#/types/ExternalIpDeviceList'}
+    errors: {10: {description: An error occurred at system level., kind: internal}, 60: {description: Unsupported
+          schema version., kind: unsupported}, 80: {description: Processing error., kind: internal}}
+    examples:
+    - title: List the external IP devices
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <ListDevicesSuccess>
+                  <Device>
+                      <Id>example-id_123</Id>
+                      <Serialnumber>AABBCCDDEEFF1234</Serialnumber>
+                      <Description>Example extipdev</Description>
+                      <Address>192.168.0.123</Address>
+                      <Username>device1</Username>
+                      <Protocol>rtspt</Protocol>
+                      <Port>0</Port>
+                      <CertificateValidation>off</CertificateValidation>
+                  </Device>
+                  <Device>
+                      <Id>example-id_124</Id>
+                      <Serialnumber>AABBCCDDEEFF5678</Serialnumber>
+                      <Description>Second example extipdev</Description>
+                      <Address>fe80::aecc:8eff:fee3:64fd</Address>
+                      <Username>device2</Username>
+                      <Protocol>rtspt</Protocol>
+                      <Port>0</Port>
+                      <CertificateValidation>off</CertificateValidation>
+                  </Device>
+              </ListDevicesSuccess>
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
+    - title: List the external IP devices after the update
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <ListDevicesSuccess>
+                  <Device>
+                      <Id>example-id_123</Id>
+                      <Serialnumber>AABBCCDDEEFF1234</Serialnumber>
+                      <Description>Example extipdev</Description>
+                      <Address>192.168.0.123</Address>
+                      <Username>device1</Username>
+                      <Protocol>rtspsh</Protocol>
+                      <Port>0</Port>
+                      <CertificateValidation>standard</CertificateValidation>
+                  </Device>
+                  <Device>
+                      <Id>example-id_124</Id>
+                      <Serialnumber>AABBCCDDEEFF5678</Serialnumber>
+                      <Description>Second example extipdev</Description>
+                      <Address>fe80::aecc:8eff:fee3:64fd</Address>
+                      <Username>device2</Username>
+                      <Protocol>rtspsh</Protocol>
+                      <Port>443</Port>
+                      <CertificateValidation>standard</CertificateValidation>
+                  </Device>
+              </ListDevicesSuccess>
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
   set_events_enabled:
-    summary: Enables or disables events (VMD2, VMD3, VMD4, VMDLite) from an external IP device.
-    description: Since latest version 2.0.
+    summary: Enable or disable events from an external IP device.
+    description: Supported events are VMD2, VMD3, VMD4 and VMDLite; they may not be available depending on the AXIS
+      OS version or device type. Latest schema version 2.0.
     effect: write
     write: patch
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/seteventsenabled.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
+    binding: {path: /axis-cgi/externalipdeviceinfo/seteventsenabled.cgi, method: GET, query: {schemaversion: '2'},
+      reply: xml}
+    positional: [id, enabled]
     params:
       type: object
       required: [id, enabled]
       properties:
-        schemaversion:
-          type: integer
-          description: The major XML schema version that should be used. Not listed in this method's parameter table
-            but used in all page examples (schemaversion=2).
-        id: {type: string, description: The unique external IP device identifier.}
+        id: {type: string, x-python-name: id, description: The unique external IP device identifier.}
         enabled:
-          type: string
-          enum: ['YES', 'yes', enabled, 'NO', 'no', disabled]
-          description: YES|yes|enabled enables events found on the external IP device; NO|no|disabled disables them.
+          type: boolean
+          x-style: axis_bool
+          description: True enables the events found on the external IP device, False disables them.
     errors:
-      10: {description: An error occurred at system level.}
+      10: {description: An error occurred at system level., kind: internal}
       40: {description: Invalid or no id., kind: invalid_argument}
       60: {description: Unsupported schema version., kind: unsupported}
       70: {description: Invalid request., kind: invalid_argument}
-      80: {description: Processing error.}
-      90: {description: No device.}
+      80: {description: Processing error., kind: internal}
+      90: {description: No device., kind: not_found}
+    examples:
+    - title: Enable events for the external IP device example-id_123
+      request: {query: {id: example-id_123, enabled: 'yes'}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <GeneralSuccess />
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
   get_events_enabled:
-    summary: Retrieves the enabled event state for an external IP device.
-    description: Since latest version 2.0.
+    summary: Get whether events are enabled for an external IP device.
+    description: Latest schema version 2.0.
     effect: read
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/geteventsenabled.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
-    params:
-      type: object
-      required: [id]
-      properties:
-        schemaversion:
-          type: integer
-          description: The major XML schema version that should be used. Not listed in this method's parameter table
-            but used in all page examples (schemaversion=2).
-        id: {type: string, description: The unique external IP device identifier.}
-    result: {x-xml: true}
+    binding: {path: /axis-cgi/externalipdeviceinfo/geteventsenabled.cgi, method: GET, query: {schemaversion: '2'},
+      reply: xml}
+    positional: [id]
+    params: {type: object, required: [id], properties: {id: {type: string, x-python-name: id, description: The unique
+            external IP device identifier.}}}
+    result: {$ref: '#/types/EventsEnabledState'}
     errors:
-      10: {description: An error occurred at system level.}
+      10: {description: An error occurred at system level., kind: internal}
       40: {description: Invalid or no id., kind: invalid_argument}
       60: {description: Unsupported schema version., kind: unsupported}
-      80: {description: Processing error.}
-      90: {description: No device.}
+      80: {description: Processing error., kind: internal}
+      90: {description: No device., kind: not_found}
+    examples:
+    - title: Check that events are enabled
+      request: {query: {id: example-id_123}}
+      response:
+        status: 200
+        text: |-
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <GetEventsEnabledSuccess>
+                  <Id>example-id_123</Id>
+                  <EventsEnabled>YES</EventsEnabled>
+              </GetEventsEnabledSuccess>
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#common-examples
   set_ca_certificates:
-    summary: Sets the list of installed CA certificates used to validate streams from external IP devices with certificate
-      validation enabled.
-    description: Since latest version 2.1.
+    summary: Set the CA certificates used to validate streams from external IP devices.
+    description: The list replaces the current one; an empty list or no list unsets all CA certificates. The certificates
+      must be installed first (see the certificate management API), and a CA certificate must be unset here before
+      it can be uninstalled. Event streams of devices with events and certificate validation enabled are reset.
+      Ongoing recordings use the new list only after a manual restart. Latest schema version 2.1.
     effect: write
-    write: patch
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/setcacertificates.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
+    write: replace
+    binding: {path: /axis-cgi/externalipdeviceinfo/setcacertificates.cgi, method: GET, query: {schemaversion: '2'},
+      reply: xml}
+    positional: [cert_ids]
     params:
       type: object
-      required: [schemaversion]
       properties:
-        schemaversion: {type: integer, description: The major XML schema version that should be used.}
         certids:
           type: array
           items: {type: string}
-          description: CA certificate id(s), comma separated. All current CAs are turned off if omitted. Replaces
-            any pre-existing list.
-    errors:
-      10: {description: An error occurred at system level.}
-      60: {description: Unsupported schema version., kind: unsupported}
-      80: {description: Processing error.}
-      220: {description: Invalid CA certificate., kind: invalid_argument}
+          x-style: csv
+          x-python-name: cert_ids
+          description: IDs of the CA certificates. Validation succeeds if the signature matches at least one of
+            them.
+    errors: {10: {description: An error occurred at system level., kind: internal}, 60: {description: Unsupported
+          schema version., kind: unsupported}, 80: {description: Processing error., kind: internal}, 220: {description: Invalid
+          CA certificate., kind: invalid_argument}}
+    examples:
+    - title: Configure two CA certificates
+      request: {query: {certids: 'caid1,caid2'}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <DeviceResponse
+              SchemaVersion="2.1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/ExternalIpDeviceInfo2.xsd">
+              <GeneralSuccess />
+          </DeviceResponse>
+      source: https://developer.axis.com/vapix/network-video/external-ip-device-information/#enable-certificate-validation-for-a-network-recorder-on-a-pre-existing-motion-event-recording
   get_ca_certificates:
-    summary: Retrieves the list of configured CA certificate ids.
-    description: Since latest version 2.1.
+    summary: Get the IDs of the configured CA certificates.
+    description: Latest schema version 2.1.
     effect: read
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/getcacertificates.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
-    params:
-      type: object
-      required: [schemaversion]
-      properties:
-        schemaversion: {type: integer, description: The major XML schema version that should be used.}
-    result: {x-xml: true}
-    errors:
-      10: {description: An error occurred at system level.}
-      60: {description: Unsupported schema version., kind: unsupported}
-      80: {description: Processing error.}
+    binding: {path: /axis-cgi/externalipdeviceinfo/getcacertificates.cgi, method: GET, query: {schemaversion: '2'},
+      reply: xml}
+    result: {$ref: '#/types/CaCertificates'}
+    errors: {10: {description: An error occurred at system level., kind: internal}, 60: {description: Unsupported
+          schema version., kind: unsupported}, 80: {description: Processing error., kind: internal}}
   get_schema_versions:
-    summary: Retrieves XML schema versions supported by the product.
-    description: Since latest version 2.0.
+    summary: List the XML schema versions supported by the product.
+    description: Latest schema version 2.0.
     effect: read
-    binding:
-      path: /axis-cgi/externalipdeviceinfo/schemaversions.cgi
-      method: GET
-      reply:
-        xml: {error_elements: [GeneralError]}
-    params:
-      type: object
-      properties:
-        schemaversion:
-          type: integer
-          description: The major XML schema version that should be used. Not listed in this method's parameter table
-            but used in all page examples (schemaversion=2).
-    result: {x-xml: true}
-
+    binding: {path: /axis-cgi/externalipdeviceinfo/schemaversions.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/SchemaVersions'}
 sources:
 - url: https://developer.axis.com/vapix/network-video/external-ip-device-information/
   sha256_md: b6a4732a7789015e6c4b85952b73bed77161730ba2ffe717ee505fc47365bb18
   retrieved_at: '2026-10-11'
-
 provenance:
   completeness: complete
   open_questions:
-  - schemaversion is only in the parameter tables of set/getcacertificates but every example passes schemaversion=2
-    for all CGIs; whether it is required elsewhere is unclear.
-  - certvalidation table says 'The following protocols are supported' for what are validation modes; 'limited' described
-    as 'when Common Name is disabled' (likely CN check skipped).
-  - API discovery version not stated; the 'Latest ver.' column (2.0/2.1) appears to be the XML schema version per
-    CGI.
-  - Response syntax for GetEventsEnabledSuccess shows [YES/NO]; exact casing unspecified.
-  - How to delete individual parameters via update.cgi (e.g. empty value) is not specified.
-  - 'migration: xml-unmapped: create: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: update: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: delete: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: list: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: set_events_enabled: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_events_enabled: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: set_ca_certificates: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_ca_certificates: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: get_schema_versions: no response schema in v1; result is the raw XML element'
-  - 'migration: types-dropped: types not referenced by any migrated operation: Device'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - schemaversion is only in the parameter tables of set/getcacertificates, but every example passes schemaversion=2
+    to all CGIs; it is fixed to 2 in the binding.
+  - The certvalidation table says 'The following protocols are supported' for what are validation modes; limited
+    is described as 'when Common Name is disabled'.
+  - The API discovery version is not stated; the 'Latest ver.' column (2.0 and 2.1) appears to be the XML schema
+    version of each CGI.
+  - The reply of geteventsenabled shows [YES/NO]; the exact casing is not specified.
+  - How to delete individual settings through update.cgi (for example an empty value) is not specified.
+  - The CGIs accept GET and POST; only GET is modelled.
+  - The list examples in the docs end with placeholder <Device>...<Device/> elements, which were dropped; the error
+    examples were not kept because they do not correspond to valid requests.
+  - The create examples put the description in shell quotes (description="Exampleextipdev"); the quotes are dropped
+    here.
   migrated_from: v1
-  curated: false
+  curated: true
+types:
+  Protocol:
+    type: string
+    enum: [rtspt, rtsph, rtspsh]
+    description: Protocol used to retrieve an event stream. rtspt (default) is RTP over RTSP, rtsph is RTP over
+      RTSP over HTTP and rtspsh is RTP over RTSP over HTTPS (supports certificate validation). Specifying the protocol
+      with port 0 also sets the standard port.
+  CertificateValidation:
+    type: string
+    enum: [standard, limited, 'off']
+    description: 'standard: validate the signature in the device response against the installed CA certificates;
+      the protocol must support validation or the connection is refused. limited: validate when Common Name is disabled;
+      the same rules apply. off (default): no validation.'
+  ExternalIpDevice:
+    type: object
+    required: [Id]
+    properties:
+      Id: {type: string, x-python-name: id, x-xml: {child: Id}}
+      Serialnumber: {type: string, x-python-name: serial_number, x-xml: {child: Serialnumber}}
+      Description: {type: string, x-xml: {child: Description}}
+      Address: {type: string, x-xml: {child: Address}}
+      Username: {type: string, x-xml: {child: Username}}
+      Protocol: {$ref: '#/types/Protocol', x-xml: {child: Protocol}}
+      Port: {type: integer, x-xml: {child: Port}}
+      CertificateValidation: {$ref: '#/types/CertificateValidation', x-python-name: certificate_validation, x-xml: {
+          child: CertificateValidation}}
+  ExternalIpDeviceList: {type: object, x-xml: {root: ListDevicesSuccess}, properties: {devices: {type: array, items: {
+          $ref: '#/types/ExternalIpDevice'}, x-xml: {path: Device}}}}
+  EventsEnabledState:
+    type: object
+    x-xml: {root: GetEventsEnabledSuccess}
+    required: [Id, EventsEnabled]
+    properties:
+      Id: {type: string, x-python-name: id, x-xml: {child: Id}}
+      EventsEnabled:
+        type: string
+        enum: ['YES', 'NO']
+        x-python-name: events_enabled
+        description: Whether events (VMD2, VMD3, VMD4 and VMDLite) are enabled.
+        x-xml: {child: EventsEnabled}
+  CaCertificates: {type: object, x-xml: {root: GetCACertificatesSuccess}, properties: {ids: {type: array, items: {
+          type: string}, x-xml: {path: CACertificate/Id}, description: IDs of the configured CA certificates.}}}
+  SchemaVersions: {type: object, x-xml: {root: SchemaVersionsSuccess}, properties: {versions: {type: array, items: {
+          type: string}, x-xml: {path: SchemaVersion/VersionNumber}, description: Supported schema versions as major.minor.}}}

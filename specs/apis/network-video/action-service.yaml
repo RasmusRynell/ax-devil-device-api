@@ -1,0 +1,351 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: action-service
+name: Action service (VAPIX Action service API, action1)
+summary: SOAP web service (namespace http://www.axis.com/vapix/ws/action1) to list action/recipient templates and
+  manage action configurations, recipient configurations...
+section: network-video
+family: soap
+status: released
+python:
+  module: action_service
+  class: ActionService
+docs:
+- https://developer.axis.com/vapix/network-video/event-and-action-services/
+access: admin
+requires:
+  firmware: '5.50'
+
+binding: {namespace: 'http://www.axis.com/vapix/ws/action1'}
+
+types:
+  NewActionRule:
+    type: object
+    required: [Enabled, PrimaryAction]
+    properties:
+      Name: {type: string, description: User defined name for the action rule.}
+      Enabled:
+        type: boolean
+        description: Enable the rule. If false, the rule will be stored in idle state and action(s) will not be
+          activated.
+      StartEvent:
+        description: Start event. If specified, the action will be executed when the start event is emitted and
+          all conditions, if any, are fulfilled.
+      Conditions:
+        $ref: '#/types/Conditions'
+        description: List of conditions that must be fulfilled for the action to be executed. The order of the conditions
+          will be preserved in GetActionRules requests.
+      ActivationTimeout:
+        type: string
+        description: Minimum time between successive action executions. This is used to prevent the action rule
+          from being triggered repeatedly. If not specified, action will be executed as soon as possible. (format=duration)
+      PrimaryAction:
+        type: integer
+        description: The primary action to be executed, specified by its Action Configuration ID.
+      FailoverAction:
+        type: integer
+        description: Action Configuration ID for the fallback action. The fallback action will be executed if the
+          primary action fails.
+  Conditions:
+    type: object
+    required: [Condition]
+    properties:
+      Condition:
+        type: array
+        items:
+          type: object
+          description: wsnt:FilterType (OASIS WS-BaseNotification / WS-Topics type; e.g. TopicExpression + MessageContent
+            filters).
+  ActionRules:
+    type: object
+    properties:
+      ActionRule:
+        type: array
+        items: {$ref: '#/types/ActionRule'}
+        description: Action rule description.
+  ActionRule:
+    type: object
+    required: [RuleID, Enabled, PrimaryAction]
+    properties:
+      RuleID: {type: integer, description: Action Rule ID.}
+      Name: {type: string, description: User defined name for the action rule.}
+      Enabled:
+        type: boolean
+        description: If false, then the rule is idle and the action is never executed. If true, the rule is active.
+      StartEvent: {description: The start event belonging to the rule.}
+      Conditions:
+        $ref: '#/types/Conditions'
+        description: List of conditions that must be fulfilled for the action to be executed. Conditions are listed
+          in the same order as specified in the AddActionRule request.
+      ActivationTimeout:
+        type: string
+        description: Minimum time between successive action executions. This is used to prevent the action rule
+          from being triggered repeatedly. If not specified, action will be executed as soon as possible. (format=duration)
+      PrimaryAction:
+        type: integer
+        description: The primary action to be executed, specified by its Action Configuration ID.
+      FailoverAction:
+        type: integer
+        description: Action Configuration ID for the fallback action. The fallback action will be executed if the
+          primary action fails.
+  NewRecipientConfiguration:
+    type: object
+    required: [TemplateToken]
+    properties:
+      Name: {type: string, description: User defined name for the recipient configuration.}
+      TemplateToken: {type: string, description: 'Recipient type, specified as a recipient template token.'}
+      Parameters: {$ref: '#/types/ActionParameters', description: Recipient configuration parameter values.}
+  RecipientConfiguration:
+    type: object
+    required: [ConfigurationID, TemplateToken]
+    properties:
+      ConfigurationID: {type: integer, description: Recipient Configuration ID.}
+      TemplateToken: {type: string, description: 'Recipient type, specified as a recipient template token.'}
+      Name: {type: string, description: User defined name for the recipient.}
+      Parameters: {$ref: '#/types/ActionParameters', description: Recipient parameter values.}
+  RecipientConfigurations:
+    type: object
+    properties:
+      RecipientConfiguration:
+        type: array
+        items: {$ref: '#/types/RecipientConfiguration'}
+  RecipientTemplates:
+    type: object
+    properties:
+      RecipientTemplate:
+        type: array
+        items: {$ref: '#/types/RecipientTemplate'}
+        description: Recipient type description.
+  RecipientTemplate:
+    type: object
+    required: [TemplateToken]
+    properties:
+      TemplateToken: {type: string, description: Token used to identify the recipient template.}
+      Parameters: {$ref: '#/types/ActionTemplateParameters', description: Supported recipient parameters.}
+  ActionConfigurations:
+    type: object
+    properties:
+      ActionConfiguration:
+        type: array
+        items: {$ref: '#/types/ActionConfiguration'}
+        description: Action configuration description.
+  NewActionConfiguration:
+    type: object
+    required: [TemplateToken]
+    properties:
+      Name: {type: string, description: User defined name for the action configuration.}
+      TemplateToken: {type: string, description: A token used to identify the action template to use.}
+      Parameters: {$ref: '#/types/ActionParameters', description: Action configuration parameter values.}
+  ActionConfiguration:
+    type: object
+    required: [ConfigurationID, TemplateToken]
+    properties:
+      ConfigurationID: {type: integer, description: Action Configuration ID.}
+      Name: {type: string, description: User defined name for the action configuration.}
+      TemplateToken: {type: string, description: 'Action type, specified as an action template token.'}
+      Parameters: {$ref: '#/types/ActionParameters', description: Action configuration parameter values.}
+  ActionParameters:
+    type: object
+    properties:
+      Parameter:
+        type: array
+        items: {$ref: '#/types/ActionParameter'}
+  ActionTemplates:
+    type: object
+    properties:
+      ActionTemplate:
+        type: array
+        items: {$ref: '#/types/ActionTemplate'}
+        description: Action template description.
+  ActionParameter:
+    type: object
+    required: [Name, Value]
+    properties:
+      Name: {type: string, description: Parameter name. (XML attribute)}
+      Value: {type: string, description: Parameter value. (XML attribute)}
+  ActionTemplate:
+    type: object
+    required: [TemplateToken]
+    properties:
+      TemplateToken: {type: string, description: A token used to identify the action template.}
+      RecipientTemplate:
+        type: string
+        description: The recipient template to be used with this action. The recipient template lists the recipient
+          parameters needed for this action.
+      Parameters:
+        $ref: '#/types/ActionTemplateParameters'
+        description: List of action configuration parameters.
+  ActionTemplateParameters:
+    type: object
+    required: [Parameter]
+    properties:
+      Parameter:
+        type: array
+        items: {$ref: '#/types/ActionTemplateParameter'}
+  ActionTemplateParameter:
+    type: object
+    required: [Name, Type]
+    properties:
+      Name: {type: string, description: Parameter name. (XML attribute)}
+      Type: {type: string, description: Parameter data type. (XML attribute)}
+
+operations:
+  get_action_templates:
+    summary: List the action templates supported by the Axis product.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/GetActionTemplates
+      element: GetActionTemplates
+    result:
+      type: object
+      properties:
+        ActionTemplates: {$ref: '#/types/ActionTemplates', description: List of supported action types.}
+  add_action_configuration:
+    summary: Add a new action configuration.
+    effect: write
+    write: create
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/AddActionConfiguration
+      element: AddActionConfiguration
+    params:
+      type: object
+      required: [NewActionConfiguration]
+      properties:
+        NewActionConfiguration: {$ref: '#/types/NewActionConfiguration', description: Action configuration description.}
+    result:
+      type: object
+      properties:
+        ConfigurationID: {type: integer, description: Action Configuration ID.}
+  remove_action_configuration:
+    summary: Remove an action configuration.
+    effect: write
+    write: delete
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/RemoveActionConfiguration
+      element: RemoveActionConfiguration
+    params:
+      type: object
+      required: [ConfigurationID]
+      properties:
+        ConfigurationID:
+          type: integer
+          description: Action Configuration ID of the action configuration to be removed.
+  get_action_configurations:
+    summary: List currently stored action configurations.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/GetActionConfigurations
+      element: GetActionConfigurations
+    result:
+      type: object
+      properties:
+        ActionConfigurations: {$ref: '#/types/ActionConfigurations', description: List of stored action configurations.}
+  get_recipient_templates:
+    summary: List the recipient templates supported by the Axis product.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/GetRecipientTemplates
+      element: GetRecipientTemplates
+    result:
+      type: object
+      properties:
+        RecipientTemplates: {$ref: '#/types/RecipientTemplates', description: List of supported recipient types.}
+  add_recipient_configuration:
+    summary: Add a new recipient configuration.
+    effect: write
+    write: create
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/AddRecipientConfiguration
+      element: AddRecipientConfiguration
+    params:
+      type: object
+      required: [NewRecipientConfiguration]
+      properties:
+        NewRecipientConfiguration: {$ref: '#/types/NewRecipientConfiguration', description: New recipient configuration.}
+    result:
+      type: object
+      properties:
+        ConfigurationID: {type: integer, description: Recipient configuration ID.}
+  remove_recipient_configuration:
+    summary: Remove a recipient configuration.
+    effect: write
+    write: delete
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/RemoveRecipientConfiguration
+      element: RemoveRecipientConfiguration
+    params:
+      type: object
+      required: [ConfigurationID]
+      properties:
+        ConfigurationID:
+          type: integer
+          description: Recipient configuration ID of the recipient configuration to be removed.
+  get_recipient_configurations:
+    summary: List currently stored recipient configurations.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/action1/GetRecipientConfigurations
+      element: GetRecipientConfigurations
+    result:
+      type: object
+      properties:
+        RecipientConfigurations: {$ref: '#/types/RecipientConfigurations', description: List of configured recipients.}
+  add_action_rule:
+    summary: Add a new action rule.
+    effect: write
+    write: create
+    binding: {action: 'http://www.axis.com/vapix/ws/action1/AddActionRule', element: AddActionRule}
+    params:
+      type: object
+      required: [NewActionRule]
+      properties:
+        NewActionRule: {$ref: '#/types/NewActionRule', description: Action rule description.}
+    result:
+      type: object
+      properties:
+        RuleID: {type: integer, description: Action Rule ID.}
+  get_action_rules:
+    summary: List currently stored action rules.
+    effect: read
+    binding: {action: 'http://www.axis.com/vapix/ws/action1/GetActionRules', element: GetActionRules}
+    result:
+      type: object
+      properties:
+        ActionRules: {$ref: '#/types/ActionRules', description: List of configured action rules.}
+  remove_action_rule:
+    summary: Remove an action rule.
+    effect: write
+    write: delete
+    binding: {action: 'http://www.axis.com/vapix/ws/action1/RemoveActionRule', element: RemoveActionRule}
+    params:
+      type: object
+      required: [RuleID]
+      properties:
+        RuleID: {type: integer, description: Action Rule ID of the action rule to be removed.}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/event-and-action-services/
+  sha256_md: 871fd7e46fd74e2dc9ae6a727b44ed1b5f0c15eefcde1bd0a19086dc8edc2c2d
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Security levels per operation are not documented.
+  - WSDL includes FailoverAction and ActivationTimeout in action rules, but the page states fallback actions are
+    not supported.
+  - 'Fault name typo ParametersMissmatchFault as in WSDL; page refers to InvalidconditionFilterFault (WSDL: InvalidConditionFilterFault).'
+  - Overlay text C# sample checks template token com.axis.action.fixed.set_overay (typo).
+  - Send an MQTT message parameter names are capitalized in the table (Topic, QoS, Retained, Payload); actual wire
+    names may be lowercase.
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
+    documented examples for children in other namespaces'
+  - 'migration: discovery: no discovery probe: Entry service GetServices: namespace http://www.axis.com/vapix/ws/action1.'
+  - 'migration: types-dropped: types not referenced by any migrated operation: ActivateLightActionParams, DayNightModeActionParams,
+    FtpRecipientParams, HttpRecipientParams, HttpsRecipientParams, LedControlParams, NetworkShareRecipientParams,
+    OverlayTextActionParams, PlayAudioClipActionParams, SendAnMqttMessageParams, SendImagesActionParams, SendNotificationActionParams,
+    SendVideoClipActionParams, SftpRecipientParams, SmtpRecipientParams, TcpRecipientParams, UsedActionConfiguration,
+    UsedActionRule, UsedByActionConfigurations, UsedByActionRules'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,59 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: heartbeat-soap
+name: Heartbeat service API (SOAP)
+summary: Send heartbeats to a device through the SOAP twin of the Heartbeat service (see heartbeat for the JSON
+  form).
+section: network-video
+family: soap
+status: released
+python:
+  module: heartbeat_soap
+  class: HeartbeatSoap
+docs:
+- https://developer.axis.com/vapix/network-video/heartbeat-service-api/
+access: admin
+discovery:
+- param: {name: Properties.API.Heartbeat.Heartbeat, value: 'yes'}
+- param: {name: Properties.API.Heartbeat.Version, value: '1.0', compare: '>='}
+
+binding: {namespace: 'http://www.axis.com/vapix/ws/Heartbeat'}
+
+operations:
+  heartbeat_soap:
+    summary: Send a heartbeat via SOAP.
+    effect: action
+    binding: {action: 'http://www.axis.com/vapix/ws/Heartbeat/Heartbeat', element: Heartbeat}
+    params:
+      type: object
+      required: [Duration]
+      properties:
+        Duration: {type: integer, description: Heartbeat duration in milliseconds. (unit=ms)}
+    result:
+      type: object
+      properties:
+        SessionId: {type: string, description: 'Session identifier (axhbt:SessionId).'}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/heartbeat-service-api/
+  sha256_md: 4329dae5f93aa48e5353d7961df55cdd79d52875a031596c71f554005482982f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - SOAP examples declare xmlns:axgpio and a default namespace for http://www.axis.com/vapix/ws/Heartbeat but use
+    the prefix axhbt without declaring it (doc bug); namespace URI for axhbt assumed to be http://www.axis.com/vapix/ws/Heartbeat.
+  - No WSDL for the heartbeat service is mirrored/linked; SOAPAction not documented.
+  - 'Event namespace URIs for tns1/tnsaxis are not given on this page (standard ONVIF/Axis values used: see event-and-action-services).'
+  - AXIS OS minimum version not stated. Access class ACTUATE mapping to user groups not stated.
+  - Duration valid range not documented.
+  - 'migration: soap-action-inferred: the SOAP action is not documented; derived as <namespace>/<operation> for:
+    heartbeat_soap'
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
+    documented examples for children in other namespaces'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

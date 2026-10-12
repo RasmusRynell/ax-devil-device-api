@@ -11,6 +11,8 @@ python:
 docs:
   - https://developer.axis.com/vapix/applications/video-motion-detection-4-api/
 access: admin
+discovery:
+  - acap: {name: vmd}
 requires: {firmware: "6.50", application: AXIS Video Motion Detection 4 (VMD)}
 binding:
   path: /local/vmd/control.cgi
@@ -356,7 +358,7 @@ provenance:
   open_questions:
     - "Security level: each method says Administrator but the 'Parameter description' section says Operator; Administrator is used, as in the method sections."
     - "The documented examples contain placeholders and are not valid JSON; the examples here use concrete values that follow the field tables."
-    - "Discovery: the docs identify the ACAP by AXIS OS 6.50 (preinstalled) or Properties.EmbeddedDevelopment.Version >= 2.12 and by /axis-cgi/applications/list.cgi; neither fits the discovery entry types, so no discovery entry is given."
+    - "The ACAP Name reported by applications/list.cgi is not documented (the docs only say to use list.cgi; the example for the related VMD 3 shows name=\"VMD3\"). The acap discovery name vmd is inferred from the application's /local/vmd/control.cgi path; verify on a device. The docs' additional identification by Properties.EmbeddedDevelopment.Version is not used."
     - "alarmOverlay capabilities are introduced in 1.3, but no configuration properties for enabling alarm overlay are documented on this page."
     - "Capabilities example uses maxNbrPresets while the table says maxNbrPresetsPerProfile; the table name is used."
     - "The presets table says '-1 means that the profile is active on any profile'; presumably any preset, as in the presets description."

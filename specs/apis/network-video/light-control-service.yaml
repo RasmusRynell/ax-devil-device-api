@@ -1,0 +1,402 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: light-control-service
+name: Light control service API
+summary: Legacy SOAP web service (namespace http://www.axis.com/vapix/ws/light) to control built-in lights; superseded
+  by the Light control API.
+section: network-video
+family: soap
+status: deprecated
+python:
+  module: light_control_service
+  class: LightControlService
+docs:
+- https://developer.axis.com/vapix/network-video/light-control/
+- http://www.axis.com/vapix/ws/LightService.wsdl
+access: admin
+requires:
+  firmware: '5.40'
+
+binding: {namespace: 'http://www.axis.com/vapix/ws/light'}
+
+types:
+  LightInformationList:
+    type: object
+    properties:
+      LightInformation:
+        type: array
+        items: {$ref: '#/types/LightInformation'}
+        description: Light Information.
+  LightInformation:
+    type: object
+    required:
+    - LightID
+    - LightType
+    - Enabled
+    - SynchronizeDayNightMode
+    - LightState
+    - AutomaticIntensityMode
+    - AutomaticAngleOfIlluminationMode
+    - Error
+    - ErrorInfo
+    properties:
+      LightID: {type: string, description: The Light ID}
+      LightType: {type: string, description: The light type.}
+      Enabled: {type: boolean, description: The light is enabled.}
+      SynchronizeDayNightMode: {type: boolean, description: Indicating if the light is synchronized with day night.}
+      LightState: {type: boolean, description: Indicating if the light ON or OFF.}
+      AutomaticIntensityMode: {type: boolean, description: Indicating if the mode of automatic intensity.}
+      AutomaticAngleOfIlluminationMode: {type: boolean, description: Indicating if the mode of automatic angle of
+          illumination.}
+      Error: {type: boolean, description: An error has occurred.}
+      ErrorInfo: {type: string, description: Error description.}
+  Capabilities:
+    type: object
+    required:
+    - AutomaticIntensitySupport
+    - ManualIntensitySupport
+    - IndividualIntensitySupport
+    - GetCurrentIntensitySupport
+    - ManualAngleOfIlluminationSupport
+    - AutomaticAngleOfIlluminationSupport
+    - DayNightSynchronizeSupport
+    properties:
+      AutomaticIntensitySupport: {type: boolean, description: SetAutomaticIntensityMode is supported.}
+      ManualIntensitySupport: {type: boolean, description: GetManualIntensity and SetManualIntensity are supported.}
+      IndividualIntensitySupport:
+        type: boolean
+        description: GetIndividualIntensity, SetIndividualIntensity and GetNumberOfLeds are supported.
+      GetCurrentIntensitySupport: {type: boolean, description: GetCurrentIntensity is supported.}
+      ManualAngleOfIlluminationSupport: {type: boolean, description: SetManualAngleOfIllumination is supported.}
+      AutomaticAngleOfIlluminationSupport: {type: boolean, description: SetAutomaticAngleOfIlluminationMode is supported.}
+      DayNightSynchronizeSupport: {type: boolean, description: SetLightSynchronizeDayNightMode is supported.}
+  IntRangeList:
+    type: object
+    properties:
+      IntRange:
+        type: array
+        items: {$ref: '#/types/IntRange'}
+        description: A list of IntRange objects.
+  IntRange:
+    type: object
+    required: [Low, High]
+    properties:
+      Low: {type: integer, description: The lowest value in the range.}
+      High: {type: integer, description: The highest value in the range.}
+
+operations:
+  activate_light:
+    summary: Activate the light.
+    effect: action
+    binding: {action: 'http://www.axis.com/vapix/ws/light/ActivateLight', element: ActivateLight}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+  deactivate_light:
+    summary: Deativate the light.
+    effect: action
+    binding: {action: 'http://www.axis.com/vapix/ws/light/DeactivateLight', element: DeactivateLight}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+  enable_light:
+    summary: Enable the light functionality.
+    effect: write
+    write: patch
+    binding: {action: 'http://www.axis.com/vapix/ws/light/EnableLight', element: EnableLight}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+  disable_light:
+    summary: Disable the light functionality.
+    effect: write
+    write: patch
+    binding: {action: 'http://www.axis.com/vapix/ws/light/DisableLight', element: DisableLight}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+  get_number_of_leds:
+    summary: Get number of IR leds
+    effect: read
+    binding: {action: 'http://www.axis.com/vapix/ws/light/GetNumberOfLeds', element: GetNumberOfLeds}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [NrOfLeds]
+      properties:
+        NrOfLeds: {type: integer, description: Number of IR leds provided in the request.}
+  get_light_status:
+    summary: Get the light status of a given Light ID.
+    effect: read
+    binding: {action: 'http://www.axis.com/vapix/ws/light/GetLightStatus', element: GetLightStatus}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [Status]
+      properties:
+        Status: {type: boolean, description: The light is active or inactive.}
+  get_light_information:
+    summary: List light control information.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetLightInformation
+      element: GetLightInformation
+    result:
+      type: object
+      required: [LightInfo]
+      properties:
+        LightInfo: {$ref: '#/types/LightInformationList', description: Available light information.}
+  get_service_capabilities:
+    summary: List the light service capablilities.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetServiceCapabilities
+      element: GetServiceCapabilities
+    result:
+      type: object
+      required: [Capabilities]
+      properties:
+        Capabilities:
+          $ref: '#/types/Capabilities'
+          description: Capabilities supported by the Light Control Service.
+  set_automatic_intensity_mode:
+    summary: Enable automatic light intensity control.
+    effect: write
+    write: patch
+    binding:
+      action: http://www.axis.com/vapix/ws/light/SetAutomaticIntensityMode
+      element: SetAutomaticIntensityMode
+    params:
+      type: object
+      required: [LightID, Automatic]
+      properties:
+        LightID: {type: string, description: The Light ID}
+        Automatic: {type: boolean}
+  set_manual_intensity:
+    summary: Set the intensity manually.
+    effect: write
+    write: patch
+    binding: {action: 'http://www.axis.com/vapix/ws/light/SetManualIntensity', element: SetManualIntensity}
+    params:
+      type: object
+      required: [LightID, Intensity]
+      properties:
+        LightID: {type: string, description: The Light ID}
+        Intensity: {type: integer, description: The intensity to set.}
+  set_individual_intensity:
+    summary: Set the intensity individually.
+    effect: write
+    write: patch
+    binding:
+      action: http://www.axis.com/vapix/ws/light/SetIndividualIntensity
+      element: SetIndividualIntensity
+    params:
+      type: object
+      required: [LightID, LedID, Intensity]
+      properties:
+        LightID: {type: string, description: The Light ID}
+        LedID: {type: integer, description: The Led ID}
+        Intensity: {type: integer, description: The intensity to set.}
+  get_manual_intensity:
+    summary: Get the intensity sent in the SetManualIntensity request.
+    effect: read
+    binding: {action: 'http://www.axis.com/vapix/ws/light/GetManualIntensity', element: GetManualIntensity}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [Intensity]
+      properties:
+        Intensity: {type: integer, description: Intensity provided in the request.}
+  get_individual_intensity:
+    summary: Get the intensity set in the SetIndividualIntensity request.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetIndividualIntensity
+      element: GetIndividualIntensity
+    params:
+      type: object
+      required: [LightID, LedID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+        LedID: {type: integer, description: The Led ID}
+    result:
+      type: object
+      required: [Intensity]
+      properties:
+        Intensity: {type: integer, description: Intensity provided in the request.}
+  get_current_intensity:
+    summary: Get the current intensity.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetCurrentIntensity
+      element: GetCurrentIntensity
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [Intensity]
+      properties:
+        Intensity: {type: integer, description: The current intensity.}
+  get_valid_intensity:
+    summary: List valid light intensity values.
+    effect: read
+    binding: {action: 'http://www.axis.com/vapix/ws/light/GetValidIntensity', element: GetValidIntensity}
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [RangeList]
+      properties:
+        RangeList: {$ref: '#/types/IntRangeList', description: Valid intensity values.}
+  set_manual_angle_of_illumination:
+    summary: Set the angle of illumination manually.
+    effect: write
+    write: patch
+    binding:
+      action: http://www.axis.com/vapix/ws/light/SetManualAngleOfIllumination
+      element: SetManualAngleOfIllumination
+    params:
+      type: object
+      required: [LightID, AngleOfIllumination]
+      properties:
+        LightID: {type: string, description: The Light ID}
+        AngleOfIllumination: {type: integer, description: The angle of illumination.}
+  get_manual_angle_of_illumination:
+    summary: Get the angle of illumination sent in the SetManualAngleOfIllumination request.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetManualAngleOfIllumination
+      element: GetManualAngleOfIllumination
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [AngleOfIllumination]
+      properties:
+        AngleOfIllumination: {type: integer, description: Angle of illumination provided in the request.}
+  get_current_angle_of_illumination:
+    summary: Get the current angle of illumination.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetCurrentAngleOfIllumination
+      element: GetCurrentAngleOfIllumination
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [AngleOfIllumination]
+      properties:
+        AngleOfIllumination: {type: integer, description: The current angle of illumination.}
+  set_automatic_angle_of_illumination_mode:
+    summary: Control the angle of illumination automatically.
+    effect: write
+    write: patch
+    binding:
+      action: http://www.axis.com/vapix/ws/light/SetAutomaticAngleOfIlluminationMode
+      element: SetAutomaticAngleOfIlluminationMode
+    params:
+      type: object
+      required: [LightID, Automatic]
+      properties:
+        LightID: {type: string, description: The Light ID}
+        Automatic: {type: boolean}
+  get_valid_angle_of_illumination:
+    summary: List valid angle of illumination values.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetValidAngleOfIllumination
+      element: GetValidAngleOfIllumination
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [RangeList]
+      properties:
+        RangeList: {$ref: '#/types/IntRangeList', description: Valid angle of illumination values.}
+  set_light_synchronize_day_night_mode:
+    summary: Enable automatic synchronization with day/night mode.
+    effect: write
+    write: patch
+    binding:
+      action: http://www.axis.com/vapix/ws/light/SetLightSynchronizeDayNightMode
+      element: SetLightSynchronizeDayNightMode
+    params:
+      type: object
+      required: [LightID, Synchronize]
+      properties:
+        LightID: {type: string, description: The Light ID}
+        Synchronize: {type: boolean}
+  get_light_synchronize_day_night_mode:
+    summary: Check if automatic synchronization with day/night mode is enabled.
+    effect: read
+    binding:
+      action: http://www.axis.com/vapix/ws/light/GetLightSynchronizeDayNightMode
+      element: GetLightSynchronizeDayNightMode
+    params:
+      type: object
+      required: [LightID]
+      properties:
+        LightID: {type: string, description: The Light ID}
+    result:
+      type: object
+      required: [DayNightSync]
+      properties:
+        DayNightSync: {type: boolean, description: Day/night synchronization is enabled.}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/light-control/
+  sha256_md: a98984664998d78ce8bb5d3371562495687accdd33734b7743a3be148d9beaff
+  retrieved_at: '2026-10-11'
+- url: http://www.axis.com/vapix/ws/LightService.wsdl
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Access levels per operation not documented for the SOAP service.
+  - 'Endpoint path: doc says to use Xaddr from GetServices; /vapix/services is an assumption.'
+  - GetNumberOfLeds exists in the WSDL but is not mentioned on the page.
+  - Fault elements in WSDL have no documented content/descriptions.
+  - Discovery method entry_service namespace only.
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
+    documented examples for children in other namespaces'
+  - 'migration: discovery: no discovery probe: Namespace http://www.axis.com/vapix/ws/light. Use Entry service GetServices
+    and look for this namespace; use the returned Xaddr.'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

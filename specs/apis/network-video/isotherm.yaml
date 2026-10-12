@@ -20,31 +20,47 @@ requires:
 binding: {path: /axis-cgi/isotherm/schemaversions.cgi}
 
 types:
-  GetSchemaVersionsResult:
+  SchemaVersion:
     type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: major.minor
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: SchemaVersionsSuccess}
+    required: [SchemaVersion]
     properties:
       SchemaVersion:
         type: array
-        items:
-          type: object
-          x-name: GetSchemaVersionsResultSchemaVersionItem
-          properties:
-            VersionNumber:
-              type: string
-              description: major.minor
-              x-xml: {child: VersionNumber}
-            Deprecated:
-              type: boolean
-              x-xml: {child: Deprecated}
-    x-xml: {root: SchemaVersionsSuccess}
-  GetModeResult:
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
+  IsothermMode:
+    type: string
+    enum: [enabled, disabled]
+  ModeStatus:
     type: object
+    x-xml: {root: Success/GetModeSuccess}
+    required: [Mode]
     properties:
       Mode:
-        type: string
-        enum: [enabled, disabled]
+        $ref: '#/types/IsothermMode'
         x-xml: {child: Mode}
-    x-xml: {root: Success/GetModeSuccess}
+  Limits:
+    type: object
+    x-xml: {root: Success/GetLimitsSuccess}
+    description: Temperature limits in the unit set by the temperature alarm API (Celsius or Fahrenheit).
+    required: [Upper, Middle, Lower]
+    properties:
+      Upper: {type: integer, description: The upper temperature limit., x-xml: {child: Upper}}
+      Middle: {type: integer, description: The middle temperature limit., x-xml: {child: Middle}}
+      Lower: {type: integer, description: The lower temperature limit., x-xml: {child: Lower}}
 
 operations:
   get_schema_versions:
@@ -52,7 +68,7 @@ operations:
     access: viewer
     effect: read
     binding: {method: GET, reply: xml}
-    result: {$ref: '#/types/GetSchemaVersionsResult'}
+    result: {$ref: '#/types/SchemaVersions'}
     errors:
       10: {description: Error while processing the request.}
       20: {description: Invalid request., kind: invalid_argument}
@@ -84,7 +100,7 @@ operations:
       type: object
       required: [mode]
       properties:
-        mode: {type: string, enum: [enabled, disabled]}
+        mode: {$ref: '#/types/IsothermMode'}
     errors:
       10: {description: Error while processing the request.}
       20: {description: Invalid request., kind: invalid_argument}
@@ -106,7 +122,7 @@ operations:
     access: viewer
     effect: read
     binding: {path: /axis-cgi/isotherm/getmode.cgi, method: GET, reply: xml}
-    result: {$ref: '#/types/GetModeResult'}
+    result: {$ref: '#/types/ModeStatus'}
     errors:
       10: {description: Error while processing the request.}
       20: {description: Invalid request., kind: invalid_argument}
@@ -137,16 +153,13 @@ operations:
       properties:
         upper:
           type: integer
-          description: 'The upper temperature limit. Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.
-            (unit=temperature scale (Celsius/Fahrenheit))'
+          description: The upper temperature limit, in the unit set by temperature_alarm/settemperaturescale.cgi.
         middle:
           type: integer
-          description: 'The middle temperature limit. Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.
-            (unit=temperature scale (Celsius/Fahrenheit))'
+          description: The middle temperature limit, in the unit set by temperature_alarm/settemperaturescale.cgi.
         lower:
           type: integer
-          description: 'The lower temperature limit. Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.
-            (unit=temperature scale (Celsius/Fahrenheit))'
+          description: The lower temperature limit, in the unit set by temperature_alarm/settemperaturescale.cgi.
     errors:
       10: {description: Error while processing the request.}
       20: {description: Invalid request., kind: invalid_argument}
@@ -168,11 +181,29 @@ operations:
     access: viewer
     effect: read
     binding: {path: /axis-cgi/isotherm/getlimits.cgi, method: GET, reply: xml}
-    result: {x-xml: true}
+    result: {$ref: '#/types/Limits'}
     errors:
       10: {description: Error while processing the request.}
       20: {description: Invalid request., kind: invalid_argument}
       40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Get limits
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <IsothermResponse SchemaVersion="1.0">
+            <Success>
+              <GetLimitsSuccess>
+                <Upper>80</Upper>
+                <Middle>70</Middle>
+                <Lower>50</Lower>
+              </GetLimitsSuccess>
+            </Success>
+          </IsothermResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#get-limits
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/thermal-imaging/
@@ -184,16 +215,8 @@ provenance:
   open_questions:
   - No schemaversion argument is documented for the isotherm CGIs (unlike other XML CGIs).
   - Iso-Fire-WH description repeats 'between the lower and middle limits' for both yellow and orange.
-  - set_mode 'mode' required-ness not stated (only argument).
-  - Relationship between limits ordering (lower<middle<upper) not stated; no validation errors documented beyond
-    10/20/40.
+  - Relationship between limits ordering (lower<middle<upper) not stated; no validation errors documented beyond 10/20/40.
   - Isotherm1.xsd is not in raw/specs.
-  - 'migration: xml-unmapped: set_mode: response schema is not an object; result is the raw XML element'
-  - 'migration: xml-unmapped: set_limits: response schema is not an object; result is the raw XML element'
-  - 'migration: xml-unmapped: get_limits: no parseable sample reply to derive the x-xml mapping from; result is
-    the raw XML element'
-  - 'migration: types-dropped: types not referenced by any migrated operation: GeneralError, GeneralSuccess'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
+  - The get_limits example is a reconstruction from the documented body syntax, not a device reply.
   migrated_from: v1
-  curated: false
+  curated: true

@@ -1,9 +1,8 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: cross-line-detection-1-1
 name: Cross line detection 1.1 API
-summary: Configure the AXIS Cross Line Detection 1.1 ACAP (trip-wire virtual line and crossing direction) via vaconfig.cgi
-  and receive its linetouched events.
+summary: Read the configuration of the AXIS Cross Line Detection 1.1 ACAP (trip-wire virtual line and crossing direction)
+  via vaconfig.cgi.
 section: applications
 family: cgi
 status: released
@@ -13,64 +12,356 @@ python:
 docs:
 - https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/
 access: admin
+discovery:
+- acap:
+    name: CrossLineDetection
 requires:
   firmware: '5.40'
   application: AXIS Cross Line Detection 1.1 (ACAP, package name CrossLineDetection)
-
-binding: {path: /axis-cgi/vaconfig.cgi}
-
+binding:
+  path: /axis-cgi/vaconfig.cgi
+errors:
+  bad_request:
+    description: Bad request. The request URL was not formatted correctly.
+    kind: invalid_argument
+  no_such_application:
+    description: There is no application with the given name.
+    kind: not_found
+  internal:
+    description: The action could not be performed, for example because the application failed to restart after a configuration
+      modification.
+    kind: internal
+types:
+  Point:
+    type: object
+    required:
+    - x
+    - y
+    properties:
+      x:
+        type: number
+        description: X coordinate, -1.0 to 1.0. The top right corner of the camera view is x=1.0, y=1.0.
+      y:
+        type: number
+        description: Y coordinate, -1.0 to 1.0.
+  IntValue:
+    type: object
+    required:
+    - value
+    properties:
+      value:
+        type: integer
+  NamedObjectData:
+    type: object
+    properties:
+      knownNameType:
+        type: string
+        description: Type of the data, for example geometry.polygon or core.int. The docs' attribute table spells it knownTypeName.
+      polygon:
+        type: array
+        items:
+          $ref: '#/types/Point'
+        x-xml:
+          path: polygon/point
+        description: Corner points of a polygon object; empty for other object types.
+      segment:
+        type: array
+        items:
+          $ref: '#/types/Point'
+        x-xml:
+          path: segment/point
+        description: End points of a virtual line (geometry.segment); empty for other object types.
+      int:
+        $ref: '#/types/IntValue'
+        x-python-name: integer
+        description: Integer data of a core.int object, such as a filter value or a view area number.
+  NamedObject:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of the object. Rule parameters refer to it by this name.
+      data:
+        $ref: '#/types/NamedObjectData'
+  RuleParameter:
+    type: object
+    required:
+    - name
+    - value
+    properties:
+      name:
+        type: string
+        description: Name of a parameter used by the rule function.
+      value:
+        type: string
+        description: Value of the parameter; the name of the named object to use.
+  Rule:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of the rule.
+      function:
+        type: string
+        description: Name of the rule function, defined in a script file.
+      parameter:
+        type: array
+        items:
+          $ref: '#/types/RuleParameter'
+        x-xml:
+          path: parameter
+        x-python-name: parameters
+  Script:
+    type: object
+    properties:
+      name:
+        type: string
+        x-xml: text
+        description: Name of the script file.
+      encryption:
+        type: string
+        enum:
+        - '0'
+        - '1'
+        description: 1 = the script is encrypted, 0 = not encrypted.
+  EventAttribute:
+    type: object
+    properties:
+      key:
+        type: string
+      nicename:
+        type: string
+      tag:
+        type: string
+        enum:
+        - source
+        - data
+        - property-state
+        description: source = source info of the event metadata, data = data info, property-state = stateful event (0 or 1).
+      value:
+        type: string
+  Event:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of an event emitted by the application.
+      nicename:
+        type: string
+      attr:
+        type: array
+        items:
+          $ref: '#/types/EventAttribute'
+        x-xml:
+          path: attr
+        x-python-name: attributes
+  MoteOption:
+    type: object
+    required:
+    - name
+    - value
+    properties:
+      name:
+        type: string
+        description: 'Option name: boundingBox, polygon or velocity.'
+      value:
+        type: string
+        enum:
+        - 'true'
+        - 'false'
+  NameValue:
+    type: object
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+  Library:
+    type: object
+    properties:
+      name:
+        type: string
+  RuleEngine:
+    type: object
+    properties:
+      status:
+        type: string
+        enum:
+        - enabled
+        - disabled
+        description: Whether the AXIS OS parses this configuration (AXIS OS 5.61 and later).
+      namedObjects:
+        type: array
+        items:
+          $ref: '#/types/NamedObject'
+        x-xml:
+          path: namedObjects/namedObject
+        description: All named objects used by the application.
+      rules:
+        type: array
+        items:
+          $ref: '#/types/Rule'
+        x-xml:
+          path: rules/rule
+        description: All rules used by the application.
+      scripts:
+        type: array
+        items:
+          $ref: '#/types/Script'
+        x-xml:
+          path: scripts/script
+      events:
+        type: array
+        items:
+          $ref: '#/types/Event'
+        x-xml:
+          path: events/event
+      analyticSources:
+        type: array
+        items:
+          $ref: '#/types/NameValue'
+        x-xml:
+          path: analyticSources/analyticSource
+      moteConfig:
+        type: array
+        items:
+          $ref: '#/types/MoteOption'
+        x-xml:
+          path: moteConfig/option
+        description: MOTE configuration options.
+      libraries:
+        type: array
+        items:
+          $ref: '#/types/Library'
+        x-xml:
+          path: libraries/library
+  Application:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of the application.
+      nicename:
+        type: string
+      ruleEngine:
+        $ref: '#/types/RuleEngine'
+  ApplicationConfig:
+    type: object
+    x-xml:
+      root: .
+    description: Configuration of the application. The version attribute is absent in the documented reply, which has no config
+      wrapper.
+    properties:
+      version:
+        type: string
+      application:
+        $ref: '#/types/Application'
 operations:
   get_configuration:
-    summary: Retrieve the application configuration XML.
-    description: Deprecated.
+    summary: Retrieve the application configuration (virtual line, crossing direction, rule engine settings).
+    description: Deprecated. The virtual line is the named object CrossLine0; the crossing direction is the Direction parameter
+      of the rule.
     effect: read
     binding:
       method: GET
-      query: {action: get, name: CrossLineDetection}
-      reply: xml
-    result: {x-xml: true}
-  modify_configuration:
-    summary: Modify the application configuration (only CrossLine0 and Direction should change; all other settings
-      kept as is).
-    description: Deprecated.
-    effect: write
-    write: patch
-    binding: {method: POST, encoding: form, reply: xml}
-    params:
-      type: object
-      required: [action, name, config]
-      properties:
-        action: {type: string, enum: [modify], default: modify}
-        name: {type: string, enum: [CrossLineDetection], default: CrossLineDetection}
-        config:
-          type: string
-          x-python-name: config_xml
-          description: <application name="CrossLineDetection">...</application> XML appended after 'action=modify&name=CrossLineDetection'
-            and a newline, as in the example.
-
+      query:
+        action: get
+        name: CrossLineDetection
+      reply:
+        xml:
+          status_error:
+            attribute: result
+            value: error
+    result:
+      $ref: '#/types/ApplicationConfig'
+    examples:
+    - title: Retrieve the application configuration
+      request:
+        query:
+          action: get
+          name: CrossLineDetection
+      response:
+        status: 200
+        content_type: application/xml
+        text: |
+          <reply result="ok">
+              <application name="CrossLineDetection">
+                  <ruleEngine>
+                      <namedObjects>
+                          <namedObject name="CrossLine0">
+                              <data knownNameType="geometry.segment">
+                                  <segment>
+                                      <point x="-0.5" y="0.0" />
+                                      <point x="0.5" y="0.0" />
+                                  </segment>
+                              </data>
+                          </namedObject>
+                      </namedObjects>
+                      <rules>
+                          <rule name="crossed_CrossLine0" function="line_touching">
+                              <parameter name="LineObj" value="CrossLine0" />
+                              <parameter name="Direction" value="both" />
+                          </rule>
+                      </rules>
+                      <scripts>
+                          <script encryption="1">dbgutils.lua</script>
+                          <script encryption="1">lineTouching.lua</script>
+                      </scripts>
+                      <events>
+                          <event name="linetouched">
+                              <attr key="type" nicename="Touched" value="touched" />
+                              <attr key="line" nicename="Cross line" />
+                              <attr key="object" nicename="Passed object id" />
+                          </event>
+                          <event name="timer" hiddenFromTriggerList="true" />
+                      </events>
+                      <moteConfig>
+                          <option name="boundingBox" value="false" />
+                          <option name="polygon" value="true" />
+                          <option name="velocity" value="true" />
+                      </moteConfig>
+                  </ruleEngine>
+              </application>
+          </reply>
+      source: https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/#getting-started
 sources:
 - url: https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/
   sha256_md: ab3b239014a3933c4c3dc872c2c41f6e7eb170dcb1222e96110efc10f4e64657
   retrieved_at: '2026-10-11'
-
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
   - Events section says 'The cross line detection 2.1 event' on a 1.1 page. https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/#events
-  - Event 'object' is described as 'the ID of the virtual line which the moving object has crossed' but its nice
-    name is 'Passed object id'; type string although described as integer.
+  - Event 'object' is described as 'the ID of the virtual line which the moving object has crossed' but its nice name is 'Passed
+    object id'; type string although described as integer.
   - Table uses attribute 'knownTypeName' while XML uses 'knownNameType'.
-  - Modify example XML is malformed (<event name="timer" hiddenFromTriggerList="true"> not closed) and omits the
-    <config> wrapper used in Application configuration API.
+  - Modify example XML is malformed (<event name="timer" hiddenFromTriggerList="true"> not closed) and omits the <config>
+    wrapper used in Application configuration API.
   - Response Content-Type is application/xml here vs text/xml in Application configuration API.
   - Start application example uses GET while Application API documents POST.
-  - 'migration: op-skipped: get_event_stream: kind rtsp_request is not a classic CGI call'
-  - 'migration: xml-unmapped: get_configuration: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: modify_configuration: no response schema in v1; result is the raw XML element'
-  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=1.10'' is not a Name=value pair:
-    dropped'
-  - 'migration: types-dropped: types not referenced by any migrated operation: UserConfiguration'
-  - 'migration: dropped-section: v1 section events not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=CrossLineDetection'',
+    a newline and the raw <application> XML as one form-encoded body; the XML is not a key=value pair. Only CrossLine0 and
+    the Direction parameter should change.'
+  - 'BLOCKED(rtsp-url): get_event_stream: rtsp://<servername>/axis-media/media.amp?event=on&video=0&eventtopic=onvif:RuleEngine/axis:CrossLineDetection//.
+    delivers the linetouched events.'
+  - The documented get reply has <application> directly under <reply>, while the Application configuration API shows <config
+    version> in between; the result type reads the application from either place only if the device matches the documented
+    shape (root '.').
+  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=CrossLineDetection'',
+    a newline and the raw <application> XML as one form-encoded body; the XML is not a key=value pair. Only CrossLine0 and
+    the Direction parameter should change.'
+  - 'BLOCKED(rtsp-url): get_event_stream: rtsp://<servername>/axis-media/media.amp?event=on&video=0&eventtopic=onvif:RuleEngine/axis:CrossLineDetection//.
+    delivers the linetouched events.'
+  - The documented get reply has <application> directly under <reply>, while the Application configuration API shows <config
+    version> in between; the result type reads the application from either place only if the device matches the documented
+    shape (root '.').
   migrated_from: v1
-  curated: false
+  curated: true

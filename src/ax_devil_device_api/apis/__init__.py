@@ -9,44 +9,81 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..device import AsyncDevice, Device
+    from .access_control_service import AccessControlServiceApi, AsyncAccessControlServiceApi
     from .air_quality_monitor import AirQualityMonitorApi, AsyncAirQualityMonitorApi
     from .airqualitymodbus import AirQualityModbusApi, AsyncAirQualityModbusApi
     from .airqualitymodbus_modbus_api import AirQualityModbusReleaseApi, AsyncAirQualityModbusReleaseApi
     from .analytics_metadata_config import AnalyticsMetadataConfigApi, AsyncAnalyticsMetadataConfigApi
     from .analytics_mqtt import AnalyticsMqttApi, AsyncAnalyticsMqttApi
     from .api_discovery import ApiDiscoveryApi, AsyncApiDiscoveryApi
+    from .application_api import ApplicationApi, AsyncApplicationApi
+    from .application_configuration import ApplicationConfigurationApi, AsyncApplicationConfigurationApi
     from .audio_analytics import AsyncAudioAnalyticsApi, AudioAnalyticsApi
+    from .audio_control_service import AsyncAudioControlServiceApi, AudioControlServiceApi
     from .audio_device_control import AsyncAudioDeviceControlApi, AudioDeviceControlApi
     from .audio_mixer import AsyncAudioMixerApi, AudioMixerApi
     from .audio_multicast_ctrl import AsyncAudioMulticastCtrlApi, AudioMulticastCtrlApi
+    from .audio_relay_service import AsyncAudioRelayServiceApi, AudioRelayServiceApi
+    from .audit_log import AsyncAuditLogApi, AuditLogApi
+    from .auto_speaker_test_service import AsyncAutoSpeakerTestServiceApi, AutoSpeakerTestServiceApi
     from .autopilot import AsyncAutopilotApi, AutopilotApi
     from .axis_object_analytics import AsyncAxisObjectAnalyticsApi, AxisObjectAnalyticsApi
     from .basic_device_info import AsyncBasicDeviceInfoApi, BasicDeviceInfoApi
     from .basic_device_info_config import AsyncBasicDeviceInfoConfigApi, BasicDeviceInfoConfigApi
+    from .call_service import AsyncCallServiceApi, CallServiceApi
     from .camera_pairing import AsyncCameraPairingApi, CameraPairingApi
     from .capture_mode import AsyncCaptureModeApi, CaptureModeApi
     from .cellular_routing import AsyncCellularRoutingApi, CellularRoutingApi
     from .cert import AsyncCertApi, CertApi
     from .cert_est import AsyncCertEstApi, CertEstApi
     from .clear_view import AsyncClearViewApi, ClearViewApi
+    from .connection_service import AsyncConnectionServiceApi, ConnectionServiceApi
+    from .connection_test import AsyncConnectionTestApi, ConnectionTestApi
     from .coordinate_conversion import AsyncCoordinateConversionApi, CoordinateConversionApi
+    from .cross_line_detection import AsyncCrossLineDetectionApi, CrossLineDetectionApi
     from .crypto_policy import AsyncCryptoPolicyApi, CryptoPolicyApi
     from .current_loop import AsyncCurrentLoopApi, CurrentLoopApi
     from .custom_http_header import AsyncCustomHttpHeaderApi, CustomHttpHeaderApi
     from .dashboard_stream import AsyncDashboardStreamApi, DashboardStreamApi
+    from .data_transformation import AsyncDataTransformationApi, DataTransformationApi
     from .daynight import AsyncDayNightApi, DayNightApi
     from .decoder import AsyncDecoderApi, DecoderApi
+    from .demographic_identifier import AsyncDemographicIdentifierApi, DemographicIdentifierApi
     from .device_mode import AsyncDeviceModeApi, DeviceModeApi
+    from .dewarped_views import AsyncDewarpedViewsApi, DewarpedViewsApi
+    from .digital_autotracking import AsyncDigitalAutotrackingApi, DigitalAutotrackingApi
     from .directional_audio_detection import AsyncDirectionalAudioDetectionApi, DirectionalAudioDetectionApi
+    from .disk_management import AsyncDiskManagementApi, DiskManagementApi
+    from .disk_properties import AsyncDiskPropertiesApi, DiskPropertiesApi
     from .dnsupdate_configuration import AsyncDnsupdateConfigurationApi, DnsupdateConfigurationApi
+    from .door_control_service import AsyncDoorControlServiceApi, DoorControlServiceApi
     from .dynamic_overlay import AsyncDynamicOverlayApi, DynamicOverlayApi
+    from .dynamic_text import AsyncDynamicTextApi, DynamicTextApi
+    from .event_logger_service import AsyncEventLoggerServiceApi, EventLoggerServiceApi
     from .event_schedules import AsyncEventSchedulesApi, EventSchedulesApi
+    from .export_recording import AsyncExportRecordingApi, ExportRecordingApi
+    from .external_ip_device_info import AsyncExternalIpDeviceInfoApi, ExternalIpDeviceInfoApi
     from .feature_flag import AsyncFeatureFlagApi, FeatureFlagApi
     from .fence_guard import AsyncFenceGuardApi, FenceGuardApi
     from .find_my_device import AsyncFindMyDeviceApi, FindMyDeviceApi
     from .firewall import AsyncFirewallApi, FirewallApi
+    from .focus_recall import AsyncFocusRecallApi, FocusRecallApi
+    from .geolocation import AsyncGeolocationApi, GeolocationApi
+    from .gpio_service import AsyncGpioServiceApi, GpioServiceApi
     from .groupview import AsyncGroupViewApi, GroupViewApi
+    from .guard_tour import AsyncGuardTourApi, GuardTourApi
+    from .heartbeat import AsyncHeartbeatApi, HeartbeatApi
+    from .id_point_service import AsyncIdPointServiceApi, IdPointServiceApi
+    from .image_parameters import AsyncImageParametersApi, ImageParametersApi
+    from .image_source_rotation import AsyncImageSourceRotationApi, ImageSourceRotationApi
+    from .imaging import AsyncImagingApi, ImagingApi
+    from .intercom_service import AsyncIntercomServiceApi, IntercomServiceApi
+    from .io_assignment_service import AsyncIoAssignmentServiceApi, IoAssignmentServiceApi
+    from .io_port import AsyncIoPortApi, IoPortApi
     from .io_port_management import AsyncIoPortManagementApi, IoPortManagementApi
+    from .isotherm import AsyncIsothermApi, IsothermApi
+    from .keystore_service import AsyncKeystoreServiceApi, KeystoreServiceApi
+    from .license_plate_verifier import AsyncLicensePlateVerifierApi, LicensePlateVerifierApi
     from .light_control import AsyncLightControlApi, LightControlApi
     from .lldp import AsyncLldpApi, LldpApi
     from .log import AsyncLogApi, LogApi
@@ -54,6 +91,7 @@ if TYPE_CHECKING:
     from .m12_lens_selection import AsyncM12LensSelectionApi, M12LensSelectionApi
     from .mdnssd import AsyncMdnssdApi, MdnssdApi
     from .mdnssd_config import AsyncMdnssdConfigApi, MdnssdConfigApi
+    from .media_clip import AsyncMediaClipApi, MediaClipApi
     from .motion_guard import AsyncMotionGuardApi, MotionGuardApi
     from .mqtt_client import AsyncMqttClientApi, MqttClientApi
     from .mqtt_event_bridge import AsyncMqttEventBridgeApi, MqttEventBridgeApi
@@ -61,55 +99,101 @@ if TYPE_CHECKING:
     from .network_radar_pairing import AsyncNetworkRadarPairingApi, NetworkRadarPairingApi
     from .network_settings import AsyncNetworkSettingsApi, NetworkSettingsApi
     from .network_settings_api import AsyncNetworkSettingsApi, NetworkSettingsApi
+    from .network_settings_params import AsyncNetworkSettingsParamsApi, NetworkSettingsParamsApi
+    from .network_share import AsyncNetworkShareApi, NetworkShareApi
     from .networkpairing import AsyncNetworkpairingApi, NetworkpairingApi
     from .ntp import AsyncNtpApi, NtpApi
+    from .nvr_poe import AsyncNvrPoeApi, NvrPoeApi
     from .oak import AsyncOakApi, OakApi
     from .oauth_ccgrant import AsyncOauthCcgrantApi, OauthCcgrantApi
     from .object_snapshot import AsyncObjectSnapshotApi, ObjectSnapshotApi
     from .oidcsetup import AsyncOidcsetupApi, OidcsetupApi
     from .on_screen_controls import AsyncOnScreenControlsApi, OnScreenControlsApi
+    from .onvif_replay_extension import AsyncOnvifReplayExtensionApi, OnvifReplayExtensionApi
     from .optics_control import AsyncOpticsControlApi, OpticsControlApi
+    from .orientation import AsyncOrientationApi, OrientationApi
+    from .osdi import AsyncOnScreenDirectionalIndicatorApi, OnScreenDirectionalIndicatorApi
     from .overlay_image import AsyncOverlayImageApi, OverlayImageApi
+    from .overlay_modifiers import AsyncOverlayModifiersApi, OverlayModifiersApi
+    from .p8815_2_3d_people_counter import AsyncP8815PeopleCounter3DApi, P8815PeopleCounter3DApi
     from .param import AsyncParamApi, ParamApi
     from .parameter_management import AsyncParameterManagementApi, ParameterManagementApi
     from .pencil_privacy_filter import AsyncPencilPrivacyFilterApi, PencilPrivacyFilterApi
+    from .people_counter import AsyncPeopleCounterApi, PeopleCounterApi
+    from .people_counter_3d_legacy import AsyncPeopleCounter3DLegacyApi, PeopleCounter3DLegacyApi
     from .pir_sensor_configuration import AsyncPirSensorConfigurationApi, PirSensorConfigurationApi
     from .power_settings import AsyncPowerSettingsApi, PowerSettingsApi
+    from .privacy_mask import AsyncPrivacyMaskApi, PrivacyMaskApi
+    from .pt_remote_calibration import AsyncPtRemoteCalibrationApi, PtRemoteCalibrationApi
+    from .ptz import AsyncPtzControlApi, PtzControlApi
     from .ptz_autotracker import AsyncPtzAutotrackerApi, PtzAutotrackerApi
+    from .ptz_driver_management import AsyncPtzDriverManagementApi, PtzDriverManagementApi
     from .ptz_orientation_aid import AsyncPtzOrientationAidApi, PtzOrientationAidApi
+    from .ptz_queue import AsyncPtzControlQueueApi, PtzControlQueueApi
     from .quadview_configuration import AsyncQuadViewConfigurationApi, QuadViewConfigurationApi
+    from .queue_monitor import AsyncQueueMonitorApi, QueueMonitorApi
     from .radar_analytics import AsyncRadarAnalyticsApi, RadarAnalyticsApi
     from .radar_autotracking import AsyncRadarAutotrackingApi, RadarAutotrackingApi
     from .radar_control import AsyncRadarControlApi, RadarControlApi
     from .radar_image import AsyncRadarImageApi, RadarImageApi
     from .radar_properties import AsyncRadarPropertiesApi, RadarPropertiesApi
     from .raid import AsyncRaidApi, RaidApi
+    from .rate_control import AsyncRateControlApi, RateControlApi
+    from .recorded_guard_tour import AsyncRecordedTourApi, RecordedTourApi
+    from .recording import AsyncRecordingApi, RecordingApi
+    from .recording_group_cgi import AsyncRecordingGroupCgiApi, RecordingGroupCgiApi
     from .recording_group_config import AsyncRecordingGroupConfigApi, RecordingGroupConfigApi
+    from .recording_storage_limit import AsyncRecordingStorageLimitApi, RecordingStorageLimitApi
     from .regional_settings import AsyncRegionalSettingsApi, RegionalSettingsApi
+    from .remote_camera_control import AsyncRemoteCameraControlApi, RemoteCameraControlApi
+    from .remote_io_service import AsyncRemoteIoServiceApi, RemoteIoServiceApi
     from .remote_object_storage import AsyncRemoteObjectStorageApi, RemoteObjectStorageApi
     from .remote_syslog import AsyncRemoteSyslogApi, RemoteSyslogApi
+    from .scene_profile import AsyncSceneProfileApi, SceneProfileApi
+    from .schedule_service import AsyncScheduleServiceApi, ScheduleServiceApi
+    from .serial_port import AsyncSerialPortApi, SerialPortApi
+    from .service_discovery_service import AsyncServiceDiscoveryServiceApi, ServiceDiscoveryServiceApi
+    from .shock_detection import AsyncShockDetectionApi, ShockDetectionApi
+    from .signed_video import AsyncSignedVideoApi, SignedVideoApi
     from .siren_and_light import AsyncSirenAndLightApi, SirenAndLightApi
     from .siren_and_light_config import AsyncSirenAndLightConfigApi, SirenAndLightConfigApi
     from .snmp import AsyncSnmpApi, SnmpApi
     from .speaker_display_notification import AsyncSpeakerDisplayNotificationApi, SpeakerDisplayNotificationApi
     from .speaker_display_settings import AsyncSpeakerDisplaySettingsApi, SpeakerDisplaySettingsApi
+    from .speed_dry import AsyncSpeedDryApi, SpeedDryApi
     from .ssh import AsyncSshApi, SshApi
     from .ssh_config import AsyncSshConfigApi, SshConfigApi
     from .stitching import AsyncStitchingApi, StitchingApi
+    from .stream_profile_parameters import AsyncStreamProfileParametersApi, StreamProfileParametersApi
     from .stream_profiles import AsyncStreamProfilesApi, StreamProfilesApi
     from .stream_status import AsyncStreamStatusApi, StreamStatusApi
     from .supervised_io import AsyncSupervisedIoApi, SupervisedIoApi
+    from .system_settings import AsyncSystemSettingsApi, SystemSettingsApi
+    from .system_settings_time import AsyncSystemSettingsTimeApi, SystemSettingsTimeApi
     from .systemready import AsyncSystemreadyApi, SystemreadyApi
+    from .temperature_alarm import AsyncTemperatureAlarmApi, TemperatureAlarmApi
+    from .temperature_control import AsyncTemperatureControlApi, TemperatureControlApi
+    from .thermal_color_palettes import AsyncThermalColorPalettesApi, ThermalColorPalettesApi
     from .thermal_visual_fusion import AsyncThermalVisualFusionApi, ThermalVisualFusionApi
     from .thermometry import AsyncThermometryApi, ThermometryApi
+    from .third_party_credential_service import AsyncThirdPartyCredentialServiceApi, ThirdPartyCredentialServiceApi
     from .time import AsyncTimeApi, TimeApi
     from .time_service import AsyncTimeServiceApi, TimeServiceApi
+    from .trigger_data import AsyncTriggerDataApi, TriggerDataApi
     from .unified_proxy_configuration import AsyncUnifiedProxyConfigurationApi, UnifiedProxyConfigurationApi
+    from .user_management import AsyncUserManagementApi, UserManagementApi
     from .user_management_config import AsyncUserManagementConfigApi, UserManagementConfigApi
+    from .user_service import AsyncUserServiceApi, UserServiceApi
+    from .video_motion_detection_2_1 import AsyncVideoMotionDetection21Api, VideoMotionDetection21Api
+    from .video_motion_detection_3 import AsyncVideoMotionDetection3Api, VideoMotionDetection3Api
     from .video_motion_detection_4 import AsyncVideoMotionDetection4Api, VideoMotionDetection4Api
+    from .video_output import AsyncVideoOutputApi, VideoOutputApi
+    from .video_streaming import AsyncVideoStreamingApi, VideoStreamingApi
     from .video_streaming_indicator import AsyncVideoStreamingIndicatorApi, VideoStreamingIndicatorApi
     from .view_area import AsyncViewAreaApi, ViewAreaApi
+    from .virtual_input import AsyncVirtualInputApi, VirtualInputApi
     from .virtualhost import AsyncVirtualhostApi, VirtualhostApi
+    from .zipstream import AsyncZipstreamApi, ZipstreamApi
     from .zwave import AsyncZWaveApi, ZWaveApi
 
 
@@ -118,6 +202,12 @@ class Apis:
 
     def __init__(self, device: Device) -> None:
         self._device = device
+
+    @cached_property
+    def access_control_service(self) -> AccessControlServiceApi:
+        from .access_control_service import AccessControlServiceApi
+
+        return self._device.api(AccessControlServiceApi)
 
     @cached_property
     def air_quality_monitor(self) -> AirQualityMonitorApi:
@@ -156,10 +246,28 @@ class Apis:
         return self._device.api(ApiDiscoveryApi)
 
     @cached_property
+    def application_api(self) -> ApplicationApi:
+        from .application_api import ApplicationApi
+
+        return self._device.api(ApplicationApi)
+
+    @cached_property
+    def application_configuration(self) -> ApplicationConfigurationApi:
+        from .application_configuration import ApplicationConfigurationApi
+
+        return self._device.api(ApplicationConfigurationApi)
+
+    @cached_property
     def audio_analytics(self) -> AudioAnalyticsApi:
         from .audio_analytics import AudioAnalyticsApi
 
         return self._device.api(AudioAnalyticsApi)
+
+    @cached_property
+    def audio_control_service(self) -> AudioControlServiceApi:
+        from .audio_control_service import AudioControlServiceApi
+
+        return self._device.api(AudioControlServiceApi)
 
     @cached_property
     def audio_device_control(self) -> AudioDeviceControlApi:
@@ -178,6 +286,24 @@ class Apis:
         from .audio_multicast_ctrl import AudioMulticastCtrlApi
 
         return self._device.api(AudioMulticastCtrlApi)
+
+    @cached_property
+    def audio_relay_service(self) -> AudioRelayServiceApi:
+        from .audio_relay_service import AudioRelayServiceApi
+
+        return self._device.api(AudioRelayServiceApi)
+
+    @cached_property
+    def audit_log(self) -> AuditLogApi:
+        from .audit_log import AuditLogApi
+
+        return self._device.api(AuditLogApi)
+
+    @cached_property
+    def auto_speaker_test_service(self) -> AutoSpeakerTestServiceApi:
+        from .auto_speaker_test_service import AutoSpeakerTestServiceApi
+
+        return self._device.api(AutoSpeakerTestServiceApi)
 
     @cached_property
     def autopilot(self) -> AutopilotApi:
@@ -202,6 +328,12 @@ class Apis:
         from .basic_device_info_config import BasicDeviceInfoConfigApi
 
         return self._device.api(BasicDeviceInfoConfigApi)
+
+    @cached_property
+    def call_service(self) -> CallServiceApi:
+        from .call_service import CallServiceApi
+
+        return self._device.api(CallServiceApi)
 
     @cached_property
     def camera_pairing(self) -> CameraPairingApi:
@@ -240,10 +372,28 @@ class Apis:
         return self._device.api(ClearViewApi)
 
     @cached_property
+    def connection_service(self) -> ConnectionServiceApi:
+        from .connection_service import ConnectionServiceApi
+
+        return self._device.api(ConnectionServiceApi)
+
+    @cached_property
+    def connection_test(self) -> ConnectionTestApi:
+        from .connection_test import ConnectionTestApi
+
+        return self._device.api(ConnectionTestApi)
+
+    @cached_property
     def coordinate_conversion(self) -> CoordinateConversionApi:
         from .coordinate_conversion import CoordinateConversionApi
 
         return self._device.api(CoordinateConversionApi)
+
+    @cached_property
+    def cross_line_detection(self) -> CrossLineDetectionApi:
+        from .cross_line_detection import CrossLineDetectionApi
+
+        return self._device.api(CrossLineDetectionApi)
 
     @cached_property
     def crypto_policy(self) -> CryptoPolicyApi:
@@ -270,6 +420,12 @@ class Apis:
         return self._device.api(DashboardStreamApi)
 
     @cached_property
+    def data_transformation(self) -> DataTransformationApi:
+        from .data_transformation import DataTransformationApi
+
+        return self._device.api(DataTransformationApi)
+
+    @cached_property
     def daynight(self) -> DayNightApi:
         from .daynight import DayNightApi
 
@@ -282,10 +438,28 @@ class Apis:
         return self._device.api(DecoderApi)
 
     @cached_property
+    def demographic_identifier(self) -> DemographicIdentifierApi:
+        from .demographic_identifier import DemographicIdentifierApi
+
+        return self._device.api(DemographicIdentifierApi)
+
+    @cached_property
     def device_mode(self) -> DeviceModeApi:
         from .device_mode import DeviceModeApi
 
         return self._device.api(DeviceModeApi)
+
+    @cached_property
+    def dewarped_views(self) -> DewarpedViewsApi:
+        from .dewarped_views import DewarpedViewsApi
+
+        return self._device.api(DewarpedViewsApi)
+
+    @cached_property
+    def digital_autotracking(self) -> DigitalAutotrackingApi:
+        from .digital_autotracking import DigitalAutotrackingApi
+
+        return self._device.api(DigitalAutotrackingApi)
 
     @cached_property
     def directional_audio_detection(self) -> DirectionalAudioDetectionApi:
@@ -294,10 +468,28 @@ class Apis:
         return self._device.api(DirectionalAudioDetectionApi)
 
     @cached_property
+    def disk_management(self) -> DiskManagementApi:
+        from .disk_management import DiskManagementApi
+
+        return self._device.api(DiskManagementApi)
+
+    @cached_property
+    def disk_properties(self) -> DiskPropertiesApi:
+        from .disk_properties import DiskPropertiesApi
+
+        return self._device.api(DiskPropertiesApi)
+
+    @cached_property
     def dnsupdate_configuration(self) -> DnsupdateConfigurationApi:
         from .dnsupdate_configuration import DnsupdateConfigurationApi
 
         return self._device.api(DnsupdateConfigurationApi)
+
+    @cached_property
+    def door_control_service(self) -> DoorControlServiceApi:
+        from .door_control_service import DoorControlServiceApi
+
+        return self._device.api(DoorControlServiceApi)
 
     @cached_property
     def dynamic_overlay(self) -> DynamicOverlayApi:
@@ -306,10 +498,34 @@ class Apis:
         return self._device.api(DynamicOverlayApi)
 
     @cached_property
+    def dynamic_text(self) -> DynamicTextApi:
+        from .dynamic_text import DynamicTextApi
+
+        return self._device.api(DynamicTextApi)
+
+    @cached_property
+    def event_logger_service(self) -> EventLoggerServiceApi:
+        from .event_logger_service import EventLoggerServiceApi
+
+        return self._device.api(EventLoggerServiceApi)
+
+    @cached_property
     def event_schedules(self) -> EventSchedulesApi:
         from .event_schedules import EventSchedulesApi
 
         return self._device.api(EventSchedulesApi)
+
+    @cached_property
+    def export_recording(self) -> ExportRecordingApi:
+        from .export_recording import ExportRecordingApi
+
+        return self._device.api(ExportRecordingApi)
+
+    @cached_property
+    def external_ip_device_info(self) -> ExternalIpDeviceInfoApi:
+        from .external_ip_device_info import ExternalIpDeviceInfoApi
+
+        return self._device.api(ExternalIpDeviceInfoApi)
 
     @cached_property
     def feature_flag(self) -> FeatureFlagApi:
@@ -336,16 +552,106 @@ class Apis:
         return self._device.api(FirewallApi)
 
     @cached_property
+    def focus_recall(self) -> FocusRecallApi:
+        from .focus_recall import FocusRecallApi
+
+        return self._device.api(FocusRecallApi)
+
+    @cached_property
+    def geolocation(self) -> GeolocationApi:
+        from .geolocation import GeolocationApi
+
+        return self._device.api(GeolocationApi)
+
+    @cached_property
+    def gpio_service(self) -> GpioServiceApi:
+        from .gpio_service import GpioServiceApi
+
+        return self._device.api(GpioServiceApi)
+
+    @cached_property
     def groupview(self) -> GroupViewApi:
         from .groupview import GroupViewApi
 
         return self._device.api(GroupViewApi)
 
     @cached_property
+    def guard_tour(self) -> GuardTourApi:
+        from .guard_tour import GuardTourApi
+
+        return self._device.api(GuardTourApi)
+
+    @cached_property
+    def heartbeat(self) -> HeartbeatApi:
+        from .heartbeat import HeartbeatApi
+
+        return self._device.api(HeartbeatApi)
+
+    @cached_property
+    def id_point_service(self) -> IdPointServiceApi:
+        from .id_point_service import IdPointServiceApi
+
+        return self._device.api(IdPointServiceApi)
+
+    @cached_property
+    def image_parameters(self) -> ImageParametersApi:
+        from .image_parameters import ImageParametersApi
+
+        return self._device.api(ImageParametersApi)
+
+    @cached_property
+    def image_source_rotation(self) -> ImageSourceRotationApi:
+        from .image_source_rotation import ImageSourceRotationApi
+
+        return self._device.api(ImageSourceRotationApi)
+
+    @cached_property
+    def imaging(self) -> ImagingApi:
+        from .imaging import ImagingApi
+
+        return self._device.api(ImagingApi)
+
+    @cached_property
+    def intercom_service(self) -> IntercomServiceApi:
+        from .intercom_service import IntercomServiceApi
+
+        return self._device.api(IntercomServiceApi)
+
+    @cached_property
+    def io_assignment_service(self) -> IoAssignmentServiceApi:
+        from .io_assignment_service import IoAssignmentServiceApi
+
+        return self._device.api(IoAssignmentServiceApi)
+
+    @cached_property
+    def io_port(self) -> IoPortApi:
+        from .io_port import IoPortApi
+
+        return self._device.api(IoPortApi)
+
+    @cached_property
     def io_port_management(self) -> IoPortManagementApi:
         from .io_port_management import IoPortManagementApi
 
         return self._device.api(IoPortManagementApi)
+
+    @cached_property
+    def isotherm(self) -> IsothermApi:
+        from .isotherm import IsothermApi
+
+        return self._device.api(IsothermApi)
+
+    @cached_property
+    def keystore_service(self) -> KeystoreServiceApi:
+        from .keystore_service import KeystoreServiceApi
+
+        return self._device.api(KeystoreServiceApi)
+
+    @cached_property
+    def license_plate_verifier(self) -> LicensePlateVerifierApi:
+        from .license_plate_verifier import LicensePlateVerifierApi
+
+        return self._device.api(LicensePlateVerifierApi)
 
     @cached_property
     def light_control(self) -> LightControlApi:
@@ -390,6 +696,12 @@ class Apis:
         return self._device.api(MdnssdConfigApi)
 
     @cached_property
+    def media_clip(self) -> MediaClipApi:
+        from .media_clip import MediaClipApi
+
+        return self._device.api(MediaClipApi)
+
+    @cached_property
     def motion_guard(self) -> MotionGuardApi:
         from .motion_guard import MotionGuardApi
 
@@ -432,6 +744,18 @@ class Apis:
         return self._device.api(NetworkSettingsApi)
 
     @cached_property
+    def network_settings_params(self) -> NetworkSettingsParamsApi:
+        from .network_settings_params import NetworkSettingsParamsApi
+
+        return self._device.api(NetworkSettingsParamsApi)
+
+    @cached_property
+    def network_share(self) -> NetworkShareApi:
+        from .network_share import NetworkShareApi
+
+        return self._device.api(NetworkShareApi)
+
+    @cached_property
     def networkpairing(self) -> NetworkpairingApi:
         from .networkpairing import NetworkpairingApi
 
@@ -442,6 +766,12 @@ class Apis:
         from .ntp import NtpApi
 
         return self._device.api(NtpApi)
+
+    @cached_property
+    def nvr_poe(self) -> NvrPoeApi:
+        from .nvr_poe import NvrPoeApi
+
+        return self._device.api(NvrPoeApi)
 
     @cached_property
     def oak(self) -> OakApi:
@@ -474,16 +804,46 @@ class Apis:
         return self._device.api(OnScreenControlsApi)
 
     @cached_property
+    def onvif_replay_extension(self) -> OnvifReplayExtensionApi:
+        from .onvif_replay_extension import OnvifReplayExtensionApi
+
+        return self._device.api(OnvifReplayExtensionApi)
+
+    @cached_property
     def optics_control(self) -> OpticsControlApi:
         from .optics_control import OpticsControlApi
 
         return self._device.api(OpticsControlApi)
 
     @cached_property
+    def orientation(self) -> OrientationApi:
+        from .orientation import OrientationApi
+
+        return self._device.api(OrientationApi)
+
+    @cached_property
+    def osdi(self) -> OnScreenDirectionalIndicatorApi:
+        from .osdi import OnScreenDirectionalIndicatorApi
+
+        return self._device.api(OnScreenDirectionalIndicatorApi)
+
+    @cached_property
     def overlay_image(self) -> OverlayImageApi:
         from .overlay_image import OverlayImageApi
 
         return self._device.api(OverlayImageApi)
+
+    @cached_property
+    def overlay_modifiers(self) -> OverlayModifiersApi:
+        from .overlay_modifiers import OverlayModifiersApi
+
+        return self._device.api(OverlayModifiersApi)
+
+    @cached_property
+    def p8815_2_3d_people_counter(self) -> P8815PeopleCounter3DApi:
+        from .p8815_2_3d_people_counter import P8815PeopleCounter3DApi
+
+        return self._device.api(P8815PeopleCounter3DApi)
 
     @cached_property
     def param(self) -> ParamApi:
@@ -504,6 +864,18 @@ class Apis:
         return self._device.api(PencilPrivacyFilterApi)
 
     @cached_property
+    def people_counter(self) -> PeopleCounterApi:
+        from .people_counter import PeopleCounterApi
+
+        return self._device.api(PeopleCounterApi)
+
+    @cached_property
+    def people_counter_3d_legacy(self) -> PeopleCounter3DLegacyApi:
+        from .people_counter_3d_legacy import PeopleCounter3DLegacyApi
+
+        return self._device.api(PeopleCounter3DLegacyApi)
+
+    @cached_property
     def pir_sensor_configuration(self) -> PirSensorConfigurationApi:
         from .pir_sensor_configuration import PirSensorConfigurationApi
 
@@ -516,10 +888,34 @@ class Apis:
         return self._device.api(PowerSettingsApi)
 
     @cached_property
+    def privacy_mask(self) -> PrivacyMaskApi:
+        from .privacy_mask import PrivacyMaskApi
+
+        return self._device.api(PrivacyMaskApi)
+
+    @cached_property
+    def pt_remote_calibration(self) -> PtRemoteCalibrationApi:
+        from .pt_remote_calibration import PtRemoteCalibrationApi
+
+        return self._device.api(PtRemoteCalibrationApi)
+
+    @cached_property
+    def ptz(self) -> PtzControlApi:
+        from .ptz import PtzControlApi
+
+        return self._device.api(PtzControlApi)
+
+    @cached_property
     def ptz_autotracker(self) -> PtzAutotrackerApi:
         from .ptz_autotracker import PtzAutotrackerApi
 
         return self._device.api(PtzAutotrackerApi)
+
+    @cached_property
+    def ptz_driver_management(self) -> PtzDriverManagementApi:
+        from .ptz_driver_management import PtzDriverManagementApi
+
+        return self._device.api(PtzDriverManagementApi)
 
     @cached_property
     def ptz_orientation_aid(self) -> PtzOrientationAidApi:
@@ -528,10 +924,22 @@ class Apis:
         return self._device.api(PtzOrientationAidApi)
 
     @cached_property
+    def ptz_queue(self) -> PtzControlQueueApi:
+        from .ptz_queue import PtzControlQueueApi
+
+        return self._device.api(PtzControlQueueApi)
+
+    @cached_property
     def quadview_configuration(self) -> QuadViewConfigurationApi:
         from .quadview_configuration import QuadViewConfigurationApi
 
         return self._device.api(QuadViewConfigurationApi)
+
+    @cached_property
+    def queue_monitor(self) -> QueueMonitorApi:
+        from .queue_monitor import QueueMonitorApi
+
+        return self._device.api(QueueMonitorApi)
 
     @cached_property
     def radar_analytics(self) -> RadarAnalyticsApi:
@@ -570,16 +978,58 @@ class Apis:
         return self._device.api(RaidApi)
 
     @cached_property
+    def rate_control(self) -> RateControlApi:
+        from .rate_control import RateControlApi
+
+        return self._device.api(RateControlApi)
+
+    @cached_property
+    def recorded_guard_tour(self) -> RecordedTourApi:
+        from .recorded_guard_tour import RecordedTourApi
+
+        return self._device.api(RecordedTourApi)
+
+    @cached_property
+    def recording(self) -> RecordingApi:
+        from .recording import RecordingApi
+
+        return self._device.api(RecordingApi)
+
+    @cached_property
+    def recording_group_cgi(self) -> RecordingGroupCgiApi:
+        from .recording_group_cgi import RecordingGroupCgiApi
+
+        return self._device.api(RecordingGroupCgiApi)
+
+    @cached_property
     def recording_group_config(self) -> RecordingGroupConfigApi:
         from .recording_group_config import RecordingGroupConfigApi
 
         return self._device.api(RecordingGroupConfigApi)
 
     @cached_property
+    def recording_storage_limit(self) -> RecordingStorageLimitApi:
+        from .recording_storage_limit import RecordingStorageLimitApi
+
+        return self._device.api(RecordingStorageLimitApi)
+
+    @cached_property
     def regional_settings(self) -> RegionalSettingsApi:
         from .regional_settings import RegionalSettingsApi
 
         return self._device.api(RegionalSettingsApi)
+
+    @cached_property
+    def remote_camera_control(self) -> RemoteCameraControlApi:
+        from .remote_camera_control import RemoteCameraControlApi
+
+        return self._device.api(RemoteCameraControlApi)
+
+    @cached_property
+    def remote_io_service(self) -> RemoteIoServiceApi:
+        from .remote_io_service import RemoteIoServiceApi
+
+        return self._device.api(RemoteIoServiceApi)
 
     @cached_property
     def remote_object_storage(self) -> RemoteObjectStorageApi:
@@ -592,6 +1042,42 @@ class Apis:
         from .remote_syslog import RemoteSyslogApi
 
         return self._device.api(RemoteSyslogApi)
+
+    @cached_property
+    def scene_profile(self) -> SceneProfileApi:
+        from .scene_profile import SceneProfileApi
+
+        return self._device.api(SceneProfileApi)
+
+    @cached_property
+    def schedule_service(self) -> ScheduleServiceApi:
+        from .schedule_service import ScheduleServiceApi
+
+        return self._device.api(ScheduleServiceApi)
+
+    @cached_property
+    def serial_port(self) -> SerialPortApi:
+        from .serial_port import SerialPortApi
+
+        return self._device.api(SerialPortApi)
+
+    @cached_property
+    def service_discovery_service(self) -> ServiceDiscoveryServiceApi:
+        from .service_discovery_service import ServiceDiscoveryServiceApi
+
+        return self._device.api(ServiceDiscoveryServiceApi)
+
+    @cached_property
+    def shock_detection(self) -> ShockDetectionApi:
+        from .shock_detection import ShockDetectionApi
+
+        return self._device.api(ShockDetectionApi)
+
+    @cached_property
+    def signed_video(self) -> SignedVideoApi:
+        from .signed_video import SignedVideoApi
+
+        return self._device.api(SignedVideoApi)
 
     @cached_property
     def siren_and_light(self) -> SirenAndLightApi:
@@ -624,6 +1110,12 @@ class Apis:
         return self._device.api(SpeakerDisplaySettingsApi)
 
     @cached_property
+    def speed_dry(self) -> SpeedDryApi:
+        from .speed_dry import SpeedDryApi
+
+        return self._device.api(SpeedDryApi)
+
+    @cached_property
     def ssh(self) -> SshApi:
         from .ssh import SshApi
 
@@ -640,6 +1132,12 @@ class Apis:
         from .stitching import StitchingApi
 
         return self._device.api(StitchingApi)
+
+    @cached_property
+    def stream_profile_parameters(self) -> StreamProfileParametersApi:
+        from .stream_profile_parameters import StreamProfileParametersApi
+
+        return self._device.api(StreamProfileParametersApi)
 
     @cached_property
     def stream_profiles(self) -> StreamProfilesApi:
@@ -660,10 +1158,40 @@ class Apis:
         return self._device.api(SupervisedIoApi)
 
     @cached_property
+    def system_settings(self) -> SystemSettingsApi:
+        from .system_settings import SystemSettingsApi
+
+        return self._device.api(SystemSettingsApi)
+
+    @cached_property
+    def system_settings_time(self) -> SystemSettingsTimeApi:
+        from .system_settings_time import SystemSettingsTimeApi
+
+        return self._device.api(SystemSettingsTimeApi)
+
+    @cached_property
     def systemready(self) -> SystemreadyApi:
         from .systemready import SystemreadyApi
 
         return self._device.api(SystemreadyApi)
+
+    @cached_property
+    def temperature_alarm(self) -> TemperatureAlarmApi:
+        from .temperature_alarm import TemperatureAlarmApi
+
+        return self._device.api(TemperatureAlarmApi)
+
+    @cached_property
+    def temperature_control(self) -> TemperatureControlApi:
+        from .temperature_control import TemperatureControlApi
+
+        return self._device.api(TemperatureControlApi)
+
+    @cached_property
+    def thermal_color_palettes(self) -> ThermalColorPalettesApi:
+        from .thermal_color_palettes import ThermalColorPalettesApi
+
+        return self._device.api(ThermalColorPalettesApi)
 
     @cached_property
     def thermal_visual_fusion(self) -> ThermalVisualFusionApi:
@@ -678,6 +1206,12 @@ class Apis:
         return self._device.api(ThermometryApi)
 
     @cached_property
+    def third_party_credential_service(self) -> ThirdPartyCredentialServiceApi:
+        from .third_party_credential_service import ThirdPartyCredentialServiceApi
+
+        return self._device.api(ThirdPartyCredentialServiceApi)
+
+    @cached_property
     def time(self) -> TimeApi:
         from .time import TimeApi
 
@@ -690,10 +1224,22 @@ class Apis:
         return self._device.api(TimeServiceApi)
 
     @cached_property
+    def trigger_data(self) -> TriggerDataApi:
+        from .trigger_data import TriggerDataApi
+
+        return self._device.api(TriggerDataApi)
+
+    @cached_property
     def unified_proxy_configuration(self) -> UnifiedProxyConfigurationApi:
         from .unified_proxy_configuration import UnifiedProxyConfigurationApi
 
         return self._device.api(UnifiedProxyConfigurationApi)
+
+    @cached_property
+    def user_management(self) -> UserManagementApi:
+        from .user_management import UserManagementApi
+
+        return self._device.api(UserManagementApi)
 
     @cached_property
     def user_management_config(self) -> UserManagementConfigApi:
@@ -702,10 +1248,40 @@ class Apis:
         return self._device.api(UserManagementConfigApi)
 
     @cached_property
+    def user_service(self) -> UserServiceApi:
+        from .user_service import UserServiceApi
+
+        return self._device.api(UserServiceApi)
+
+    @cached_property
+    def video_motion_detection_2_1(self) -> VideoMotionDetection21Api:
+        from .video_motion_detection_2_1 import VideoMotionDetection21Api
+
+        return self._device.api(VideoMotionDetection21Api)
+
+    @cached_property
+    def video_motion_detection_3(self) -> VideoMotionDetection3Api:
+        from .video_motion_detection_3 import VideoMotionDetection3Api
+
+        return self._device.api(VideoMotionDetection3Api)
+
+    @cached_property
     def video_motion_detection_4(self) -> VideoMotionDetection4Api:
         from .video_motion_detection_4 import VideoMotionDetection4Api
 
         return self._device.api(VideoMotionDetection4Api)
+
+    @cached_property
+    def video_output(self) -> VideoOutputApi:
+        from .video_output import VideoOutputApi
+
+        return self._device.api(VideoOutputApi)
+
+    @cached_property
+    def video_streaming(self) -> VideoStreamingApi:
+        from .video_streaming import VideoStreamingApi
+
+        return self._device.api(VideoStreamingApi)
 
     @cached_property
     def video_streaming_indicator(self) -> VideoStreamingIndicatorApi:
@@ -720,10 +1296,22 @@ class Apis:
         return self._device.api(ViewAreaApi)
 
     @cached_property
+    def virtual_input(self) -> VirtualInputApi:
+        from .virtual_input import VirtualInputApi
+
+        return self._device.api(VirtualInputApi)
+
+    @cached_property
     def virtualhost(self) -> VirtualhostApi:
         from .virtualhost import VirtualhostApi
 
         return self._device.api(VirtualhostApi)
+
+    @cached_property
+    def zipstream(self) -> ZipstreamApi:
+        from .zipstream import ZipstreamApi
+
+        return self._device.api(ZipstreamApi)
 
     @cached_property
     def zwave(self) -> ZWaveApi:
@@ -737,6 +1325,12 @@ class AsyncApis:
 
     def __init__(self, device: AsyncDevice) -> None:
         self._device = device
+
+    @cached_property
+    def access_control_service(self) -> AsyncAccessControlServiceApi:
+        from .access_control_service import AsyncAccessControlServiceApi
+
+        return self._device.api(AsyncAccessControlServiceApi)
 
     @cached_property
     def air_quality_monitor(self) -> AsyncAirQualityMonitorApi:
@@ -775,10 +1369,28 @@ class AsyncApis:
         return self._device.api(AsyncApiDiscoveryApi)
 
     @cached_property
+    def application_api(self) -> AsyncApplicationApi:
+        from .application_api import AsyncApplicationApi
+
+        return self._device.api(AsyncApplicationApi)
+
+    @cached_property
+    def application_configuration(self) -> AsyncApplicationConfigurationApi:
+        from .application_configuration import AsyncApplicationConfigurationApi
+
+        return self._device.api(AsyncApplicationConfigurationApi)
+
+    @cached_property
     def audio_analytics(self) -> AsyncAudioAnalyticsApi:
         from .audio_analytics import AsyncAudioAnalyticsApi
 
         return self._device.api(AsyncAudioAnalyticsApi)
+
+    @cached_property
+    def audio_control_service(self) -> AsyncAudioControlServiceApi:
+        from .audio_control_service import AsyncAudioControlServiceApi
+
+        return self._device.api(AsyncAudioControlServiceApi)
 
     @cached_property
     def audio_device_control(self) -> AsyncAudioDeviceControlApi:
@@ -797,6 +1409,24 @@ class AsyncApis:
         from .audio_multicast_ctrl import AsyncAudioMulticastCtrlApi
 
         return self._device.api(AsyncAudioMulticastCtrlApi)
+
+    @cached_property
+    def audio_relay_service(self) -> AsyncAudioRelayServiceApi:
+        from .audio_relay_service import AsyncAudioRelayServiceApi
+
+        return self._device.api(AsyncAudioRelayServiceApi)
+
+    @cached_property
+    def audit_log(self) -> AsyncAuditLogApi:
+        from .audit_log import AsyncAuditLogApi
+
+        return self._device.api(AsyncAuditLogApi)
+
+    @cached_property
+    def auto_speaker_test_service(self) -> AsyncAutoSpeakerTestServiceApi:
+        from .auto_speaker_test_service import AsyncAutoSpeakerTestServiceApi
+
+        return self._device.api(AsyncAutoSpeakerTestServiceApi)
 
     @cached_property
     def autopilot(self) -> AsyncAutopilotApi:
@@ -821,6 +1451,12 @@ class AsyncApis:
         from .basic_device_info_config import AsyncBasicDeviceInfoConfigApi
 
         return self._device.api(AsyncBasicDeviceInfoConfigApi)
+
+    @cached_property
+    def call_service(self) -> AsyncCallServiceApi:
+        from .call_service import AsyncCallServiceApi
+
+        return self._device.api(AsyncCallServiceApi)
 
     @cached_property
     def camera_pairing(self) -> AsyncCameraPairingApi:
@@ -859,10 +1495,28 @@ class AsyncApis:
         return self._device.api(AsyncClearViewApi)
 
     @cached_property
+    def connection_service(self) -> AsyncConnectionServiceApi:
+        from .connection_service import AsyncConnectionServiceApi
+
+        return self._device.api(AsyncConnectionServiceApi)
+
+    @cached_property
+    def connection_test(self) -> AsyncConnectionTestApi:
+        from .connection_test import AsyncConnectionTestApi
+
+        return self._device.api(AsyncConnectionTestApi)
+
+    @cached_property
     def coordinate_conversion(self) -> AsyncCoordinateConversionApi:
         from .coordinate_conversion import AsyncCoordinateConversionApi
 
         return self._device.api(AsyncCoordinateConversionApi)
+
+    @cached_property
+    def cross_line_detection(self) -> AsyncCrossLineDetectionApi:
+        from .cross_line_detection import AsyncCrossLineDetectionApi
+
+        return self._device.api(AsyncCrossLineDetectionApi)
 
     @cached_property
     def crypto_policy(self) -> AsyncCryptoPolicyApi:
@@ -889,6 +1543,12 @@ class AsyncApis:
         return self._device.api(AsyncDashboardStreamApi)
 
     @cached_property
+    def data_transformation(self) -> AsyncDataTransformationApi:
+        from .data_transformation import AsyncDataTransformationApi
+
+        return self._device.api(AsyncDataTransformationApi)
+
+    @cached_property
     def daynight(self) -> AsyncDayNightApi:
         from .daynight import AsyncDayNightApi
 
@@ -901,10 +1561,28 @@ class AsyncApis:
         return self._device.api(AsyncDecoderApi)
 
     @cached_property
+    def demographic_identifier(self) -> AsyncDemographicIdentifierApi:
+        from .demographic_identifier import AsyncDemographicIdentifierApi
+
+        return self._device.api(AsyncDemographicIdentifierApi)
+
+    @cached_property
     def device_mode(self) -> AsyncDeviceModeApi:
         from .device_mode import AsyncDeviceModeApi
 
         return self._device.api(AsyncDeviceModeApi)
+
+    @cached_property
+    def dewarped_views(self) -> AsyncDewarpedViewsApi:
+        from .dewarped_views import AsyncDewarpedViewsApi
+
+        return self._device.api(AsyncDewarpedViewsApi)
+
+    @cached_property
+    def digital_autotracking(self) -> AsyncDigitalAutotrackingApi:
+        from .digital_autotracking import AsyncDigitalAutotrackingApi
+
+        return self._device.api(AsyncDigitalAutotrackingApi)
 
     @cached_property
     def directional_audio_detection(self) -> AsyncDirectionalAudioDetectionApi:
@@ -913,10 +1591,28 @@ class AsyncApis:
         return self._device.api(AsyncDirectionalAudioDetectionApi)
 
     @cached_property
+    def disk_management(self) -> AsyncDiskManagementApi:
+        from .disk_management import AsyncDiskManagementApi
+
+        return self._device.api(AsyncDiskManagementApi)
+
+    @cached_property
+    def disk_properties(self) -> AsyncDiskPropertiesApi:
+        from .disk_properties import AsyncDiskPropertiesApi
+
+        return self._device.api(AsyncDiskPropertiesApi)
+
+    @cached_property
     def dnsupdate_configuration(self) -> AsyncDnsupdateConfigurationApi:
         from .dnsupdate_configuration import AsyncDnsupdateConfigurationApi
 
         return self._device.api(AsyncDnsupdateConfigurationApi)
+
+    @cached_property
+    def door_control_service(self) -> AsyncDoorControlServiceApi:
+        from .door_control_service import AsyncDoorControlServiceApi
+
+        return self._device.api(AsyncDoorControlServiceApi)
 
     @cached_property
     def dynamic_overlay(self) -> AsyncDynamicOverlayApi:
@@ -925,10 +1621,34 @@ class AsyncApis:
         return self._device.api(AsyncDynamicOverlayApi)
 
     @cached_property
+    def dynamic_text(self) -> AsyncDynamicTextApi:
+        from .dynamic_text import AsyncDynamicTextApi
+
+        return self._device.api(AsyncDynamicTextApi)
+
+    @cached_property
+    def event_logger_service(self) -> AsyncEventLoggerServiceApi:
+        from .event_logger_service import AsyncEventLoggerServiceApi
+
+        return self._device.api(AsyncEventLoggerServiceApi)
+
+    @cached_property
     def event_schedules(self) -> AsyncEventSchedulesApi:
         from .event_schedules import AsyncEventSchedulesApi
 
         return self._device.api(AsyncEventSchedulesApi)
+
+    @cached_property
+    def export_recording(self) -> AsyncExportRecordingApi:
+        from .export_recording import AsyncExportRecordingApi
+
+        return self._device.api(AsyncExportRecordingApi)
+
+    @cached_property
+    def external_ip_device_info(self) -> AsyncExternalIpDeviceInfoApi:
+        from .external_ip_device_info import AsyncExternalIpDeviceInfoApi
+
+        return self._device.api(AsyncExternalIpDeviceInfoApi)
 
     @cached_property
     def feature_flag(self) -> AsyncFeatureFlagApi:
@@ -955,16 +1675,106 @@ class AsyncApis:
         return self._device.api(AsyncFirewallApi)
 
     @cached_property
+    def focus_recall(self) -> AsyncFocusRecallApi:
+        from .focus_recall import AsyncFocusRecallApi
+
+        return self._device.api(AsyncFocusRecallApi)
+
+    @cached_property
+    def geolocation(self) -> AsyncGeolocationApi:
+        from .geolocation import AsyncGeolocationApi
+
+        return self._device.api(AsyncGeolocationApi)
+
+    @cached_property
+    def gpio_service(self) -> AsyncGpioServiceApi:
+        from .gpio_service import AsyncGpioServiceApi
+
+        return self._device.api(AsyncGpioServiceApi)
+
+    @cached_property
     def groupview(self) -> AsyncGroupViewApi:
         from .groupview import AsyncGroupViewApi
 
         return self._device.api(AsyncGroupViewApi)
 
     @cached_property
+    def guard_tour(self) -> AsyncGuardTourApi:
+        from .guard_tour import AsyncGuardTourApi
+
+        return self._device.api(AsyncGuardTourApi)
+
+    @cached_property
+    def heartbeat(self) -> AsyncHeartbeatApi:
+        from .heartbeat import AsyncHeartbeatApi
+
+        return self._device.api(AsyncHeartbeatApi)
+
+    @cached_property
+    def id_point_service(self) -> AsyncIdPointServiceApi:
+        from .id_point_service import AsyncIdPointServiceApi
+
+        return self._device.api(AsyncIdPointServiceApi)
+
+    @cached_property
+    def image_parameters(self) -> AsyncImageParametersApi:
+        from .image_parameters import AsyncImageParametersApi
+
+        return self._device.api(AsyncImageParametersApi)
+
+    @cached_property
+    def image_source_rotation(self) -> AsyncImageSourceRotationApi:
+        from .image_source_rotation import AsyncImageSourceRotationApi
+
+        return self._device.api(AsyncImageSourceRotationApi)
+
+    @cached_property
+    def imaging(self) -> AsyncImagingApi:
+        from .imaging import AsyncImagingApi
+
+        return self._device.api(AsyncImagingApi)
+
+    @cached_property
+    def intercom_service(self) -> AsyncIntercomServiceApi:
+        from .intercom_service import AsyncIntercomServiceApi
+
+        return self._device.api(AsyncIntercomServiceApi)
+
+    @cached_property
+    def io_assignment_service(self) -> AsyncIoAssignmentServiceApi:
+        from .io_assignment_service import AsyncIoAssignmentServiceApi
+
+        return self._device.api(AsyncIoAssignmentServiceApi)
+
+    @cached_property
+    def io_port(self) -> AsyncIoPortApi:
+        from .io_port import AsyncIoPortApi
+
+        return self._device.api(AsyncIoPortApi)
+
+    @cached_property
     def io_port_management(self) -> AsyncIoPortManagementApi:
         from .io_port_management import AsyncIoPortManagementApi
 
         return self._device.api(AsyncIoPortManagementApi)
+
+    @cached_property
+    def isotherm(self) -> AsyncIsothermApi:
+        from .isotherm import AsyncIsothermApi
+
+        return self._device.api(AsyncIsothermApi)
+
+    @cached_property
+    def keystore_service(self) -> AsyncKeystoreServiceApi:
+        from .keystore_service import AsyncKeystoreServiceApi
+
+        return self._device.api(AsyncKeystoreServiceApi)
+
+    @cached_property
+    def license_plate_verifier(self) -> AsyncLicensePlateVerifierApi:
+        from .license_plate_verifier import AsyncLicensePlateVerifierApi
+
+        return self._device.api(AsyncLicensePlateVerifierApi)
 
     @cached_property
     def light_control(self) -> AsyncLightControlApi:
@@ -1009,6 +1819,12 @@ class AsyncApis:
         return self._device.api(AsyncMdnssdConfigApi)
 
     @cached_property
+    def media_clip(self) -> AsyncMediaClipApi:
+        from .media_clip import AsyncMediaClipApi
+
+        return self._device.api(AsyncMediaClipApi)
+
+    @cached_property
     def motion_guard(self) -> AsyncMotionGuardApi:
         from .motion_guard import AsyncMotionGuardApi
 
@@ -1051,6 +1867,18 @@ class AsyncApis:
         return self._device.api(AsyncNetworkSettingsApi)
 
     @cached_property
+    def network_settings_params(self) -> AsyncNetworkSettingsParamsApi:
+        from .network_settings_params import AsyncNetworkSettingsParamsApi
+
+        return self._device.api(AsyncNetworkSettingsParamsApi)
+
+    @cached_property
+    def network_share(self) -> AsyncNetworkShareApi:
+        from .network_share import AsyncNetworkShareApi
+
+        return self._device.api(AsyncNetworkShareApi)
+
+    @cached_property
     def networkpairing(self) -> AsyncNetworkpairingApi:
         from .networkpairing import AsyncNetworkpairingApi
 
@@ -1061,6 +1889,12 @@ class AsyncApis:
         from .ntp import AsyncNtpApi
 
         return self._device.api(AsyncNtpApi)
+
+    @cached_property
+    def nvr_poe(self) -> AsyncNvrPoeApi:
+        from .nvr_poe import AsyncNvrPoeApi
+
+        return self._device.api(AsyncNvrPoeApi)
 
     @cached_property
     def oak(self) -> AsyncOakApi:
@@ -1093,16 +1927,46 @@ class AsyncApis:
         return self._device.api(AsyncOnScreenControlsApi)
 
     @cached_property
+    def onvif_replay_extension(self) -> AsyncOnvifReplayExtensionApi:
+        from .onvif_replay_extension import AsyncOnvifReplayExtensionApi
+
+        return self._device.api(AsyncOnvifReplayExtensionApi)
+
+    @cached_property
     def optics_control(self) -> AsyncOpticsControlApi:
         from .optics_control import AsyncOpticsControlApi
 
         return self._device.api(AsyncOpticsControlApi)
 
     @cached_property
+    def orientation(self) -> AsyncOrientationApi:
+        from .orientation import AsyncOrientationApi
+
+        return self._device.api(AsyncOrientationApi)
+
+    @cached_property
+    def osdi(self) -> AsyncOnScreenDirectionalIndicatorApi:
+        from .osdi import AsyncOnScreenDirectionalIndicatorApi
+
+        return self._device.api(AsyncOnScreenDirectionalIndicatorApi)
+
+    @cached_property
     def overlay_image(self) -> AsyncOverlayImageApi:
         from .overlay_image import AsyncOverlayImageApi
 
         return self._device.api(AsyncOverlayImageApi)
+
+    @cached_property
+    def overlay_modifiers(self) -> AsyncOverlayModifiersApi:
+        from .overlay_modifiers import AsyncOverlayModifiersApi
+
+        return self._device.api(AsyncOverlayModifiersApi)
+
+    @cached_property
+    def p8815_2_3d_people_counter(self) -> AsyncP8815PeopleCounter3DApi:
+        from .p8815_2_3d_people_counter import AsyncP8815PeopleCounter3DApi
+
+        return self._device.api(AsyncP8815PeopleCounter3DApi)
 
     @cached_property
     def param(self) -> AsyncParamApi:
@@ -1123,6 +1987,18 @@ class AsyncApis:
         return self._device.api(AsyncPencilPrivacyFilterApi)
 
     @cached_property
+    def people_counter(self) -> AsyncPeopleCounterApi:
+        from .people_counter import AsyncPeopleCounterApi
+
+        return self._device.api(AsyncPeopleCounterApi)
+
+    @cached_property
+    def people_counter_3d_legacy(self) -> AsyncPeopleCounter3DLegacyApi:
+        from .people_counter_3d_legacy import AsyncPeopleCounter3DLegacyApi
+
+        return self._device.api(AsyncPeopleCounter3DLegacyApi)
+
+    @cached_property
     def pir_sensor_configuration(self) -> AsyncPirSensorConfigurationApi:
         from .pir_sensor_configuration import AsyncPirSensorConfigurationApi
 
@@ -1135,10 +2011,34 @@ class AsyncApis:
         return self._device.api(AsyncPowerSettingsApi)
 
     @cached_property
+    def privacy_mask(self) -> AsyncPrivacyMaskApi:
+        from .privacy_mask import AsyncPrivacyMaskApi
+
+        return self._device.api(AsyncPrivacyMaskApi)
+
+    @cached_property
+    def pt_remote_calibration(self) -> AsyncPtRemoteCalibrationApi:
+        from .pt_remote_calibration import AsyncPtRemoteCalibrationApi
+
+        return self._device.api(AsyncPtRemoteCalibrationApi)
+
+    @cached_property
+    def ptz(self) -> AsyncPtzControlApi:
+        from .ptz import AsyncPtzControlApi
+
+        return self._device.api(AsyncPtzControlApi)
+
+    @cached_property
     def ptz_autotracker(self) -> AsyncPtzAutotrackerApi:
         from .ptz_autotracker import AsyncPtzAutotrackerApi
 
         return self._device.api(AsyncPtzAutotrackerApi)
+
+    @cached_property
+    def ptz_driver_management(self) -> AsyncPtzDriverManagementApi:
+        from .ptz_driver_management import AsyncPtzDriverManagementApi
+
+        return self._device.api(AsyncPtzDriverManagementApi)
 
     @cached_property
     def ptz_orientation_aid(self) -> AsyncPtzOrientationAidApi:
@@ -1147,10 +2047,22 @@ class AsyncApis:
         return self._device.api(AsyncPtzOrientationAidApi)
 
     @cached_property
+    def ptz_queue(self) -> AsyncPtzControlQueueApi:
+        from .ptz_queue import AsyncPtzControlQueueApi
+
+        return self._device.api(AsyncPtzControlQueueApi)
+
+    @cached_property
     def quadview_configuration(self) -> AsyncQuadViewConfigurationApi:
         from .quadview_configuration import AsyncQuadViewConfigurationApi
 
         return self._device.api(AsyncQuadViewConfigurationApi)
+
+    @cached_property
+    def queue_monitor(self) -> AsyncQueueMonitorApi:
+        from .queue_monitor import AsyncQueueMonitorApi
+
+        return self._device.api(AsyncQueueMonitorApi)
 
     @cached_property
     def radar_analytics(self) -> AsyncRadarAnalyticsApi:
@@ -1189,16 +2101,58 @@ class AsyncApis:
         return self._device.api(AsyncRaidApi)
 
     @cached_property
+    def rate_control(self) -> AsyncRateControlApi:
+        from .rate_control import AsyncRateControlApi
+
+        return self._device.api(AsyncRateControlApi)
+
+    @cached_property
+    def recorded_guard_tour(self) -> AsyncRecordedTourApi:
+        from .recorded_guard_tour import AsyncRecordedTourApi
+
+        return self._device.api(AsyncRecordedTourApi)
+
+    @cached_property
+    def recording(self) -> AsyncRecordingApi:
+        from .recording import AsyncRecordingApi
+
+        return self._device.api(AsyncRecordingApi)
+
+    @cached_property
+    def recording_group_cgi(self) -> AsyncRecordingGroupCgiApi:
+        from .recording_group_cgi import AsyncRecordingGroupCgiApi
+
+        return self._device.api(AsyncRecordingGroupCgiApi)
+
+    @cached_property
     def recording_group_config(self) -> AsyncRecordingGroupConfigApi:
         from .recording_group_config import AsyncRecordingGroupConfigApi
 
         return self._device.api(AsyncRecordingGroupConfigApi)
 
     @cached_property
+    def recording_storage_limit(self) -> AsyncRecordingStorageLimitApi:
+        from .recording_storage_limit import AsyncRecordingStorageLimitApi
+
+        return self._device.api(AsyncRecordingStorageLimitApi)
+
+    @cached_property
     def regional_settings(self) -> AsyncRegionalSettingsApi:
         from .regional_settings import AsyncRegionalSettingsApi
 
         return self._device.api(AsyncRegionalSettingsApi)
+
+    @cached_property
+    def remote_camera_control(self) -> AsyncRemoteCameraControlApi:
+        from .remote_camera_control import AsyncRemoteCameraControlApi
+
+        return self._device.api(AsyncRemoteCameraControlApi)
+
+    @cached_property
+    def remote_io_service(self) -> AsyncRemoteIoServiceApi:
+        from .remote_io_service import AsyncRemoteIoServiceApi
+
+        return self._device.api(AsyncRemoteIoServiceApi)
 
     @cached_property
     def remote_object_storage(self) -> AsyncRemoteObjectStorageApi:
@@ -1211,6 +2165,42 @@ class AsyncApis:
         from .remote_syslog import AsyncRemoteSyslogApi
 
         return self._device.api(AsyncRemoteSyslogApi)
+
+    @cached_property
+    def scene_profile(self) -> AsyncSceneProfileApi:
+        from .scene_profile import AsyncSceneProfileApi
+
+        return self._device.api(AsyncSceneProfileApi)
+
+    @cached_property
+    def schedule_service(self) -> AsyncScheduleServiceApi:
+        from .schedule_service import AsyncScheduleServiceApi
+
+        return self._device.api(AsyncScheduleServiceApi)
+
+    @cached_property
+    def serial_port(self) -> AsyncSerialPortApi:
+        from .serial_port import AsyncSerialPortApi
+
+        return self._device.api(AsyncSerialPortApi)
+
+    @cached_property
+    def service_discovery_service(self) -> AsyncServiceDiscoveryServiceApi:
+        from .service_discovery_service import AsyncServiceDiscoveryServiceApi
+
+        return self._device.api(AsyncServiceDiscoveryServiceApi)
+
+    @cached_property
+    def shock_detection(self) -> AsyncShockDetectionApi:
+        from .shock_detection import AsyncShockDetectionApi
+
+        return self._device.api(AsyncShockDetectionApi)
+
+    @cached_property
+    def signed_video(self) -> AsyncSignedVideoApi:
+        from .signed_video import AsyncSignedVideoApi
+
+        return self._device.api(AsyncSignedVideoApi)
 
     @cached_property
     def siren_and_light(self) -> AsyncSirenAndLightApi:
@@ -1243,6 +2233,12 @@ class AsyncApis:
         return self._device.api(AsyncSpeakerDisplaySettingsApi)
 
     @cached_property
+    def speed_dry(self) -> AsyncSpeedDryApi:
+        from .speed_dry import AsyncSpeedDryApi
+
+        return self._device.api(AsyncSpeedDryApi)
+
+    @cached_property
     def ssh(self) -> AsyncSshApi:
         from .ssh import AsyncSshApi
 
@@ -1259,6 +2255,12 @@ class AsyncApis:
         from .stitching import AsyncStitchingApi
 
         return self._device.api(AsyncStitchingApi)
+
+    @cached_property
+    def stream_profile_parameters(self) -> AsyncStreamProfileParametersApi:
+        from .stream_profile_parameters import AsyncStreamProfileParametersApi
+
+        return self._device.api(AsyncStreamProfileParametersApi)
 
     @cached_property
     def stream_profiles(self) -> AsyncStreamProfilesApi:
@@ -1279,10 +2281,40 @@ class AsyncApis:
         return self._device.api(AsyncSupervisedIoApi)
 
     @cached_property
+    def system_settings(self) -> AsyncSystemSettingsApi:
+        from .system_settings import AsyncSystemSettingsApi
+
+        return self._device.api(AsyncSystemSettingsApi)
+
+    @cached_property
+    def system_settings_time(self) -> AsyncSystemSettingsTimeApi:
+        from .system_settings_time import AsyncSystemSettingsTimeApi
+
+        return self._device.api(AsyncSystemSettingsTimeApi)
+
+    @cached_property
     def systemready(self) -> AsyncSystemreadyApi:
         from .systemready import AsyncSystemreadyApi
 
         return self._device.api(AsyncSystemreadyApi)
+
+    @cached_property
+    def temperature_alarm(self) -> AsyncTemperatureAlarmApi:
+        from .temperature_alarm import AsyncTemperatureAlarmApi
+
+        return self._device.api(AsyncTemperatureAlarmApi)
+
+    @cached_property
+    def temperature_control(self) -> AsyncTemperatureControlApi:
+        from .temperature_control import AsyncTemperatureControlApi
+
+        return self._device.api(AsyncTemperatureControlApi)
+
+    @cached_property
+    def thermal_color_palettes(self) -> AsyncThermalColorPalettesApi:
+        from .thermal_color_palettes import AsyncThermalColorPalettesApi
+
+        return self._device.api(AsyncThermalColorPalettesApi)
 
     @cached_property
     def thermal_visual_fusion(self) -> AsyncThermalVisualFusionApi:
@@ -1297,6 +2329,12 @@ class AsyncApis:
         return self._device.api(AsyncThermometryApi)
 
     @cached_property
+    def third_party_credential_service(self) -> AsyncThirdPartyCredentialServiceApi:
+        from .third_party_credential_service import AsyncThirdPartyCredentialServiceApi
+
+        return self._device.api(AsyncThirdPartyCredentialServiceApi)
+
+    @cached_property
     def time(self) -> AsyncTimeApi:
         from .time import AsyncTimeApi
 
@@ -1309,10 +2347,22 @@ class AsyncApis:
         return self._device.api(AsyncTimeServiceApi)
 
     @cached_property
+    def trigger_data(self) -> AsyncTriggerDataApi:
+        from .trigger_data import AsyncTriggerDataApi
+
+        return self._device.api(AsyncTriggerDataApi)
+
+    @cached_property
     def unified_proxy_configuration(self) -> AsyncUnifiedProxyConfigurationApi:
         from .unified_proxy_configuration import AsyncUnifiedProxyConfigurationApi
 
         return self._device.api(AsyncUnifiedProxyConfigurationApi)
+
+    @cached_property
+    def user_management(self) -> AsyncUserManagementApi:
+        from .user_management import AsyncUserManagementApi
+
+        return self._device.api(AsyncUserManagementApi)
 
     @cached_property
     def user_management_config(self) -> AsyncUserManagementConfigApi:
@@ -1321,10 +2371,40 @@ class AsyncApis:
         return self._device.api(AsyncUserManagementConfigApi)
 
     @cached_property
+    def user_service(self) -> AsyncUserServiceApi:
+        from .user_service import AsyncUserServiceApi
+
+        return self._device.api(AsyncUserServiceApi)
+
+    @cached_property
+    def video_motion_detection_2_1(self) -> AsyncVideoMotionDetection21Api:
+        from .video_motion_detection_2_1 import AsyncVideoMotionDetection21Api
+
+        return self._device.api(AsyncVideoMotionDetection21Api)
+
+    @cached_property
+    def video_motion_detection_3(self) -> AsyncVideoMotionDetection3Api:
+        from .video_motion_detection_3 import AsyncVideoMotionDetection3Api
+
+        return self._device.api(AsyncVideoMotionDetection3Api)
+
+    @cached_property
     def video_motion_detection_4(self) -> AsyncVideoMotionDetection4Api:
         from .video_motion_detection_4 import AsyncVideoMotionDetection4Api
 
         return self._device.api(AsyncVideoMotionDetection4Api)
+
+    @cached_property
+    def video_output(self) -> AsyncVideoOutputApi:
+        from .video_output import AsyncVideoOutputApi
+
+        return self._device.api(AsyncVideoOutputApi)
+
+    @cached_property
+    def video_streaming(self) -> AsyncVideoStreamingApi:
+        from .video_streaming import AsyncVideoStreamingApi
+
+        return self._device.api(AsyncVideoStreamingApi)
 
     @cached_property
     def video_streaming_indicator(self) -> AsyncVideoStreamingIndicatorApi:
@@ -1339,10 +2419,22 @@ class AsyncApis:
         return self._device.api(AsyncViewAreaApi)
 
     @cached_property
+    def virtual_input(self) -> AsyncVirtualInputApi:
+        from .virtual_input import AsyncVirtualInputApi
+
+        return self._device.api(AsyncVirtualInputApi)
+
+    @cached_property
     def virtualhost(self) -> AsyncVirtualhostApi:
         from .virtualhost import AsyncVirtualhostApi
 
         return self._device.api(AsyncVirtualhostApi)
+
+    @cached_property
+    def zipstream(self) -> AsyncZipstreamApi:
+        from .zipstream import AsyncZipstreamApi
+
+        return self._device.api(AsyncZipstreamApi)
 
     @cached_property
     def zwave(self) -> AsyncZWaveApi:

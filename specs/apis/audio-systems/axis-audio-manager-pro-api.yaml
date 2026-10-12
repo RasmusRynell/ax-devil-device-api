@@ -1,0 +1,677 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: axis-audio-manager-pro-api
+name: AXIS Audio Manager Pro API
+summary: REST API of the AXIS Audio Manager Pro server — audio sessions (HTTP/RTP/SIP/WS), targets, audio files,
+  volume controllers, visual profiles, server info...
+section: audio-systems
+family: rest
+status: released
+python:
+  module: axis_audio_manager_pro
+  class: AxisAudioManagerPro
+docs:
+- https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+access: admin
+requires:
+  application: AXIS Audio Manager Pro (server software)
+
+binding: {root: /api}
+
+errors:
+  400:
+    description: Invalid parameters. application/json error object, e.g. message "Unknown priority 'HIGHER'".
+    kind: invalid_argument
+  404: {description: Not found, kind: not_found}
+  422: {description: Change not allowed, kind: invalid_argument}
+  500: {description: Internal server error, kind: internal}
+
+types:
+  VisualProfileEnabled:
+    type: string
+    enum: [DEFAULT, 'FALSE', 'TRUE']
+    description: TRUE = use visualProfileId; DEFAULT = site default visual profile; FALSE = no visuals.
+  HttpWsCodec:
+    type: object
+    properties:
+      bitrate:
+        type: integer
+        description: Max bitrate in bps. Required for codecs PCM, OPUS, MP2 and MP3.
+      channelLayout: {type: string, enum: [MONO, STEREO]}
+      codec:
+        type: string
+        enum:
+        - PCM
+        - G711_ULAW
+        - G711_ALAW
+        - G722
+        - G723
+        - G726
+        - G728
+        - G729
+        - GSM
+        - MP2
+        - MP3
+        - AAC
+        - OPUS
+        - VORBIS
+        - FLAC
+        - WMA
+      sampleFormat: {type: string, enum: [S8, S16, S24, S32, FLOAT, DOUBLE]}
+      sampleRate: {type: integer, description: PCM sample rate in Hz.}
+  RtpCodec:
+    type: object
+    properties:
+      audioProfile:
+        type: string
+        enum:
+        - g711aMono8kHz
+        - g711uMono8kHz
+        - g722Mono16kHz
+        - l16Stereo48kHz
+        - l16Mono48kHz
+        - l16Stereo44kHz
+        - l16Mono44kHz
+        - l16Stereo32kHz
+        - l16Mono32kHz
+        - l16Stereo16kHz
+        - l16Mono16kHz
+        - mp2Stereo48kHz
+        - opusStereo48kHz
+        - opusMono48kHz
+      payloadType: {type: integer, description: Only used by codecs with dynamic payload types.}
+  DuplexDevice:
+    type: object
+    description: Device used for two-way audio; its source input is sent back to the session. sourceId may be omitted
+      if multiple inputs; omitting duplexDevice disables audio input.
+    properties:
+      id: {type: string, description: Unique device ID (e.g. dev_15).}
+      sourceId: {type: string, description: Unique device source ID (e.g. dsc_15).}
+  AudioSession:
+    oneOf:
+    - type: object
+      properties:
+        type: {const: HTTP}
+        codec:
+          $ref: '#/types/HttpWsCodec'
+          description: Table calls it 'codecs=<object>'; examples use 'codec'.
+        holdup:
+          type: integer
+          default: 200
+          description: Optional audio buffering delay in ms (typical 100-400).
+    - type: object
+      properties:
+        type: {const: RTP}
+        codecs:
+          type: array
+          items: {$ref: '#/types/RtpCodec'}
+        multicastGroup:
+          type: string
+          description: IPv4/IPv6 multicast group address; specify when RTP is transmitted via multicast.
+        port:
+          type: integer
+          description: RTP port; assigned by the server if omitted; error if occupied or outside configured range.
+    - type: object
+      properties:
+        type: {const: SIP}
+        duplexDevice: {$ref: '#/types/DuplexDevice'}
+        extension: {type: string, description: 'Dialing extension; when dialed, the session is used.'}
+    - type: object
+      properties:
+        type: {const: WS}
+        codec: {$ref: '#/types/HttpWsCodec'}
+        duplexDevice: {$ref: '#/types/DuplexDevice'}
+        holdup: {type: integer, default: 200}
+    description: Discriminated by 'type'. All variants include AudioSessionCommon fields.
+  PlayAudioFilesRequest:
+    type: object
+    properties:
+      customText: {type: string, description: Optional text overriding the visual profile's text.}
+      fileIds:
+        type: array
+        items: {type: string}
+        description: Audio file IDs played in sequence, each starting immediately after the previous.
+      repeat:
+        type: integer
+        default: 1
+        description: Number of times to play; <= 0 means infinite (stop with stopAudioFiles or by deleting the session).
+      visualProfileEnabled: {$ref: '#/types/VisualProfileEnabled'}
+      visualProfileId: {type: integer}
+  AudioSessionStatus:
+    type: object
+    properties:
+      availableDevices:
+        type: array
+        items: {type: string}
+        description: Devices currently available to receive audio in this session.
+      id: {type: string}
+      playbackStarted: {type: string, description: 'When the session started, e.g. 2023-01-12 12:53:32+0100.'}
+      prio: {type: string}
+      status: {type: string, enum: [notPlaying, playing]}
+      type: {type: string, enum: [HTTP, SIP, RTP, WS]}
+      unavailableDevices:
+        type: array
+        items: {type: string}
+        description: Devices unavailable because a higher-priority session is active on the same targets.
+  Target:
+    type: object
+    properties:
+      children:
+        type: array
+        items: {type: string}
+        description: IDs of direct child targets; always empty for devices (leaf nodes).
+      enabled:
+        type: boolean
+        description: Whether the target should play audio. For a destination all mapped sources are stopped, but
+          other audio can still play in its targets.
+      id: {type: string, description: Unique target ID (e.g. zon_1255).}
+      issues:
+        type: object
+        x-name: TargetIssues
+        description: Device targets only. Major and minor issues.
+        properties:
+          major:
+            type: array
+            items:
+              type: string
+              enum:
+              - MULTICAST_ERROR
+              - OUTPUT_GAIN_LOW
+              - UNSUPPORTED_HOST_FW
+              - UNSUPPORTED_DEV_TYPE
+              - UNSUPPORTED_TRANSPORT
+          minor:
+            type: array
+            items:
+              type: string
+              enum:
+              - MULTICAST_ERROR
+              - OUTPUT_GAIN_LOW
+              - UNSUPPORTED_HOST_FW
+              - UNSUPPORTED_DEV_TYPE
+              - UNSUPPORTED_TRANSPORT
+      lowestPriorityAvailable:
+        type: string
+        enum: [LOW, MEDIUM, HIGH, NONE]
+        description: Lowest priority for which the target is currently available; NONE if unavailable even for HIGH.
+      niceName: {type: string}
+      sources:
+        type: array
+        items:
+          type: object
+          x-name: TargetSourcesItem
+          properties:
+            enabled: {type: boolean}
+            id: {type: string}
+            name: {type: string}
+        description: Device targets only. Device sources such as Line-in.
+      status:
+        type: string
+        enum:
+        - unmanaged
+        - online
+        - offline
+        - playing
+        - 'error: NO_LICENCE'
+        - 'error: FACTORY_DEFAULTS'
+        - 'error: UNAUTHORIZED'
+        - 'error: UNSUPPORTED_HOST_FW'
+        - 'error: UNSUPPORTED_TRANSPORT'
+        description: End devices only.
+      type: {type: string, enum: [physicalZone, site, device, destination, outputStream]}
+  AudioFile:
+    type: object
+    properties:
+      id: {type: string}
+      length: {type: number, description: Length in seconds.}
+      library: {type: string, description: Library containing the file (e.g. Announcement).}
+      name: {type: string}
+      path: {type: string, description: Optional folder info (e.g. /Closing/).}
+      type: {type: string, enum: [FILE, PLAYLIST]}
+  VolumeController:
+    type: object
+    properties:
+      allowMute: {type: boolean}
+      contentClasses:
+        type: array
+        items:
+          type: object
+          x-name: VolumeControllerContentClassesItem
+          properties:
+            id: {type: string}
+            niceName: {type: string}
+      id: {type: string}
+      maxNegativeVolumeOffset:
+        type: integer
+        minimum: -100
+        maximum: 100
+        description: Minimum allowed value of the controller.
+      maxPositiveVolumeOffset:
+        type: integer
+        minimum: -100
+        maximum: 100
+        description: Maximum allowed value of the controller.
+      muted: {type: boolean}
+      niceName: {type: string}
+      targets:
+        type: array
+        items: {type: string}
+      volumeOffset:
+        type: number
+        minimum: -100
+        maximum: 100
+        description: Current volume offset [-100, +100].
+  LightProfile:
+    type: object
+    properties:
+      audioSync:
+        type: boolean
+        description: 'TRUE: light duration synchronized with audio playback; FALSE: controlled by duration.'
+      colors:
+        type: string
+        enum:
+        - RED
+        - GREEN
+        - BLUE
+        - YELLOW
+        - PURPLE
+        - TURQUOISE
+        - WHITE
+        - PINK
+        - AMBER
+      description: {type: string}
+      duration: {type: integer, description: Strobe time (s).}
+      id: {type: integer}
+      intensity: {type: integer, minimum: 0, maximum: 5}
+      name: {type: string}
+      pattern: {type: string, enum: ['OFF', STEADY, ALTERNATE, BLINK, PULSE, ROTATION]}
+      speed: {type: integer, minimum: 0, maximum: 5}
+      type:
+        type: string
+        enum: [AUDIO, SIGNALING]
+        description: Whether the profile controls audio LEDs or signaling LEDs.
+  VisualProfile:
+    type: object
+    properties:
+      audioSync: {type: boolean, description: True if the text should be synchronized with the audio.}
+      defaultCategories:
+        type: array
+        items:
+          type: object
+          x-name: VisualProfileDefaultCategoriesItem
+          properties:
+            category: {type: string, enum: [ANY, MUSIC, ADVERTISEMENT, ANNOUNCEMENT, PAGING]}
+            enabled: {type: boolean}
+      description: {type: string}
+      id: {type: integer}
+      lightEnabled: {type: boolean}
+      lightProfile: {$ref: '#/types/LightProfile'}
+      name: {type: string}
+      text:
+        type: string
+        description: 'Supported encodings: Latin 1 (8859-1), Latin CE (8859-2), Greek (8859-7), Cyrillic (8859-5),
+          Hebrew (8859-8).'
+      textBackgroundColor: {type: string, pattern: '^#[0-9A-Fa-f]{6}$'}
+      textColor: {type: string, pattern: '^#[0-9A-Fa-f]{6}$'}
+      textDuration: {type: integer, description: Text playback time in seconds.}
+      textLayout:
+        type: string
+        enum: [LARGE, MEDIUM, SMALL, LARGE_LEFT_TO_RIGHT]
+        description: 'Large: single line, horizontal scroll; medium/small: multiple lines, vertical scroll.'
+      textRepetition: {type: integer}
+      textScrollSpeed: {type: integer, minimum: 1, maximum: 10}
+      textTimeLimit:
+        type: boolean
+        description: 'When textAudioSync is false: true = show for textDuration; false = show textRepetition times.'
+      used: {type: boolean}
+  ServerInfo:
+    type: object
+    properties:
+      apiVersions:
+        type: array
+        items: {type: string}
+      licenseUntil: {type: string}
+      licensingStatus: {type: boolean}
+      locale: {type: string}
+      serverIps:
+        type: array
+        items: {type: string}
+      serverName: {type: string}
+      serverPort: {type: integer}
+      serverVersion: {type: string}
+      siteId: {type: string}
+      siteName: {type: string}
+      timeZone: {type: string}
+      trialActive: {type: boolean}
+  PagingConfiguration:
+    type: object
+    properties:
+      duplexDevice: {$ref: '#/types/DuplexDevice', description: Only for TWOWAY.}
+      extension: {type: string, description: Extension used for SIP dialing.}
+      id: {type: string, description: Paging source ID (e.g. pac_16).}
+      niceName: {type: string}
+      targets:
+        type: array
+        items: {type: string}
+        description: Destinations (ONEWAY) or a specific device (TWOWAY).
+      type: {type: string, enum: [ONEWAY, TWOWAY]}
+
+operations:
+  list_audio_sessions:
+    summary: Retrieve a list of available audio sessions.
+    effect: read
+    binding: {method: GET, path: /v1.2/audioSessions}
+    result:
+      type: array
+      items: {$ref: '#/types/AudioSession'}
+  create_audio_session:
+    summary: Create a new audio session (types HTTP, RTP, SIP, WS).
+    effect: write
+    write: create
+    binding: {method: POST, path: /v1.2/audioSessions, body: value, body_field: body}
+    params:
+      type: object
+      required: [body]
+      properties:
+        body:
+          $ref: '#/types/AudioSession'
+          description: Session object; 'type' selects HTTP/RTP/SIP/WS; 'targets' required per table (no Optional
+            marker); customId, customText, prio, visualProfileEnabled, visualProfileId, holdup optional.
+    result: {$ref: '#/types/AudioSession'}
+  delete_audio_session_by_custom_id:
+    summary: Delete an audio session identified by customId (cancels ongoing playback).
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/v1.2/audioSessions/custom/{customId}'}
+    params:
+      type: object
+      required: [customId]
+      properties:
+        customId:
+          type: string
+          description: Must match the customId specified when the session was created (doc marks it Optional).
+  play_audio_files_by_custom_id:
+    summary: Trigger playback of audio files from the site content library in the session (replaces current playback).
+    effect: action
+    binding:
+      method: POST
+      path: /v1.2/audioSessions/custom/{customId}/playAudioFiles
+      body: value
+      body_field: body
+    params:
+      type: object
+      required: [customId, body]
+      properties:
+        customId: {type: string}
+        body: {$ref: '#/types/PlayAudioFilesRequest'}
+  stop_audio_files_by_custom_id:
+    summary: Stop playback of audio files in a session identified by customId.
+    effect: action
+    binding: {method: POST, path: '/v1.2/audioSessions/custom/{customId}/stopAudioFiles'}
+    params:
+      type: object
+      required: [customId]
+      properties:
+        customId: {type: string}
+  oneshot_play_audio_files:
+    summary: Create a temporary audio session and play audio files; deleted after playback (or stop by deleting
+      the returned session).
+    effect: action
+    binding: {method: POST, path: /v1.2/audioSessions/oneshotPlayAudioFiles, body: object}
+    params:
+      type: object
+      required: [fileIds, targets]
+      properties:
+        customId: {type: string}
+        customText: {type: string}
+        fileIds:
+          type: array
+          items: {type: string}
+        prio:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          default: LOW
+          description: Table lists prio without Optional marker but with default LOW.
+        repeat: {type: integer, description: <= 0 = infinite.}
+        targets:
+          type: array
+          items: {type: string}
+          description: In the example body; missing from the parameter table.
+        visualProfileEnabled: {type: string, enum: [DEFAULT, 'FALSE', 'TRUE']}
+        visualProfileId: {type: integer}
+    result: {$ref: '#/types/AudioSession'}
+  delete_audio_session:
+    summary: Delete an audio session by id (cancels ongoing playback).
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/v1.2/audioSessions/{audioSessionId}'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+  get_audio_session:
+    summary: Retrieve an existing audio session.
+    effect: read
+    binding: {method: GET, path: '/v1.2/audioSessions/{audioSessionId}'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+    result: {$ref: '#/types/AudioSession'}
+  update_audio_session:
+    summary: Update targets and/or priority of an existing audio session.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/v1.2/audioSessions/{audioSessionId}', body: object}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+        prio: {type: string, enum: [HIGH, MEDIUM, LOW]}
+        targets:
+          type: array
+          items: {type: string}
+          description: List of target identifiers (zones or devices).
+    result: {$ref: '#/types/AudioSession'}
+  play_audio_files:
+    summary: Play audio files in succession in an (HTTP) audio session; replaces current playback.
+    effect: action
+    binding:
+      method: POST
+      path: /v1.2/audioSessions/{audioSessionId}/playAudioFiles
+      body: value
+      body_field: body
+    params:
+      type: object
+      x-name: PlayAudioFilesRequestArgs
+      required: [audioSessionId, body]
+      properties:
+        audioSessionId: {type: string, description: The ID of the HTTP audio session.}
+        body: {$ref: '#/types/PlayAudioFilesRequest'}
+  get_audio_session_status:
+    summary: Check session status including playback and device availability.
+    description: Since 1.1.
+    effect: read
+    binding: {method: GET, path: '/v1.2/audioSessions/{audioSessionId}/status'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+    result: {$ref: '#/types/AudioSessionStatus'}
+  stop_audio_files:
+    summary: Stop the audio files playback in the session.
+    effect: action
+    binding: {method: POST, path: '/v1.2/audioSessions/{audioSessionId}/stopAudioFiles'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+  list_targets:
+    summary: List all targets (physical zones, destinations, devices, ...).
+    effect: read
+    binding: {method: GET, path: /v1.2/targets}
+    result:
+      type: array
+      items: {$ref: '#/types/Target'}
+  get_target:
+    summary: Retrieve a specific target.
+    effect: read
+    binding: {method: GET, path: '/v1.2/targets/{targetId}'}
+    params:
+      type: object
+      required: [targetId]
+      properties:
+        targetId: {type: string}
+    result: {$ref: '#/types/Target'}
+  update_target:
+    summary: Enable or disable a target (disabled = silenced; for destinations all mapped sources stop).
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/v1.2/targets/{targetId}', body: object}
+    params:
+      type: object
+      required: [targetId, enabled]
+      properties:
+        targetId: {type: string}
+        enabled: {type: boolean}
+  list_audio_files:
+    summary: List audio files in the announcement and music library.
+    effect: read
+    binding: {method: GET, path: /v1.2/audioFiles}
+    result:
+      type: array
+      items: {$ref: '#/types/AudioFile'}
+  get_audio_file:
+    summary: Retrieve metadata for an audio file.
+    effect: read
+    binding: {method: GET, path: '/v1.2/audioFiles/{audioFileId}'}
+    params:
+      type: object
+      required: [audioFileId]
+      properties:
+        audioFileId: {type: string}
+    result: {$ref: '#/types/AudioFile'}
+  list_volume_controllers:
+    summary: Retrieve all volume controllers.
+    effect: read
+    binding: {method: GET, path: /v1.2/volumeControllers}
+    result:
+      type: array
+      items: {$ref: '#/types/VolumeController'}
+  get_volume_controller:
+    summary: Retrieve a specific volume controller.
+    effect: read
+    binding: {method: GET, path: '/v1.2/volumeControllers/{volumeControllerId}'}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+    result: {$ref: '#/types/VolumeController'}
+  update_volume_controller:
+    summary: Modify a volume controller's mute state or volume offset.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/v1.2/volumeControllers/{volumeControllerId}', body: object}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+        muted:
+          type: boolean
+          default: false
+          description: Mutes all audio of the content types and targets the controller controls.
+        volumeOffset: {type: number, minimum: -100, maximum: 100}
+  offset_volume:
+    summary: Relative volume change (-100..+100); result clamped to [-100, +100] or configured max/min offset.
+    effect: action
+    binding:
+      method: POST
+      path: /v1.2/volumeControllers/{volumeControllerId}/offsetVolume
+      body: object
+    params:
+      type: object
+      required: [volumeControllerId, volumeOffset]
+      properties:
+        volumeControllerId: {type: string}
+        volumeOffset: {type: number, minimum: -100, maximum: 100}
+  toggle_mute:
+    summary: Switch between mute/unmute.
+    effect: action
+    binding: {method: POST, path: '/v1.2/volumeControllers/{volumeControllerId}/toggleMute'}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+  list_visual_profiles:
+    summary: Retrieve all visual profiles.
+    effect: read
+    binding: {method: GET, path: /v1.2/visualProfiles}
+    result:
+      type: array
+      items: {$ref: '#/types/VisualProfile'}
+  get_visual_profile:
+    summary: Retrieve a visual profile.
+    effect: read
+    binding: {method: GET, path: '/v1.2/visualProfiles/{visualProfileId}'}
+    params:
+      type: object
+      required: [visualProfileId]
+      properties:
+        visualProfileId: {type: integer}
+    result: {$ref: '#/types/VisualProfile'}
+  get_server_info:
+    summary: Basic information about the AXIS Audio Manager Pro server (incl.
+    effect: read
+    binding: {method: GET, path: /serverInfo}
+    result: {$ref: '#/types/ServerInfo'}
+  list_paging_configurations:
+    summary: List all SIP paging configurations.
+    effect: read
+    binding: {method: GET, path: /v1.2/pagingConfigurations}
+    result:
+      type: array
+      items: {$ref: '#/types/PagingConfiguration'}
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+  sha256_md: 89322d1075108ff822e8902b659d7862b1a178df9f5ea217077686d8978d0a81
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'Session codec field: tables say ''codecs=<object>'' for HTTP and ''codec=<object>'' for WS; examples use ''codec''
+    (object) for HTTP/WS and ''codecs'' (array) for RTP.'
+  - One-shot parameter table omits 'targets' though the example body includes it.
+  - customId is marked Optional in path-parameter tables for /custom/{customId} endpoints although it is a path
+    segment.
+  - 'Target table types: children/issues.major/minor documented with odd syntax (e.g. ''0=MULTICAST_ERROR''); lowestPriorityAvailable
+    documented as ''0=LOW,1=MEDIUM,...'' — unclear whether wire values are strings or integers.'
+  - Status 'playbackStarted' format '2023-01-12 12:53:32+0100' is not ISO 8601; availableDevices typed <string>
+    but is an array.
+  - 'Delete/stop/update responses: 200 with application/json declared, body not documented.'
+  - Visual profile textTimeLimit references 'textAudioSync' which is not otherwise defined (field is audioSync).
+  - Paths all use /api/v1.2 while version history mentions API 1.0 and 1.1; status endpoint 'introduced in 1.1'.
+  - STOMP notification message payloads not documented.
+  - curl examples use http:// while only HTTPS is supported.
+  - Example responses for create session, one-shot, get session (by id), get audio file and get volume controller
+    are JSON arrays although a single object is described; schema follows the prose (single object).
+  - 'migration: allof: allOf mixing $ref and inline parts: $ref ignored'
+  - 'migration: op-skipped: ws_recv_audio: kind ws_message (WebSocket or streaming) is deferred to phase 5'
+  - 'migration: op-skipped: ws_send_audio: kind ws_message (WebSocket or streaming) is deferred to phase 5'
+  - 'migration: op-skipped: ws_sendrecv_audio: kind ws_message (WebSocket or streaming) is deferred to phase 5'
+  - 'migration: op-skipped: notifications: kind ws_message (WebSocket or streaming) is deferred to phase 5'
+  - 'migration: discovery: discovery method http_probe dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: AudioSessionCommon, Priority'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-keywords: title x4'
+  migrated_from: v1
+  curated: false

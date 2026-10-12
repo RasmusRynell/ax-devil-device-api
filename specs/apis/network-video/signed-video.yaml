@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: signed-video
 name: Signed Video
-summary: Enable/disable video signing per video channel (param.cgi Image.I#.MPEG.SignedVideo.Enabled) or per RTSP
-  stream (videosigned URL option).
+summary: Enable or disable video signing per video channel with ``Image.I#.MPEG.SignedVideo.Enabled`` (param.cgi).
 section: network-video
 family: cgi
 status: released
@@ -19,44 +17,58 @@ discovery:
 binding: {path: /axis-cgi/param.cgi}
 
 operations:
-  list_signed_video_enabled:
-    summary: Read whether signed video is enabled by default for a channel.
+  get_signed_video:
+    summary: 'Read whether signed video is enabled for a channel, as ``{"Image.I0.MPEG.SignedVideo.Enabled": "yes"}``.'
+    description: >-
+      ``group`` is ``Image.I#.MPEG.SignedVideo.Enabled`` (or the ``Image.I#.MPEG.SignedVideo`` group), where ``#`` is the
+      channel index, from 0 up to the number of channels of the product minus 1.
     access: viewer
     effect: read
     binding:
       method: GET
       query: {action: list}
-      reply: text_kv
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
     params:
       type: object
       required: [group]
       properties:
         group:
           type: string
-          description: 'Image.I#.MPEG.SignedVideo.Enabled where # is the channel index (0.. number of channels -
-            1).'
-    result:
-      type: object
-      additionalProperties: {type: string}
-  set_signed_video_enabled:
-    summary: Enable/disable signed video by default for a video channel.
+          pattern: ^Image\.I[0-9]+\.MPEG\.SignedVideo(\.Enabled)?$
+          description: The parameter or group to list, for example ``Image.I0.MPEG.SignedVideo.Enabled``.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+    - title: Read whether signed video is enabled on channel 0
+      request: {query: {group: Image.I0.MPEG.SignedVideo.Enabled}}
+      response: {status: 200, text: "root.Image.I0.MPEG.SignedVideo.Enabled=no\n"}
+      source: https://developer.axis.com/vapix/network-video/signed-video/#signedvideoenabled
+  set_signed_video:
+    summary: 'Enable or disable signed video by default for a channel, e.g. ``{"Image.I0.MPEG.SignedVideo.Enabled": "yes"}``.'
+    description: >-
+      Keys are ``Image.I#.MPEG.SignedVideo.Enabled`` where ``#`` is the channel index (0 up to the number of channels
+      minus 1); values are ``yes`` or ``no`` (the default is ``no``). Only the given parameters change.
     effect: write
     write: patch
     binding:
       method: GET
       query: {action: update}
-      reply: text
+      reply: text_ok
     params:
       type: object
-      required: [Image.I#.MPEG.SignedVideo.Enabled]
+      required: [parameters]
       properties:
-        Image.I#.MPEG.SignedVideo.Enabled:
-          type: boolean
-          enum: ['yes', 'no']
-          default: 'no'
-          x-python-name: enabled
-          description: 'Enables and disables signed video for a channel. The default value is no. Valid values for
-            # range from 0 up to the maximum number of channels specified by the product -1.'
+        parameters:
+          type: object
+          additionalProperties: {type: string, enum: ['yes', 'no']}
+          x-style: spread
+    positional: [parameters]
+    examples:
+    - title: Enable signed video on channel 0
+      request: {query: {Image.I0.MPEG.SignedVideo.Enabled: 'yes'}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/signed-video/#setup-signed-video-on-a-channel
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/signed-video/
@@ -64,13 +76,13 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
+  - 'BLOCKED(rtsp-url): stream_signed_video: signing a single stream with the ``videosigned=1|0`` RTSP URL option; the format cannot build RTSP URLs yet.'
+  - The channel index sits inside the parameter name (Image.I#...), which the cgi binding cannot template; callers pass the full parameter name.
   - AXIS OS minimum version not stated.
-  - Access level for the RTSP videosigned option not stated; list security level given as 'Operator, Viewer' (ambiguous
-    whether viewer suffices).
-  - Validation/verification of signed video (tools, formats) not documented on this page.
-  - 'migration: op-skipped: stream_signed_video: kind rtsp_request is not a classic CGI call'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - Update security level is Admin; list security level is given as "Operator, Viewer" (ambiguous whether viewer suffices).
+  - Validation/verification of signed video (tools, formats) is not documented on this page.
+  - The docs show no response for the update request; the usual param.cgi reply ``OK`` is assumed.
   migrated_from: v1
-  curated: false
+  curated: true

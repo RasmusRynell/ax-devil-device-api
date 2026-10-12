@@ -1,9 +1,7 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: recorded-guard-tour
 name: Recorded tour API
-summary: Record, play, pause/resume, stop, list, modify and remove recorded PTZ tours via /axis-cgi/recordedtour/*.cgi
-  (XML responses).
+summary: Record, play, pause, resume, stop, list, modify and remove recorded PTZ tours.
 section: network-video
 family: cgi
 status: released
@@ -15,22 +13,108 @@ docs:
 access: operator
 discovery:
 - {api_discovery: recorded-guard-tour}
-- param: {name: root.Properties.GuardTour.RecordedTour, value: 'yes'}
-- param: {name: root.Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.GuardTour.RecordedTour, value: 'yes'}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
 
 binding: {path: /axis-cgi/recordedtour/getschemaversions.cgi}
 
+errors:
+  10: {description: Invalid recorded tour ID., kind: invalid_argument}
+  20: {description: The provided recorded tour ID is not unique., kind: invalid_argument}
+  30: {description: Maximum number of recorded tours is already reached; a new tour cannot be recorded., kind: unavailable}
+  40: {description: No space left; a new tour cannot be recorded., kind: unavailable}
+  50: {description: Invalid argument; the provided value is not supported., kind: invalid_argument}
+  60: {description: Invalid state.}
+  70: {description: Missing or invalid XML schema version., kind: invalid_argument}
+  100: {description: General error., kind: internal}
+
+types:
+  SchemaVersion:
+    type: integer
+    minimum: 1
+    description: The major version of the XML schema the response is structured according to. The latest supported
+      minor version is always used.
+  RecordedTourId:
+    type: integer
+    minimum: 0
+    maximum: 9999
+  RecordedTourName:
+    type: string
+    maxLength: 31
+    pattern: ^[a-zA-Z0-9._-]*$
+    description: Name of the recorded tour, at most 31 characters from a-z, A-Z, 0-9, '.', '-' and '_'.
+  TourStatus:
+    type: string
+    enum: [playing, recording, stopped]
+  SchemaVersionInfo:
+    type: object
+    required: [versionNumber]
+    properties:
+      versionNumber:
+        type: string
+        description: The version of the XML schema in the form [major].[minor], for example 1.0.
+        x-xml: {child: VersionNumber}
+      deprecated:
+        type: boolean
+        description: When true the schema version is deprecated and should not be used. Defaults to false.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: Success/GetSchemaVersionsSuccess}
+    properties:
+      versions:
+        type: array
+        items: {$ref: "#/types/SchemaVersionInfo"}
+        x-xml: {path: SchemaVersion}
+  RecordedTourInfo:
+    type: object
+    required: [recordingId, status]
+    properties:
+      recordingId:
+        $ref: "#/types/RecordedTourId"
+        x-xml: {child: RecordingId}
+      niceName:
+        type: string
+        description: Descriptive name of the recorded tour.
+        x-xml: {child: NiceName}
+      status:
+        $ref: "#/types/TourStatus"
+        x-xml: {child: Status}
+      camera:
+        type: integer
+        description: Video channel or view area.
+        x-xml: {child: Camera}
+      defaultLoopDelay:
+        type: integer
+        description: Seconds to wait before continuing a looped tour.
+        x-xml: {child: DefaultLoopDelay}
+  RecordedTours:
+    type: object
+    x-xml: {root: Success/ListSuccess}
+    properties:
+      tours:
+        type: array
+        items: {$ref: "#/types/RecordedTourInfo"}
+        x-xml: {path: RecordingInformation}
+  RecordedTourRef:
+    type: object
+    required: [recordingId]
+    x-xml: {root: Success/RecordSuccess}
+    properties:
+      recordingId:
+        $ref: "#/types/RecordedTourId"
+        x-xml: {child: RecordingId}
+
 operations:
   get_schema_versions:
-    summary: Get supported XML Schema versions and whether they are deprecated.
+    summary: Get the supported XML schema versions and whether they are deprecated.
     access: viewer
     effect: read
     binding: {method: GET, reply: xml}
-    result: {x-xml: true}
+    result: {$ref: "#/types/SchemaVersions"}
     examples:
-    - title: Example
-      request:
-        query: {}
+    - title: Get the supported schema versions
+      request: {query: {}}
       response:
         status: 200
         text: |-
@@ -44,14 +128,14 @@ operations:
               <Success>
                   <GetSchemaVersionsSuccess>
                       <SchemaVersion>
-                          <VersionNumber>[major1].[minor1]</VersionNumber>
-                          <Deprecated>[deprecated]</Deprecated>
+                          <VersionNumber>1.0</VersionNumber>
+                          <Deprecated>false</Deprecated>
                       </SchemaVersion>
-                      ...
                   </GetSchemaVersionsSuccess>
               </Success>
           </RecordedTourResponse>
-  list:
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#xml-schema-versions
+  list_recorded_tours:
     summary: List recorded tours.
     access: viewer
     effect: read
@@ -60,25 +144,19 @@ operations:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         camera:
           type: integer
           minimum: 1
           description: Video channel or view area. If omitted, tours from all channels are listed.
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
+          $ref: "#/types/RecordedTourId"
           description: ID of the recorded tour to list. If omitted, all recorded tours are listed.
-    result: {x-xml: true}
+    positional: [schemaversion]
+    result: {$ref: "#/types/RecordedTours"}
     examples:
-    - title: Example
-      request:
-        query: {schemaversion: '1'}
+    - title: List all recorded tours
+      request: {query: {schemaversion: '1'}}
       response:
         status: 200
         text: |-
@@ -101,30 +179,43 @@ operations:
               </ListSuccess>
             </Success>
           </RecordedTourResponse>
-  record:
-    summary: Start recording a tour.
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+  record_tour:
+    summary: Start recording a tour; any running guard tour on the channel is stopped.
+    description: Stop the recording with ``stop_recording``. The returned ID identifies the new tour.
     effect: action
     binding: {path: /axis-cgi/recordedtour/record.cgi, method: POST, reply: xml}
     params:
       type: object
       required: [schemaversion, camera]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
-        nicename:
-          type: string
-          maxLength: 31
-          pattern: ^[a-zA-Z0-9._-]*$
-          description: Name of the recorded tour (max 31 characters; a-z, A-Z, 0-9,., -, _).
-        camera: {type: integer, minimum: 1, description: Required. The video channel or view area.}
+        schemaversion: {$ref: "#/types/SchemaVersion"}
+        nicename: {$ref: "#/types/RecordedTourName"}
+        camera: {type: integer, minimum: 1, description: The video channel or view area.}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
-          description: Recorded tour ID; must be unique. If omitted, an autogenerated ID is assigned.
+          $ref: "#/types/RecordedTourId"
+          description: Recorded tour ID, unique per tour. If omitted, an ID is generated.
+    result: {$ref: "#/types/RecordedTourRef"}
+    examples:
+    - title: Record a tour
+      request: {query: {schemaversion: '1', nicename: MyFirstRecording, camera: '1'}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <RecordedTourResponse
+              xmlns="http://www.axis.com/vapix/http_cgi/recordedtour1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:SchemaLocation="http://www.axis.com/vapix/http_cgi/recordedtour1
+              http://www.axis.com/vapix/http_cgi/recordedtour1.xsd"
+              SchemaVersion="1.0">
+            <Success>
+              <RecordSuccess>
+                <RecordingId>1</RecordingId>
+              </RecordSuccess>
+            </Success>
+          </RecordedTourResponse>
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
   stop_recording:
     summary: Stop an ongoing recording.
     effect: action
@@ -133,19 +224,15 @@ operations:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
+          $ref: "#/types/RecordedTourId"
           description: ID of the recorded tour to stop. If omitted, all ongoing recordings are stopped.
-  play:
+    positional: [schemaversion]
+  play_tour:
     summary: Play a recorded tour.
-    description: 'Security level: Administrator, Operator, Viewer with PTZ control access.'
+    description: A running playback on the same channel is stopped. Other PTZ operations with lower priority than
+      the recorded tour are stopped.
     access: viewer
     effect: action
     binding: {path: /axis-cgi/recordedtour/play.cgi, method: POST, reply: xml}
@@ -153,31 +240,24 @@ operations:
       type: object
       required: [schemaversion, recordedtourid]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
+          $ref: "#/types/RecordedTourId"
           description: ID of the recorded tour to play.
         loop:
           type: integer
           enum: [0, 1]
           default: 0
-          description: 0 = play once; 1 = loop until stopped, pausing loopdelay seconds at the end point before
-            restarting.
+          description: 0 plays the tour once. 1 loops until stopped, pausing ``loopdelay`` seconds at the end point
+            before restarting.
         loopdelay:
           type: integer
           minimum: 0
           maximum: 9999
-          description: Seconds to wait before continuing the loop. If omitted, the defaultloopdelay set by modify.cgi
-            is used. (unit=s)
+          description: Seconds to wait before continuing the loop. If omitted, the ``defaultloopdelay`` set by
+            ``modify_tour`` is used.
   stop_playback:
     summary: Stop playback of a recorded tour.
-    description: 'Security level: Administrator, Operator, Viewer with PTZ control access.'
     access: viewer
     effect: action
     binding: {path: /axis-cgi/recordedtour/stopplayback.cgi, method: POST, reply: xml}
@@ -185,19 +265,14 @@ operations:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
+          $ref: "#/types/RecordedTourId"
           description: ID of the recorded tour to stop. If omitted, playback of all recorded tours is stopped.
-  pause:
-    summary: Pause playback of a recorded tour (resume with resume.cgi).
-    description: 'Security level: Administrator, Operator, Viewer with PTZ control access.'
+    positional: [schemaversion]
+  pause_playback:
+    summary: Pause playback of a recorded tour.
+    description: Resume with ``resume_playback``.
     access: viewer
     effect: action
     binding: {path: /axis-cgi/recordedtour/pause.cgi, method: POST, reply: xml}
@@ -205,19 +280,13 @@ operations:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
+          $ref: "#/types/RecordedTourId"
           description: ID of the recorded tour to pause. If omitted, all playing recorded tours are paused.
-  resume:
+    positional: [schemaversion]
+  resume_playback:
     summary: Resume playback of a paused recorded tour.
-    description: 'Security level: Administrator, Operator, Viewer with PTZ control access.'
     access: viewer
     effect: action
     binding: {path: /axis-cgi/recordedtour/resume.cgi, method: POST, reply: xml}
@@ -225,18 +294,14 @@ operations:
       type: object
       required: [schemaversion]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
+          $ref: "#/types/RecordedTourId"
           description: ID of the paused recorded tour to resume. If omitted, all paused recorded tours are resumed.
-  modify:
-    summary: Modify name and loop delay of an existing recorded tour.
+    positional: [schemaversion]
+  modify_tour:
+    summary: Change the name and loop delay of a recorded tour.
+    description: The tour must be inactive, so recording and playback must be stopped.
     effect: write
     write: patch
     binding: {path: /axis-cgi/recordedtour/modify.cgi, method: POST, reply: xml}
@@ -244,29 +309,21 @@ operations:
       type: object
       required: [schemaversion, recordedtourid]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
+          $ref: "#/types/RecordedTourId"
           description: ID of the recorded tour to modify.
         nicename:
-          type: string
-          maxLength: 31
-          pattern: ^[a-zA-Z0-9._-]*$
-          description: New descriptive name. If omitted, the current name is kept. Max 31 characters; a-z, A-Z,
-            0-9,., -, _.
+          $ref: "#/types/RecordedTourName"
+          description: New descriptive name. If omitted, the current name is kept.
         defaultloopdelay:
           type: integer
           minimum: 0
           maximum: 9999
-          description: New loop delay in seconds. If omitted, current delay kept. Default value 60 seconds. (unit=s)
-  remove:
+          description: New loop delay in seconds. If omitted, the current delay is kept. The default is 60.
+  remove_tour:
     summary: Remove a recorded tour.
+    description: The tour must be inactive, so recording and playback must be stopped.
     effect: write
     write: delete
     binding: {path: /axis-cgi/recordedtour/remove.cgi, method: POST, reply: xml}
@@ -274,16 +331,25 @@ operations:
       type: object
       required: [schemaversion, recordedtourid]
       properties:
-        schemaversion:
-          type: integer
-          minimum: 1
-          description: The major version of the XML Schema the response is structured according to. The latest supported
-            minor version is always used.
+        schemaversion: {$ref: "#/types/SchemaVersion"}
         recordedtourid:
-          type: integer
-          minimum: 0
-          maximum: 9999
-          description: Required. ID of the recorded tour to remove.
+          $ref: "#/types/RecordedTourId"
+          description: ID of the recorded tour to remove.
+    examples:
+    - title: Remove the recorded tour with ID 1
+      request: {query: {schemaversion: '1', recordedtourid: '1'}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <RecordedTourResponse
+              xmlns="http://www.axis.com/vapix/http_cgi/recordedtour1"
+              SchemaVersion="1.0">
+              <Success>
+                  <GeneralSuccess />
+              </Success>
+          </RecordedTourResponse>
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#remove
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/guard-tour-api/
@@ -293,25 +359,10 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - record.cgi example omits the 'Required' camera argument.
-  - Only getschemaversions documents the HTTP method (GET); others shown with POST and query-string arguments; GET
-    likely also accepted.
-  - Parameter table header says GuardTour.MaxRecordedTours while identification says root.Properties.GuardTour.MaxRecordedTours.
-  - Success bodies for record/list wrap results in <Success>; the error example does not.
-  - 'migration: xml-unmapped: get_schema_versions: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: list: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: record: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: stop_recording: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: play: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: stop_playback: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: pause: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: resume: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: modify: no response schema in v1; result is the raw XML element'
-  - 'migration: xml-unmapped: remove: no response schema in v1; result is the raw XML element'
-  - 'migration: types-dropped: types not referenced by any migrated operation: RecordedTourAction, RecordingInformation'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - Only getschemaversions documents the HTTP method (GET); the others are shown as POST with query-string arguments, and GET is likely also accepted.
+  - The docs name the property MaxRecordedTours both as GuardTour.MaxRecordedTours and Properties.GuardTour.MaxRecordedTours.
+  - The docs list Properties.GuardTour.RecordedTourChannels (comma separated list) as a property; it is not a Name=value probe and is not used for discovery.
+  - The record.cgi example in the docs omits the required camera argument; the spec example adds camera=1.
+  - Only the HTTP 200 plus GeneralError case is documented for failures.
   migrated_from: v1
-  curated: false
+  curated: true

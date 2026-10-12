@@ -12,7 +12,7 @@ from typing import Annotated, Any, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
+from .._protocols.base import AcapDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -498,6 +498,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 2),),
+    discovery=(AcapDiscovery("objectanalytics"),),
     docs=("https://developer.axis.com/vapix/applications/axis-object-analytics-api/",),
     errors={
         1000: ErrorCode("An error occurred inside the application.", "internal"),
