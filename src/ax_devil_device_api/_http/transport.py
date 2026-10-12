@@ -3,19 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import secrets
 import ssl
 import threading
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
+from dataclasses import replace
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
+from httpx_ws import AsyncWebSocketSession, WebSocketSession
 
 from .. import errors
 from . import debug
 from .auth import AxisAuth
 from .config import ConnectionConfig
+from .multipart import encode_multipart
+from .options import Heartbeat
 from .types import FormBody, Headers, JsonBody, MultipartBody, RawBody, Request, Response
 
 USER_AGENT = "ax-devil-device-api/1.0"
@@ -59,6 +65,35 @@ def _is_tls(error: BaseException) -> bool:
     return False
 
 
+async def _aiter(chunks: Iterator[bytes]) -> AsyncIterator[bytes]:
+    for chunk in chunks:
+        yield chunk
+
+
+class UpgradeRefused(Exception):
+    """The device answered a WebSocket handshake with something other than 101."""
+
+    def __init__(self, response: Response) -> None:
+        super().__init__(f"WebSocket upgrade refused: HTTP {response.status}")
+        self.response = response
+
+
+MAX_WS_MESSAGE_BYTES = 8 * 1024 * 1024
+WS_QUEUE_SIZE = 512
+
+
+def _ws_request(request: Request) -> Request:
+    """Add the RFC 6455 handshake headers (the key is random per attempt)."""
+    key = base64.b64encode(secrets.token_bytes(16)).decode("ascii")
+    handshake = (
+        ("Connection", "Upgrade"),
+        ("Upgrade", "websocket"),
+        ("Sec-WebSocket-Key", key),
+        ("Sec-WebSocket-Version", "13"),
+    )
+    return replace(request, headers=request.headers + handshake)
+
+
 def _build(client: httpx.Client | httpx.AsyncClient, request: Request, base_path: str) -> httpx.Request:
     """Build the httpx request; headers are derived from the body, never defaulted."""
     headers: list[tuple[str, str]] = []
@@ -76,9 +111,15 @@ def _build(client: httpx.Client | httpx.AsyncClient, request: Request, base_path
         kwargs["content"] = body.content
         headers.append(("Content-Type", body.content_type))
     elif isinstance(body, MultipartBody):
-        parts: list[tuple[str, Any]] = [(k, (None, v)) for k, v in body.fields]
-        parts += [(f.name, (f.filename, f.content, f.content_type)) for f in body.files]
-        kwargs["files"] = parts
+        encoded = encode_multipart(body)
+        headers.append(("Content-Type", encoded.content_type))
+        if isinstance(encoded.content, bytes):
+            kwargs["content"] = encoded.content
+        else:
+            # httpx's async client needs an async iterable; the sync one a sync iterable.
+            kwargs["content"] = _aiter(encoded.content) if isinstance(client, httpx.AsyncClient) else encoded.content
+            if encoded.length is not None:
+                headers.append(("Content-Length", str(encoded.length)))
     if request.timeout is not None:
         kwargs["timeout"] = request.timeout
     return client.build_request(
@@ -165,6 +206,37 @@ class SyncTransport:
             finally:
                 raw.close()
 
+    @contextmanager
+    def open_ws(self, request: Request, heartbeat: Heartbeat) -> Iterator[tuple[Response, WebSocketSession]]:
+        """Perform a WebSocket handshake and yield ``(handshake response, httpx-ws session)``.
+
+        Authentication is the same flow as for any request (Digest preferred, no
+        Basic before a challenge). Raises ``UpgradeRefused`` for any non-101 answer.
+        Holds one stream slot until the context exits.
+        """
+        _emit(self.config, request)
+        with self._stream_slots:
+            raw = self._send(_ws_request(request), stream=True)
+            try:
+                if raw.status_code != 101:
+                    try:
+                        raw.read()
+                    except httpx.TransportError as error:
+                        raise map_error(error) from error
+                    raise UpgradeRefused(_response(raw, request, raw.content))
+                session = WebSocketSession(
+                    raw.extensions["network_stream"],
+                    max_message_size_bytes=MAX_WS_MESSAGE_BYTES,
+                    queue_size=WS_QUEUE_SIZE,
+                    keepalive_ping_interval_seconds=heartbeat.interval,
+                    keepalive_ping_timeout_seconds=heartbeat.timeout,
+                    response=raw,
+                )
+                with session:
+                    yield _response(raw, request, b""), session
+            finally:
+                raw.close()
+
     @staticmethod
     def _chunks(raw: httpx.Response) -> Iterator[bytes]:
         try:
@@ -236,6 +308,42 @@ class AsyncTransport:
                     yield _response(raw, request, raw.content), _empty()
                 else:
                     yield _response(raw, request, b""), self._chunks(raw)
+            finally:
+                await raw.aclose()
+
+    @asynccontextmanager
+    async def open_ws(self, request: Request, heartbeat: Heartbeat) -> AsyncIterator[tuple[Response, AsyncWebSocketSession]]:
+        """Async counterpart of ``SyncTransport.open_ws``.
+
+        Exceptions raised in the body are unwrapped from the ``ExceptionGroup``
+        that httpx-ws's task group would put them in.
+        """
+        _emit(self.config, request)
+        _, stream_slots = self._semaphores()
+        async with stream_slots:
+            raw = await self._send(_ws_request(request), stream=True)
+            try:
+                if raw.status_code != 101:
+                    try:
+                        await raw.aread()
+                    except httpx.TransportError as error:
+                        raise map_error(error) from error
+                    raise UpgradeRefused(_response(raw, request, raw.content))
+                session = AsyncWebSocketSession(
+                    raw.extensions["network_stream"],
+                    max_message_size_bytes=MAX_WS_MESSAGE_BYTES,
+                    queue_size=WS_QUEUE_SIZE,
+                    keepalive_ping_interval_seconds=heartbeat.interval,
+                    keepalive_ping_timeout_seconds=heartbeat.timeout,
+                    response=raw,
+                )
+                try:
+                    async with session:
+                        yield _response(raw, request, b""), session
+                except BaseExceptionGroup as group:
+                    if len(group.exceptions) == 1:
+                        raise group.exceptions[0] from None
+                    raise
             finally:
                 await raw.aclose()
 

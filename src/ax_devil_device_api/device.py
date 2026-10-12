@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from datetime import datetime, timezone
 from typing import Any, TypeVar
 
@@ -33,8 +34,9 @@ from ._http.config import (
     Scheme,
     Verify,
 )
-from ._http.options import RequestOptions, RetryPolicy
+from ._http.options import DEFAULT_HEARTBEAT, Heartbeat, RequestOptions, RetryPolicy
 from ._http.transport import AsyncTransport, SyncTransport
+from .errors import ConfigurationError
 from ._protocols.base import CallFlow, Model, Operation, flow_for
 from ._protocols.state import DeviceState, Token
 from ._runtime.capabilities import (
@@ -46,7 +48,16 @@ from ._runtime.capabilities import (
     identity_flow,
     probe_error,
 )
+from .rtsp import MEDIA_PATH, MediaStream, RtspUrl
 from ._runtime.driver import Call, run_async, run_sync
+from ._runtime.ws import (
+    AsyncSession,
+    Session,
+    SessionLedger,
+    SessionSpec,
+    connect_session,
+    connect_session_async,
+)
 from .apis import Apis, AsyncApis
 from .apis._base import AsyncApi, SyncApi, build_params
 
@@ -94,6 +105,19 @@ class _DeviceBase:
             properties=values.get("properties"),
             errors=errors,
             observed_at=datetime.now(timezone.utc),
+        )
+
+    def rtsp_url(self, stream: MediaStream | None = None, *, port: int = 554, path: str = MEDIA_PATH, include_credentials: bool = False) -> RtspUrl:
+        """RTSP URL of this device for ``stream`` (pure; no I/O). Credentials are added only on request.
+
+        Needs password credentials when ``include_credentials`` is set; the
+        RTSP port is separate from the HTTP port and defaults to 554.
+        """
+        credentials = self.config.credentials
+        if include_credentials and not isinstance(credentials, Credentials):
+            raise ConfigurationError("include_credentials needs a username and password (BearerToken cannot be used for RTSP)")
+        return (stream or MediaStream()).url(
+            self.config.host, port=port, path=path, credentials=credentials if include_credentials and isinstance(credentials, Credentials) else None
         )
 
     def refresh(self) -> None:
@@ -147,6 +171,7 @@ class Device(_DeviceBase):
         self.config = config
         self._transport = SyncTransport(config, transport=transport)
         self._state = DeviceState()
+        self._ledger = SessionLedger()
         self._apis: dict[type[SyncApi], SyncApi] = {}
         self._locks: dict[str, threading.Lock] = {}
         self._locks_guard = threading.Lock()
@@ -169,6 +194,27 @@ class Device(_DeviceBase):
         self, op: Operation[Any] | None, flow: CallFlow[Any], options: RequestOptions | None = None, label: str | None = None
     ) -> Any:
         return run_sync(self._transport, flow, self._call(op, options, label))
+
+    def connect_session(
+        self,
+        spec: SessionSpec,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        heartbeat: Heartbeat = DEFAULT_HEARTBEAT,
+        use_token: bool = False,
+        **options: Any,
+    ) -> AbstractContextManager[Session]:
+        """Open a WebSocket session (``ws.EVENTS``, ``ws.DATA_HUB`` or a generated spec).
+
+        ``options`` are the spec's connect arguments (``event_filter_list=...``).
+        ``use_token=True`` authenticates through ``wssession.cgi`` instead of the handshake.
+        The session holds one of the device's stream slots until the ``with`` block ends.
+        """
+        return connect_session(
+            self._transport, self._ledger, self._call(None, request_options, spec.api_id), spec, options,
+            heartbeat=heartbeat, use_token=use_token,
+        )
 
     # -- Device facts -------------------------------------------------------
 
@@ -273,6 +319,7 @@ class AsyncDevice(_DeviceBase):
         self.config = config
         self._transport = AsyncTransport(config, transport=transport)
         self._state = DeviceState()
+        self._ledger = SessionLedger()
         self._apis: dict[type[AsyncApi], AsyncApi] = {}
         self._locks: dict[str, asyncio.Lock] = {}
         self.apis = AsyncApis(self)
@@ -294,6 +341,22 @@ class AsyncDevice(_DeviceBase):
         self, op: Operation[Any] | None, flow: CallFlow[Any], options: RequestOptions | None = None, label: str | None = None
     ) -> Any:
         return await run_async(self._transport, flow, self._call(op, options, label))
+
+    def connect_session(
+        self,
+        spec: SessionSpec,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        heartbeat: Heartbeat = DEFAULT_HEARTBEAT,
+        use_token: bool = False,
+        **options: Any,
+    ) -> AbstractAsyncContextManager[AsyncSession]:
+        """Open a WebSocket session; use as ``async with dev.connect_session(EVENTS, event_filter_list=...) as s``."""
+        return connect_session_async(
+            self._transport, self._ledger, self._call(None, request_options, spec.api_id), spec, options,
+            heartbeat=heartbeat, use_token=use_token,
+        )
 
     def _lock(self, key: str) -> asyncio.Lock:
         return self._locks.setdefault(key, asyncio.Lock())

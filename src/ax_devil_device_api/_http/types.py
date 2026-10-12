@@ -56,21 +56,41 @@ class RawBody:
 
 @dataclass(frozen=True)
 class FilePart:
-    """One file in a multipart body."""
+    """One file in a multipart body.
+
+    ``content`` is ``bytes`` (replayable) or an iterable of chunks for large
+    files such as firmware images (one-shot, so the body is not replayable).
+    ``size`` is the total byte count of an iterable; with it the request gets
+    a ``Content-Length`` instead of chunked transfer encoding, which some
+    device CGIs do not accept.
+    """
 
     name: str
     filename: str
-    content: bytes
+    content: bytes | Iterable[bytes]
     content_type: str = "application/octet-stream"
+    size: int | None = None
+
+    @property
+    def length(self) -> int | None:
+        return len(self.content) if isinstance(self.content, bytes) else self.size
 
 
 @dataclass(frozen=True)
 class MultipartBody:
-    """``multipart/form-data`` body built from text fields and files."""
+    """``multipart/form-data`` body: text fields first, then files, in the given order.
+
+    Encoded by ``_http.multipart.encode_multipart``. ``boundary`` is generated
+    unless given (tests, reproducible requests).
+    """
 
     fields: tuple[tuple[str, str], ...] = ()
     files: tuple[FilePart, ...] = ()
-    replayable: bool = field(default=True, init=False)
+    boundary: str | None = None
+
+    @property
+    def replayable(self) -> bool:
+        return all(isinstance(f.content, bytes) for f in self.files)
 
 
 Body = JsonBody | FormBody | RawBody | MultipartBody

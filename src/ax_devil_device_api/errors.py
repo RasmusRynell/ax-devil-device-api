@@ -95,6 +95,19 @@ class ConnectionFailed(TransportError):
     """Any other connection-level failure (refused, reset, DNS, protocol error)."""
 
 
+class SessionClosed(DeviceError):
+    """A WebSocket session ended normally (close code 1000 or 1001) and has no more messages.
+
+    Raised by ``receive()``/``request()`` only; iterating a session just stops.
+    An abnormal end is a ``TransportError`` instead.
+    """
+
+    def __init__(self, code: int = 1000, reason: str = "") -> None:
+        self.code = code
+        self.reason = reason
+        super().__init__(f"session closed by the device (code {code}{': ' + reason if reason else ''})")
+
+
 class AuthError(DeviceError):
     """Authentication failed or could not be attempted safely."""
 

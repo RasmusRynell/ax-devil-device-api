@@ -47,3 +47,29 @@ class RequestOptions:
     """Seconds; replaces the device and operation timeout for every request of the call."""
     retry: RetryPolicy | None = None
     """Replaces the device retry policy for this call."""
+
+
+@dataclass(frozen=True)
+class Heartbeat:
+    """Liveness checking for a WebSocket session.
+
+    The device documents no application-level heartbeat, so liveness uses
+    WebSocket ping frames: every ``interval`` seconds the client pings; if no
+    pong arrives within ``timeout`` the session ends with ``ConnectionFailed``
+    (and is reported as an abnormal end, see ``Gap``). ``Heartbeat(None)``
+    disables pings, and a silent half-open connection is then never noticed.
+    Idle event streams are normal, so silence alone never ends a session.
+    """
+
+    interval: float | None = 20.0
+    timeout: float = 20.0
+
+    def __post_init__(self) -> None:
+        if self.interval is not None and self.interval <= 0:
+            raise ValueError("interval must be positive")
+        if self.timeout <= 0:
+            raise ValueError("timeout must be positive")
+
+
+DEFAULT_HEARTBEAT = Heartbeat()
+NO_HEARTBEAT = Heartbeat(None)

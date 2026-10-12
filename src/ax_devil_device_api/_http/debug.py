@@ -85,7 +85,7 @@ def _body(body: Any) -> Any:
     if isinstance(body, MultipartBody):
         return {
             "fields": _pairs(body.fields),
-            "files": [{"name": f.name, "filename": f.filename, "size": len(f.content)} for f in body.files],
+            "files": [{"name": f.name, "filename": f.filename, "size": f.length} for f in body.files],
         }
     if isinstance(body, RawBody):
         if isinstance(body.content, bytes):
