@@ -9,8 +9,63 @@ from typing import Any
 from .loader import LoadedSpec, SpecError
 from .model import Applic, ApiDef, FieldDef, OpDef, RoundTrip, TypeDef
 from .naming import RESERVED_ARG_NAMES, NamingError, field_name, pascal_case, snake_case
+from .xmlreply import reply_kind
 
-SUPPORTED_FAMILIES = ("jsonrpc", "dca", "cgi")
+SUPPORTED_FAMILIES = ("jsonrpc", "dca", "cgi", "service_json", "soap", "rest", "ws", "rtsp")
+
+# WebSocket sessions: codec -> default setup, and the `connect` options each setup takes
+# (name, annotation). The setups and codecs live in `_runtime/ws_codecs.py`.
+SESSION_CODECS = {"events": "events", "datahub": "datahub", "raw": "none"}
+SESSION_SETUPS: dict[str, list[tuple[str, str]]] = {
+    "events": [("event_filter_list", "Sequence[EventFilter | Mapping[str, str]] | None = None")],
+    "datahub": [("subscriptions", "Sequence[Mapping[str, Any]] | None = None")],
+    "none": [],
+}
+STREAM_DECODERS = ("bytes", "mjpeg", "lines")
+RTSP_RESERVED_ARGS = frozenset({"port", "include_credentials"})
+# Names the generated module imports only when it uses the feature.
+FEATURE_RESERVED = {
+    "stream": frozenset({"Stream", "StreamResult", "AsyncStreamResult", "Part"}),
+    "session": frozenset(
+        {"Session", "AsyncSession", "SessionSpec", "SESSIONS", "Heartbeat", "DEFAULT_HEARTBEAT", "Sequence",
+         "AbstractContextManager", "AbstractAsyncContextManager"}
+    ),
+    "events": frozenset({"EventFilter", "EventsCodec", "events_setup"}),
+    "datahub": frozenset({"DataHubCodec", "datahub_setup"}),
+    "rtsp": frozenset({"RtspBinding", "RtspUrl"}),
+}  # fmt: skip
+
+
+def op_kind(family: str, binding: dict[str, Any]) -> tuple[str, str | None]:
+    """``(kind, stream decoder)`` of an operation from its raw binding: call, stream, session or rtsp."""
+    if "session" in binding:
+        return "session", None
+    if "rtsp" in binding:
+        return "rtsp", None
+    if family == "cgi" and "reply" in binding:
+        kind, options = reply_kind(binding)
+        if kind == "stream":
+            return "stream", options.get("decoder", "bytes")
+    return "call", None
+
+
+def detect_features(data: dict[str, Any]) -> set[str]:
+    out: set[str] = set()
+    for raw in (data.get("operations") or {}).values():
+        binding = raw.get("binding") or {}
+        kind, _ = op_kind(data["family"], binding)
+        if kind in ("stream", "rtsp"):
+            out.add(kind)
+        elif kind == "session":
+            out.add("session")
+            session = binding["session"]
+            codec = session.get("codec", "raw")
+            setup = session.get("setup") or SESSION_CODECS.get(codec, "none")
+            if codec == "events" or setup == "events":
+                out.add("events")
+            if codec == "datahub" or setup == "datahub":
+                out.add("datahub")
+    return out
 
 # Names the generated module imports or defines itself.
 RESERVED_MODULE_NAMES = frozenset(
@@ -20,6 +75,8 @@ RESERVED_MODULE_NAMES = frozenset(
         "Family", "Model", "Operation", "ParamDiscovery", "JsonRpcBinding", "GetSupportedVersions", "FixedVersion",
         "NoVersion", "DcaBinding", "CgiArg", "CgiBinding", "Text", "TextKv", "TextOk", "Xml", "Binary", "JsonReply",
         "XmlMap", "XmlField", "XmlStatusError", "AsyncApi", "SyncApi", "INFO", "OPS", "PATH", "ROOT",
+        "AcapDiscovery", "ServiceJsonBinding", "SoapBinding", "RestBinding", "TextLines", "UploadSource", "UploadSpec",
+        "JsonRpcMultipart",
     }
 )  # fmt: skip
 BUILTIN_SHADOWS = ("list", "dict", "set", "tuple", "str", "int", "float", "bool", "bytes", "type", "object")
@@ -37,6 +94,9 @@ _CONSTRAINTS = (
     ("multipleOf", "multiple_of"),
 )
 _SCALARS = {"string": "str", "integer": "int", "number": "float", "boolean": "bool", "null": "None"}
+
+
+_KIND_RETURNS = {"stream": "stream result", "session": "session context manager", "rtsp": "RtspUrl"}
 
 
 def clean(text: Any) -> str | None:
@@ -75,6 +135,7 @@ class Builder:
         self._inline_keys: dict[str, str] = {}
         self.family: str = self.data["family"]
         self.unknown_effects: list[str] = []
+        self.reserved: frozenset[str] = RESERVED_MODULE_NAMES.union(*(FEATURE_RESERVED[f] for f in detect_features(self.data)))
 
     # -- schema helpers ----------------------------------------------------------
 
@@ -198,7 +259,7 @@ class Builder:
     def check_type_name(self, name: str) -> None:
         if not name.isidentifier():
             raise SpecError(f"type name {name!r} is not a Python identifier")
-        if name in RESERVED_MODULE_NAMES:
+        if name in self.reserved:
             raise SpecError(f"type name {name!r} collides with a name used by generated modules; rename it")
 
     def define(self, name: str) -> TypeDef | None:
@@ -246,14 +307,16 @@ class Builder:
         for wire, prop in props.items():
             prop = self.norm(prop)
             try:
-                py = field_name(wire, prop.get("x-python-name"))
+                # SOAP names may carry a namespace prefix (acert:Id, @xsi:type); the Python name comes from the local name.
+                py = field_name(wire.rsplit(":", 1)[-1] if self.family == "soap" else wire, prop.get("x-python-name"))
             except NamingError as error:
                 raise SpecError(f"{name}: {error}") from error
             if py in seen:
                 raise SpecError(f"{name}: {wire!r} and {seen[py]!r} both become {py!r}; set x-python-name on one")
             seen[py] = wire
             nest = name + pascal_case(py)
-            ann = self.expr(prop, nest, constraints=False)
+            upload = self.upload_options(name, wire, prop)
+            ann = "UploadSource" if upload is not None else self.expr(prop, nest, constraints=False)
             sig = "Mapping[" + ann[5:] if ann.startswith("dict[") else ann
             default = None
             doc = clean(prop.get("description"))
@@ -270,7 +333,8 @@ class Builder:
             td.fields.append(
                 FieldDef(
                     py=py, wire=wire, ann=ann, sig=sig, required=wire in required and since is None, since=since,
-                    kwargs=self.constraint_kwargs(prop), default=default, doc=doc, schema=prop,
+                    kwargs=["exclude=True", "repr=False"] if upload is not None else self.constraint_kwargs(prop),
+                    upload=upload, place=prop.get("x-in"), default=default, doc=doc, schema=prop,
                     style=prop.get("x-style"), xml=prop.get("x-xml"), has_model=self.contains_model(prop),
                     model_name=self.model_name_of(prop, nest),
                 )
@@ -294,6 +358,15 @@ class Builder:
             fd.nullable = True
         return td
 
+    def upload_options(self, type_name: str, wire: str, prop: dict[str, Any]) -> dict[str, Any] | None:
+        """``x-upload`` of a property as a dict (``true`` means no options), or ``None``."""
+        value = prop.get("x-upload")
+        if value is None or value is False:
+            return None
+        if self.family not in ("cgi", "jsonrpc"):
+            raise SpecError(f"{type_name}.{wire}: x-upload only applies to cgi and jsonrpc specs")
+        return {} if value is True else dict(value)
+
     # -- operations --------------------------------------------------------------
 
     def is_wrapped_params(self, s: dict[str, Any]) -> bool:
@@ -309,16 +382,18 @@ class Builder:
         s = self.norm(schema)
         if self.family == "jsonrpc" and self.is_wrapped_params(s):
             arg = s.get("x-arg-name", "params")
-            inner = {k: v for k, v in s.items() if k not in ("x-name", "x-arg-name")}
+            inner = {k: v for k, v in s.items() if k not in ("x-name", "x-arg-name", "x-arg-optional")}
             wrapper = {
                 "type": "object",
-                "required": [arg],
+                "required": [] if s.get("x-arg-optional") else [arg],
                 "properties": {arg: inner},
             }
             td = self.define_inline(s.get("x-name") or pascal_case(op_id) + "Request", wrapper)
             field = td.by_wire(arg)
             assert field is not None
             return td, field.py
+        if s.get("x-arg-optional"):
+            raise SpecError(f"{op_id}: x-arg-optional only applies to wrapped jsonrpc params (an array or free-form map)")
         if "$ref" in s:
             td = self.define(self.ref_name(s["$ref"]))
             if td is None or td.kind != "model":
@@ -344,6 +419,45 @@ class Builder:
         td = self.defs.get(text)
         return text, td if td is not None and td.kind == "model" else None
 
+    def cgi_keys(
+        self, op_id: str, ob: dict[str, Any], params: TypeDef | None, fields: list[FieldDef], result_model: TypeDef | None
+    ) -> list[str]:
+        """Python names of the arguments that fill ``{name}`` placeholders (never sent as arguments).
+
+        Placeholders are read from the operation's path, the wire names of its arguments, a ``text_kv``
+        ``strip_prefix`` and the wire names of its result fields.
+        """
+        names: list[str] = []
+
+        def add(text: Any) -> None:
+            for name in re.findall(r"\{(\w+)\}", text) if isinstance(text, str) else []:
+                if name not in names:
+                    names.append(name)
+
+        add(ob.get("path"))
+        for f in fields:
+            add(f.wire)
+        reply = ob.get("reply")
+        if isinstance(reply, dict) and isinstance(reply.get("text_kv"), dict):
+            add(reply["text_kv"].get("strip_prefix"))
+        if result_model is not None:
+            for f in result_model.fields:
+                add(f.wire)
+        keys: list[str] = []
+        for name in names:
+            f = (params.by_py(name) or params.by_wire(name)) if params else None
+            if f is None or f not in fields:
+                raise SpecError(f"{op_id}: placeholder {{{name}}} is not an argument of the operation")
+            if not f.required:
+                raise SpecError(f"{op_id}: argument {name!r} fills a placeholder, so it must be required")
+            if f.has_model or f.upload is not None or f.sig.startswith(("list[", "Mapping[")) or f.place:
+                raise SpecError(f"{op_id}: argument {name!r} fills a placeholder, so it must be a plain scalar (no x-in, no x-upload)")
+            if "{" in f.wire:
+                raise SpecError(f"{op_id}: argument {name!r} fills a placeholder and cannot have a templated name itself")
+            if f.py not in keys:
+                keys.append(f.py)
+        return keys
+
     def build_op(self, op_id: str, op: dict[str, Any], api_access: str, path_keys: list[str]) -> OpDef:
         if not op_id.isidentifier():
             raise SpecError(f"operation id {op_id!r} is not a Python identifier")
@@ -360,7 +474,13 @@ class Builder:
         for f in fields:
             if f.py in RESERVED_ARG_NAMES:
                 raise SpecError(f"{op_id}: argument {f.py!r} is reserved")
-        overloaded = bool(params) and not params_field and (any(f.has_model for f in fields) or len(fields) > 4)
+        key_fields: list[str] = []
+        if self.family == "cgi":
+            key_fields = self.cgi_keys(op_id, op.get("binding") or {}, params, fields, result_model)
+            path_keys = key_fields
+        kind, stream_decoder = op_kind(self.family, op.get("binding") or {})
+        self.check_kind(op_id, op, kind, stream_decoder, params, result, fields)
+        overloaded = bool(params) and not params_field and kind != "rtsp" and (any(f.has_model for f in fields) or len(fields) > 4)
 
         positional: list[str] = []
         if params:
@@ -415,8 +535,63 @@ class Builder:
             access=op.get("access") or api_access, effect=effect, write=op.get("write"), since=since,
             support=op.get("support") or "docs-only", binding=dict(op.get("binding") or {}), params=params,
             result=result, result_model=result_model, errors=errors, applicability=applicability,
-            positional=positional, overloaded=overloaded, args=fields, params_field=params_field, mapping_args=mapping_args, round_trip=round_trip,
+            positional=positional, overloaded=overloaded, args=fields, key_fields=key_fields, params_field=params_field, mapping_args=mapping_args, round_trip=round_trip,
+            kind=kind, stream_decoder=stream_decoder, session=dict(op["binding"]["session"]) if kind == "session" else None,
+            rtsp=dict(op["binding"]["rtsp"]) if kind == "rtsp" else None,
         )  # fmt: skip
+
+    def check_kind(
+        self, op_id: str, op: dict[str, Any], kind: str, decoder: str | None, params: TypeDef | None, result: str | None, fields: list[FieldDef]
+    ) -> None:
+        """Checks for the operation kinds that are not plain request/response calls."""
+        if self.family == "ws" and kind != "session":
+            raise SpecError(f"{op_id}: operations of a ws API need binding.session")
+        if self.family == "rtsp" and kind != "rtsp":
+            raise SpecError(f"{op_id}: operations of an rtsp API need binding.rtsp")
+        binding = op.get("binding") or {}
+        if kind == "call":
+            return
+        if "session" in binding and "rtsp" in binding:
+            raise SpecError(f"{op_id}: binding.session and binding.rtsp cannot be combined")
+        if result is not None or op.get("result") is not None:
+            raise SpecError(f"{op_id}: {kind} operations have no `result` (they return a {_KIND_RETURNS[kind]})")
+        if kind == "stream":
+            if decoder not in STREAM_DECODERS:
+                raise SpecError(f"{op_id}: stream decoder {decoder!r} is not one of {', '.join(STREAM_DECODERS)}")
+            if binding.get("stream") is False:
+                raise SpecError(f"{op_id}: a stream reply cannot set stream: false")
+        elif kind == "session":
+            session = binding["session"]
+            if not str(session.get("path", "")).startswith("/"):
+                raise SpecError(f"{op_id}: binding.session.path must start with '/'")
+            placeholders = re.findall(r"\{(\w+)\}", session["path"])
+            if sorted(f.wire for f in fields) != sorted(placeholders):
+                raise SpecError(
+                    f"{op_id}: session `params` must be exactly the {{placeholders}} of binding.session.path "
+                    f"({', '.join(placeholders) or 'none'}); connect options come from the codec/setup"
+                )
+            for f in fields:
+                if not f.required or f.has_model or f.is_mapping:
+                    raise SpecError(f"{op_id}: path placeholder {f.wire!r} must be a required scalar params field")
+            codec = session.get("codec", "raw")
+            if codec not in SESSION_CODECS:
+                raise SpecError(f"{op_id}: session codec {codec!r} is not one of {', '.join(SESSION_CODECS)}")
+            setup = session.get("setup") or SESSION_CODECS[codec]
+            if setup not in SESSION_SETUPS:
+                raise SpecError(f"{op_id}: session setup {setup!r} is not one of {', '.join(SESSION_SETUPS)}")
+            if setup != "none" and codec == "raw":
+                raise SpecError(f"{op_id}: a raw session has no request/response messages, so it cannot have a setup")
+            if op.get("positional"):
+                raise SpecError(f"{op_id}: session operations have no positional arguments")
+        else:  # rtsp
+            rtsp = binding["rtsp"]
+            if not str(rtsp.get("path", "/")).startswith("/") or "?" in str(rtsp.get("path", "")):
+                raise SpecError(f"{op_id}: binding.rtsp.path must start with '/' and have no query")
+            for f in fields:
+                if f.py in RTSP_RESERVED_ARGS:
+                    raise SpecError(f"{op_id}: argument {f.py!r} is reserved for RTSP operations; set x-python-name")
+                if f.has_model or f.is_mapping:
+                    raise SpecError(f"{op_id}: RTSP argument {f.py!r} must be a scalar or a list of scalars")
 
     def applicability(self, op_id: str, since_fields: dict[str, str], params: TypeDef | None) -> list[Applic]:
         out = []
@@ -454,6 +629,129 @@ def dca_path_keys(path: str) -> list[str]:
     return re.findall(r"\{(\w+)\}", path)
 
 
+def soap_prefixes(td: TypeDef, defs: dict[str, TypeDef], seen: tuple[str, ...] = ()) -> set[str]:
+    """Namespace prefixes used by the wire names of ``td`` and the models below it."""
+    out: set[str] = set()
+    for f in td.fields:
+        name = f.wire.lstrip("@")
+        if ":" in name:
+            out.add(name.split(":", 1)[0])
+        if f.model_name and f.model_name in defs and f.model_name not in seen:
+            out |= soap_prefixes(defs[f.model_name], defs, seen + (f.model_name,))
+    return out
+
+
+def check_cgi_binding(op: OpDef) -> None:
+    """Placement of arguments (query, form, body, file parts) against the binding's encoding."""
+    ob = op.binding
+    encoding = ob.get("encoding", "query")
+    default = "query" if encoding in ("query", "body") else "form"
+    keys = set(op.key_fields)
+    body_fields = [f for f in op.args if f.place == "body"]
+    for f in op.args:
+        where = f"{op.id}: argument {f.py!r}"
+        if f.place == "form" and default != "form":
+            raise SpecError(f"{where} has x-in: form, which needs binding.encoding form or multipart")
+        if f.place == "body" and encoding != "body":
+            raise SpecError(f"{where} has x-in: body, which needs binding.encoding body")
+        if f.upload is not None:
+            if encoding not in ("multipart", "body"):
+                raise SpecError(f"{where} has x-upload, which needs binding.encoding multipart (or body)")
+            if f.place != ("body" if encoding == "body" else None):
+                raise SpecError(f"{where}: x-upload takes x-in: body with encoding body and no x-in with multipart")
+        if f.style == "flag" and (f.place or default) != "query":
+            raise SpecError(f"{where}: x-style flag sends a bare key, which only works in the URL query")
+        if f.py in keys and f.place:
+            raise SpecError(f"{where} fills a placeholder and cannot have x-in")
+    if encoding == "multipart":
+        if ob.get("method") != "POST":
+            raise SpecError(f"{op.id}: multipart operations need binding.method POST")
+        if not any(f.upload is not None for f in op.args):
+            raise SpecError(f"{op.id}: multipart operations need at least one x-upload argument")
+    if encoding == "body":
+        if ob.get("method") != "POST":
+            raise SpecError(f"{op.id}: encoding body needs binding.method POST")
+        if len(body_fields) != 1:
+            raise SpecError(f"{op.id}: encoding body needs exactly one argument with x-in: body, found {len(body_fields)}")
+        upload = body_fields[0].upload
+        if not ob.get("content_type") and not (upload or {}).get("content_type"):
+            raise SpecError(f"{op.id}: encoding body needs binding.content_type")
+    elif ob.get("content_type"):
+        raise SpecError(f"{op.id}: binding.content_type only applies to encoding body")
+    if default == "form" and any(v is None for v in (ob.get("query") or {}).values()):
+        raise SpecError(f"{op.id}: a bare query key (null value) cannot be sent in the body; put it in binding.url_query")
+
+
+def check_jsonrpc_upload(op: OpDef) -> None:
+    uploads = [f for f in op.args if f.upload is not None]
+    multipart = op.binding.get("multipart")
+    if multipart is None:
+        if uploads:
+            raise SpecError(f"{op.id}: x-upload arguments need binding.multipart")
+        return
+    if not uploads:
+        raise SpecError(f"{op.id}: binding.multipart needs at least one x-upload argument")
+    if op.params_field:
+        raise SpecError(f"{op.id}: multipart operations cannot use wrapped params")
+
+
+def check_op_binding(
+    family: str, op: OpDef, path_keys: list[str], api_binding: dict[str, Any], defs: dict[str, TypeDef] | None = None
+) -> None:
+    """Family-specific checks of one operation's binding against its params."""
+    ob = op.binding
+    if op.kind in ("session", "rtsp"):
+        return  # checked when the operation is built; the family's own binding keys do not apply
+    if family == "cgi":
+        check_cgi_binding(op)
+    elif family == "jsonrpc":
+        check_jsonrpc_upload(op)
+    if family == "service_json":
+        if not ob.get("operation"):
+            raise SpecError(f"{op.id}: service_json operations need binding.operation")
+    elif family == "soap":
+        for key in ("action", "element"):
+            if not ob.get(key):
+                raise SpecError(f"{op.id}: soap operations need binding.{key}")
+        if not ob.get("namespace") and not api_binding.get("namespace"):
+            raise SpecError(f"{op.id}: soap operations need binding.namespace (or a namespace in the API binding)")
+        if op.result is not None and op.result_model is None:
+            raise SpecError(f"{op.id}: a soap result must be an object type (the reply is read through x-xml)")
+        namespaces = {**(api_binding.get("namespaces") or {}), **(ob.get("namespaces") or {})}
+        for prefix in namespaces:
+            if prefix in ("env", "xml", "xmlns"):
+                raise SpecError(f"{op.id}: {prefix!r} is a reserved namespace prefix")
+        used = soap_prefixes(op.params, defs or {}) if op.params else set()
+        undeclared = sorted(used - set(namespaces))
+        if undeclared:
+            raise SpecError(f"{op.id}: params use the namespace prefix(es) {', '.join(undeclared)}; declare them in binding.namespaces")
+    elif family == "rest":
+        if not ob.get("method"):
+            raise SpecError(f"{op.id}: rest operations need binding.method")
+        path = ob.get("path", "")
+        if path and not path.startswith("/"):
+            raise SpecError(f"{op.id}: rest binding.path must start with '/'")
+
+        def field(name: str) -> FieldDef:
+            f = op.params.by_py(name) or op.params.by_wire(name) if op.params else None
+            if f is None:
+                raise SpecError(f"{op.id}: binding names {name!r}, which is not a params field")
+            return f
+
+        for key in path_keys:
+            if not field(key).required:
+                raise SpecError(f"{op.id}: path placeholder {key!r} must be a required params field")
+        for name in ob.get("query") or []:
+            field(name)
+        body = ob.get("body", "none")
+        if body == "value":
+            if not ob.get("body_field"):
+                raise SpecError(f"{op.id}: rest body 'value' needs binding.body_field")
+            field(ob["body_field"])
+        elif ob.get("body_field"):
+            raise SpecError(f"{op.id}: binding.body_field only applies to body 'value'")
+
+
 def build_api(spec: LoadedSpec) -> ApiDef:
     data = spec.data
     family = data["family"]
@@ -467,19 +765,21 @@ def build_api(spec: LoadedSpec) -> ApiDef:
     ops: list[OpDef] = []
     for op_id, raw in (data.get("operations") or {}).items():
         keys: list[str] = []
-        if family == "dca":
+        if family in ("dca", "rest"):
             keys = dca_path_keys((raw.get("binding") or {}).get("path", ""))
         styles = (raw.get("binding") or {}).get("key_styles") or {}
         for placeholder in styles:
             if placeholder not in keys:
                 raise SpecError(f"{op_id}: binding.key_styles names {placeholder!r}, which is not a placeholder of binding.path")
-        ops.append(b.build_op(op_id, raw, access, keys))
+        built = b.build_op(op_id, raw, access, keys)
+        check_op_binding(family, built, keys, data.get("binding") or {}, b.defs)
+        ops.append(built)
     if b.unknown_effects:
         spec.warnings.append(f"effect is unknown for {len(b.unknown_effects)} operation(s): {', '.join(b.unknown_effects)}")
-    if family == "cgi":
+    if family in ("cgi", "soap"):
         from .xmlreply import attach_xml_maps
 
-        attach_xml_maps(b, ops)
+        attach_xml_maps(b, ops, soap=family == "soap")
     discovery = []
     for entry in data.get("discovery") or []:
         (kind, value), = entry.items()

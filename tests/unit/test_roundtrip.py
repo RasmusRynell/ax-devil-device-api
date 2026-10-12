@@ -62,6 +62,7 @@ def test_edit_and_send_back_round_trip() -> None:
         dev.apis.mqtt_client.configure_client(edited)
 
     [call] = camera.calls("configureClient")
+    assert call.json is not None
     assert call.json["params"]["keepAliveInterval"] == 60
     assert call.json["params"]["keepExistingPassword"] is True
     assert "password" not in call.json["params"]
@@ -138,7 +139,7 @@ def test_invoke_runs_operation_by_descriptor() -> None:
         )
 
     assert status.status.state == "active"
-    assert [c.json["params"]["clientId"] for c in camera.calls("configureClient")] == ["c", "d"]
+    assert [(c.json or {})["params"]["clientId"] for c in camera.calls("configureClient")] == ["c", "d"]
 
 
 @pytest.mark.anyio

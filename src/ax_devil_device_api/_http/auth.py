@@ -282,6 +282,11 @@ class AxisAuth:
     def has_verified_state(self) -> bool:
         return self._verified is not None
 
+    @property
+    def needs_verification(self) -> bool:
+        """Whether a one-shot body would fail now: password credentials with no verified state."""
+        return isinstance(self._credentials, Credentials) and self._verified is None
+
     def reset(self) -> None:
         """Forget any verified credential."""
         with self._lock:

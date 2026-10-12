@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from ..errors import ApiError, NotSupported, ResponseFormatError
-from .._http.types import AuthPolicy, JsonBody, Request, Response
+from .._http.types import AuthPolicy, FilePart, JsonBody, MultipartBody, Request, Response
+from .._http.upload import UploadSpec, file_part
 from .base import (
     ApiVersion,
     CallFlow,
@@ -61,6 +62,16 @@ Negotiation = GetSupportedVersions | FixedVersion | NoVersion
 
 
 @dataclass(frozen=True)
+class JsonRpcMultipart:
+    """Send the call as ``multipart/form-data``: the JSON-RPC envelope in the part ``json_part``
+    (omitted when ``None``: the CGI takes only files), then one file part per upload argument.
+    Upload arguments are not part of the envelope's ``params``."""
+
+    json_part: str | None = None
+    uploads: tuple[UploadSpec, ...] = ()
+
+
+@dataclass(frozen=True)
 class JsonRpcBinding:
     """Wire binding of one JSON-RPC method."""
 
@@ -74,6 +85,8 @@ class JsonRpcBinding:
     request field whose value is sent as the whole ``params``."""
     auth: AuthPolicy = "required"
     timeout: float | None = None
+    multipart: JsonRpcMultipart | None = None
+    """Upload methods: a multipart request instead of a JSON body."""
 
 
 def _envelope(method: str, version: ApiVersion | None) -> dict[str, Any]:
@@ -165,9 +178,23 @@ def _version(op: Operation[JsonRpcBinding], state: DeviceState) -> CallFlow[ApiV
     return version
 
 
+def _multipart(spec: JsonRpcMultipart, envelope: dict[str, Any], params: Model | None) -> MultipartBody:
+    files: list[FilePart] = []
+    if spec.json_part is not None:
+        files.append(FilePart(spec.json_part, None, json.dumps(envelope).encode("utf-8"), "application/json"))
+    for upload in spec.uploads:
+        value = getattr(params, upload.field, None) if params is not None else None
+        if value is not None:
+            files.append(file_part(upload.part or upload.field, value, filename=upload.filename, content_type=upload.content_type))
+    return MultipartBody((), tuple(files))
+
+
 def flow(op: Operation[JsonRpcBinding], params: Model | None, state: DeviceState) -> CallFlow[Any]:
     binding = op.binding
-    version = yield from _version(op, state)
+    if binding.multipart is not None and binding.multipart.json_part is None:
+        version = None  # files only: there is no envelope to carry a version
+    else:
+        version = yield from _version(op, state)
     check_applicability(op, params, version)
 
     body = _envelope(binding.method, version)
@@ -183,10 +210,13 @@ def flow(op: Operation[JsonRpcBinding], params: Model | None, state: DeviceState
     elif args:
         body["params"] = args
 
+    request_body: JsonBody | MultipartBody = JsonBody(body)
+    if binding.multipart is not None:
+        request_body = _multipart(binding.multipart, body, params)
     response = yield Request(
         "POST",
         binding.path,
-        body=JsonBody(body),
+        body=request_body,
         accept="application/json",
         auth=binding.auth,
         timeout=binding.timeout,

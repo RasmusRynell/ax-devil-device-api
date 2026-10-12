@@ -20,7 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from ._http.types import Headers, Request, Response
-from ._protocols.base import CallFlow, StreamDecoder
+from ._protocols.base import BytesDecoder, CallFlow, StreamDecoder
 from .errors import ConnectionFailed, ResponseFormatError
 
 DEFAULT_MAX_PART_BYTES = 32 * 1024 * 1024
@@ -221,11 +221,27 @@ def mjpeg_decoder(response: Response, *, api: str = "stream") -> StreamDecoder[P
     return MixedReplaceDecoder.for_response(response, api=api)
 
 
+def decoder_for(codec: object, response: Response, *, api: str = "stream") -> StreamDecoder[object]:
+    """Decoder for a streamed answer, chosen by a ``Stream`` reply codec (``decoder`` and ``encoding`` attributes).
+
+    Anything without a ``decoder`` attribute gets the raw bytes.
+    """
+    kind = getattr(codec, "decoder", "bytes")
+    if kind == "mjpeg":
+        return mjpeg_decoder(response, api=api)
+    if kind == "lines":
+        return LinesDecoder(getattr(codec, "encoding", "utf-8"))
+    if kind == "bytes":
+        return BytesDecoder()
+    raise ValueError(f"unknown stream decoder {kind!r}")
+
+
 __all__ = [
     "LinesDecoder",
     "MixedReplaceDecoder",
     "Part",
     "boundary_of",
+    "decoder_for",
     "is_multipart_stream",
     "mjpeg_decoder",
     "stream_flow",

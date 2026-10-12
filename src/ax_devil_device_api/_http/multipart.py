@@ -46,8 +46,9 @@ def _field_head(boundary: str, name: str, value: str) -> bytes:
 
 
 def _file_head(boundary: str, part: FilePart) -> bytes:
+    filename = "" if part.filename is None else f'; filename="{_quote(part.filename)}"'
     head = (
-        f'--{boundary}\r\nContent-Disposition: form-data; name="{_quote(part.name)}"; filename="{_quote(part.filename)}"\r\n'
+        f'--{boundary}\r\nContent-Disposition: form-data; name="{_quote(part.name)}"{filename}\r\n'
         f"Content-Type: {part.content_type}\r\n\r\n"
     )
     return head.encode("utf-8")

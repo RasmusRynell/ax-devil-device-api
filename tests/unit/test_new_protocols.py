@@ -96,6 +96,31 @@ def test_service_json_request_and_bare_response() -> None:
     assert json.loads(rec.last.content) == {"axast:PerformSpeakerTest": {"volume": 10}}
 
 
+class Item(Model):
+    code: str
+    tags: list[str] | None = None
+
+
+class ListResult(Model):
+    token: list[str]
+    items: list[Item] | None = None
+    name: str | None = None
+    flag: list[str] | None = None
+
+
+def test_service_json_wraps_scalars_and_stringifies_numbers() -> None:
+    body = {"token": "t1", "items": {"code": 7, "tags": 5}, "name": 12}
+    SJ_LIST = Operation(SJ_INFO, "lst", binding=SJ_BINDING, result=ListResult)
+    with connect(Recorder(httpx.Response(200, json=body))) as dev:
+        result = dev.invoke(SJ_LIST)
+    assert result.token == ["t1"]
+    assert result.items is not None and result.items[0].code == "7" and result.items[0].tags == ["5"]
+    assert result.name == "12"
+    with connect(Recorder(httpx.Response(200, json={"token": [], "flag": True}))) as dev:
+        with pytest.raises(ResponseFormatError):
+            dev.invoke(SJ_LIST)
+
+
 def test_service_json_no_params_sends_empty_object_and_empty_reply_ok() -> None:
     rec = Recorder(httpx.Response(200, content=b""))
     with connect(rec) as dev:

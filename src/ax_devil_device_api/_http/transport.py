@@ -7,11 +7,11 @@ import base64
 import secrets
 import ssl
 import threading
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterable, AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import replace
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote_plus, urlencode
 
 import httpx
 from httpx_ws import AsyncWebSocketSession, WebSocketSession
@@ -25,6 +25,28 @@ from .options import Heartbeat
 from .types import FormBody, Headers, JsonBody, MultipartBody, RawBody, Request, Response
 
 USER_AGENT = "ax-devil-device-api/1.0"
+
+PREFLIGHT_PATH = "/axis-cgi/usergroup.cgi"
+"""Authenticated GET used to verify credentials before a body that cannot be replayed.
+
+Present on every Axis device, read-only, answered for any role (it reports the caller's own
+user and groups) and served from the same Digest realm as the other ``/axis-cgi`` CGIs, so the
+verified credential it leaves behind is the one the upload then uses.
+"""
+
+
+def _preflight_request(request: Request) -> Request | None:
+    """The preflight for ``request``, or ``None`` when it needs none."""
+    if request.replayable or request.auth != "required":
+        return None
+    return Request("GET", PREFLIGHT_PATH, timeout=request.timeout)
+
+
+def _preflight_failure(status: int) -> errors.AuthError:
+    return errors.AuthError(
+        f"authentication failed: could not verify the credentials before sending a body that "
+        f"cannot be replayed (HTTP {status} from {PREFLIGHT_PATH})"
+    )
 
 
 def map_error(error: httpx.TransportError) -> errors.TransportError:
@@ -108,8 +130,13 @@ def _build(client: httpx.Client | httpx.AsyncClient, request: Request, base_path
         kwargs["content"] = urlencode(body.fields).encode("ascii")
         headers.append(("Content-Type", "application/x-www-form-urlencoded"))
     elif isinstance(body, RawBody):
-        kwargs["content"] = body.content
+        content = body.content
+        if isinstance(client, httpx.AsyncClient) and not isinstance(content, bytes) and not isinstance(content, AsyncIterable):
+            content = _aiter(iter(content))
+        kwargs["content"] = content
         headers.append(("Content-Type", body.content_type))
+        if body.size is not None and not isinstance(body.content, bytes):
+            headers.append(("Content-Length", str(body.size)))
     elif isinstance(body, MultipartBody):
         encoded = encode_multipart(body)
         headers.append(("Content-Type", encoded.content_type))
@@ -122,10 +149,19 @@ def _build(client: httpx.Client | httpx.AsyncClient, request: Request, base_path
                 headers.append(("Content-Length", str(encoded.length)))
     if request.timeout is not None:
         kwargs["timeout"] = request.timeout
+    url = base_path + request.path
+    params: list[tuple[str, Any]] | None = None
+    if any(value is None for _, value in request.query):
+        # httpx always writes `key=`; bare keys (`?live-sum.json`) are written by hand, in order.
+        url += "?" + "&".join(
+            quote_plus(key) if value is None else str(httpx.QueryParams([(key, value)])) for key, value in request.query
+        )
+    else:
+        params = [(key, value) for key, value in request.query if value is not None] or None
     return client.build_request(
         request.method,
-        base_path + request.path,
-        params=list(request.query) or None,
+        url,
+        params=params,
         headers=headers,
         **kwargs,
     )
@@ -169,6 +205,15 @@ class SyncTransport:
         self._client.headers.pop("Accept", None)  # Accept is set only when a request asks for it
 
     def _send(self, request: Request, *, stream: bool) -> httpx.Response:
+        probe = _preflight_request(request) if self._auth.needs_verification else None
+        if probe is not None:
+            _emit(self.config, probe)
+            status = self._send_once(probe, stream=False).status_code
+            if self._auth.needs_verification:
+                raise _preflight_failure(status)
+        return self._send_once(request, stream=stream)
+
+    def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
         try:
             return self._client.send(
                 _build(self._client, request, self.config.base_path),
@@ -272,6 +317,15 @@ class AsyncTransport:
         return self._slots, self._stream_slots
 
     async def _send(self, request: Request, *, stream: bool) -> httpx.Response:
+        probe = _preflight_request(request) if self._auth.needs_verification else None
+        if probe is not None:
+            _emit(self.config, probe)
+            status = (await self._send_once(probe, stream=False)).status_code
+            if self._auth.needs_verification:
+                raise _preflight_failure(status)
+        return await self._send_once(request, stream=stream)
+
+    async def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
         try:
             return await self._client.send(
                 _build(self._client, request, self.config.base_path),

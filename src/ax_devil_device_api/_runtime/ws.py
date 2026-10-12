@@ -34,9 +34,10 @@ import time
 from collections import deque
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import quote
 
 import httpcore
 import httpx_ws
@@ -97,6 +98,14 @@ class SessionSpec:
     @property
     def key(self) -> tuple[Any, ...]:
         return (self.path, tuple(sorted(self.query)))
+
+    def bind(self, values: Mapping[str, Any]) -> SessionSpec:
+        """A copy with the ``{name}`` placeholders of ``path`` filled in (percent-encoded, one path segment each)."""
+        try:
+            path = self.path.format(**{name: quote(str(value), safe="") for name, value in values.items()})
+        except KeyError as missing:
+            raise TypeError(f"{self.api_id}: no value for the path placeholder {missing}") from None
+        return replace(self, path=path)
 
 
 EVENTS = SessionSpec(

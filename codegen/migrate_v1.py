@@ -4,8 +4,12 @@
 Usage: uv run python codegen/migrate_v1.py [--src DIR] [--out DIR] [--only ID ...]
 
 Scope: JSON-RPC CGI (styles[0] == json_rpc_cgi), Device Configuration REST
-(device_config_rest in styles) and classic CGI (styles[0] in cgi_query, cgi_xml,
-cgi_form_post). Other families are skipped. The v1 corpus is
+(device_config_rest in styles), classic CGI (styles[0] in cgi_query, cgi_xml,
+cgi_form_post), service JSON (POST /vapix/<service> with a one-key JSON body), SOAP
+(POST /vapix/services) and plain REST/JSON (see classify_v1_family). WebSocket sessions, HTTP streams and RTSP
+URLs of the specs no other converter claims are in codegen/migrate_streams.py, which also splits the deferred
+parts of heartbeat, AAM Pro and intercom into companion specs; the streaming operations of specs migrated
+earlier stay skipped (curators add them with the stream/session/rtsp bindings). The v1 corpus is
 treated as data only (yaml.safe_load). Hand-curated v2 specs are never
 overwritten.
 """
@@ -14,6 +18,7 @@ from __future__ import annotations
 import argparse
 import collections
 import copy
+import http
 import json
 import keyword
 import re
@@ -2390,13 +2395,524 @@ def xml_result(op, oid, rschema, resp, ctx, types, extra_types, used_names, note
     return {"$ref": "#/types/" + new}
 
 
+# --------------------------------------------------------------------------- service JSON, SOAP and REST
+
+SOAP_PATH = "/vapix/services"
+SERVICE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(:[A-Za-z][A-Za-z0-9_]*)?$")
+PHASE5_KINDS = {"ws_message", "stream", "rtsp_request"}
+# The endpoint is missing from the spec's own page; it is shown in an example on another page.
+ENDPOINT_OVERRIDES = {
+    "auto-speaker-test-service-api": ("/vapix/axast", "the endpoint is not stated on this page; /vapix/axast is the one in the Call service API page example"),
+}
+FAULT_TOKEN = re.compile(r"[A-Za-z][\w.-]*:[A-Za-z][\w.-]*")
+STATUS_KIND = {
+    400: "invalid_argument", 403: "access_denied", 404: "not_found", 409: "invalid_argument", 415: "invalid_argument",
+    422: "invalid_argument", 500: "internal", 501: "unsupported", 503: "unavailable",
+}  # fmt: skip
+
+
+def classify_v1_family(v1):
+    """Family of a v1 spec outside the CGI, JSON-RPC and DCA families: ``service_json``, ``soap``, ``rest`` or ``None``.
+
+    ``None`` means out of scope here (WebSocket, RTSP, HTTP streams, or not understood).
+    """
+    styles = v1.get("styles") or []
+    ops = [o for o in v1.get("operations") or [] if o.get("kind") in ("http_endpoint", "soap_operation")]
+    if not ops or "http_stream" in styles or "rtsp" in styles or (styles and styles[0] == "websocket"):
+        return None
+    paths = {(o.get("http") or {}).get("path", "") for o in ops}
+    if "soap" in styles and paths == {SOAP_PATH} and all(o.get("kind") == "soap_operation" for o in ops):
+        return "soap"
+    for o in ops:
+        method = ((o.get("http") or {}).get("method") or "").upper()
+        if method in ("PUT", "PATCH", "DELETE") or "{" in (o.get("http") or {}).get("path", ""):
+            return "rest" if "soap" not in styles else None
+    env = (v1.get("envelope") or {}).get("request_schema") or {}
+    if env.get("minProperties") == 1 or any(o.get("kind") == "soap_operation" for o in ops):
+        return "service_json"
+    if set(styles) <= {"other"} and all(p.startswith("/vapix/") for p in paths):
+        return "service_json"
+    return None
+
+
+def common_prefix_path(paths):
+    parts = [[s for s in p.split("/") if s] for p in paths]
+    out = []
+    for segs in zip(*parts):
+        if len(set(segs)) != 1 or "{" in segs[0]:
+            break
+        out.append(segs[0])
+    return "/" + "/".join(out) if out else ""
+
+
+def fault_key(code):
+    """The key a documented fault is stored under: the innermost (last) qualified code."""
+    tokens = FAULT_TOKEN.findall(str(code))
+    return tokens[-1] if tokens else None
+
+
+FAULT_KINDS = (
+    ("invalid_argument", ("InvalidArg", "TagMismatch", "TooMany", "InvalidCredential")),
+    ("not_found", ("NotFound", "NoSuch", "UnknownToken")),
+    ("unsupported", ("NotSupported", "ActionNotSupported")),
+    ("access_denied", ("NotAuthorized", "Unauthorized", "AccessDenied")),
+    ("internal", ("ter:Failure", "ter:Action")),
+)
+
+
+def fault_kind(key):
+    """Error class from the fault code alone; descriptions are too loose to classify."""
+    for kind, words in FAULT_KINDS:
+        if any(w in key for w in words):
+            return kind
+    return None
+
+
+def convert_fault_errors(errs, notes, scope=None, skip=None):
+    out = {}
+    for e in errs or []:
+        if scope and e.get("scope") != scope:
+            continue
+        key = fault_key(e.get("code"))
+        if key is None:
+            continue
+        name, desc = e.get("name"), e.get("description")
+        text = f"{name.rstrip('.')}. {desc}" if name and desc and name != desc else name or desc or key
+        text = trim(text, 200)
+        entry = {"description": text}
+        kind = fault_kind(key)
+        if kind:
+            entry["kind"] = kind
+        if key in out:
+            if out[key]["description"] != text:
+                notes.add("fault-code-shared", f"fault code {key} is documented with different descriptions; the first is kept")
+            continue
+        if skip is not None and key in skip and skip[key].get("description") == text:
+            continue
+        out[key] = entry
+    return out
+
+
+def convert_status_errors(errs, notes, scope=None, skip=None):
+    """REST errors keyed by integer HTTP status. 401 is left to the generic authentication error."""
+    out = {}
+    for e in errs or []:
+        if scope and e.get("scope") != scope:
+            continue
+        status = e.get("http_status", e.get("code"))
+        if not isinstance(status, int) or isinstance(status, bool) or status == 401:
+            continue
+        if skip is not None and status in skip:
+            continue
+        name, desc = e.get("name"), e.get("description")
+        text = f"{name.rstrip('.')}. {desc}" if name and desc and name != desc else name or desc
+        if not text:
+            try:
+                text = http.HTTPStatus(status).phrase
+            except ValueError:
+                text = f"HTTP {status}"
+        entry = {"description": trim(text, 200)}
+        if status in STATUS_KIND:
+            entry["kind"] = STATUS_KIND[status]
+        out.setdefault(status, entry)
+    return out
+
+
+def convert_service_discovery(v1, notes):
+    """Discovery entries; a ``Name=1.0`` property with an "and later" remark becomes a ``>=`` comparison."""
+    out = []
+    for d in v1.get("discovery") or []:
+        if d.get("method") == "param_property":
+            prop = (d.get("property") or "").replace('"', "")
+            mm = re.match(r"^([\w.\-]+)=(.*)$", prop)
+            if not mm:
+                notes.add("discovery", f"param_property {prop!r} is not a Name=value pair: dropped")
+                continue
+            entry = {"name": mm.group(1), "value": mm.group(2).strip()}
+            if re.fullmatch(r"\d+(\.\d+)*", entry["value"]) and re.search(r"\b(and|or) later\b", d.get("notes") or ""):
+                entry["compare"] = ">="
+            out.append({"param": entry})
+        elif d.get("method") == "other":
+            if d.get("notes"):
+                notes.add("discovery", "no discovery probe: " + trim(d["notes"], 260))
+        else:
+            out += convert_discovery({"discovery": [d]}, notes, "service")
+    seen, uniq = set(), []
+    for d in out:
+        k = json.dumps(d, sort_keys=True)
+        if k not in seen:
+            seen.add(k)
+            uniq.append(d)
+    return uniq
+
+
+SERVICE_ACTION_VERBS = (
+    "calibrate", "perform", "initiate", "call", "terminate", "inject", "keep", "probe", "heartbeat", "lock", "unlock",
+    "access", "block", "unblock", "open", "close", "toggle", "offset", "stop", "play", "grant", "revoke",
+)  # fmt: skip
+
+
+def service_effect(op_id, method="POST"):
+    effect, write = cgi_effect(op_id, method)
+    if effect is None:
+        effect, write, _guessed = infer_effect(op_id)
+    if effect == "unknown" and snake(op_id).split("_")[0] in SERVICE_ACTION_VERBS:
+        effect, write = "action", None
+    return effect, write
+
+
+def untype_objects(node):
+    """SOAP replies: an object without properties is an open element; drop its ``type`` so any content parses."""
+    if isinstance(node, dict):
+        props = node.get("properties")
+        if isinstance(props, dict):
+            for ps in props.values():
+                if isinstance(ps, dict) and ps.get("type") == "object" and not ps.get("properties") and "additionalProperties" not in ps:
+                    ps.pop("type")
+        for v in node.values():
+            untype_objects(v)
+    elif isinstance(node, list):
+        for v in node:
+            untype_objects(v)
+
+
+def strip_ns_prefixes(node):
+    """SOAP: element names are local names; ``wstop:TopicSet`` becomes ``TopicSet`` (the namespace is the binding's)."""
+    if isinstance(node, dict):
+        props = node.get("properties")
+        if isinstance(props, dict) and any(":" in k for k in props):
+            renamed = {}
+            for k, v in props.items():
+                local = k.rsplit(":", 1)[-1]
+                renamed[local if local not in props or local == k else k] = v
+            node["properties"] = renamed
+            for key in ("required", "x-nullable"):
+                if isinstance(node.get(key), list):
+                    node[key] = [k.rsplit(":", 1)[-1] if k.rsplit(":", 1)[-1] in renamed else k for k in node[key]]
+        for v in node.values():
+            strip_ns_prefixes(v)
+    elif isinstance(node, list):
+        for v in node:
+            strip_ns_prefixes(v)
+
+
+def service_result(op, ctx, notes, oid):
+    schema = (op.get("response") or {}).get("schema")
+    if not isinstance(schema, dict):
+        return None
+    r = conv(strip_xml_hints(schema), ctx)
+    if "$ref" not in r and not r.get("properties"):
+        if r.get("type") == "array" or r.get("additionalProperties"):
+            notes.add("result-shape", f"{oid}: reply is not an object message; result omitted")
+        return None
+    return r
+
+
+def svc_examples(op, wire):
+    out = []
+    for e in op.get("examples") or []:
+        req, resp = e.get("request") or {}, e.get("response") or {}
+        body, rbody = req.get("body"), resp.get("body")
+        if not isinstance(body, dict) or set(body) != {wire} or not isinstance(body[wire], dict) or not isinstance(rbody, dict):
+            continue
+        if "Fault" in rbody:
+            r = {"error": {"code": rbody.get("FaultSubCode") or rbody.get("FaultCode"), "message": rbody.get("FaultMsg") or rbody.get("FaultReason")}}
+        else:
+            r = {"data": rbody}
+        ex = {"title": e.get("title") or op["id"], "request": {"params": body[wire]}, "response": r}
+        if e.get("source_url"):
+            ex["source"] = e["source_url"]
+        out.append(ex)
+    return out
+
+
+def _unique_op_id(op, used):
+    oid = snake(op["id"]) or "call"
+    if oid[0].isdigit() or keyword.iskeyword(oid):
+        oid = "op_" + oid
+    base, i = oid, 2
+    while oid in used:
+        oid = f"{base}_{i}"
+        i += 1
+    used.add(oid)
+    return oid
+
+
+def _op_header(op, oid, api_access, effect, write):
+    o = {"summary": short_summary(op.get("summary") or oid)}
+    extras = []
+    if op.get("deprecated"):
+        extras.append("Deprecated.")
+    if op.get("since"):
+        extras.append(f"Since {op['since']}.")
+    if op.get("description") or extras:
+        o["description"] = trim(" ".join([op.get("description") or ""] + extras).strip(), 600)
+    acc = op.get("access_level")
+    if acc in ACCESS_LEVELS and acc != api_access:
+        o["access"] = acc
+    o["effect"] = effect
+    if write:
+        o["write"] = write
+    return o
+
+
+def _finish_doc(v1, section, family, notes, api_access, binding, api_errors, types, ops_out):
+    """Assemble header, discovery, binding, types, operations, sources and provenance."""
+    modname = (v1.get("python") or {}).get("module") or snake(v1["id"])
+    doc = common_header(v1, section, family, notes, {"module": modname, "class": class_name(v1)})
+    doc["access"] = api_access
+    disc = convert_service_discovery(v1, notes)
+    if disc:
+        doc["discovery"] = disc
+    req_ = convert_requires(v1)
+    if req_:
+        doc["requires"] = req_
+    doc["binding"] = binding
+    if api_errors:
+        doc["errors"] = api_errors
+    used_types = reachable_types(types, ops_out)
+    dropped = sorted(set(types) - used_types)
+    if dropped:
+        notes.add("types-dropped", "types not referenced by any migrated operation: " + ", ".join(dropped))
+    types = {k: v for k, v in types.items() if k in used_types}
+    if types:
+        doc["types"] = types
+    doc["operations"] = ops_out
+    doc["sources"] = convert_sources(v1)
+    for key in ("param_cgi_groups", "events", "versioning", "notes"):
+        if v1.get(key):
+            notes.add("dropped-section", f"v1 section {key} not carried over")
+    check_refs(doc, notes)
+    finalize(doc, notes)
+    prov = {"completeness": (v1.get("provenance") or {}).get("completeness", "partial")}
+    oq = list((v1.get("provenance") or {}).get("open_questions") or []) + notes.render()
+    if oq:
+        prov["open_questions"] = oq
+    prov["migrated_from"] = "v1"
+    prov["curated"] = False
+    doc["provenance"] = prov
+    return doc
+
+
+def _http_candidates(v1, notes, kinds):
+    out = []
+    for op in v1["operations"]:
+        kind = op.get("kind")
+        if kind in PHASE5_KINDS:
+            notes.add("op-skipped", f"{op['id']}: kind {kind} (WebSocket or streaming) is deferred to phase 5")
+        elif kind not in kinds:
+            notes.add("op-skipped", f"{op['id']}: kind {kind} is not an HTTP call")
+        else:
+            out.append(op)
+    return out
+
+
+def convert_service(v1, section, ctxinfo, family):
+    """service_json (``POST /vapix/<svc>`` with a one-key JSON body) and soap (``POST /vapix/services``) specs."""
+    notes = Notes()
+    v1types = v1.get("types") or {}
+    typemap = make_typemap(list(v1types))
+    ctx = Ctx(notes, typemap, v1types)
+    types = {typemap[n]: conv(strip_xml_hints(s), ctx) for n, s in v1types.items()}
+    namespaces = (v1.get("soap") or {}).get("namespaces") or {}
+
+    candidates = _http_candidates(v1, notes, ("http_endpoint", "soap_operation"))
+    if v1["id"] in ENDPOINT_OVERRIDES:
+        endpoint, why = ENDPOINT_OVERRIDES[v1["id"]]
+        for op in candidates:
+            if not (op.get("http") or {}).get("path", "").startswith("/"):
+                op["http"] = dict(op.get("http") or {}, path=endpoint)
+        notes.add("endpoint-inferred", why)
+    paths = collections.Counter((o.get("http") or {}).get("path") for o in candidates)
+    if family == "service_json":
+        paths = collections.Counter({p: n for p, n in paths.items() if p and p.startswith("/vapix/") and p != SOAP_PATH})
+    if not paths:
+        return None, notes
+    api_path = paths.most_common(1)[0][0]
+    lvl = (v1.get("auth") or {}).get("default_access_level")
+    api_access = lvl if lvl in ACCESS_LEVELS else "admin"
+    api_errors = convert_fault_errors(v1.get("errors"), notes, scope="api")
+    if not api_errors:
+        api_errors = convert_fault_errors(v1.get("errors"), notes, scope="general")
+
+    ops_out, used_ids, unknown_effect, inferred_action = {}, set(), [], []
+    ns_count = collections.Counter()
+    for op in candidates:
+        http_ = op.get("http") or {}
+        soap = op.get("soap") or {}
+        oid = _unique_op_id(op, used_ids)
+        if http_.get("path") != api_path:
+            notes.add("op-skipped", f"{oid}: path {http_.get('path')} differs from the service endpoint {api_path} (a second binding or a REST-style resource; deferred)")
+            continue
+        if (http_.get("method") or "POST").upper() != "POST":
+            notes.add("op-skipped", f"{oid}: method {http_.get('method')} is not POST")
+            continue
+        wire = soap.get("input_element") or re.sub(r"\s*\(.*\)\s*$", "", op.get("name") or "")
+        if not SERVICE_NAME.match(wire):
+            notes.add("op-skipped", f"{oid}: operation name {wire!r} is not a service operation name")
+            continue
+        binding = {}
+        if family == "service_json":
+            binding["operation"] = wire
+        else:
+            prefix, _, element = wire.rpartition(":")
+            ns = namespaces.get(prefix) if prefix else None
+            if not ns:
+                notes.add("op-skipped", f"{oid}: namespace prefix {prefix!r} of {wire} is not declared in the spec")
+                continue
+            action = soap.get("soap_action")
+            if not action:
+                action = f"{ns.rstrip('/')}/{element}"
+                inferred_action.append(oid)
+            binding.update(action=action, element=element, namespace=ns)
+            ns_count[ns] += 1
+
+        plist = [dict(p, name=p["name"].split(".", 1)[1] if ":" in p["name"].split(".")[0] else p["name"]) for p in op.get("params") or []]
+        pschema, _since = build_rpc_params(plist, ctx, notes, oid, {})
+        if pschema is not None and pschema.get("type", "object") != "object":
+            notes.add("params-shape", f"{oid}: params is not an object; dropped")
+            pschema = None
+        effect, write = service_effect(op["id"])
+        if effect == "unknown":
+            unknown_effect.append(oid)
+            write = None
+        o = _op_header(op, oid, api_access, effect, write)
+        o["binding"] = binding
+        if pschema:
+            o["params"] = pschema
+        result = service_result(op, ctx, notes, oid)
+        if result is not None:
+            o["result"] = result
+        elif family == "soap" and (op.get("response") or {}).get("notes"):
+            notes.add("reply-undocumented", f"{oid}: {trim(op['response']['notes'], 160)}")
+        errs = convert_fault_errors(op.get("errors"), notes, skip=api_errors)
+        if errs:
+            o["errors"] = errs
+        exs = svc_examples(op, wire) if family == "service_json" else []
+        if exs:
+            o["examples"] = exs
+        ops_out[oid] = o
+    if not ops_out:
+        return None, notes
+    if unknown_effect:
+        notes.add("effect-unknown", "effect could not be inferred from the name: " + ", ".join(unknown_effect))
+
+    if family == "soap":
+        default_ns = ns_count.most_common(1)[0][0]
+        for o in ops_out.values():
+            if o["binding"]["namespace"] == default_ns:
+                del o["binding"]["namespace"]
+        if inferred_action:
+            notes.add("soap-action-inferred", "the SOAP action is not documented; derived as <namespace>/<operation> for: " + ", ".join(inferred_action))
+        notes.add("soap-namespaces", "request child elements are sent in the request element's namespace; check the documented examples for children in other namespaces")
+        untype_objects(types)
+        strip_ns_prefixes(types)
+        for o in ops_out.values():
+            untype_objects(o.get("result"))
+            strip_ns_prefixes(o.get("result"))
+            strip_ns_prefixes(o.get("params"))
+        binding = {"namespace": default_ns}
+        if api_path != SOAP_PATH:
+            binding["path"] = api_path
+    else:
+        binding = {"path": api_path}
+    doc = _finish_doc(v1, section, family, notes, api_access, binding, api_errors, types, ops_out)
+    return doc, notes
+
+
+def convert_rest(v1, section, ctxinfo):
+    """Plain REST/JSON (no envelope): method + path + JSON body, errors keyed by HTTP status."""
+    notes = Notes()
+    v1types = v1.get("types") or {}
+    typemap = make_typemap(list(v1types))
+    ctx = Ctx(notes, typemap, v1types)
+    types = {typemap[n]: conv(strip_xml_hints(s), ctx) for n, s in v1types.items()}
+
+    candidates = _http_candidates(v1, notes, ("http_endpoint",))
+    if not candidates:
+        return None, notes
+    root = common_prefix_path([o["http"]["path"] for o in candidates])
+    lvl = (v1.get("auth") or {}).get("default_access_level")
+    api_access = lvl if lvl in ACCESS_LEVELS else "admin"
+    api_errors = convert_status_errors(v1.get("errors"), notes, scope="general")
+
+    ops_out, used_ids, unknown_effect = {}, set(), []
+    for op in candidates:
+        http_ = op["http"]
+        method = (http_.get("method") or "GET").upper()
+        oid = _unique_op_id(op, used_ids)
+        binding = {"method": method}
+        path = http_["path"][len(root):]
+        if path:
+            binding["path"] = path
+        props, req, query, body_params = {}, [], [], []
+        for p in op.get("params") or []:
+            where, name = p.get("in"), p["name"]
+            if where not in ("path", "query", "json_body"):
+                notes.add("non-json-param", f"{oid}: {where} parameter {name} dropped")
+                continue
+            if name in props:
+                continue
+            s = leaf_schema(p, ctx)
+            s.pop("_nullable", None)
+            props[name] = s
+            if p.get("required") is True or where == "path":
+                req.append(name)
+            if where == "query":
+                query.append(name)
+            elif where == "json_body":
+                body_params.append(name)
+        if query:
+            binding["query"] = query
+        if body_params:
+            if body_params == ["body"]:
+                binding["body"], binding["body_field"] = "value", "body"
+            else:
+                binding["body"] = "object"
+        effect, write = service_effect(op["id"], method)
+        fixed = {"GET": ("read", None), "DELETE": ("write", "delete"), "PUT": ("write", "replace"), "PATCH": ("write", "patch")}
+        if method in fixed:
+            effect, write = fixed[method]
+        elif effect == "unknown":
+            unknown_effect.append(oid)
+            write = None
+        o = _op_header(op, oid, api_access, effect, write)
+        o["binding"] = binding
+        if props:
+            pschema = {"type": "object"}
+            if req:
+                pschema["required"] = req
+            pschema["properties"] = props
+            o["params"] = pschema
+        resp = op.get("response") or {}
+        if resp.get("format") == "json":
+            if isinstance(resp.get("schema"), dict):
+                r = conv(strip_xml_hints(resp["schema"]), ctx)
+                if r and not (r.get("type") == "object" and not r.get("properties") and "$ref" not in r and "additionalProperties" not in r):
+                    o["result"] = r
+            else:
+                notes.add("json-untyped", f"{oid}: JSON reply without schema; result omitted")
+        errs = convert_status_errors(op.get("errors"), notes, skip=api_errors)
+        if errs:
+            o["errors"] = errs
+        ops_out[oid] = o
+    if unknown_effect:
+        notes.add("effect-unknown", "effect could not be inferred from the name: " + ", ".join(unknown_effect))
+    if len(set(re.findall(r"/v\d+(?:\.\d+)?(?=/)", " ".join(o["http"]["path"] for o in candidates)))) > 1:
+        notes.add("versioned-paths", "operations carry the API version in their path (for example /v1.1/); versions are not negotiated")
+    doc = _finish_doc(v1, section, "rest", notes, api_access, {"root": root}, api_errors, types, ops_out)
+    return doc, notes
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", type=Path, default=DEFAULT_SRC)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--only", nargs="*")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--overwrite", action="store_true", help="rewrite existing uncurated output files (curated ones are never touched)")
     args = ap.parse_args(argv)
+    from codegen import migrate_streams  # imported here: it imports this module
 
     files = sorted(args.src.glob("*/*.yaml"))
     all_modules = set()
@@ -2423,6 +2939,10 @@ def main(argv=None):
             fam = "cgi"
         elif "device_config_rest" in styles:
             fam = "dca"
+        elif classify_v1_family(v1):
+            fam = classify_v1_family(v1)
+        elif migrate_streams.streaming_family(v1):
+            fam = "streams"  # WebSocket sessions, HTTP streams and RTSP URLs (codegen/migrate_streams.py)
         else:
             skipped[f"out-of-scope:{styles[0] if styles else None}"] += 1
             print(f"out-of-scope {sid} ({styles[0] if styles else None})", file=sys.stderr)
@@ -2435,8 +2955,13 @@ def main(argv=None):
             print(f"skip {sid}: no rest_model", file=sys.stderr)
             continue
         try:
-            conv_fn = {"jsonrpc": convert_jsonrpc, "dca": convert_dca, "cgi": convert_cgi}[fam]
-            doc, notes = conv_fn(copy.deepcopy(v1), section, ctxinfo)
+            if fam in ("service_json", "soap"):
+                doc, notes = convert_service(copy.deepcopy(v1), section, ctxinfo, fam)
+            elif fam == "streams":
+                doc, notes = migrate_streams.convert(copy.deepcopy(v1), section, ctxinfo, migrate_streams.streaming_family(v1))
+            else:
+                conv_fn = {"jsonrpc": convert_jsonrpc, "dca": convert_dca, "cgi": convert_cgi, "rest": convert_rest}[fam]
+                doc, notes = conv_fn(copy.deepcopy(v1), section, ctxinfo)
             if doc is None:
                 skipped["cgi-no-expressible-operations"] += 1
                 print(f"skip {sid}: " + "; ".join(d for _, d in notes.items), file=sys.stderr)
@@ -2453,13 +2978,20 @@ def main(argv=None):
             kinds["dropped-keywords"] += 1
         outputs.append((section, sid, doc))
 
+    # Deferred parts of specs converted above (heartbeat SOAP, WebSocket parts of AAM Pro and intercom) become specs of their own.
+    for section, sid, doc, notes in migrate_streams.companions(loaded, ctxinfo, args.only):
+        stats[f"companion:{doc['family']}"] += 1
+        for k, _ in notes.items:
+            kinds[k] += 1
+        outputs.append((section, sid, doc))
+
     for section, sid, doc in outputs:
         text = "# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.\n" + dump_yaml(flowify_doc(doc))
         out = args.out / section / f"{sid}.yaml"
         if args.dry_run:
             continue
-        if out.exists() and "curated: true" in out.read_text():
-            print(f"keep curated {out}", file=sys.stderr)
+        if out.exists() and (not args.overwrite or "curated: true" in out.read_text()):
+            print(f"keep existing {out}", file=sys.stderr)
             continue
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text)

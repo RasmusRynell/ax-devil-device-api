@@ -161,3 +161,151 @@ def test_existing_curated_spec_is_not_overwritten(tmp_path: Path) -> None:
     (src / "demo-cgi.yaml").write_text(yaml.safe_dump(v1_cgi(op("get_ok"))))
     assert m.main(["--src", str(tmp_path / "src"), "--out", str(tmp_path)]) == 0
     assert (out / "demo-cgi.yaml").read_text() == "provenance:\n  curated: true\n"
+
+
+# -- service JSON, SOAP and REST ---------------------------------------------------------
+
+
+def v1_service(styles: list[str], *ops: dict[str, Any], **extra: Any) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "id": "demo-svc", "name": "Demo service", "summary": "Demo.", "status": "released", "styles": styles,
+        "python": {"module": "demo_svc", "class_name": "DemoSvcApi"}, "auth": {"default_access_level": "viewer"},
+        "sources": [{"url": "https://example.test/doc"}], "operations": list(ops),
+    }  # fmt: skip
+    out.update(extra)
+    return out
+
+
+def json_op(op_id: str, name: str, path: str = "/vapix/demo", **kw: Any) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "id": op_id, "name": name, "kind": "soap_operation", "summary": op_id,
+        "http": {"method": "POST", "path": path}, "soap": {"input_element": name}, "params": [],
+        "response": {"format": "json"},
+    }  # fmt: skip
+    out.update(kw)
+    return out
+
+
+def generates(doc: dict[str, Any]):
+    api = build_api(LoadedSpec(Path("specs/apis/network-video/demo-svc.yaml"), doc))
+    assert validate(doc) == []
+    return api
+
+
+def test_classification_of_non_cgi_specs() -> None:
+    soap_op = json_op("get_x", "ax:GetX", path="/vapix/services")
+    assert m.classify_v1_family(v1_service(["soap"], soap_op)) == "soap"
+    assert m.classify_v1_family(v1_service(["soap", "other"], json_op("get_x", "ax:GetX"))) == "service_json"
+    rest = {"id": "get_x", "kind": "http_endpoint", "http": {"method": "PATCH", "path": "/api/v1/x/{id}"}}
+    assert m.classify_v1_family(v1_service(["other"], rest)) == "rest"
+    assert m.classify_v1_family(v1_service(["websocket"], json_op("get_x", "ax:GetX"))) is None
+    assert m.classify_v1_family(v1_service(["rtsp", "soap"], soap_op)) is None
+    stream = {"id": "s", "kind": "stream", "http": {"path": "/axis-cgi/media.cgi"}}
+    assert m.classify_v1_family(v1_service(["http_stream"], stream)) is None
+
+
+def test_service_json_conversion() -> None:
+    v1 = v1_service(
+        ["soap", "other"],
+        json_op("get_door_info", "tdc:GetDoorInfo",
+                params=[{"name": "Token", "in": "soap_body", "type": "array", "items": {"type": "string"}, "required": True}],
+                response={"format": "json", "schema": {"type": "object", "properties": {"DoorInfo": {"type": "array", "items": {"type": "string"}}}}},
+                errors=[{"code": "env:Sender/ter:InvalidArgs/ter:TooManyItems", "scope": "operation", "description": "Too many items."}],
+                examples=[{"title": "ok", "request": {"body": {"tdc:GetDoorInfo": {"Token": ["a"]}}}, "response": {"body": {"DoorInfo": []}}}]),
+        json_op("lock_door", "tdc:LockDoor"),
+        json_op("ws", "x:Ws", path="/vapix/demo/other"),
+        {"id": "stream", "kind": "ws_message", "name": "s", "http": {"method": "GET", "path": "/x"}},
+        discovery=[{"method": "param_property", "property": 'Properties.API.Demo.Version="1.2"', "notes": "1.2 and later."}],
+    )  # fmt: skip
+    doc, notes = m.convert_service(copy.deepcopy(v1), "network-video", {}, "service_json")
+    assert doc["family"] == "service_json" and doc["binding"] == {"path": "/vapix/demo"}
+    assert doc["discovery"] == [{"param": {"name": "Properties.API.Demo.Version", "value": "1.2", "compare": ">="}}]
+    assert list(doc["operations"]) == ["get_door_info", "lock_door"]
+    op = doc["operations"]["get_door_info"]
+    assert op["binding"] == {"operation": "tdc:GetDoorInfo"} and op["effect"] == "read"
+    assert op["errors"] == {"ter:TooManyItems": {"description": "Too many items.", "kind": "invalid_argument"}}
+    assert op["examples"][0]["request"] == {"params": {"Token": ["a"]}}
+    assert doc["operations"]["lock_door"]["effect"] == "action"
+    kinds = [k for k, _ in notes.items]
+    assert kinds.count("op-skipped") == 2  # other path, websocket kind
+    assert doc["provenance"]["curated"] is False
+    generates(doc)
+
+
+def test_soap_conversion_uses_prefix_namespaces_and_local_names() -> None:
+    def soap_op(op_id: str, element: str, **kw: Any) -> dict[str, Any]:
+        out = json_op(op_id, element, path="/vapix/services")
+        out["soap"] = {"input_element": element, "soap_action": f"http://x.test/a/{element.split(':')[1]}"}
+        out["response"] = {"format": "xml", "schema": {"type": "object", "properties": {"wstop:TopicSet": {"type": "object"}, "Count": {"type": "integer"}}}}
+        out.update(kw)
+        return out
+
+    v1 = v1_service(
+        ["soap"],
+        soap_op("get_things", "a:GetThings"),
+        soap_op("get_other", "b:GetOther", soap={"input_element": "b:GetOther"}),
+        soap={"endpoint": "/vapix/services", "namespaces": {"a": "http://x.test/a", "b": "http://x.test/b"}},
+    )  # fmt: skip
+    doc, notes = m.convert_service(copy.deepcopy(v1), "network-video", {}, "soap")
+    assert doc["family"] == "soap" and doc["binding"]["namespace"] in ("http://x.test/a", "http://x.test/b")
+    ops = doc["operations"]
+    other = ops["get_things"] if doc["binding"]["namespace"] == "http://x.test/b" else ops["get_other"]
+    assert other["binding"]["namespace"] in ("http://x.test/a", "http://x.test/b")
+    assert ops["get_other"]["binding"]["action"] == "http://x.test/b/GetOther"  # derived, flagged
+    assert ops["get_things"]["binding"]["element"] == "GetThings"
+    assert set(ops["get_things"]["result"]["properties"]) == {"TopicSet", "Count"}
+    assert "type" not in ops["get_things"]["result"]["properties"]["TopicSet"]  # open element
+    assert any(k == "soap-action-inferred" for k, _ in notes.items)
+    generates(doc)
+
+
+def test_rest_conversion() -> None:
+    def rest_op(op_id: str, method: str, path: str, params: list[dict[str, Any]], **kw: Any) -> dict[str, Any]:
+        out = {"id": op_id, "name": f"{method} {path}", "kind": "http_endpoint", "summary": op_id,
+               "http": {"method": method, "path": path}, "params": params, "response": {"format": "none"}}  # fmt: skip
+        out.update(kw)
+        return out
+
+    ident = {"name": "itemId", "in": "path", "type": "string", "required": True}
+    v1 = v1_service(
+        ["other"],
+        rest_op("list_items", "GET", "/api/v1.1/items", [],
+                response={"format": "json", "schema": {"type": "array", "items": {"type": "string"}}}),
+        rest_op("update_item", "PATCH", "/api/v1.1/items/{itemId}",
+                [ident, {"name": "enabled", "in": "json_body", "type": "boolean", "required": True}]),
+        rest_op("create_item", "POST", "/api/v1.2/items", [{"name": "body", "in": "json_body", "type": "object", "required": True, "schema": {"type": "object", "properties": {"a": {"type": "string"}}}}],
+                errors=[{"code": 400, "http_status": 400, "scope": "operation"}, {"code": 401, "http_status": 401, "scope": "operation"}]),
+        rest_op("search", "GET", "/api/v1.1/search", [{"name": "q", "in": "query", "type": "string"}]),
+        rest_op("socket", "GET", "/api/v1.1/socket", [], kind="ws_message"),
+    )  # fmt: skip
+    doc, notes = m.convert_rest(copy.deepcopy(v1), "network-video", {})
+    assert doc["family"] == "rest" and doc["binding"] == {"root": "/api"}
+    ops = doc["operations"]
+    assert "socket" not in ops
+    assert ops["list_items"]["binding"] == {"method": "GET", "path": "/v1.1/items"}
+    assert ops["list_items"]["result"] == {"type": "array", "items": {"type": "string"}}
+    assert ops["update_item"]["binding"] == {"method": "PATCH", "path": "/v1.1/items/{itemId}", "body": "object"}
+    assert ops["update_item"]["effect"] == "write" and ops["update_item"]["write"] == "patch"
+    assert ops["update_item"]["params"]["required"] == ["itemId", "enabled"]
+    assert ops["create_item"]["binding"]["body"] == "value" and ops["create_item"]["binding"]["body_field"] == "body"
+    assert ops["create_item"]["errors"] == {400: {"description": "Bad Request", "kind": "invalid_argument"}}  # 401 is dropped
+    assert ops["search"]["binding"] == {"method": "GET", "path": "/v1.1/search", "query": ["q"]}
+    assert any(k == "versioned-paths" for k, _ in notes.items)
+    generates(doc)
+
+
+def test_main_routes_new_families_and_never_overwrites_existing_files(tmp_path: Path) -> None:
+    import yaml
+
+    src = tmp_path / "src" / "network-video"
+    src.mkdir(parents=True)
+    (src / "demo-svc.yaml").write_text(yaml.safe_dump(v1_service(["soap", "other"], json_op("get_x", "ax:GetX"))))
+    out = tmp_path / "out"
+    assert m.main(["--src", str(tmp_path / "src"), "--out", str(out)]) == 0
+    written = (out / "network-video" / "demo-svc.yaml").read_text()
+    assert "family: service_json" in written
+    (out / "network-video" / "demo-svc.yaml").write_text("edited\n")
+    assert m.main(["--src", str(tmp_path / "src"), "--out", str(out)]) == 0
+    assert (out / "network-video" / "demo-svc.yaml").read_text() == "edited\n"
+    assert m.main(["--src", str(tmp_path / "src"), "--out", str(out), "--overwrite"]) == 0
+    assert "family: service_json" in (out / "network-video" / "demo-svc.yaml").read_text()

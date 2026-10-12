@@ -29,6 +29,10 @@ class FieldDef:
     """Name of the model type this field holds (directly or as list items), if any."""
     since: tuple[int, int] | None = None
     """Version that introduced the field (result fields); such a field is always optional."""
+    upload: dict[str, Any] | None = None
+    """``x-upload`` options: the field is file content (``UploadSource``), sent as a file part or raw body."""
+    place: str | None = None
+    """``x-in``: ``query``, ``form`` or ``body`` (cgi); ``None`` means the encoding's default."""
 
     @property
     def is_mapping(self) -> bool:
@@ -98,6 +102,16 @@ class OpDef:
     """Rendered ``XmlMap(...)`` for cgi xml replies."""
     args: list[FieldDef] = field(default_factory=list)
     """Request fields that become method arguments (the params fields without read-only ones)."""
+    key_fields: list[str] = field(default_factory=list)
+    """cgi: Python names of arguments that only fill ``{name}`` placeholders of the path or of wire names."""
+    kind: str = "call"
+    """``call`` (request/response), ``stream`` (streamed HTTP body), ``session`` (WebSocket session) or ``rtsp`` (URL builder)."""
+    stream_decoder: str | None = None
+    """``bytes``, ``mjpeg`` or ``lines`` for ``stream`` operations."""
+    session: dict[str, Any] | None = None
+    """The ``binding.session`` block of a ``session`` operation."""
+    rtsp: dict[str, Any] | None = None
+    """The ``binding.rtsp`` block of an ``rtsp`` operation."""
 
 
 @dataclass

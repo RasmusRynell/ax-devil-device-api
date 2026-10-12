@@ -7,7 +7,7 @@ import textwrap
 from dataclasses import dataclass
 from typing import Any
 
-from .build import BUILTIN_SHADOWS
+from .build import BUILTIN_SHADOWS, SESSION_CODECS, SESSION_SETUPS
 from .loader import SpecError
 from .model import ApiDef, FieldDef, OpDef, TypeDef
 from .naming import last_word
@@ -43,9 +43,36 @@ def _arg(f: FieldDef) -> str:
     return f"{f.py}: {_sig_type(f)}" if f.required else f"{f.py}: {_sig_type(f)} | MISSING = MISSING"
 
 
-def signatures(op: OpDef) -> tuple[list[Signature], Signature | None]:
+STREAM_ITEMS = {"mjpeg": "Part", "lines": "str", "bytes": "bytes"}
+SESSION_OPTIONS = "heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False"
+
+
+def session_setup(op: OpDef) -> str:
+    assert op.session is not None
+    return op.session.get("setup") or SESSION_CODECS[op.session.get("codec", "raw")]
+
+
+def special_signature(op: OpDef, is_async: bool) -> Signature | None:
+    """Signature of session and rtsp operations; ``None`` for calls (which may still stream)."""
+    if op.kind == "session":
+        options = [f"{name}: {ann}" for name, ann in SESSION_SETUPS[session_setup(op)]]
+        ret = "AbstractAsyncContextManager[AsyncSession]" if is_async else "AbstractContextManager[Session]"
+        return Signature([*map(_arg, op.args), *options, "*", SESSION_OPTIONS, REQUEST_OPTIONS], ret)
+    if op.kind == "rtsp":
+        positional = sorted((f for f in op.args if f.py in op.positional), key=lambda f: op.positional.index(f.py))
+        keyword = [f for f in op.args if f.py not in op.positional]
+        return Signature([*map(_arg, positional), "*", *map(_arg, keyword), "port: int | None = None", "include_credentials: bool = False"], "RtspUrl")
+    return None
+
+
+def signatures(op: OpDef, is_async: bool = False) -> tuple[list[Signature], Signature | None]:
     """(overloads, implementation). Plain operations have one entry and no implementation."""
+    special = special_signature(op, is_async)
+    if special is not None:
+        return [special], None
     ret = op.result or "None"
+    if op.kind == "stream":
+        ret = f"{'Async' if is_async else ''}StreamResult[{STREAM_ITEMS[op.stream_decoder or 'bytes']}]"
     if op.params is None:
         return [Signature(["*", REQUEST_OPTIONS], ret)], None
     fields = op.args
@@ -87,12 +114,21 @@ def docstring(text: str, indent: str) -> list[str]:
     return out
 
 
+KIND_SENTENCES = {
+    "stream": "The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.",
+    "session": "Use as a context manager (``with`` / ``async with``); it yields the WebSocket session.",
+    "rtsp": "Builds the URL only; no request is made.",
+}
+
+
 def sentence(text: str) -> str:
     return text if text.endswith((".", "!", "?", ":")) else text + "."
 
 
 def op_doc(op: OpDef) -> str:
     tail = []
+    if op.kind in KIND_SENTENCES:
+        tail.append(KIND_SENTENCES[op.kind])
     if op.write in WRITE_SENTENCES:
         tail.append(WRITE_SENTENCES[op.write])
     tail.append(f"Access: {op.access}.")
@@ -229,7 +265,14 @@ def discovery_code(api: ApiDef) -> str:
             items.append(f"DcaDiscovery({value['api']!r}, {value['version']!r})")
         elif kind == "param":
             extra = f", {str(value['value'])!r}" if value.get("value") is not None else ""
+            compare = value.get("compare", "==")
+            if compare != "==":
+                if value.get("value") is None:
+                    raise SpecError(f"param discovery {value['name']!r}: compare {compare!r} needs a value")
+                extra += f", {compare!r}"
             items.append(f"ParamDiscovery({value['name']!r}{extra})")
+        elif kind == "acap":
+            items.append(f"AcapDiscovery({value['name']!r})")
         else:
             raise SpecError(f"unknown discovery kind {kind!r}")
     return tup(items)
@@ -264,8 +307,52 @@ def negotiation_code(binding: dict[str, Any]) -> str | None:
     return f"GetSupportedVersions({', '.join(args)})" if args else None
 
 
+SOAP_PATH = "/vapix/services"
+
+
+def soap_path(binding: dict[str, Any]) -> str:
+    return binding.get("path", SOAP_PATH)
+
+
+def rtsp_binding_code(op: OpDef) -> str:
+    assert op.rtsp is not None
+    args = []
+    if op.rtsp.get("path", MEDIA_PATH) != MEDIA_PATH:
+        args.append(f"path={op.rtsp['path']!r}")
+    if op.rtsp.get("port", RTSP_PORT) != RTSP_PORT:
+        args.append(f"port={op.rtsp['port']!r}")
+    query = op.rtsp.get("query") or {}
+    if query:
+        args.append(f"fixed_query={tup([f'({k!r}, {_query_value(v)!r})' for k, v in query.items()])}")
+    return f"RtspBinding({', '.join(args)})"
+
+
+def session_code(op: OpDef) -> str:
+    assert op.session is not None
+    s = op.session
+    args = ["INFO.id", repr(s["path"])]
+    query = s.get("query") or {}
+    if query:
+        args.append(f"query={tup([f'({k!r}, {_query_value(v)!r})' for k, v in query.items()])}")
+    codec = s.get("codec", "raw")
+    if codec != "raw":
+        args.append(f"codec={SESSION_CODEC_CLASSES[codec]}")
+    setup = session_setup(op)
+    if setup != "none":
+        args.append(f"setup={SESSION_SETUP_FUNCTIONS[setup]}")
+    return f"SessionSpec({', '.join(args)})"
+
+
+MEDIA_PATH = "/axis-media/media.amp"
+RTSP_PORT = 554
+SESSION_CODEC_CLASSES = {"events": "EventsCodec()", "datahub": "DataHubCodec()"}
+SESSION_SETUP_FUNCTIONS = {"events": "events_setup", "datahub": "datahub_setup"}
+
+
 def binding_code(api: ApiDef, op: OpDef) -> str:
     ob, ab = op.binding, api.binding
+    if op.kind == "rtsp":
+        return rtsp_binding_code(op)
     extra = common_binding_args(ob, ab)
     if api.family == "jsonrpc":
         if "method" not in ob:
@@ -280,14 +367,33 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
         placement = ob.get("params_placement", ab.get("params_placement"))
         if placement and placement != "params":
             args.append(f"params_placement={placement!r}")
+        multipart = ob.get("multipart")
+        if multipart is not None:
+            parts = [f"json_part={multipart['json_part']!r}"] if multipart.get("json_part") else []
+            parts.append(f"uploads={tup(upload_specs(op))}")
+            args.append(f"multipart=JsonRpcMultipart({', '.join(parts)})")
         return f"JsonRpcBinding({', '.join(args + extra)})"
-    if api.family == "dca":
+    if api.family == "service_json":
+        args = [repr(ob["path"]) if "path" in ob else "PATH", repr(ob["operation"])]
+        return f"ServiceJsonBinding({', '.join(args + extra)})"
+    if api.family == "soap":
+        namespace = ob.get("namespace") or ab["namespace"]
+        args = [repr(ob["action"]), repr(ob["element"]), repr(namespace)]
+        if op.reply_map:
+            args.append(f"reply={op.reply_map}")
+        if soap_path(ob) != SOAP_PATH:
+            args.append("path=PATH" if "path" not in ob else f"path={ob['path']!r}")
+        namespaces = {**(ab.get("namespaces") or {}), **(ob.get("namespaces") or {})}
+        if namespaces:
+            extra = extra + [f"namespaces={tup([f'({p!r}, {uri!r})' for p, uri in namespaces.items()])}"]
+        return f"SoapBinding({', '.join(args + extra)})"
+    if api.family in ("dca", "rest"):
         method = ob.get("method")
         if not method:
-            raise SpecError(f"{op.id}: dca operations need binding.method")
+            raise SpecError(f"{op.id}: {api.family} operations need binding.method")
         path = ob.get("path", "")
         if path and not path.startswith("/"):
-            raise SpecError(f"{op.id}: dca binding.path must start with '/'")
+            raise SpecError(f"{op.id}: {api.family} binding.path must start with '/'")
         if path:
             escaped = path.replace("{", "{{").replace("}", "}}").replace('"', '\\"')
             path_code = f'f"{{ROOT}}{escaped}"'
@@ -299,6 +405,11 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
             args.append(f"body={body!r}")
         if ob.get("body_field"):
             args.append(f"body_field={ob['body_field']!r}")
+        if api.family == "rest":
+            query = [(op.params.by_py(n) or op.params.by_wire(n)) if op.params else None for n in ob.get("query") or []]
+            if query:
+                args.append(f"query={tup([f'({f.py!r}, {f.wire!r})' for f in query if f])}")
+            return f"RestBinding({', '.join(args + extra)})"
         styles = ob.get("key_styles") or {}
         if styles:
             args.append(f"key_styles={tup([f'({k!r}, {v!r})' for k, v in styles.items()])}")
@@ -309,36 +420,65 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
         args.append(f"method={ob['method']!r}")
     if ob.get("encoding", "query") != "query":
         args.append(f"encoding={ob['encoding']!r}")
-    query = ob.get("query") or {}
-    if query:
-        pairs = [f"({k!r}, {_query_value(v)!r})" for k, v in query.items()]
-        args.append(f"fixed_query={tup(pairs)}")
+    for key, name in (("query", "fixed_query"), ("url_query", "url_query")):
+        fixed = ob.get(key) or {}
+        if fixed:
+            args.append(f"{name}={tup([f'({k!r}, {_query_value(v)!r})' for k, v in fixed.items()])}")
+    if ob.get("content_type"):
+        args.append(f"content_type={ob['content_type']!r}")
     if op.params is not None:
         cgi_args = []
         for f in op.args:
+            if f.py in op.key_fields or f.upload is not None or f.place == "body":
+                continue
             style = f.style or ("csv" if f.sig.startswith("list[") else "spread" if f.is_mapping else None)
             parts = [repr(f.py)]
             if f.wire != f.py:
                 parts.append(f"wire={f.wire!r}")
             if style and style != "plain":
                 parts.append(f"style={style!r}")
+            if f.place in ("query", "form"):
+                parts.append(f"place={f.place!r}")
             cgi_args.append(f"CgiArg({', '.join(parts)})")
         if cgi_args:
             args.append(f"args={tup(cgi_args)}")
+        body = [f for f in op.args if f.place == "body"]
+        if body:
+            args.append(f"body_field={body[0].py!r}")
+        uploads = upload_specs(op)
+        if uploads:
+            args.append(f"uploads={tup(uploads)}")
     reply = reply_code(ob, op)
     if reply:
         args.append(f"reply={reply}")
     if ob.get("accept"):
         args.append(f"accept={ob['accept']!r}")
-    if ob.get("stream"):
+    if ob.get("stream") or op.kind == "stream":
         args.append("stream=True")
     return f"CgiBinding({', '.join(args + extra)})"
 
 
-def _query_value(v: Any) -> str:
+def _query_value(v: Any) -> str | None:
+    """Fixed argument value as text; ``None`` is a bare key."""
+    if v is None:
+        return None
     if isinstance(v, bool):
         return "true" if v else "false"
     return str(v)
+
+
+def upload_specs(op: OpDef) -> list[str]:
+    """``UploadSpec(...)`` sources for the operation's ``x-upload`` arguments."""
+    out = []
+    for f in op.args:
+        if f.upload is None:
+            continue
+        parts = [repr(f.py)]
+        for key in ("part", "filename", "content_type"):
+            if f.upload.get(key):
+                parts.append(f"{key}={f.upload[key]!r}")
+        out.append(f"UploadSpec({', '.join(parts)})")
+    return out
 
 
 def reply_code(ob: dict[str, Any], op: OpDef) -> str | None:
@@ -351,6 +491,14 @@ def reply_code(ob: dict[str, Any], op: OpDef) -> str | None:
         return "Text()"
     if kind == "json":
         return "JsonReply()"
+    if kind == "stream":
+        decoder = opts.get("decoder", "bytes")
+        args = [repr(decoder)] if decoder != "bytes" else []
+        if opts.get("encoding"):
+            args.append(f"encoding={opts['encoding']!r}")
+        return f"Stream({', '.join(args)})"
+    if kind == "text_lines":
+        return f"TextLines(skip={opts['skip']})" if opts.get("skip") else "TextLines()"
     if kind == "text_kv":
         prefix = opts.get("strip_prefix")
         return f"TextKv(strip_prefix={prefix!r})" if prefix else "TextKv()"
@@ -377,9 +525,10 @@ def reply_code(ob: dict[str, Any], op: OpDef) -> str | None:
 def render_ops(api: ApiDef) -> list[str]:
     ids = {op.id for op in api.ops}
     lines = ["class OPS:"]
-    if not api.ops:
+    calls = [op for op in api.ops if op.kind != "session"]
+    if not calls:
         lines.append("    pass")
-    for op in api.ops:
+    for op in calls:
         args = [f"INFO, {op.id!r}", binding_code(api, op)]
         if op.params:
             args.append(f"params={op.params.name}")
@@ -401,6 +550,10 @@ def render_ops(api: ApiDef) -> list[str]:
         if op.support != "docs-only":
             args.append(f"support={op.support!r}")
         lines.append(f"    {op.id} = Operation({', '.join(args)})")
+    sessions = [op for op in api.ops if op.kind == "session"]
+    if sessions:
+        lines += ["", "", "class SESSIONS:"]
+        lines += [f"    {op.id} = {session_code(op)}" for op in sessions]
     return lines
 
 
@@ -451,8 +604,22 @@ def _value(f: FieldDef) -> str:
     return f"None if {f.py} is None else dict({f.py})" if f.nullable else f"dict({f.py})"
 
 
+def render_special_call(op: OpDef) -> list[str]:
+    """Body of a session or rtsp method (neither does I/O in the method itself)."""
+    if op.kind == "session":
+        options = [name for name, _ in SESSION_SETUPS[session_setup(op)]]
+        spec = f"SESSIONS.{op.id}"
+        if op.args:
+            spec += f".bind({{{', '.join(f'{f.wire!r}: {f.py}' for f in op.args)}}})"
+        args = [spec, "request_options=request_options", "heartbeat=heartbeat", "use_token=use_token"]
+        args += [f"{name}={name}" for name in options]
+        return [f"        return self._device.connect_session({', '.join(args)})"]
+    items = ", ".join(f'"{f.py}": {_value(f)}' for f in op.args)
+    return [f"        return self._device.rtsp_url_for(OPS.{op.id}, {{{items}}}, port=port, include_credentials=include_credentials)"]
+
+
 def render_call(op: OpDef, is_async: bool) -> list[str]:
-    prefix = ("return " if op.result else "") + ("await " if is_async else "")
+    prefix = ("return " if op.result or op.kind == "stream" else "") + ("await " if is_async else "")
     if op.params is None:
         return [f"        {prefix}self._run(OPS.{op.id}, None, {{}}, request_options)"]
     if op.overloaded:
@@ -476,7 +643,7 @@ def render_call(op: OpDef, is_async: bool) -> list[str]:
         items.append(f'"{f.py}": {_value(f)}')
     if not optional_maps:
         return [f"        {prefix}self._run(OPS.{op.id}, None, {{{', '.join(items)}}}, request_options)"]
-    lines = [f"        args = {{{', '.join(items)}}}"]
+    lines = [f"        args: dict[str, Any] = {{{', '.join(items)}}}"]
     for f in optional_maps:
         lines += [f"        if {f.py} is not MISSING:", f'            args["{f.py}"] = {_value(f)}']
     lines.append(f"        {prefix}self._run(OPS.{op.id}, None, args, request_options)")
@@ -484,8 +651,9 @@ def render_call(op: OpDef, is_async: bool) -> list[str]:
 
 
 def render_method(op: OpDef, is_async: bool) -> list[str]:
-    kw = "async def" if is_async else "def"
-    overloads, impl = signatures(op)
+    # Sessions and RTSP URLs need no await: the async API returns the (async) context manager or the URL directly.
+    kw = "async def" if is_async and op.kind not in ("session", "rtsp") else "def"
+    overloads, impl = signatures(op, is_async)
     lines: list[str] = []
 
     def header(sig: Signature) -> str:
@@ -496,7 +664,7 @@ def render_method(op: OpDef, is_async: bool) -> list[str]:
     main = impl or overloads[0]
     lines.append(header(main) + ":")
     lines += docstring(op_doc(op), "        ")
-    lines += render_call(op, is_async)
+    lines += render_special_call(op) if op.kind in ("session", "rtsp") else render_call(op, is_async)
     lines.append("")
     return lines
 
@@ -524,13 +692,50 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import Binary, CgiArg, CgiBinding, JsonReply, Text, TextKv, TextOk, Xml
+from .._http.upload import UploadSource, UploadSpec
+from .._protocols.base import AcapDiscovery, ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery
+from .._protocols.cgi import Binary, CgiArg, CgiBinding, JsonReply, Text, TextKv, TextLines, TextOk, Xml
 from .._protocols.dca import DcaBinding
-from .._protocols.jsonrpc import FixedVersion, GetSupportedVersions, JsonRpcBinding, NoVersion
+from .._protocols.rest import RestBinding
+from .._protocols.service_json import ServiceJsonBinding
+from .._protocols.soap import SoapBinding
+from .._protocols.jsonrpc import FixedVersion, GetSupportedVersions, JsonRpcBinding, JsonRpcMultipart, NoVersion
 from .._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
 from ._base import AsyncApi, SyncApi
 """
+
+# Imported only by modules that use the feature, so type names cannot collide with them elsewhere (see build.FEATURE_RESERVED).
+FEATURE_IMPORTS = {
+    "stream": [
+        "from .._protocols.cgi import Stream",
+        "from .._runtime.driver import AsyncStreamResult, StreamResult",
+        "from .._streams import Part",
+    ],
+    "session": [
+        "from collections.abc import Sequence",
+        "from contextlib import AbstractAsyncContextManager, AbstractContextManager",
+        "from .._http.options import DEFAULT_HEARTBEAT, Heartbeat",
+        "from .._runtime.ws import AsyncSession, Session, SessionSpec",
+    ],
+    "events": ["from .._runtime.ws_codecs import EventFilter, EventsCodec, events_setup"],
+    "datahub": ["from .._runtime.ws_codecs import DataHubCodec, datahub_setup"],
+    "rtsp": ["from ..rtsp import RtspBinding, RtspUrl"],
+}
+
+
+def api_features(api: ApiDef) -> set[str]:
+    out: set[str] = set()
+    for op in api.ops:
+        if op.kind in ("stream", "rtsp"):
+            out.add(op.kind)
+        elif op.kind == "session":
+            assert op.session is not None
+            out.add("session")
+            if op.session.get("codec") == "events" or session_setup(op) == "events":
+                out.add("events")
+            if op.session.get("codec") == "datahub" or session_setup(op) == "datahub":
+                out.add("datahub")
+    return out
 
 
 def render_module(api: ApiDef) -> str:
@@ -540,16 +745,20 @@ def render_module(api: ApiDef) -> str:
     out += [f'"""{summary}', ""]
     out += [f"Docs: {d}" for d in api.docs[:1]]
     out += ['"""', ""]
-    out.append(IMPORTS)
+    out.append(IMPORTS + "".join(line + "\n" for f in sorted(api_features(api)) for line in FEATURE_IMPORTS[f]))
     out += ["# " + "-" * 75, "# Models", ""]
     for td in api.types:
         out += render_type(td, types)
     out += ["", "# " + "-" * 75, "# Descriptors", ""]
-    if api.family == "dca":
+    if api.family in ("dca", "rest"):
         root = api.binding.get("root")
         if not root:
-            raise SpecError("dca binding needs `root`")
+            raise SpecError(f"{api.family} binding needs `root`")
         out.append(f"ROOT = {root!r}")
+    elif api.family == "soap":
+        out.append(f"PATH = {soap_path(api.binding)!r}")
+    elif api.family in ("ws", "rtsp") and "path" not in api.binding:
+        out.append("# No shared path: every operation names its own endpoint.")
     else:
         if "path" not in api.binding:
             raise SpecError("binding.path is required")

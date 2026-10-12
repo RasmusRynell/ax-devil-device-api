@@ -15,22 +15,26 @@ inside ``Body``, so ``XmlMap.root`` is relative to that element.
 Params become child elements in the request element's namespace, in field
 order: scalars as text (``true``/``false`` for booleans), lists as repeated
 elements, nested objects as nested elements. A wire key starting with ``@`` is
-an attribute of its parent element instead.
+an attribute of its parent element instead. A key may carry a namespace
+prefix (``acert:Certificate``, ``@xsi:type``); the prefix must be declared in
+``SoapBinding.namespaces`` and is declared on the request element. Replies are
+read by local name, so prefixes never matter there.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from xml.sax.saxutils import escape, quoteattr
 
-from ..errors import ResponseFormatError
+from ..errors import ConfigurationError, ResponseFormatError
 from .._http.types import AuthPolicy, RawBody, Request, Response
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
-from .xmlmap import XmlMap, extract, local
+from .xmlmap import XmlMap, extract, local, prune_empty
 
 ENVELOPE_NS = "http://www.w3.org/2003/05/soap-envelope"
 SERVICES_PATH = "/vapix/services"
@@ -51,6 +55,18 @@ class SoapBinding:
     path: str = SERVICES_PATH
     auth: AuthPolicy = "required"
     timeout: float | None = None
+    namespaces: Mapping[str, str] | tuple[tuple[str, str], ...] = ()
+    """Prefix -> namespace URI for prefixed names in the params (``acert:Id``). A mapping or ``(prefix, uri)`` pairs."""
+
+    def __post_init__(self) -> None:
+        pairs = tuple(self.namespaces.items() if isinstance(self.namespaces, Mapping) else self.namespaces)
+        for prefix, _ in pairs:
+            if not prefix.isidentifier() or prefix in _RESERVED_PREFIXES:
+                raise ConfigurationError(f"invalid SOAP namespace prefix {prefix!r}")
+        object.__setattr__(self, "namespaces", pairs)
+
+
+_RESERVED_PREFIXES = frozenset({"env", "xml", "xmlns"})
 
 
 def _text(value: Any) -> str:
@@ -61,13 +77,21 @@ def _text(value: Any) -> str:
     return str(value)
 
 
-def _render(name: str, value: Any, out: list[str]) -> None:
+def _check_prefix(name: str, prefixes: frozenset[str]) -> None:
+    prefix, sep, _ = name.partition(":")
+    if sep and prefix not in prefixes:
+        raise ConfigurationError(f"SOAP name {name!r} uses the namespace prefix {prefix!r}, which the binding does not declare")
+
+
+def _render(name: str, value: Any, out: list[str], prefixes: frozenset[str] = frozenset()) -> None:
+    _check_prefix(name, prefixes)
     attrs: list[str] = []
     children: list[tuple[str, Any]] = []
     text = ""
     if isinstance(value, dict):
         for key, item in value.items():
             if key.startswith("@"):
+                _check_prefix(key[1:], prefixes)
                 attrs.append(f" {key[1:]}={quoteattr(_text(item))}")
             elif isinstance(item, list):
                 children.extend((key, entry) for entry in item)
@@ -78,16 +102,19 @@ def _render(name: str, value: Any, out: list[str]) -> None:
     out.append(f"<{name}{''.join(attrs)}>")
     out.append(text)
     for key, item in children:
-        _render(key, item, out)
+        _render(key, item, out, prefixes)
     out.append(f"</{name}>")
 
 
 def build_envelope(binding: SoapBinding, args: dict[str, Any]) -> bytes:
     out = [f'<?xml version="1.0" encoding="utf-8"?><env:Envelope xmlns:env="{ENVELOPE_NS}"><env:Body>']
-    element = []
-    _render(binding.element, args, element)
-    # The request element declares the default namespace, which its children inherit.
-    element[0] = element[0].replace(">", f" xmlns={quoteattr(binding.namespace)}>", 1)
+    element: list[str] = []
+    namespaces = tuple(binding.namespaces.items()) if isinstance(binding.namespaces, Mapping) else binding.namespaces
+    _render(binding.element, args, element, frozenset(prefix for prefix, _ in namespaces))
+    # The request element declares the default namespace, which its unprefixed children inherit,
+    # and the prefixes of the prefixed ones.
+    declared = f" xmlns={quoteattr(binding.namespace)}" + "".join(f" xmlns:{p}={quoteattr(uri)}" for p, uri in namespaces)
+    element[0] = element[0].replace(">", f"{declared}>", 1)
     out.extend(element)
     out.append("</env:Body></env:Envelope>")
     return "".join(out).encode("utf-8")
@@ -156,7 +183,7 @@ def _decode(op: Operation[SoapBinding], response: Response) -> Any:
         return {}
     if first is None:
         raise ResponseFormatError(op.api.id, op.id, "SOAP body is empty")
-    return extract(first, reply)
+    return prune_empty(extract(first, reply), op.result)
 
 
 def flow(op: Operation[SoapBinding], params: Model | None, state: DeviceState) -> CallFlow[Any]:

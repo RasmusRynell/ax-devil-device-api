@@ -71,7 +71,7 @@ def serialize(value: Any, key: Any = None) -> Any:
     return str(value)
 
 
-def _pairs(pairs: tuple[tuple[str, str], ...]) -> list[list[Any]]:
+def _pairs(pairs: tuple[tuple[str, Any], ...]) -> list[list[Any]]:
     return [[k, serialize(v, k)] for k, v in pairs]
 
 

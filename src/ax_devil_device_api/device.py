@@ -40,15 +40,17 @@ from .errors import ConfigurationError
 from ._protocols.base import CallFlow, Model, Operation, flow_for
 from ._protocols.state import DeviceState, Token
 from ._runtime.capabilities import (
+    OPTIONAL_PROBES,
     PROBES,
     Capabilities,
     DeviceIdentity,
     SupportResult,
     decide_support,
+    extra_probes,
     identity_flow,
     probe_error,
 )
-from .rtsp import MEDIA_PATH, MediaStream, RtspUrl
+from .rtsp import MEDIA_PATH, MediaStream, RtspBinding, RtspUrl, build_rtsp_url, rtsp_query
 from ._runtime.driver import Call, run_async, run_sync
 from ._runtime.ws import (
     AsyncSession,
@@ -99,13 +101,7 @@ class _DeviceBase:
 
     @staticmethod
     def _capabilities(values: dict[str, Any], errors: dict[str, str]) -> Capabilities:
-        return Capabilities(
-            classic_apis=values.get("classic_apis"),
-            dca_apis=values.get("dca_apis"),
-            properties=values.get("properties"),
-            errors=errors,
-            observed_at=datetime.now(timezone.utc),
-        )
+        return Capabilities.from_probes(values, errors)
 
     def rtsp_url(self, stream: MediaStream | None = None, *, port: int = 554, path: str = MEDIA_PATH, include_credentials: bool = False) -> RtspUrl:
         """RTSP URL of this device for ``stream`` (pure; no I/O). Credentials are added only on request.
@@ -113,11 +109,32 @@ class _DeviceBase:
         Needs password credentials when ``include_credentials`` is set; the
         RTSP port is separate from the HTTP port and defaults to 554.
         """
-        credentials = self.config.credentials
-        if include_credentials and not isinstance(credentials, Credentials):
-            raise ConfigurationError("include_credentials needs a username and password (BearerToken cannot be used for RTSP)")
         return (stream or MediaStream()).url(
-            self.config.host, port=port, path=path, credentials=credentials if include_credentials and isinstance(credentials, Credentials) else None
+            self.config.host, port=port, path=path, credentials=self._rtsp_credentials(include_credentials)
+        )
+
+    def _rtsp_credentials(self, include: bool) -> Credentials | None:
+        credentials = self.config.credentials
+        if include and not isinstance(credentials, Credentials):
+            raise ConfigurationError("include_credentials needs a username and password (BearerToken cannot be used for RTSP)")
+        return credentials if include and isinstance(credentials, Credentials) else None
+
+    def rtsp_url_for(
+        self, op: Operation[RtspBinding], kwargs: dict[str, Any] | None = None, /, *, port: int | None = None, include_credentials: bool = False
+    ) -> RtspUrl:
+        """RTSP URL of a generated RTSP operation (pure; no I/O). Generated API methods call this.
+
+        ``kwargs`` are the operation's arguments (validated like any other call; ``MISSING`` values count as not set).
+        ``port`` overrides the binding's RTSP port.
+        """
+        params = build_params(op, None, dict(kwargs or {}))
+        binding = op.binding
+        return build_rtsp_url(
+            self.config.host,
+            port=binding.port if port is None else port,
+            path=binding.path,
+            params=rtsp_query(binding, params),
+            credentials=self._rtsp_credentials(include_credentials),
         )
 
     def refresh(self) -> None:
@@ -254,19 +271,30 @@ class Device(_DeviceBase):
             return identity
 
     def capabilities(self) -> Capabilities:
-        """Run (or reuse) every discovery probe. Failed probes are reported, not raised."""
+        """Run (or reuse) every discovery probe. Failed probes are reported, not raised.
+
+        Optional probes (installed applications) are not run here; ``supports`` runs them when an
+        API's discovery needs them, and their cached result is included afterwards.
+        """
+        return self._collect(())
+
+    def _collect(self, extra: tuple[str, ...]) -> Capabilities:
+        probes = {**PROBES, **{k: OPTIONAL_PROBES[k] for k in extra}}
         values: dict[str, Any] = {}
         errors: dict[str, str] = {}
-        for key, make_flow in PROBES.items():
+        for key, make_flow in probes.items():
             try:
                 values[key] = self._cached(key, make_flow)
             except Exception as error:  # noqa: BLE001 - reported in Capabilities.errors
                 errors[key] = probe_error(error)
+        for key in OPTIONAL_PROBES.keys() - probes.keys():
+            if (found := self._state.get(key)) is not None:
+                values[key] = found
         return self._capabilities(values, errors)
 
     def supports(self, api: type[SyncApi] | SyncApi) -> SupportResult:
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
-        return decide_support(api.INFO, self.capabilities())
+        return decide_support(api.INFO, self._collect(extra_probes(api.INFO)))
 
     # -- Lifecycle ----------------------------------------------------------
 
@@ -389,19 +417,30 @@ class AsyncDevice(_DeviceBase):
             return identity
 
     async def capabilities(self) -> Capabilities:
-        """Run (or reuse) every discovery probe, concurrently. Failed probes are reported, not raised."""
-        keys = list(PROBES)
-        results = await asyncio.gather(*(self._cached(k, PROBES[k]) for k in keys), return_exceptions=True)
+        """Run (or reuse) every discovery probe, concurrently. Failed probes are reported, not raised.
+
+        Optional probes (installed applications) are not run here; ``supports`` runs them when an
+        API's discovery needs them, and their cached result is included afterwards.
+        """
+        return await self._collect(())
+
+    async def _collect(self, extra: tuple[str, ...]) -> Capabilities:
+        probes = {**PROBES, **{k: OPTIONAL_PROBES[k] for k in extra}}
+        keys = list(probes)
+        results = await asyncio.gather(*(self._cached(k, probes[k]) for k in keys), return_exceptions=True)
         for result in results:
             if isinstance(result, BaseException) and not isinstance(result, Exception):
                 raise result  # cancellation and friends
         values = {k: r for k, r in zip(keys, results) if not isinstance(r, BaseException)}
         errors = {k: probe_error(r) for k, r in zip(keys, results) if isinstance(r, Exception)}
+        for key in OPTIONAL_PROBES.keys() - probes.keys():
+            if (found := self._state.get(key)) is not None:
+                values[key] = found
         return self._capabilities(values, errors)
 
     async def supports(self, api: type[AsyncApi] | AsyncApi) -> SupportResult:
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
-        return decide_support(api.INFO, await self.capabilities())
+        return decide_support(api.INFO, await self._collect(extra_probes(api.INFO)))
 
     async def aclose(self) -> None:
         await self._transport.aclose()

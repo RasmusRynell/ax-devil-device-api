@@ -178,14 +178,22 @@ def test_unsupported_digest_raises(challenge: str) -> None:
         sync(Device([challenge, "Basic realm=a"])).send(get())
 
 
-def test_non_replayable_rejected_before_send() -> None:
+def test_non_replayable_is_preceded_by_a_preflight() -> None:
     dev = Device([DIGEST])
     t = sync(dev)
     req = Request("POST", "/up", body=RawBody(iter([b"a", b"b"]), "application/octet-stream"))
     assert not req.replayable
-    with pytest.raises(AuthError, match="cannot be replayed"):
-        t.send(req)
-    assert dev.seen == []
+    assert t.send(req).status == 200
+    assert [s.method for s in dev.seen] == ["GET", "GET", "POST"]
+    assert dev.seen[-1].content == b"ab"
+
+
+def test_non_replayable_with_wrong_password_never_sends_the_body() -> None:
+    dev = Device([DIGEST], password="other")
+    t = sync(dev)
+    with pytest.raises(AuthError):
+        t.send(Request("POST", "/up", body=RawBody(iter([b"a"]), "application/octet-stream")))
+    assert all(s.method == "GET" for s in dev.seen)
 
 
 def test_non_replayable_with_verified_state_sent_once() -> None:
@@ -279,7 +287,7 @@ async def test_async_flow_digest_and_reuse() -> None:
         dev.seen.clear()
         assert (await t.send(get())).status == 200
         assert len(dev.seen) == 1
-        with pytest.raises(AuthError, match="cannot be replayed"):
+        with pytest.raises(AuthError, match="rejected the credentials"):
             dev.password = "x"
             t._auth.reset()
             await t.send(Request("POST", "/u", body=RawBody(iter([b"a"]), "text/plain")))

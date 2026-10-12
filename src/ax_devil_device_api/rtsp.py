@@ -8,6 +8,10 @@
 
 Hand the string to a media library. ``repr(url)`` never shows the password.
 ``Device.rtsp_url`` builds the same URL from a connected device.
+
+Generated APIs expose RTSP endpoints as operations with an ``RtspBinding``
+(spec: ``binding: {rtsp: {...}}``). They return an ``RtspUrl`` without any
+network call, built by ``Device.rtsp_url_for``.
 """
 
 from __future__ import annotations
@@ -15,13 +19,18 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields
-from typing import Literal
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
 from ._http.config import BearerToken, Credentials
+from ._protocols.base import CallFlow, Model, Operation, register_binding
 from .errors import ConfigurationError
 
-__all__ = ["MEDIA_PATH", "MediaStream", "RtspUrl", "build_rtsp_url"]
+if TYPE_CHECKING:
+    from ._protocols.state import DeviceState
+
+__all__ = ["MEDIA_PATH", "MediaStream", "RtspBinding", "RtspUrl", "build_rtsp_url"]
 
 MEDIA_PATH = "/axis-media/media.amp"
 """The RTSP media endpoint. ``/axis-media/ssm/media.amp`` serves always-multicast streams."""
@@ -178,3 +187,47 @@ class MediaStream:
         credentials: Credentials | tuple[str, str] | None = None,
     ) -> RtspUrl:
         return build_rtsp_url(host, port=port, path=path, params=self.query(), credentials=credentials)
+
+
+# ---------------------------------------------------------------------------
+# Generated operations
+
+
+@dataclass(frozen=True)
+class RtspBinding:
+    """An operation that builds an RTSP URL instead of calling the device.
+
+    The params model's set fields become query arguments in field order, after
+    ``fixed_query``: booleans as ``1``/``0``, lists joined with commas, wire
+    names as the model's aliases.
+    """
+
+    path: str = MEDIA_PATH
+    port: int = DEFAULT_PORT
+    fixed_query: tuple[tuple[str, str], ...] = ()
+
+
+def rtsp_query(binding: RtspBinding, params: Model | None) -> tuple[tuple[str, str | int | bool], ...]:
+    """Query arguments of the URL for ``params`` (set fields only)."""
+    pairs: list[tuple[str, str | int | bool]] = list(binding.fixed_query)
+    for key, value in (params.to_wire() if params is not None else {}).items():
+        if value is None:
+            continue
+        if isinstance(value, Enum):
+            value = value.value
+        if isinstance(value, (list, tuple)):
+            value = ",".join(_flag(v) if isinstance(v, bool) else str(v) for v in value)
+        elif isinstance(value, (dict, Mapping)):
+            raise TypeError(f"RTSP argument {key!r} must be a scalar or a list")
+        pairs.append((key, value))
+    return tuple(pairs)
+
+
+def _no_flow(op: Operation[RtspBinding], params: Model | None, state: DeviceState) -> CallFlow[Any]:
+    raise ConfigurationError(
+        f"{op.api.id}.{op.id} builds an RTSP URL and makes no request; call the API method or Device.rtsp_url_for()"
+    )
+    yield  # pragma: no cover - makes this a generator
+
+
+register_binding(RtspBinding, _no_flow)

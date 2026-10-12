@@ -156,6 +156,12 @@ class Model(BaseModel):
         except ValidationError:
             if is_response(info) and info.field_name is not None:
                 annotation = cls.model_fields[info.field_name].annotation
+                coerced = _coerce_text(annotation, value)
+                if coerced is not value:
+                    try:
+                        return handler(coerced)
+                    except ValidationError:
+                        value = coerced
                 if _is_new_enum_value(annotation, value):
                     return value
             raise
@@ -214,6 +220,26 @@ def _is_new_enum_value(annotation: Any, value: Any) -> bool:
 def _matches(annotation: Any, value: Any) -> bool:
     values = _literal_values(annotation)
     return values is not None and value in values
+
+
+_INT_TEXT = re.compile(r"[+-]?\d+")
+
+
+def _coerce_text(annotation: Any, value: Any) -> Any:
+    """Turn text from XML or ``key=value`` replies into the integer a ``Literal[1, 2]`` field lists.
+
+    Only strings that spell an integer, for fields that are integer enums, are
+    converted (also inside lists); everything else is returned unchanged.
+    """
+    if isinstance(value, list):
+        item = next((a for a in get_args(annotation) if get_origin(a) is list), annotation)
+        (inner,) = get_args(item) or (Any,)
+        return [_coerce_text(inner, v) for v in value]
+    if isinstance(value, str) and _INT_TEXT.fullmatch(value.strip()):
+        values = _literal_values(annotation)
+        if values and any(isinstance(v, int) and not isinstance(v, bool) for v in values):
+            return int(value)
+    return value
 
 
 def is_response(info: ValidationInfo) -> bool:

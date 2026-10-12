@@ -103,7 +103,7 @@ def render_surface(apis: list[ApiDef]) -> str:
         for prefix in ("", "Async"):
             cls = f"{prefix}{a.class_name}Api"
             for op in a.ops:
-                overloads, impl = signatures(op)
+                overloads, impl = signatures(op, prefix == "Async")
                 for sig in overloads:
                     lines.append(f"{m}.{cls}.{op.id}(self, {', '.join(sig.args)}) -> {sig.returns}")
     return "\n".join(sorted(lines)) + "\n"

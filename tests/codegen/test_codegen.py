@@ -284,6 +284,7 @@ def test_jsonrpc_array_params_are_wrapped_in_a_single_positional_field() -> None
     api = build(spec)
     items, mapping = api.ops
     assert items.params_field == "items" and items.positional == ["items"] and not items.overloaded
+    assert mapping.params is not None
     assert mapping.params_field == "params" and mapping.params.fields[0].is_mapping
     code = render_module(api)
     assert "params_field='items'" in code.replace('"', "'")

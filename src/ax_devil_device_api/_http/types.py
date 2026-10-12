@@ -48,6 +48,8 @@ class RawBody:
 
     content: bytes | Iterable[bytes] | AsyncIterable[bytes]
     content_type: str
+    size: int | None = None
+    """Byte count of a streamed ``content``; with it the request gets a ``Content-Length`` header."""
 
     @property
     def replayable(self) -> bool:
@@ -62,11 +64,12 @@ class FilePart:
     files such as firmware images (one-shot, so the body is not replayable).
     ``size`` is the total byte count of an iterable; with it the request gets
     a ``Content-Length`` instead of chunked transfer encoding, which some
-    device CGIs do not accept.
+    device CGIs do not accept. Without a ``filename`` the part is a plain
+    field with a content type (a JSON part).
     """
 
     name: str
-    filename: str
+    filename: str | None
     content: bytes | Iterable[bytes]
     content_type: str = "application/octet-stream"
     size: int | None = None
@@ -107,7 +110,8 @@ class Request:
 
     method: str
     path: str
-    query: tuple[tuple[str, str], ...] = ()
+    query: tuple[tuple[str, str | None], ...] = ()
+    """Query arguments; a ``None`` value sends the bare key (``?live-sum.json``)."""
     body: Body | None = None
     accept: str | None = None
     headers: tuple[tuple[str, str], ...] = ()

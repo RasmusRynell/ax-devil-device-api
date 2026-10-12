@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from types import UnionType
+from typing import Annotated, Any, Union, get_args, get_origin
 
 from ..errors import ResponseFormatError
 from .._http.types import AuthPolicy, JsonBody, Request, Response
@@ -63,6 +64,72 @@ def _decode(op: Operation[ServiceJsonBinding], response: Response) -> Any:
     return payload
 
 
+def _kind_matches(tp: Any, value: Any) -> bool:
+    origin = get_origin(tp) or tp
+    if origin is Annotated:
+        return _kind_matches(get_args(tp)[0], value)
+    if origin in (Union, UnionType):
+        return any(_kind_matches(a, value) for a in get_args(tp))
+    if origin is Any:
+        return True
+    if isinstance(origin, type):
+        if origin is bool:
+            return isinstance(value, bool)
+        if origin in (int, float):
+            return isinstance(value, (int, float)) and not isinstance(value, bool)
+        if issubclass(origin, Model):
+            return isinstance(value, dict)
+        return isinstance(value, origin)
+    return True
+
+
+def _normalize(tp: Any, value: Any) -> Any:
+    """Adapt a response to quirks of Axis JSON services, following the declared result type.
+
+    - A single-element list serialized as a bare scalar/object is wrapped into a list.
+    - A JSON number where a string is declared becomes a string (booleans are left alone).
+    Everything else is returned unchanged; validation reports real mismatches.
+    """
+    origin = get_origin(tp)
+    if origin is Annotated:
+        return _normalize(get_args(tp)[0], value)
+    if origin in (Union, UnionType):
+        if value is None:
+            return value
+        args = [a for a in get_args(tp) if a is not type(None)]
+        matching = [a for a in args if _kind_matches(a, value)]
+        if matching:
+            return _normalize(matching[0], value)
+        for arg in args:
+            changed = _normalize(arg, value)
+            if changed is not value:
+                return changed
+        return value
+    if origin in (list, set, frozenset, tuple):
+        inner = (get_args(tp) or (Any,))[0]
+        if value is None:
+            return value
+        items = value if isinstance(value, list) else [value]
+        return [_normalize(inner, item) for item in items]
+    if origin is dict:
+        args = get_args(tp)
+        if isinstance(value, dict) and len(args) == 2:
+            return {k: _normalize(args[1], v) for k, v in value.items()}
+        return value
+    if tp is str:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return str(value)
+        return value
+    if isinstance(tp, type) and issubclass(tp, Model) and isinstance(value, dict):
+        names = tp._wire_to_field()
+        out: dict[str, Any] = {}
+        for key, item in value.items():
+            field = names.get(key) if isinstance(key, str) else None
+            out[key] = _normalize(tp.model_fields[field].annotation, item) if field else item
+        return out
+    return value
+
+
 def flow(op: Operation[ServiceJsonBinding], params: Model | None, state: DeviceState) -> CallFlow[Any]:
     binding = op.binding
     check_applicability(op, params, None)
@@ -78,7 +145,7 @@ def flow(op: Operation[ServiceJsonBinding], params: Model | None, state: DeviceS
     data = _decode(op, response)
     if op.result is None:
         return None
-    return parse_result(op, data)
+    return parse_result(op, _normalize(op.result, data))
 
 
 register_binding(ServiceJsonBinding, flow)

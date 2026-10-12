@@ -461,3 +461,67 @@ def test_applications_probe_reads_installed_names() -> None:
     assert done.value.value == {"loiteringguard": "2.1", "vmd": "4.9"}
     assert extra_probes(_info(AcapDiscovery("vmd"))) == ("applications",)
     assert extra_probes(_info()) == ()
+
+
+# -- ACAP discovery through Device.supports --------------------------------------
+
+APPLICATIONS = "/axis-cgi/applications/list.cgi"
+_LIST_XML = '<reply result="ok"><application Name="LoiteringGuard" Version="2.1"/></reply>'
+
+
+def _acap_api(name: str):  # type: ignore[no-untyped-def]
+    from types import SimpleNamespace
+
+    from ax_devil_device_api._protocols.base import AcapDiscovery
+
+    return SimpleNamespace(INFO=_info(AcapDiscovery(name)))
+
+
+def test_supports_runs_applications_probe_lazily_and_caches_it() -> None:
+    camera = MockCamera()
+    camera.cgi(APPLICATIONS, text=_LIST_XML, content_type="text/xml")
+
+    with camera.device() as dev:
+        dev.capabilities()
+        assert count(camera, APPLICATIONS) == 0  # plain capabilities() adds no request
+
+        assert dev.supports(_acap_api("loiteringguard")).status is Support.YES  # type: ignore[arg-type]
+        assert dev.supports(_acap_api("motionguard")).status is Support.NO  # type: ignore[arg-type]
+        assert count(camera, APPLICATIONS) == 1
+        assert dev.capabilities().applications == {"LoiteringGuard": "2.1"}
+
+
+def test_supports_without_acap_discovery_skips_applications_probe() -> None:
+    camera = MockCamera()
+    camera.api_list({"mqtt-client": "1.0"})
+
+    with camera.device() as dev:
+        assert dev.supports(MqttClientApi).status is Support.YES
+
+    assert count(camera, APPLICATIONS) == 0
+
+
+def test_supports_acap_unknown_when_applications_probe_fails() -> None:
+    camera = MockCamera()
+    camera.cgi(APPLICATIONS, text="denied", status=401)
+
+    with camera.device() as dev:
+        result = dev.supports(_acap_api("loiteringguard"))  # type: ignore[arg-type]
+
+    assert result.status is Support.UNKNOWN
+    assert "applications" in result.errors[0]
+
+
+@pytest.mark.anyio
+async def test_async_supports_acap_lazy_probe() -> None:
+    camera = MockCamera()
+    camera.cgi(APPLICATIONS, text=_LIST_XML, content_type="text/xml")
+
+    async with camera.async_device() as dev:
+        await dev.capabilities()
+        assert count(camera, APPLICATIONS) == 0
+        assert (await dev.supports(_acap_api("LoiteringGuard"))).status is Support.YES  # type: ignore[arg-type]
+        assert (await dev.supports(_acap_api("fenceguard"))).status is Support.NO  # type: ignore[arg-type]
+        assert (await dev.capabilities()).applications == {"LoiteringGuard": "2.1"}
+
+    assert count(camera, APPLICATIONS) == 1

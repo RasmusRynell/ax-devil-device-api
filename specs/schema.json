@@ -433,14 +433,46 @@
                     },
                     "path": {
                       "type": "string"
+                    },
+                    "multipart": {
+                      "type": "object",
+                      "properties": {
+                        "json_part": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "patternProperties": {
+                        "^x-": {}
+                      }
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
                     }
                   },
                   "additionalProperties": false,
                   "patternProperties": {
                     "^x-": {}
                   },
-                  "required": [
-                    "method"
+                  "anyOf": [
+                    {
+                      "required": [
+                        "method"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
                   ]
                 }
               }
@@ -533,14 +565,34 @@
                           "dots_to_slashes"
                         ]
                       }
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
                     }
                   },
                   "additionalProperties": false,
                   "patternProperties": {
                     "^x-": {}
                   },
-                  "required": [
-                    "method"
+                  "anyOf": [
+                    {
+                      "required": [
+                        "method"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
                   ]
                 }
               }
@@ -618,7 +670,9 @@
                     "encoding": {
                       "enum": [
                         "query",
-                        "form"
+                        "form",
+                        "multipart",
+                        "body"
                       ]
                     },
                     "accept": {
@@ -629,12 +683,488 @@
                     },
                     "stream": {
                       "type": "boolean"
+                    },
+                    "content_type": {
+                      "type": "string"
+                    },
+                    "url_query": {
+                      "type": "object"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
                     }
                   },
                   "additionalProperties": false,
                   "patternProperties": {
                     "^x-": {}
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "service_json"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "path"
+            ]
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "operation": {
+                      "type": "string"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "operation"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "soap"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              },
+              "namespace": {
+                "type": "string"
+              },
+              "namespaces": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            }
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "element": {
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    },
+                    "namespaces": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "action",
+                        "element"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "rest"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "root": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "root"
+            ]
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "method": {
+                      "enum": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "enum": [
+                        "none",
+                        "object",
+                        "value"
+                      ]
+                    },
+                    "body_field": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "method"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "ws"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            }
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "required": [
+                    "session"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "rtsp"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            }
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "required": [
+                    "rtsp"
+                  ]
                 }
               }
             }
@@ -681,7 +1211,9 @@
             "xml",
             "binary",
             "json",
-            "text_kv"
+            "text_kv",
+            "text_lines",
+            "stream"
           ]
         },
         {
@@ -852,6 +1384,65 @@
           "required": [
             "json"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text_lines": {
+              "type": "object",
+              "properties": {
+                "skip": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false,
+              "patternProperties": {
+                "^x-": {}
+              }
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "text_lines"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stream": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "decoder": {
+                  "enum": [
+                    "bytes",
+                    "mjpeg",
+                    "lines"
+                  ]
+                },
+                "encoding": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "patternProperties": {
+                "^x-": {}
+              }
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "stream"
+          ]
         }
       ]
     },
@@ -960,12 +1551,19 @@
         "x-name": {
           "type": "string"
         },
+        "x-arg-name": {
+          "type": "string"
+        },
+        "x-arg-optional": {
+          "type": "boolean"
+        },
         "x-style": {
           "enum": [
             "plain",
             "csv",
             "axis_bool",
-            "spread"
+            "spread",
+            "flag"
           ]
         },
         "x-xml": {
@@ -1029,7 +1627,36 @@
         },
         "pattern": {},
         "readOnly": {},
-        "writeOnly": {}
+        "writeOnly": {},
+        "x-in": {
+          "enum": [
+            "query",
+            "form",
+            "body"
+          ]
+        },
+        "x-upload": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "part": {
+                  "type": "string"
+                },
+                "filename": {
+                  "type": "string"
+                },
+                "content_type": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
       },
       "additionalProperties": false,
       "patternProperties": {
@@ -1148,6 +1775,74 @@
       "required": [
         "summary"
       ]
+    },
+    "session_binding": {
+      "type": "object",
+      "description": "A WebSocket session (generated `connect` context manager).",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean"
+            ]
+          }
+        },
+        "codec": {
+          "enum": [
+            "events",
+            "datahub",
+            "raw"
+          ]
+        },
+        "setup": {
+          "enum": [
+            "events",
+            "datahub",
+            "none"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "rtsp_binding": {
+      "type": "object",
+      "description": "An RTSP URL builder (no request is made).",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      }
     }
   }
 }
