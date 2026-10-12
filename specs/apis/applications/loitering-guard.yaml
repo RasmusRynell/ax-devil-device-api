@@ -1,0 +1,391 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: loitering-guard
+name: Loitering guard
+summary: Configure the AXIS Loitering Guard ACAP (loitering areas with individual/group time conditions, exclude
+  areas, filters, perspective, PTZ presets, alarm...
+section: applications
+family: jsonrpc
+status: released
+python:
+  module: loitering_guard
+  class: LoiteringGuard
+docs:
+- https://developer.axis.com/vapix/applications/loitering-guard/
+access: admin
+requires:
+  application: AXIS Loitering Guard
+
+binding:
+  path: /local/loiteringguard/control.cgi
+  major: 1
+  versions: ['1.1', '1.2', '1.3']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000-1999:
+    description: Reserved for camera application (server) errors, e.g. could not read configuration from file; see
+      server log; possibly solved by restarting the camera.
+  2000-2999:
+    description: Reserved for client errors, e.g. wrong format of configuration file or invalid parameter.
+    kind: invalid_argument
+  8000:
+    description: The camera is not supported by this version of the application.
+    kind: unsupported
+  9000-9999:
+    description: Reserved for license related errors e.g. license invalid or missing.
+    kind: invalid_argument
+
+types:
+  Point:
+    type: array
+    items: {type: number, minimum: -1, maximum: 1}
+    description: '[x, y] normalized to image size; visible view spans -1..1. (minItems=2, maxItems=2)'
+  Camera:
+    type: object
+    properties:
+      active:
+        type: boolean
+        default: true
+        description: Profiles for the camera may be active if true; all profiles for the camera are inactivated
+          if false.
+      id:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Camera value used with media.amp (starts at 1).
+      rotation:
+        type: integer
+        enum: [0, 90, 180, 270]
+        default: 0
+        description: Should match Image.I<camera>.Appearance.Rotation.
+      overlayResolution:
+        type: string
+        pattern: ^[0-9]+x[0-9]+$
+        description: Since 1.3. Resolution of the video streams with alarm overlay burnt in. Optional if alarmOverlayEnabled
+          is not active.
+  Filter:
+    oneOf:
+    - type: object
+      properties:
+        type: {const: sizePercentage}
+        data:
+          type: array
+          items: {type: integer, minimum: 3, maximum: 100}
+          default: [5, 5]
+          description: '[w,h] in percent of the image; objects <= are ignored. (minItems=2, maxItems=2)'
+        active: {type: boolean}
+    - type: object
+      properties:
+        type: {const: sizePerspective}
+        data:
+          type: array
+          items: {type: integer}
+          description: '[w,h] real-world size (cm); requires perspective bars; only one size filter active at a
+            time. (minItems=2, maxItems=2)'
+        active: {type: boolean}
+    - type: object
+      properties:
+        type: {const: distanceSwayingObject}
+        data:
+          type: integer
+          minimum: 3
+          maximum: 10
+          default: 5
+          description: Max distance (percent of image) an object may sway without raising an alarm. Global setting;
+            delays all alarms.
+        active: {type: boolean}
+    - type: object
+      description: Exclude area polygon (normalized -1..1); up to three per profile; no active flag. Removed if
+        not in use.
+      properties:
+        type: {const: excludeArea}
+        data:
+          type: array
+          items: {$ref: '#/types/Point'}
+    description: Exclusion filter; all optional; a filter not present is disabled.
+  Trigger:
+    type: object
+    properties:
+      type: {const: loiteringArea}
+      data:
+        type: array
+        items: {$ref: '#/types/Point'}
+        description: Loitering area polygon normalized -1..1.
+      conditions:
+        type: array
+        items:
+          type: object
+          x-name: TriggerConditionsItem
+          properties:
+            type:
+              type: string
+              enum: [individual, group]
+              description: 'individual: individual objects trigger alarms (default 120 s). group: alarm if any object
+                is in the loitering area too long (default 160 s).'
+            data: {type: integer, minimum: 10, maximum: 360, description: Seconds.}
+            active: {type: boolean}
+        description: Conditions that specify when an alarm should be triggered. individual and group cannot be active
+          at the same time.
+  PerspectiveBar:
+    type: object
+    properties:
+      type: {const: bar, description: A vertical line in the rotation of the camera.}
+      data:
+        type: array
+        items: {$ref: '#/types/Point'}
+        description: Start (touches ground-plane) and end points. (minItems=2, maxItems=2)
+      height:
+        type: integer
+        description: Real-world height (cm) of an object at the same location/perceived height.
+  Profile:
+    type: object
+    properties:
+      name:
+        type: string
+        maxLength: 15
+        default: Profile <uid>
+        description: 'Unicode, up to 15 characters; part of the event nice name. Invalid: ''&&'', ''<'', ''>''.'
+      camera: {type: integer, default: 1, description: Shall match id of the corresponding camera.}
+      uid: {type: integer, default: 1, description: Unique id for each profile.}
+      alarmOverlayEnabled: {type: boolean, default: false, description: Since 1.3; optional.}
+      filters:
+        type: array
+        items: {$ref: '#/types/Filter'}
+        description: Exclusion filters; all optional; a filter not present is disabled.
+      triggers:
+        type: array
+        items: {$ref: '#/types/Trigger'}
+        description: Exactly one loiteringArea. (minItems=1, maxItems=1)
+      presets:
+        type: array
+        items: {type: integer}
+        default: []
+        description: Since 1.1. PTZ only (error on non-PTZ). Preset index (PTZ.Preset.P0.Position.P<index>), -1
+          any-preset, -2 anywhere, [] always active. (maxItems=1)
+      perspective:
+        type: array
+        items: {$ref: '#/types/PerspectiveBar'}
+        default: []
+  Configuration:
+    type: object
+    properties:
+      cameras:
+        type: array
+        items: {$ref: '#/types/Camera'}
+      profiles:
+        type: array
+        items: {$ref: '#/types/Profile'}
+        description: To remove a profile, remove it from the array.
+      configurationStatus:
+        type: integer
+        minimum: 0
+        description: Read-only (ignored by setConfiguration). 0 = default configuration; incremented by each set;
+          reset to 1 after MAX_INT.
+  ConfigurationCapabilities:
+    type: object
+    properties:
+      alarmOverlay:
+        type: object
+        x-name: ConfigurationCapabilitiesAlarmOverlay
+        properties:
+          isSupported: {type: boolean}
+          maxNbrActiveCameras: {type: integer, description: 0 if not supported.}
+          cameras:
+            type: array
+            items:
+              type: object
+              x-name: ConfigurationCapabilitiesAlarmOverlayCamerasItem
+              properties:
+                id: {type: integer}
+                availableResolutions:
+                  type: array
+                  items: {type: string}
+      filters:
+        type: array
+        items:
+          type: object
+          x-name: ConfigurationCapabilitiesFiltersItem
+          properties:
+            type: {type: string, enum: [sizePercentage, distanceSwayingObject, excludeArea]}
+            min: {description: '[w,h] percent or int seconds'}
+            max: {}
+            default: {}
+            defaultActive: {type: boolean}
+      triggers:
+        type: array
+        items:
+          type: object
+          x-name: ConfigurationCapabilitiesTriggersItem
+          properties:
+            type: {const: loiteringArea}
+            min:
+              type: array
+              items: {type: number}
+            max:
+              type: array
+              items: {type: number}
+            minNbrVertices: {type: integer}
+            maxNbrVertices: {type: integer}
+            minNbrInstances: {type: integer}
+            maxNbrInstances: {type: integer}
+            defaultInstance:
+              type: array
+              items: {$ref: '#/types/Point'}
+            conditions:
+              type: array
+              items:
+                type: object
+                x-name: ConfigurationCapabilitiesTriggersItemConditionsItem
+                properties:
+                  type: {type: string, enum: [individual, group]}
+                  min: {type: integer, description: '10'}
+                  max: {type: integer, description: '360'}
+                  default: {type: integer, description: 'individual 120, group 160'}
+                  defaultActive: {type: boolean, description: 'individual true, group false'}
+      profiles:
+        type: object
+        x-name: ConfigurationCapabilitiesProfiles
+        properties:
+          minNbrProfilesPerCamera: {type: integer}
+          maxNbrProfilesPerCamera: {type: integer}
+          minLengthName: {type: integer}
+          maxLengthName: {type: integer}
+      presets:
+        type: object
+        x-name: ConfigurationCapabilitiesPresets
+        description: Only for mechanical PTZ cameras.
+        properties:
+          maxNbrPresetsPerProfile: {type: integer}
+          defaultPreset: {type: integer}
+
+operations:
+  get_configuration:
+    summary: Request the current configuration of the ACAP.
+    effect: read
+    binding: {method: getConfiguration}
+    result: {$ref: '#/types/Configuration'}
+    errors:
+      1000: {description: Application Error. The application failed to return a configuration}
+      2000:
+        description: Unsupported Version. The major version number isn't supported
+        kind: unsupported
+      2001:
+        description: Invalid Format. The request was not formatted correctly, i.e. does not follow the JSON-schema
+        kind: invalid_argument
+      8000:
+        description: Unsupported Product. The product is not supported by this application
+        kind: unsupported
+  set_configuration:
+    summary: Set the complete configuration of the ACAP.
+    description: The application is not restarted; ongoing events are set inactive when the new configuration is
+      applied, stopping ongoing recordings (all cameras on multichannel products). The size perspective filter is
+      automatically disabled while camera rotation differs from the configured rotation.
+    effect: write
+    write: patch
+    binding: {method: setConfiguration}
+    params: {$ref: '#/types/Configuration', description: A complete ACAP configuration.}
+    errors:
+      1000: {description: Application Error. The application failed to set the configuration.}
+      2000:
+        description: Unsupported Version. The major version number isn't supported.
+        kind: unsupported
+      2001:
+        description: Invalid Format. The configuration was not formatted correctly, i.e. does not follow the JSON-schema.
+        kind: invalid_argument
+      2002:
+        description: Incoherent Format. Parts of the configuration contradict each other, e.g. several profiles
+          have the same uid.
+        kind: invalid_argument
+      2003:
+        description: Missing Parameter. The request has a missing mandatory parameter.
+        kind: invalid_argument
+      2004:
+        description: Invalid Parameter. The request has parameters that has an invalid value.
+        kind: invalid_argument
+      8000: {description: Unsupported Product. The product is not supported., kind: unsupported}
+      9000:
+        description: Invalid License. The license file is invalid or missing.
+        kind: invalid_argument
+  get_configuration_capabilities:
+    summary: Request the boundaries and default values of the ACAP (constant per camera).
+    effect: read
+    binding: {method: getConfigurationCapabilities}
+    result: {$ref: '#/types/ConfigurationCapabilities'}
+    errors:
+      1000: {description: Application Error. The application failed to return a configuration.}
+      2000:
+        description: Unsupported Version. The major version number isn't supported.
+        kind: unsupported
+      2001:
+        description: Invalid Format. The request was not formatted correctly, i.e. does not follow the JSON-schema.
+        kind: invalid_argument
+      8000:
+        description: Unsupported Product. The product is not supported by this application.
+        kind: unsupported
+  send_alarm_event:
+    summary: Send a stateful alarm event (active for a few seconds) for a profile, for VMS testing.
+    description: Response returned immediately. Profiles send events independent of current state (e.g. PTZ profiles
+      connected to other presets).
+    access: operator
+    effect: action
+    binding: {method: sendAlarmEvent}
+    params:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          type: integer
+          description: The unique id (uid) of the profile that will send the alarm event. There must be a profile
+            with the specified uid.
+    errors:
+      1000: {description: Application Error. The application failed to handle the request.}
+      2000: {description: Unsupported Version. The major version isn't supported., kind: unsupported}
+      2001:
+        description: Invalid Format. The request was not formatted correctly, i.e. invalid JSON-schema.
+        kind: invalid_argument
+      2002:
+        description: Incoherent Format. The request cannot be handled, e.g. profile-id does not exist or is on an
+          inactive camera.
+        kind: not_found
+      2003:
+        description: Missing Parameter. The request has a missing mandatory parameter.
+        kind: invalid_argument
+      2004:
+        description: Invalid Parameter. The request has a parameter that has an invalid value.
+        kind: invalid_argument
+      8000:
+        description: Unsupported Product. The product is not supported by this application.
+        kind: unsupported
+      9000:
+        description: Invalid License. The license file is invalid or missing.
+        kind: invalid_argument
+
+sources:
+- url: https://developer.axis.com/vapix/applications/loitering-guard/
+  sha256_md: 480aa221cfd9f58367e9df28936d3fbf42f3265a27dcaa38ec15a77e77733b75
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - RTSP URLs for Loitering Guard events use '/axismedia/media.amp' (missing hyphen) and topic prefix 'tnsaxis:'
+    instead of 'axis:'. https://developer.axis.com/vapix/applications/loitering-guard/#events
+  - 'Example configuration trigger is malformed (''"conditions"['' and ''{"type": "group": ...''); capabilities
+    example misses a comma after context.'
+  - Event example namespace typo 'http://www.onvig.org/ver10/schema'.
+  - configurationStatus valid values listed as 'INT_MAX' only.
+  - Loitering area trigger 'data' has no description in the table.
+  - Capabilities 'maxNbrPresets' vs table 'maxNbrPresetsPerProfile'; alarmOverlayEnabled typed 'int' but boolean.
+  - Description mentions short-lived filter for 'anywhere' preset profiles but no timeShortLivedLimit filter is
+    documented for Loitering Guard.
+  - 'migration: skipped-op: get_event_stream (rtsp_request) is not a JSON-RPC method; skipped'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_configuration=write/patch'
+  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=2.13'' is not a Name=value pair:
+    dropped'
+  - 'migration: discovery: discovery method http_probe dropped'
+  - 'migration: dropped-keywords: maxProperties x1, title x4'
+  migrated_from: v1
+  curated: false

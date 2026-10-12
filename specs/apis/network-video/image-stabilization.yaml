@@ -1,0 +1,305 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: image-stabilization
+name: Image stabilization API
+summary: Control image stabilization (enable, EIS/OIS type, EIS margin, focal length, demo mode) per image channel.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: image_stabilization
+  class: ImageStabilization
+docs:
+- https://developer.axis.com/vapix/network-video/image-stabilization-api/
+access: operator
+discovery:
+- {api_discovery: image-stabilization}
+
+binding:
+  path: ''
+  major: 1
+  versions: ['1.0', '1.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  1200: {description: Invalid stabilization type., kind: invalid_argument}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed.}
+
+types:
+  ChannelCapabilities:
+    type: object
+    properties:
+      id: {type: integer, description: The ID of the camera image channel.}
+      EISSupport: {type: boolean}
+      OISSupport: {type: boolean}
+      manualFocalLength: {type: boolean, description: Indicates if focal length is configured manually.}
+      minFocalLength:
+        type: integer
+        minimum: 4000
+        maximum: 120000
+        description: Only when manualFocalLength=true.
+      maxFocalLength:
+        type: integer
+        minimum: 4000
+        maximum: 120000
+        description: Only when manualFocalLength=true.
+
+operations:
+  get_capabilities:
+    summary: List the image stabilization capabilities supported by the device.
+    access: viewer
+    effect: read
+    binding: {method: getCapabilities}
+    result:
+      type: object
+      properties:
+        channels:
+          type: array
+          items: {$ref: '#/types/ChannelCapabilities'}
+    examples:
+    - title: getCapabilities
+      request:
+        params: {}
+      response:
+        data:
+          channels:
+          - id: 0
+            EISSupport: true
+            OISSupport: false
+            manualFocalLength: true
+            minFocalLength: 7000
+            maxFocalLength: 70000
+          - {id: 1, EISSupport: true, OISSupport: false, manualFocalLength: false}
+  get_enabled:
+    summary: Check if image stabilization is enabled.
+    access: viewer
+    effect: read
+    binding: {method: getEnabled}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean}
+    examples:
+    - title: getEnabled
+      request:
+        params: {id: 0}
+      response:
+        data: {enabled: true}
+  set_enabled:
+    summary: Enable or disable image stabilization.
+    effect: write
+    write: patch
+    binding: {method: setEnabled}
+    params:
+      type: object
+      required: [id, enabled]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+        enabled: {type: boolean, description: 'true to enable, false to disable image stabilization.'}
+    examples:
+    - title: setEnabled
+      request:
+        params: {id: 0, enabled: true}
+      response:
+        data: {}
+  get_type:
+    summary: Get the configured type of image stabilization.
+    access: viewer
+    effect: read
+    binding: {method: getType}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+    result:
+      type: object
+      properties:
+        type: {type: string, enum: [EIS, OIS]}
+    examples:
+    - title: getType
+      request:
+        params: {id: 0}
+      response:
+        data: {type: EIS}
+  set_type:
+    summary: Set the type of image stabilization (EIS or OIS).
+    effect: write
+    write: patch
+    binding: {method: setType}
+    params:
+      type: object
+      required: [id, type]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+        type:
+          type: string
+          enum: [EIS, OIS]
+          description: Type of image stabilization to configure. (Table says Integer; enum values and example are
+            strings.)
+    examples:
+    - title: setType
+      request:
+        params: {id: 0, type: EIS}
+      response:
+        data: {}
+  get_eis_margin:
+    summary: Get the configured EIS margin.
+    access: viewer
+    effect: read
+    binding: {method: getEISMargin}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+    result:
+      type: object
+      properties:
+        margin: {type: integer, minimum: 0, maximum: 9999}
+    examples:
+    - title: getEISMargin
+      request:
+        params: {id: 0}
+      response:
+        data: {margin: 4000}
+  set_eis_margin:
+    summary: Set the EIS margin.
+    effect: write
+    write: patch
+    binding: {method: setEISMargin}
+    params:
+      type: object
+      required: [id, margin]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+        margin:
+          type: integer
+          minimum: 0
+          maximum: 9999
+          description: Margin for EIS (0-9999). Table names it data.margin; the example uses params.margin.
+    result:
+      type: object
+      properties:
+        margin: {type: integer}
+    examples:
+    - title: setEISMargin
+      request:
+        params: {id: 0, margin: 4000}
+      response:
+        data: {margin: 4000}
+  get_eis_focal_length:
+    summary: Get the manually configured EIS focal length.
+    access: viewer
+    effect: read
+    binding: {method: getEISFocalLength}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+    result:
+      type: object
+      properties:
+        focalLength: {type: integer, description: Between minFocalLength and maxFocalLength.}
+    examples:
+    - title: getEISFocalLength
+      request:
+        params: {id: 0}
+      response:
+        data: {focalLength: 10000}
+  set_eis_focal_length:
+    summary: Manually configure the EIS focal length.
+    effect: write
+    write: patch
+    binding: {method: setEISFocalLength}
+    params:
+      type: object
+      required: [id, focalLength]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+        focalLength:
+          type: integer
+          description: Focal length within minFocalLength..maxFocalLength from getCapabilities.
+    examples:
+    - title: setEISFocalLength
+      request:
+        params: {id: 0, focalLength: 10000}
+      response:
+        data: {}
+  get_eis_demo:
+    summary: Check if demo is enabled for EIS.
+    access: viewer
+    effect: read
+    binding: {method: getEISDemo}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+    result:
+      type: object
+      properties:
+        demo: {type: boolean}
+    examples:
+    - title: getEISDemo
+      request:
+        params: {id: 0}
+      response:
+        data: {demo: false}
+  set_eis_demo:
+    summary: Enable or disable demo for EIS.
+    effect: write
+    write: patch
+    binding: {method: setEISDemo}
+    params:
+      type: object
+      required: [id, demo]
+      properties:
+        id: {type: integer, description: The ID of the camera image channel.}
+        demo: {type: boolean}
+    result:
+      type: object
+      properties:
+        demo: {type: boolean}
+    examples:
+    - title: setEISDemo
+      request:
+        params: {id: 0, demo: false}
+      response:
+        data: {demo: false}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/image-stabilization-api/
+  sha256_md: cbfb760495c1bb640ca1ca9226df3842e22f8113f761ac0b9c3c433fe0a9a51d
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The CGI endpoint path is not documented anywhere on the page (no http.path given; transport.base_paths empty).
+  - Request examples use apiVersion "1" while responses show "1.0"; apiVersion documented as optional.
+  - setType params.type typed Integer but enum values EIS/OIS are strings.
+  - setEISMargin table names the request field data.margin; example uses params.margin. setEISMargin example response
+    shows method getEISMargin.
+  - Failure HTTP codes are 400/401/403 (not 200 as in other JSON-RPC APIs); mapping of each error code to HTTP status
+    not given.
+  - 'migration: path-unknown: CGI path is not documented in the source; binding.path left empty'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_enabled=write/patch, set_type=write/patch,
+    set_eis_margin=write/patch, set_eis_focal_length=write/patch, set_eis_demo=write/patch'
+  migrated_from: v1
+  curated: false

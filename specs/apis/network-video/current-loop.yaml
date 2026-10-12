@@ -1,0 +1,146 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: current-loop
+name: Current loop input API
+summary: Read 4–20 mA current loop sensors, configure scaling/thresholds, monitor live status and receive alarm/fault/metadata
+  events.
+section: network-video
+family: dca
+status: released
+python:
+  module: current_loop
+  class: CurrentLoop
+docs:
+- https://developer.axis.com/vapix/network-video/current-loop-input-api/
+access: admin
+discovery:
+- dca: {api: current-loop, version: v1}
+
+binding: {root: /config/rest/current-loop/v1}
+
+types:
+  SensorConfiguration:
+    type: object
+    description: Parameters used to convert loop current into physical values in engineering units and define alarm
+      thresholds. Field list from examples (no formal table).
+    properties:
+      sensorId: {type: string, description: Key of the configuration item.}
+      sensorName: {type: string}
+      enabled: {type: boolean}
+      engineeringUnit: {type: string, description: 'Engineering unit for the physical value, e.g. °C.'}
+      minPhysicalValue: {type: number, description: Expected value at 4 mA.}
+      maxPhysicalValue: {type: number, description: Expected value at 20 mA.}
+      minThresholdCritical: {type: number}
+      minThresholdWarning: {type: number}
+      maxThresholdWarning: {type: number}
+      maxThresholdCritical: {type: number}
+  LoopStateEnum:
+    type: string
+    enum: [OPEN_CIRCUIT, UNDER_RANGE, OK, OVER_RANGE, SHORT_CIRCUIT]
+    description: '4–20 mA loop diagnostic status per NAMUR NE43: OPEN_CIRCUIT <3.6 mA (wiring issue, open); UNDER_RANGE
+      3.6–4.0 (normal under range); OK 4.0–20.0; OVER_RANGE 20.0–22.0 (normal over range); SHORT_CIRCUIT >22.0 (wiring
+      issue, short).'
+  ThresholdStateEnum:
+    type: string
+    enum:
+    - BELOW_LOWER_CRITICAL
+    - BELOW_LOWER_WARNING
+    - OK
+    - ABOVE_UPPER_WARNING
+    - ABOVE_UPPER_CRITICAL
+    description: 'BELOW_LOWER_CRITICAL: physicalValue <= minThresholdCritical; BELOW_LOWER_WARNING: minThresholdCritical
+      <= physicalValue < minThresholdWarning; OK: minThresholdWarning <= physicalValue <= maxThresholdWarning...'
+  SensorStatus:
+    type: object
+    description: Live sensor data and diagnostic results. Updated every 100 ms; loopState and thresholdState can
+      include a validation delay.
+    properties:
+      sensorId: {type: string}
+      currentValue: {type: number, description: Loop current in mA.}
+      physicalValue:
+        type: number
+        description: 'Current converted to engineering unit: minPhysicalValue + ((currentValue - 4) * (maxPhysicalValue
+          - minPhysicalValue)) / 16.'
+      rawValue: {type: integer}
+      loopState: {$ref: '#/types/LoopStateEnum'}
+      thresholdState: {$ref: '#/types/ThresholdStateEnum'}
+  CurrentLoop:
+    type: object
+    description: The whole API tree.
+    properties:
+      configurations:
+        type: array
+        items: {$ref: '#/types/Configuration'}
+      status:
+        type: array
+        items: {$ref: '#/types/Status'}
+  Configuration:
+    type: object
+    description: Parameters used to convert loop current into physical values in engineering units, and to define
+      alarm thresholds.
+    required: [sensorId]
+    x-read-only:
+    - sensorId
+    - sensorName
+    - enabled
+    - engineeringUnit
+    - minPhysicalValue
+    - maxPhysicalValue
+    - minThresholdCritical
+    - minThresholdWarning
+    - maxThresholdWarning
+    - maxThresholdCritical
+    properties:
+      sensorId: {type: string}
+      sensorName: {type: string}
+      enabled: {type: boolean}
+      engineeringUnit: {type: string}
+      minPhysicalValue: {type: number, description: Expected value at 4 mA.}
+      maxPhysicalValue: {type: number, description: Expected value at 20 mA.}
+      minThresholdCritical: {type: number}
+      minThresholdWarning: {type: number}
+      maxThresholdWarning: {type: number}
+      maxThresholdCritical: {type: number}
+  Status:
+    type: object
+    description: Sensor data and diagnostic results. Refresh rate 100 ms; loopState/thresholdState can include a
+      validation delay.
+    required: [sensorId]
+    properties:
+      sensorId: {type: string}
+      currentValue: {type: number}
+      physicalValue: {type: number}
+      rawValue: {type: integer}
+      loopState: {}
+      thresholdState: {}
+
+operations: {}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+  sha256_md: 0fc67037af690a3af8ad0ea3a5029e3130f1536383a4c2697e0cdcf0a6c84d9a
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - HTTP URLs, API id, version status (alpha/beta/released), permissions, AXIS OS requirement, and error responses
+    are not stated; paths derived from the generic Device Configuration mapping.
+  - GET current-loop.v1.status example returns a single object, but the single-property example indexes status['My-SensorId'],
+    implying a collection keyed by sensorId.
+  - Status example sensorId 'Sensor-ID' differs from configurations 'My-SensorId'.
+  - Event topics tns1:CameraApplicationPlatform/tnsaxis:Alarm|Fault|Metadata are generic ACAP-platform topics; full
+    topic path (application-specific sub-topic) and source fields not documented.
+  - Whether configuration items can be added/removed (ADD/REMOVE) is not documented.
+  - 'migration: untyped-property: property loopState has unknown datatype ''LoopStateEnum'''
+  - 'migration: untyped-property: property thresholdState has unknown datatype ''ThresholdStateEnum'''
+  - 'migration: skipped-op: list_configurations: unknown entity current-loop.v1.configurations'
+  - 'migration: skipped-op: set_configuration: unknown entity current-loop.v1.configurations'
+  - 'migration: skipped-op: get_configuration_property: unknown entity current-loop.v1.configurations'
+  - 'migration: skipped-op: set_configuration_property: unknown entity current-loop.v1.configurations'
+  - 'migration: skipped-op: get_status: unknown entity current-loop.v1.status'
+  - 'migration: skipped-op: get_status_property: unknown entity current-loop.v1.status'
+  - 'migration: status: v1 status ''unknown'' mapped to released'
+  - 'migration: dropped-keywords: x-constraints x1'
+  migrated_from: v1
+  curated: false

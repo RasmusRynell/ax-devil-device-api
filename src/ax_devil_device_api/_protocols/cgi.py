@@ -19,6 +19,7 @@ from ..errors import ResponseFormatError
 from .._http.types import AuthPolicy, FormBody, Request, Response
 from .base import BytesDecoder, CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
+from .xmlmap import XmlMap, XmlStatusError, extract, status_error
 
 # ---------------------------------------------------------------------------
 # Arguments
@@ -98,13 +99,18 @@ class Text:
 
 @dataclass(frozen=True)
 class Xml:
-    """XML document; returns the root ``xml.etree.ElementTree.Element``.
+    """XML document.
 
-    ``error_elements`` are local element names whose presence anywhere in the
-    document means failure (e.g. ``GeneralError``).
+    Returns the root ``xml.etree.ElementTree.Element``, or, with ``map``, the
+    data extracted for the operation's result model. ``error_elements`` are
+    local element names whose presence anywhere means failure (e.g.
+    ``GeneralError``); ``status_error`` describes attribute-style failures
+    such as ``result="ERROR"``.
     """
 
     error_elements: tuple[str, ...] = ("GeneralError",)
+    map: XmlMap | None = None
+    status_error: XmlStatusError | None = None
 
 
 @dataclass(frozen=True)
@@ -188,7 +194,13 @@ def _decode(op: Operation[CgiBinding], response: Response) -> Any:
                     op, code, message or _local(element.tag), http_status=response.status,
                     details=ET.tostring(element, encoding="unicode"),
                 )
-        return root
+        if codec.status_error is not None:
+            failure = status_error(root, codec.status_error)
+            if failure is not None:
+                code_text, message = failure
+                code = int(code_text) if code_text and code_text.isdigit() else code_text
+                raise api_error(op, code, message, http_status=response.status, details=text)
+        return extract(root, codec.map) if codec.map is not None else root
 
     _text_errors(op, text)
     if isinstance(codec, TextOk):

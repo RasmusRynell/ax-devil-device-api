@@ -1,0 +1,123 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: pir-sensor-configuration
+name: PIR sensor configuration
+summary: List PIR (passive infrared) sensors and get/set their sensitivity.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: pir_sensor_configuration
+  class: PirSensorConfiguration
+docs:
+- https://developer.axis.com/vapix/network-video/pir-sensor-configuration/
+access: operator
+discovery:
+- {api_discovery: pir-sensor-configuration}
+
+binding:
+  path: /axis-cgi/pirsensor.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error, kind: internal}
+  2100: {description: API version not supported, kind: unsupported}
+  2101: {description: Invalid JSON, kind: invalid_argument}
+  2102: {description: Method not supported, kind: unsupported}
+  2103: {description: Required parameter missing, kind: invalid_argument}
+  2104: {description: Invalid parameter value specified, kind: invalid_argument}
+
+types:
+  Sensor:
+    type: object
+    required: [id, sensitivityConfigurable]
+    properties:
+      id: {type: integer, description: The sensor identifier.}
+      sensitivityConfigurable: {type: boolean, description: Whether the sensor sensitivity can be configured.}
+      sensitivity:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: Configured sensitivity, 0 to 1 (optional; only present when configurable).
+
+operations:
+  list_sensors:
+    summary: Lists all available PIR sensors.
+    effect: read
+    binding: {method: listSensors}
+    result:
+      type: object
+      properties:
+        sensors:
+          type: array
+          items: {$ref: '#/types/Sensor'}
+    examples:
+    - title: One configurable sensor
+      request:
+        params: {}
+      response:
+        data:
+          sensors:
+          - {id: 0, sensitivityConfigurable: true, sensitivity: 0.05098038911819458}
+      source: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/#configure-the-pir-sensors-on-a-device
+  get_sensitivity:
+    summary: Retrieves the sensitivity set for a sensor.
+    effect: read
+    binding: {method: getSensitivity}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The sensor identity.}
+    result:
+      type: object
+      properties:
+        sensitivity: {type: number, minimum: 0, maximum: 1}
+    errors:
+      2200: {description: Invalid sensor id., kind: invalid_argument}
+      2201: {description: Sensor does not have configurable sensitivity.}
+    examples:
+    - title: get_sensitivity
+      request:
+        params: {id: 0}
+      response:
+        data: {sensitivity: 0.05098038911819458}
+      source: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/#configure-the-pir-sensors-on-a-device
+  set_sensitivity:
+    summary: Sets the sensitivity for a sensor.
+    effect: write
+    write: patch
+    binding: {method: setSensitivity}
+    params:
+      type: object
+      required: [id, sensitivity]
+      properties:
+        id: {type: integer, description: The sensor identity getting its sensitivity configured.}
+        sensitivity:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: The sensitivity that should be set, 0 to 1. Resulting sensitivity may be rounded to a supported
+            value; query with getSensitivity or listSensors.
+    errors:
+      2200: {description: Invalid sensor id., kind: invalid_argument}
+      2201: {description: Sensor does not have configurable sensitivity.}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/
+  sha256_md: 818829db74f2ee870f1cf8c079aea1af69619e01f9003745a32cf6d5e0736017
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Request syntax blocks for getSensitivity/setSensitivity are missing a comma after the method field (invalid
+    JSON in docs).
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_sensitivity=write/patch'
+  migrated_from: v1
+  curated: false

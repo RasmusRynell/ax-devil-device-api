@@ -1,0 +1,121 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: capture-mode
+name: Capture mode
+summary: Retrieve the current and available capture modes (image sensor settings) per channel and set the capture
+  mode for a channel.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: capture_mode
+  class: CaptureMode
+docs:
+- https://developer.axis.com/vapix/network-video/capture-mode/
+access: viewer
+requires:
+  firmware: '8.50'
+
+binding:
+  path: /axis-cgi/capturemode.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation: {fixed: '1.0'}
+  params_placement: top_level
+
+errors:
+  2000: {description: Resource allocation failed. Check log for details.}
+  4000: {description: Invalid JSON format. Check message field for details., kind: invalid_argument}
+  4001:
+    description: Parameter not found or invalid value/format. Check message field for details.
+    kind: not_found
+  8000: {description: Internal error. Check log for details., kind: internal}
+
+types:
+  CaptureMode:
+    type: object
+    required: [captureModeId, enabled, description]
+    properties:
+      captureModeId:
+        type: integer
+        description: The value/identifier to use when calling setCaptureMode to set this capture mode.
+      enabled: {type: boolean, description: 'True if this is the current capture mode, otherwise false.'}
+      maxFPS:
+        type: number
+        description: Max frames per second. Optional; guaranteed to exist only if enabled is true.
+      description: {type: string, description: Friendly description of this capture mode.}
+  ChannelCaptureModes:
+    type: object
+    properties:
+      channel: {type: integer, description: Channel index.}
+      captureMode:
+        type: array
+        items: {$ref: '#/types/CaptureMode'}
+
+operations:
+  get_capture_modes:
+    summary: Get current and available capture modes for each channel.
+    effect: read
+    binding: {method: getCaptureModes}
+    result:
+      type: array
+      items: {$ref: '#/types/ChannelCaptureModes'}
+    examples:
+    - title: Get Capture mode
+      request:
+        params: {}
+      response:
+        data:
+        - channel: 0
+          captureMode:
+          - {captureModeId: 0, enabled: true, maxFPS: 120, description: '1280x720 (16:9) @ 100/120 fps'}
+          - {captureModeId: 1, enabled: false, description: '1920x1080 (16:9) @ 30/60 fps'}
+        - channel: 1
+          captureMode:
+          - {captureModeId: 0, enabled: false, description: '1280x720 (16:9) @ 100/120 fps'}
+          - captureModeId: 1
+            enabled: true
+            maxFPS: 29.97
+            description: 1920x1080 (16:9) @ 30/60 fps
+      source: https://developer.axis.com/vapix/network-video/capture-mode/#get-capture-mode
+  set_capture_mode:
+    summary: Set a capture mode for one channel.
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setCaptureMode}
+    params:
+      type: object
+      required: [channel, captureModeId]
+      properties:
+        channel:
+          type: integer
+          description: The index number of the channel. Top-level request key (not under params).
+        captureModeId:
+          type: integer
+          description: The index number of the capture mode (captureModeId from getCaptureModes).
+    examples:
+    - title: Set Capture mode
+      request:
+        params: {channel: 1, captureModeId: 2}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/capture-mode/#set-capture-mode
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/capture-mode/
+  sha256_md: 01c4789b231e8cab421a74bcace257b98095e631c4e8dfa0b0e9eeee86a1af74
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - No getSupportedVersions method or API discovery id/param property is documented; only apiVersion 1.0 appears.
+  - setCaptureMode parameters are top-level keys rather than under 'params' — unusual but consistently documented;
+    verify on device.
+  - Set example uses captureModeId 2 although the get example only lists ids 0 and 1.
+  - getCaptureModes data is an array (not object) — unlike most JSON APIs.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_capture_mode=write/patch'
+  - 'migration: dropped-keywords: maxProperties x1'
+  migrated_from: v1
+  curated: false

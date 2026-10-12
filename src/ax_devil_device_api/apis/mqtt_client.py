@@ -1,6 +1,6 @@
 # GENERATED from specs/apis/network-video/mqtt-client.yaml. Do not edit.
-# (Hand-written target for the generator; see docs/design.md section 11.)
-"""MQTT client API: configure, activate and query the device's MQTT client.
+# Regenerate with `uv run python -m codegen generate`.
+"""Configure, activate and query the device's MQTT client.
 
 Docs: https://developer.axis.com/vapix/network-video/mqtt-client-api/
 """
@@ -33,7 +33,9 @@ class Server(Model):
     """Defaults per protocol: tcp 1883, ssl 8883, ws 80, wss 443."""
     basepath: str | None = None
     """URL path suffix, used only for ``ws`` and ``wss``. Default empty."""
-    alpn_protocol: str | None = Field(default=None, validation_alias="alpnProtocol", serialization_alias="alpnProtocol", max_length=255)
+    alpn_protocol: str | None = Field(
+        default=None, validation_alias="alpnProtocol", serialization_alias="alpnProtocol", max_length=255
+    )
     """ALPN protocol for ``ssl`` or ``wss``; empty disables ALPN."""
 
 
@@ -51,8 +53,12 @@ class AnnouncementMessage(Model):
 class Ssl(Model):
     """TLS options; only for ``ssl`` and ``wss`` connections."""
 
-    validate_server_cert: bool | None = Field(default=None, validation_alias="validateServerCert", serialization_alias="validateServerCert")
-    client_cert_id: str | None = Field(default=None, validation_alias="clientCertID", serialization_alias="clientCertID")
+    validate_server_cert: bool | None = Field(
+        default=None, validation_alias="validateServerCert", serialization_alias="validateServerCert"
+    )
+    client_cert_id: str | None = Field(
+        default=None, validation_alias="clientCertID", serialization_alias="clientCertID"
+    )
     ca_cert_id: str | None = Field(default=None, validation_alias="CACertID", serialization_alias="CACertID")
 
 
@@ -66,20 +72,38 @@ class ClientConfig(Model):
     username: str | None = None
     password: str | None = None
     """Always masked (``*****``) by the device; never write it back."""
-    keep_alive_interval: int | None = Field(default=None, validation_alias="keepAliveInterval", serialization_alias="keepAliveInterval")
-    connect_timeout: int | None = Field(default=None, validation_alias="connectTimeout", serialization_alias="connectTimeout")
-    clean_session: bool | None = Field(default=None, validation_alias="cleanSession", serialization_alias="cleanSession")
-    auto_reconnect: bool | None = Field(default=None, validation_alias="autoReconnect", serialization_alias="autoReconnect")
-    device_topic_prefix: str | None = Field(default=None, validation_alias="deviceTopicPrefix", serialization_alias="deviceTopicPrefix")
-    last_will_testament: AnnouncementMessage | None = Field(default=None, validation_alias="lastWillTestament", serialization_alias="lastWillTestament")
-    connect_message: AnnouncementMessage | None = Field(default=None, validation_alias="connectMessage", serialization_alias="connectMessage")
-    disconnect_message: AnnouncementMessage | None = Field(default=None, validation_alias="disconnectMessage", serialization_alias="disconnectMessage")
+    keep_alive_interval: int | None = Field(
+        default=None, validation_alias="keepAliveInterval", serialization_alias="keepAliveInterval"
+    )
+    connect_timeout: int | None = Field(
+        default=None, validation_alias="connectTimeout", serialization_alias="connectTimeout"
+    )
+    clean_session: bool | None = Field(
+        default=None, validation_alias="cleanSession", serialization_alias="cleanSession"
+    )
+    auto_reconnect: bool | None = Field(
+        default=None, validation_alias="autoReconnect", serialization_alias="autoReconnect"
+    )
+    device_topic_prefix: str | None = Field(
+        default=None, validation_alias="deviceTopicPrefix", serialization_alias="deviceTopicPrefix"
+    )
+    last_will_testament: AnnouncementMessage | None = Field(
+        default=None, validation_alias="lastWillTestament", serialization_alias="lastWillTestament"
+    )
+    connect_message: AnnouncementMessage | None = Field(
+        default=None, validation_alias="connectMessage", serialization_alias="connectMessage"
+    )
+    disconnect_message: AnnouncementMessage | None = Field(
+        default=None, validation_alias="disconnectMessage", serialization_alias="disconnectMessage"
+    )
     ssl: Ssl | None = None
 
 
 class Status(Model):
     state: Literal["active", "inactive"]
-    connection_status: Literal["connected", "disconnected"] = Field(validation_alias="connectionStatus", serialization_alias="connectionStatus")
+    connection_status: Literal["connected", "disconnected"] = Field(
+        validation_alias="connectionStatus", serialization_alias="connectionStatus"
+    )
 
 
 class ClientStatus(Model):
@@ -92,32 +116,55 @@ class ConfigureClientRequest(Model):
 
     server: Server
     client_id: str = Field(validation_alias="clientId", serialization_alias="clientId")
-    http_proxy: str | None = Field(default=None, validation_alias="httpProxy", serialization_alias="httpProxy", max_length=255)
-    https_proxy: str | None = Field(default=None, validation_alias="httpsProxy", serialization_alias="httpsProxy", max_length=255)
+    http_proxy: str | None = Field(
+        default=None, validation_alias="httpProxy", serialization_alias="httpProxy", max_length=255
+    )
+    https_proxy: str | None = Field(
+        default=None, validation_alias="httpsProxy", serialization_alias="httpsProxy", max_length=255
+    )
     username: str | None = None
     password: str | None = None
-    keep_existing_password: bool | None = Field(default=None, validation_alias="keepExistingPassword", serialization_alias="keepExistingPassword")
+    keep_existing_password: bool | None = Field(
+        default=None, validation_alias="keepExistingPassword", serialization_alias="keepExistingPassword"
+    )
     """Keep the stored password and ignore ``password``."""
-    keep_alive_interval: int | None = Field(default=None, validation_alias="keepAliveInterval", serialization_alias="keepAliveInterval")
-    connect_timeout: int | None = Field(default=None, validation_alias="connectTimeout", serialization_alias="connectTimeout")
-    clean_session: bool | None = Field(default=None, validation_alias="cleanSession", serialization_alias="cleanSession")
-    auto_reconnect: bool | None = Field(default=None, validation_alias="autoReconnect", serialization_alias="autoReconnect")
-    device_topic_prefix: str | None = Field(default=None, validation_alias="deviceTopicPrefix", serialization_alias="deviceTopicPrefix")
-    last_will_testament: AnnouncementMessage | None = Field(default=None, validation_alias="lastWillTestament", serialization_alias="lastWillTestament")
-    connect_message: AnnouncementMessage | None = Field(default=None, validation_alias="connectMessage", serialization_alias="connectMessage")
-    disconnect_message: AnnouncementMessage | None = Field(default=None, validation_alias="disconnectMessage", serialization_alias="disconnectMessage")
+    keep_alive_interval: int | None = Field(
+        default=None, validation_alias="keepAliveInterval", serialization_alias="keepAliveInterval"
+    )
+    connect_timeout: int | None = Field(
+        default=None, validation_alias="connectTimeout", serialization_alias="connectTimeout"
+    )
+    clean_session: bool | None = Field(
+        default=None, validation_alias="cleanSession", serialization_alias="cleanSession"
+    )
+    auto_reconnect: bool | None = Field(
+        default=None, validation_alias="autoReconnect", serialization_alias="autoReconnect"
+    )
+    device_topic_prefix: str | None = Field(
+        default=None, validation_alias="deviceTopicPrefix", serialization_alias="deviceTopicPrefix"
+    )
+    last_will_testament: AnnouncementMessage | None = Field(
+        default=None, validation_alias="lastWillTestament", serialization_alias="lastWillTestament"
+    )
+    connect_message: AnnouncementMessage | None = Field(
+        default=None, validation_alias="connectMessage", serialization_alias="connectMessage"
+    )
+    disconnect_message: AnnouncementMessage | None = Field(
+        default=None, validation_alias="disconnectMessage", serialization_alias="disconnectMessage"
+    )
     ssl: Ssl | None = None
 
     @classmethod
     def from_current(cls, config: ClientConfig) -> ConfigureClientRequest:
         """A request that rewrites ``config`` unchanged: copy it, edit fields, send it back.
 
-        The masked password is dropped and ``keep_existing_password`` is set,
-        so the stored password survives the round trip.
+        Masked and read-only fields are dropped and ``keep_existing_password`` is set, so stored secrets
+        survive the round trip.
         """
         data = config.request_data(exclude={"password"})
-        if "client_id" not in data:
-            raise ValueError("the current configuration has no client_id to keep")
+        missing = [name for name in ("client_id",) if name not in data]
+        if missing:
+            raise ValueError(f"the current value has no {', '.join(missing)} to keep")
         return cls(**data, keep_existing_password=True)
 
 
@@ -149,18 +196,27 @@ INFO = ApiInfo(
 
 class OPS:
     configure_client = Operation(
-        INFO, "configure_client", JsonRpcBinding("configureClient", PATH),
-        params=ConfigureClientRequest, access="admin", effect="write", write="replace",
+        INFO,
+        "configure_client",
+        JsonRpcBinding("configureClient", PATH),
+        params=ConfigureClientRequest,
+        access="admin",
+        effect="write",
+        write="replace",
     )
     activate_client = Operation(
-        INFO, "activate_client", JsonRpcBinding("activateClient", PATH), access="admin", effect="action",
+        INFO, "activate_client", JsonRpcBinding("activateClient", PATH), access="admin", effect="action"
     )
     deactivate_client = Operation(
-        INFO, "deactivate_client", JsonRpcBinding("deactivateClient", PATH), access="admin", effect="action",
+        INFO, "deactivate_client", JsonRpcBinding("deactivateClient", PATH), access="admin", effect="action"
     )
     get_client_status = Operation(
-        INFO, "get_client_status", JsonRpcBinding("getClientStatus", PATH),
-        result=ClientStatus, access="admin", effect="read",
+        INFO,
+        "get_client_status",
+        JsonRpcBinding("getClientStatus", PATH),
+        result=ClientStatus,
+        access="admin",
+        effect="read",
     )
 
 
@@ -169,7 +225,7 @@ class OPS:
 
 
 class MqttClientApi(SyncApi):
-    """MQTT client API (``mqtt-client``, version 1). Support: docs-only."""
+    """MQTT client API (``mqtt-client``, version 1)."""
 
     INFO = INFO
 
@@ -201,14 +257,16 @@ class MqttClientApi(SyncApi):
         request_options: RequestOptions | None = None,
     ) -> None: ...
     def configure_client(
-        self, request: ConfigureClientRequest | None = None, /, *, request_options: RequestOptions | None = None, **kwargs: Any
+        self,
+        request: ConfigureClientRequest | None = None,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        **kwargs: Any,
     ) -> None:
         """Configure the MQTT client: broker, security, protocol settings, LWT, announcements.
 
-        Replaces the whole configuration; fields left out return to their
-        defaults. To change one setting, use
-        ``ConfigureClientRequest.from_current(get_client_status().config)``.
-        Access: admin.
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
         """
         self._run(OPS.configure_client, request, kwargs, request_options)
 
@@ -226,7 +284,7 @@ class MqttClientApi(SyncApi):
 
 
 class AsyncMqttClientApi(AsyncApi):
-    """MQTT client API (``mqtt-client``, version 1). Support: docs-only."""
+    """MQTT client API (``mqtt-client``, version 1)."""
 
     INFO = INFO
 
@@ -258,14 +316,16 @@ class AsyncMqttClientApi(AsyncApi):
         request_options: RequestOptions | None = None,
     ) -> None: ...
     async def configure_client(
-        self, request: ConfigureClientRequest | None = None, /, *, request_options: RequestOptions | None = None, **kwargs: Any
+        self,
+        request: ConfigureClientRequest | None = None,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        **kwargs: Any,
     ) -> None:
         """Configure the MQTT client: broker, security, protocol settings, LWT, announcements.
 
-        Replaces the whole configuration; fields left out return to their
-        defaults. To change one setting, use
-        ``ConfigureClientRequest.from_current((await get_client_status()).config)``.
-        Access: admin.
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
         """
         await self._run(OPS.configure_client, request, kwargs, request_options)
 

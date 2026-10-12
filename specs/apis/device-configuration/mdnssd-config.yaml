@@ -1,0 +1,129 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: mdnssd-config
+name: mDNS-SD Configuration API
+summary: WARNING This API is in BETA stage.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: mdnssd_config
+  class: MdnssdConfig
+docs:
+- https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+access: admin
+discovery:
+- dca: {api: mdnssd, version: v2}
+
+binding: {root: /config/rest/mdnssd/v2beta}
+
+errors:
+  100:
+    description: Invalid request. mDNS-SD is disabled during a discovery call.
+    kind: invalid_argument
+
+types:
+  Device:
+    type: object
+    description: Device found by discovery.
+    properties:
+      deviceServices: {$ref: '#/types/DeviceServiceList', description: The services this device offers.}
+      friendlyName: {type: string, description: The friendlyname of the device.}
+      hostname: {type: string, description: The hostname of the device.}
+      interface: {type: string, description: On which local interface the device was discovered.}
+      ipv4Address: {$ref: '#/types/StringArray', description: A list of IPv4 addresses found on the device.}
+      ipv6Address: {$ref: '#/types/StringArray', description: A list of IPv6 addresses found on the device.}
+  DeviceService:
+    type: object
+    description: A service which a discovered device offers.
+    properties:
+      serviceName: {type: string, description: The name of the service.}
+      servicePort: {type: integer, description: The port on which the service may be found.}
+      serviceTxt: {type: string, description: The text record of the service.}
+  DeviceServiceList:
+    type: array
+    items: {$ref: '#/types/DeviceService'}
+    description: A list of DeviceServices.
+  DiscoveryData:
+    type: object
+    description: Data type used for discovery.
+    properties:
+      services: {$ref: '#/types/ServiceList', description: The services to look for during the discovery.}
+      timeout:
+        $ref: '#/types/Timeout'
+        description: The timeout for how many seconds a discovery should last.
+  DiscoveryResponseData:
+    type: array
+    items: {$ref: '#/types/Device'}
+    description: Devices found through discovery.
+  Service:
+    type: string
+    pattern: ^_[A-Za-z0-9]A-Za-z0-9-_]{0,13}[A-Za-z0-9]\._(udp|tcp)$|^_[A-Za-z0-9]\._(udp|tcp)$
+    description: A service for the discovery to discover.
+  ServiceList:
+    type: array
+    items: {$ref: '#/types/Service'}
+    description: A list of services.
+  StringArray:
+    type: array
+    items: {type: string}
+    description: An array of strings.
+  Timeout: {type: integer, minimum: 1, maximum: 15, description: Valid timeout value in seconds.}
+  Mdnssd:
+    type: object
+    description: The whole API tree.
+    properties:
+      enabled: {type: boolean, description: The enabled state for mDNS-SD.}
+      friendlyName: {type: string, description: The friendly name for mDNS-SD.}
+
+operations:
+  get_all:
+    summary: All data of the mDNS-SD Configuration API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Mdnssd'}
+  set_enabled:
+    summary: Set the enabled of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: The enabled state for mDNS-SD.}
+  set_friendly_name:
+    summary: Set the friendly name of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /friendlyName, body_field: friendlyName, body: value}
+    params:
+      type: object
+      required: [friendlyName]
+      properties:
+        friendlyName: {type: string, description: The friendly name for mDNS-SD.}
+  discovery:
+    summary: Discover devices in the network.
+    effect: action
+    binding: {method: POST, path: /discovery, body: object}
+    params:
+      type: object
+      properties:
+        services: {$ref: '#/types/ServiceList', description: The services to look for during the discovery.}
+        timeout:
+          $ref: '#/types/Timeout'
+          description: The timeout for how many seconds a discovery should last.
+    result: {$ref: '#/types/DiscoveryResponseData'}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+  sha256_md: 5a13176f0d2b5e38cef3a03e8b54758a9a83cedb340ad21dba3514fe33ba2d55
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'migration: dropped-property-gets: 2 per-property GET operations dropped'
+  - 'migration: module-collision: module name mdnssd collides with another spec; kept mdnssd_config'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,187 @@
+format: 2
+id: mqtt-client
+name: MQTT client API
+summary: Configure, activate and query the device's MQTT client.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: mqtt_client
+  class: MqttClient
+docs:
+  - https://developer.axis.com/vapix/network-video/mqtt-client-api/
+access: admin
+discovery:
+  - api_discovery: mqtt-client
+binding:
+  path: /axis-cgi/mqtt/client.cgi
+  major: 1
+  versions: ["1.0"]
+  negotiation: {get_supported_versions: {key: apiVersions}}
+errors:
+  1100: {description: Internal error, kind: internal}
+  2100: {description: API version not supported, kind: unsupported}
+  2101: {description: Invalid JSON format, kind: invalid_argument}
+  2102: {description: Method not supported, kind: unsupported}
+  2103: {description: Required parameter missing or invalid, kind: invalid_argument}
+  2104: {description: Invalid parameter value specified, kind: invalid_argument}
+  2105: {description: Authorization failure, kind: access_denied}
+  2106: {description: Request size too large, kind: invalid_argument}
+
+types:
+  Protocol:
+    enum: [tcp, ssl, ws, wss]
+
+  Server:
+    type: object
+    description: Broker address and transport.
+    required: [host]
+    properties:
+      host: {type: string, description: "The broker location, i.e. the hostname or IP address."}
+      protocol: {$ref: "#/types/Protocol", description: "``tcp``, ``ssl``, ``ws`` (WebSocket) or ``wss`` (WebSocket Secure)."}
+      port: {type: integer, description: "Defaults per protocol: tcp 1883, ssl 8883, ws 80, wss 443."}
+      basepath: {type: string, description: "URL path suffix, used only for ``ws`` and ``wss``. Default empty."}
+      alpnProtocol: {type: string, maxLength: 255, description: ALPN protocol for ``ssl`` or ``wss``; empty disables ALPN.}
+
+  AnnouncementMessage:
+    type: object
+    description: Last-will, connect or disconnect message options.
+    properties:
+      useDefault: {type: boolean, description: "Use the default message. When false, topic, message, retain and qos are required."}
+      topic: {type: string}
+      message: {type: string}
+      retain: {type: boolean}
+      qos: {enum: [0, 1, 2]}
+
+  Ssl:
+    type: object
+    description: TLS options; only for ``ssl`` and ``wss`` connections.
+    properties:
+      validateServerCert: {type: boolean}
+      clientCertID: {type: string, x-python-name: client_cert_id}
+      CACertID: {type: string, x-python-name: ca_cert_id}
+
+  ClientConfig:
+    type: object
+    description: MQTT client settings as reported by the device. The password is masked.
+    required: [server]
+    x-masked: [password]
+    properties:
+      server: {$ref: "#/types/Server"}
+      clientId: {type: string}
+      httpProxy: {type: string}
+      httpsProxy: {type: string}
+      username: {type: string}
+      password: {type: string, description: Always masked (``*****``) by the device; never write it back.}
+      keepAliveInterval: {type: integer}
+      connectTimeout: {type: integer}
+      cleanSession: {type: boolean}
+      autoReconnect: {type: boolean}
+      deviceTopicPrefix: {type: string}
+      lastWillTestament: {$ref: "#/types/AnnouncementMessage"}
+      connectMessage: {$ref: "#/types/AnnouncementMessage"}
+      disconnectMessage: {$ref: "#/types/AnnouncementMessage"}
+      ssl: {$ref: "#/types/Ssl"}
+
+  Status:
+    type: object
+    required: [state, connectionStatus]
+    properties:
+      state: {enum: [active, inactive]}
+      connectionStatus: {enum: [connected, disconnected]}
+
+  ClientStatus:
+    type: object
+    required: [status]
+    properties:
+      status: {$ref: "#/types/Status"}
+      config: {$ref: "#/types/ClientConfig"}
+
+  ConfigureClientRequest:
+    type: object
+    description: Arguments of ``configure_client``. Replaces the whole client configuration.
+    required: [server, clientId]
+    properties:
+      server: {$ref: "#/types/Server"}
+      clientId: {type: string}
+      httpProxy: {type: string, maxLength: 255}
+      httpsProxy: {type: string, maxLength: 255}
+      username: {type: string}
+      password: {type: string}
+      keepExistingPassword: {type: boolean, description: Keep the stored password and ignore ``password``.}
+      keepAliveInterval: {type: integer}
+      connectTimeout: {type: integer}
+      cleanSession: {type: boolean}
+      autoReconnect: {type: boolean}
+      deviceTopicPrefix: {type: string}
+      lastWillTestament: {$ref: "#/types/AnnouncementMessage"}
+      connectMessage: {$ref: "#/types/AnnouncementMessage"}
+      disconnectMessage: {$ref: "#/types/AnnouncementMessage"}
+      ssl: {$ref: "#/types/Ssl"}
+
+operations:
+  configure_client:
+    summary: "Configure the MQTT client: broker, security, protocol settings, LWT, announcements."
+    effect: write
+    write: replace
+    binding: {method: configureClient}
+    params: {$ref: "#/types/ConfigureClientRequest"}
+    round_trip:
+      from: ClientConfig
+      set: {keepExistingPassword: true}
+    examples:
+      - title: Configure the MQTT client
+        request:
+          params:
+            server: {protocol: ssl, host: somebroker.somewhere.com, port: 8883}
+            username: user_1
+            password: password_1
+            keepExistingPassword: false
+            clientId: unique_id_on_broker
+            keepAliveInterval: 20
+            connectTimeout: 30
+            cleanSession: true
+            autoReconnect: true
+            deviceTopicPrefix: some/topic/prefix
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/mqtt-client-api/#configure-client
+
+  activate_client:
+    summary: Activate the MQTT client; it stays active across reboots.
+    effect: action
+    binding: {method: activateClient}
+
+  deactivate_client:
+    summary: Deactivate the MQTT client.
+    effect: action
+    binding: {method: deactivateClient}
+
+  get_client_status:
+    summary: Client state, connection status and configuration.
+    effect: read
+    binding: {method: getClientStatus}
+    result: {$ref: "#/types/ClientStatus"}
+    examples:
+      - title: Get the MQTT client status
+        request: {params: {}}
+        response:
+          data:
+            status: {state: active, connectionStatus: connected}
+            config:
+              server: {protocol: ssl, host: somebroker.somewhere.com, port: 8883}
+              clientId: unique_id_on_broker
+              password: "*****"
+        source: https://developer.axis.com/vapix/network-video/mqtt-client-api/#get-client-status
+      - title: Authorization failure
+        request: {params: {}}
+        response: {error: {code: 2105, message: Authorization failure}}
+        source: https://developer.axis.com/vapix/network-video/mqtt-client-api/#general-error-codes
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/mqtt-client-api/
+    sha256_md: 50ab7095d276072ca4a893b7102966d6490a65b19f85faae77dfa328a98b6828
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  migrated_from: v1
+  curated: true

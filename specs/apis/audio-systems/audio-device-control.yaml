@@ -1,0 +1,383 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: audio-device-control
+name: Audio Device Control
+summary: List audio device capabilities and get/set audio device input/output settings (connection type, signaling
+  type, power type, per-channel gain and mute).
+section: audio-systems
+family: jsonrpc
+status: released
+python:
+  module: audio_device_control
+  class: AudioDeviceControl
+docs:
+- https://developer.axis.com/vapix/audio-systems/audio-device-control/
+access: operator
+discovery:
+- {api_discovery: audio-device-control}
+
+binding:
+  path: /axis-cgi/audiodevicecontrol.cgi
+  major: 2
+  versions: ['2.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: INTERNAL_ERROR. Internal error., kind: internal}
+  2100:
+    description: UNSUPPORTED_API_VERSION. The requested API version is not supported.
+    kind: unsupported
+  2101:
+    description: JSON_INVALID_ERROR. The provided JSON input was invalid.
+    kind: invalid_argument
+  2102: {description: METHOD_NOT_SUPPORTED. Method not supported., kind: unsupported}
+  2103:
+    description: JSON_KEY_NOT_FOUND. A mandatory input parameter was not found in the input.
+    kind: not_found
+  2104:
+    description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value specified.
+    kind: invalid_argument
+  2105: {description: AUTHORIZATION_ERROR. Authorization failed., kind: access_denied}
+  2106: {description: AUTHENTICATION_ERROR. Authentication failed.}
+  2107: {description: TRANSPORT_LEVEL_ERROR. Transport level error.}
+
+types:
+  SignalingTypeCapability:
+    type: object
+    properties:
+      id: {type: string, description: 'The signal ID (e.g. balanced, unbalanced). Cannot be changed.'}
+      gainValues:
+        type: array
+        items: {type: integer}
+        description: The gain capabilities for the signaling type.
+      powerTypes:
+        type: array
+        items: {type: string}
+        description: The power types available for the signal (inputs only; e.g. On, Off, P48, 5V).
+  ConnectionTypeCapability:
+    type: object
+    properties:
+      id: {type: string, description: 'Input/output type ID (e.g. internal, mic, line, external).'}
+      signalingTypes:
+        type: array
+        items: {$ref: '#/types/SignalingTypeCapability'}
+  IoCapability:
+    type: object
+    properties:
+      id: {type: string, description: The input/output ID.}
+      connectionTypes:
+        type: array
+        items: {$ref: '#/types/ConnectionTypeCapability'}
+  DeviceCapability:
+    type: object
+    properties:
+      id: {type: string, description: The audio device ID.}
+      inputs:
+        type: array
+        items: {$ref: '#/types/IoCapability'}
+      outputs:
+        type: array
+        items: {$ref: '#/types/IoCapability'}
+  Channel:
+    type: object
+    properties:
+      id: {type: integer, description: The channel ID.}
+      gain: {type: integer, description: The channel gain.}
+      mute: {type: boolean, description: The channel mute.}
+  SignalingTypeSettings:
+    type: object
+    properties:
+      id: {type: string, description: The signal ID. Not changeable.}
+      powerType: {type: string, description: The selected power type for a signal (inputs only).}
+      channels:
+        type: array
+        items: {$ref: '#/types/Channel'}
+  ConnectionTypeSettings:
+    type: object
+    properties:
+      id: {type: string, description: Input/output type ID.}
+      signalingTypeSelected: {type: string, description: The selected signal.}
+      signalingTypes:
+        type: array
+        items: {$ref: '#/types/SignalingTypeSettings'}
+  IoSettings:
+    type: object
+    properties:
+      id: {type: string}
+      name: {type: string}
+      connectionTypeSelected: {type: string, description: The selected input/output type.}
+      connectionTypes:
+        type: array
+        items: {$ref: '#/types/ConnectionTypeSettings'}
+  DeviceSettings:
+    type: object
+    properties:
+      id: {type: string, description: The audio device ID.}
+      name: {type: string, description: The audio device name.}
+      inputs:
+        type: array
+        items: {$ref: '#/types/IoSettings'}
+      outputs:
+        type: array
+        items: {$ref: '#/types/IoSettings'}
+
+operations:
+  get_devices_capabilities:
+    summary: Lists all audio capabilities (accepted gain values and power types) of the device's audio devices.
+    effect: read
+    binding: {method: getDevicesCapabilities}
+    result:
+      type: object
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/DeviceCapability'}
+    examples:
+    - title: Retrieve audio capabilities
+      request:
+        params: {}
+      response:
+        data:
+          devices:
+          - id: Q1615-MkIII
+            inputs:
+            - id: '0'
+              connectionTypes:
+              - id: internal
+                signalTypes:
+                - {id: unbalanced, gainValues: [1, 2, 4], powerTypes: ['On', 'Off']}
+              - id: mic
+                signalingTypes:
+                - {id: balanced, gainValues: [1, 2, 4], powerTypes: [P48, 'Off']}
+                - {id: unbalanced, gainValues: [1, 2, 4], powerTypes: [5V, 'Off']}
+              - id: line
+                signalingTypes:
+                - {id: balanced, gainValues: [1, 2, 4], powerTypes: ['On', 'Off']}
+                - {id: unbalanced, gainValues: [1, 2, 4], powerTypes: ['On', 'Off']}
+            - id: '1'
+              connectionTypes:
+              - id: mic
+                signalingTypes:
+                - {id: balanced, gainValues: [1, 2, 4], powerTypes: [P48, 'Off']}
+                - {id: unbalanced, gainValues: [1, 2, 4], powerTypes: [5V, 'Off']}
+            outputs:
+            - id: '0'
+              connectionTypes:
+              - id: external
+                signalingTypes:
+                - {id: unbalanced, gainValues: [1, 2, 4]}
+      source: https://developer.axis.com/vapix/audio-systems/audio-device-control/#retrieve-audio-capabilities
+  get_devices_settings:
+    summary: Lists all available and currently applied audio settings.
+    access: viewer
+    effect: read
+    binding: {method: getDevicesSettings}
+    result:
+      type: object
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/DeviceSettings'}
+    examples:
+    - title: Retrieve current device settings
+      request:
+        params: {}
+      response:
+        data:
+          devices:
+          - id: Q1615-MkIII
+            name: Q1655-MkIII Audio Device
+            inputs:
+            - id: '0'
+              name: Conference Room 42
+              connectionTypeSelected: internal
+              connectionTypes:
+              - id: internal
+                signalingTypeSelected: unbalanced
+                signalingTypes:
+                - id: unbalanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                  - {id: 3, gain: 0, mute: false}
+              - id: mic
+                signalingTypeSelected: balanced
+                signalingTypes:
+                - id: balanced
+                  powerType: P48
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                - id: unbalanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+              - id: line
+                signalingTypeSelected: balanced
+                signalingTypes:
+                - id: balanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                - id: unbalanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+            - id: '1'
+              name: Dining Room
+              connectionTypeSelected: internal
+              connectionTypes:
+              - id: mic
+                signalingTypeSelected: balanced
+                signalingTypes:
+                - id: balanced
+                  powerType: P48
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                - id: unbalanced
+                  powerType: 5V
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+            outputs:
+            - id: '0'
+              name: Loudspeaker 2
+              connectionTypeSelected: external
+              connectionTypes:
+              - id: external
+                signalingTypeSelected: unbalanced
+                signalingTypes:
+                - id: unbalanced
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                  - {id: 0, gain: 4, mute: false}
+      source: https://developer.axis.com/vapix/audio-systems/audio-device-control/#retrieve-current-device-settings
+  set_devices_settings:
+    summary: Change the audio settings for one or multiple audio devices.
+    effect: write
+    write: patch
+    binding: {method: setDevicesSettings}
+    params:
+      type: object
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/DeviceSettings'}
+          description: A list containing the audio devices to configure (same structure as getDevicesSettings).
+    examples:
+    - title: Change device settings
+      request:
+        params:
+          devices:
+          - id: Q1615-MkIII
+            name: Q1615-MkIII Audio Device
+            inputs:
+            - id: '0'
+              name: Conference Room 42
+              connectionTypeSelected: internal
+              connectionTypes:
+              - id: internal
+                signalingTypeSelected: unbalanced
+                signalingTypes:
+                - id: unbalanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                  - {id: 3, gain: 0, mute: false}
+              - id: mic
+                signalingTypeSelected: balanced
+                signalingTypes:
+                - id: balanced
+                  powerType: P48
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                - id: unbalanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+              - id: line
+                signalingTypeSelected: balanced
+                signalingTypes:
+                - id: balanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                - id: unbalanced
+                  powerType: 'Off'
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+            - id: '1'
+              name: Dining Room
+              connectionTypeSelected: internal
+              connectionTypes:
+              - id: mic
+                signalingTypeSelected: balanced
+                signalingTypes:
+                - id: balanced
+                  powerType: P48
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                - id: unbalanced
+                  powerType: 5V
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+            outputs:
+            - id: '0'
+              name: Loudspeaker 2
+              connectionTypeSelected: external
+              connectionTypes:
+              - id: external
+                signalingTypeSelected: unbalanced
+                signalingTypes:
+                - id: unbalanced
+                  channels:
+                  - {id: 1, gain: 0, mute: false}
+                  - {id: 0, gain: 4, mute: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/audio-systems/audio-device-control/#change-device-settings
+  get_hazardous_settings:
+    summary: List settings that may harm the hardware if used incorrectly (global, not per device/input/output).
+    effect: read
+    binding: {method: getHazardousSettings}
+    result:
+      type: object
+      properties:
+        powerTypes:
+          type: array
+          items: {type: string}
+          description: Hazardous powerTypes, e.g. ["R12"].
+    examples:
+    - title: Retrieve hazardous settings
+      request:
+        params: {}
+      response:
+        data: {powerTypes: [R12]}
+      source: https://developer.axis.com/vapix/audio-systems/audio-device-control/#retrieve-hazardous-settings
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/audio-device-control/
+  sha256_md: c0d52f97d3830bc1179a74eb4e0a329f311d26ae7c8b1fb23b37fcb04dc48698
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - getDevicesCapabilities example uses 'signalTypes' for the first connection type and 'signalingTypes' elsewhere;
+    response syntax uses 'signalingTypes'.
+  - getDevicesSettings response syntax uses 'signalingTypesSelected' for outputs vs 'signalingTypeSelected' for
+    inputs; also missing commas in syntax block.
+  - setDevicesSettings table rows for outputs.id/name/connectionTypeSelected have wrong descriptions (channel ID/gain/mute)
+    — copy error.
+  - Example device id 'Q1615-MkIII' with name 'Q1655-MkIII Audio Device' (inconsistent model).
+  - Units/semantics of gainValues (integers 1, 2, 4) and channel gain are not documented; whether setDevicesSettings
+    accepts partial structures is not stated.
+  - Obsoletes list says 'MicrophoneBalance' while Audio API parameter is 'MicrophoneBalanced'.
+  - AXIS OS minimum version not stated.
+  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_devices_settings=write/patch'
+  - 'migration: dropped-keywords: maxProperties x1'
+  migrated_from: v1
+  curated: false

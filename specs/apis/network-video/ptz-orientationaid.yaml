@@ -1,0 +1,153 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: ptz-orientationaid
+name: PTZ Orientation Aid API
+summary: Add a compass overlay to the video, set north, and show/hide preset position tags.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: ptz_orientation_aid
+  class: PtzOrientationAid
+docs:
+- https://developer.axis.com/vapix/network-video/ptz-orientation-aid/
+access: operator
+discovery:
+- {api_discovery: ptz-orientationaid}
+
+binding:
+  path: /axis-cgi/ptz-orientationaid.cgi
+  major: 2
+  versions: ['2.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Invalid parameter value., kind: invalid_argument}
+  2003: {description: The requested API version is not supported., kind: unsupported}
+  2004: {description: Method not supported., kind: unsupported}
+  4000: {description: The provided JSON input was invalid., kind: invalid_argument}
+  4001: {description: A mandatory input parameter was not found in the input., kind: not_found}
+  4002: {description: The type of a provided JSON parameter was incorrect., kind: invalid_argument}
+  8000: {description: 'Internal error, could not complete the request.', kind: internal}
+  8002: {description: Generic Error.}
+
+types:
+  Tag:
+    type: object
+    properties:
+      id: {type: string, description: The ID of the preset position.}
+      text: {type: string, description: The name of the preset position.}
+      display:
+        type: boolean
+        description: Whether the preset position is displayed in the device web interface.
+
+operations:
+  set_north:
+    summary: Set the direction the camera is pointing to as north (set again whenever the camera position changes).
+    effect: write
+    write: patch
+    binding: {method: setNorth}
+    examples:
+    - title: set_north
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-orientation-aid/#setnorth
+  get_compass_state:
+    summary: Check if compass has been enabled.
+    effect: read
+    binding: {method: getCompassState}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean, description: Indicates if compass is enabled.}
+    examples:
+    - title: get_compass_state
+      request:
+        params: {}
+      response:
+        data: {enabled: true}
+      source: https://developer.axis.com/vapix/network-video/ptz-orientation-aid/#getcompassstate
+  set_compass_state:
+    summary: Enable or disable the compass.
+    effect: write
+    write: patch
+    binding: {method: setCompassState}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: States if the compass should be enabled. true = enabled, false = disabled. (Table names it
+            params.enable; example uses params.enabled.)
+    examples:
+    - title: set_compass_state
+      request:
+        params: {enabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-orientation-aid/#setcompassstate
+  list_tags:
+    summary: List all available tags for the preset positions.
+    effect: read
+    binding: {method: listTags}
+    result: {$ref: '#/types/Tag'}
+    examples:
+    - title: list_tags
+      request:
+        params: {}
+      response:
+        data: {id: id, text: text, display: true}
+      source: https://developer.axis.com/vapix/network-video/ptz-orientation-aid/#listtags
+  set_tag_state:
+    summary: Show or hide the tags for preset positions in the device web interface.
+    effect: write
+    write: patch
+    binding: {method: setTagState}
+    params:
+      type: object
+      required: [tagList]
+      properties:
+        tagList:
+          type: array
+          items:
+            type: object
+            x-name: SetTagStateRequestTagListItem
+            properties:
+              id: {type: string, description: The ID of the preset position.}
+              display: {type: boolean, description: Whether displayed in the device web interface.}
+          description: Container for the tag list.
+    examples:
+    - title: set_tag_state
+      request:
+        params:
+          tagList:
+          - {id: id, display: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-orientation-aid/#settagstate
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/ptz-orientation-aid/
+  sha256_md: beff26046c6c99ad42a9c4559c77df1d6d69cb6c61a2d8f26d2d569e6f3011bd
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'setCompassState: parameter table says params.enable, request examples use params.enabled.'
+  - setCompassState code blocks are mangled in the source (mixed ```` and ~~~ fences; response JSON has a trailing
+    quote).
+  - listTags response shows data as a single {id,text,display} object rather than a list of tags.
+  - Description says 'allows an administrator' but authorization lists Admin, Operator.
+  - AXIS OS minimum version not stated.
+  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_north=write/patch, set_compass_state=write/patch,
+    set_tag_state=write/patch'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,364 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: oidcsetup-config
+name: OpenID Connect Setup
+summary: The VAPIX® OpenID Connect Setup API makes it possible to set up a configuration that allows a user to log
+  in to the device with the OpenID Connect...
+section: device-configuration
+family: dca
+status: released
+python:
+  module: oidcsetup
+  class: Oidcsetup
+docs:
+- https://developer.axis.com/vapix/device-configuration/openid-connect-setup/
+access: admin
+discovery:
+- dca: {api: oidcsetup, version: v1}
+
+binding: {root: /config/rest/oidcsetup/v1}
+
+types:
+  RemoteUserClaimType:
+    type: string
+    minLength: 1
+    maxLength: 64
+    pattern: ^(sub|email|preferred_username|("[a-zA-Z0-9]*"))$
+    description: Normal string type.
+  ClaimType:
+    type: string
+    minLength: 1
+    maxLength: 256
+    pattern: ^.*$
+    description: Claim type.
+  ClientIdType: {type: string, minLength: 1, maxLength: 256, description: Client ID type.}
+  PassphraseType: {type: string, minLength: 1, maxLength: 256, description: Passphrase type.}
+  ProxyType:
+    type: string
+    maxLength: 256
+    pattern: ^[\\w "'.:\\/\\/?]*$
+    description: Proxy type.
+  ScopeListType:
+    type: string
+    maxLength: 256
+    pattern: ^[\\w "'.:\\/\\/?]*$
+    description: Scope list type.
+  SwitchType: {type: string, enum: ['yes', 'no'], description: '''no'' and ''yes'' switch.'}
+  UrlType:
+    type: string
+    minLength: 1
+    maxLength: 256
+    pattern: ^[\\w "'.:\\-\\/\\/~?]+$
+    description: URL type.
+  Oidcsetup:
+    type: object
+    description: The whole API tree.
+    properties:
+      BaseConfigEntity: {$ref: '#/types/BaseConfigEntity'}
+  BaseConfigEntity:
+    type: object
+    description: Required configuration for OIDC client.
+    properties:
+      OIDC_OutgoingProxy: {$ref: '#/types/ProxyType', description: Proxy configuration.}
+      OIDC_ProviderMetadataURL:
+        $ref: '#/types/UrlType'
+        description: OIDC discovery API endpoint. Required format `https://<host>/<optional directory>/.well-known/openid-configuration`
+      OIDC_RemoteUserClaim:
+        $ref: '#/types/RemoteUserClaimType'
+        description: OIDC Remote User Claim (sub, email, preferred_username).
+      OIDC_RequireClaim: {$ref: '#/types/ClaimType', description: Required claim.}
+      AuthEntity: {$ref: '#/types/AuthEntity'}
+  AuthEntity:
+    type: object
+    description: Client authentication properties.
+    properties:
+      OIDC_AuthzAdminClaim:
+        $ref: '#/types/ClaimType'
+        description: To set which claim and value that corresponds to admin
+      OIDC_AuthzOperatorClaim:
+        $ref: '#/types/ClaimType'
+        description: To set which claim and value that corresponds to operator
+      OIDC_AuthzScopes: {$ref: '#/types/ScopeListType', description: Optional list of additional scopes}
+      OIDC_AuthzViewerClaim:
+        $ref: '#/types/ClaimType'
+        description: To set which claim and value that corresponds to viewer
+      OIDC_ClientID: {$ref: '#/types/ClientIdType', description: OIDC client ID.}
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``.
+    properties:
+      BaseConfigEntity: {}
+  UpdateBaseConfigEntityRequest:
+    type: object
+    description: Arguments of ``update_base_config_entity``.
+    properties:
+      AuthEntity: {}
+      OIDC_OutgoingProxy: {$ref: '#/types/ProxyType', description: Proxy configuration.}
+      OIDC_ProviderMetadataURL:
+        $ref: '#/types/UrlType'
+        description: OIDC discovery API endpoint. Required format `https://<host>/<optional directory>/.well-known/openid-configuration`
+      OIDC_RemoteUserClaim:
+        $ref: '#/types/RemoteUserClaimType'
+        description: OIDC Remote User Claim (sub, email, preferred_username).
+      OIDC_RequireClaim: {$ref: '#/types/ClaimType', description: Required claim.}
+  UpdateAuthEntityRequest:
+    type: object
+    description: Arguments of ``update_auth_entity``.
+    properties:
+      OIDC_AuthzAdminClaim:
+        $ref: '#/types/ClaimType'
+        description: To set which claim and value that corresponds to admin
+      OIDC_AuthzOperatorClaim:
+        $ref: '#/types/ClaimType'
+        description: To set which claim and value that corresponds to operator
+      OIDC_AuthzScopes: {$ref: '#/types/ScopeListType', description: Optional list of additional scopes}
+      OIDC_AuthzViewerClaim:
+        $ref: '#/types/ClaimType'
+        description: To set which claim and value that corresponds to viewer
+      OIDC_ClientID: {$ref: '#/types/ClientIdType', description: OIDC client ID.}
+      OIDC_ClientSecret: {$ref: '#/types/PassphraseType', description: OIDC client secret.}
+
+operations:
+  get_all:
+    summary: All data of the OpenID Connect Setup API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Oidcsetup'}
+  update_all:
+    summary: Update the OpenID Connect Setup settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '', body: object}
+    params: {$ref: '#/types/UpdateAllRequest'}
+  get_base_config_entity:
+    summary: Get the base config entity settings.
+    effect: read
+    binding: {method: GET, path: /BaseConfigEntity}
+    result: {$ref: '#/types/BaseConfigEntity'}
+    examples:
+    - title: Get all settings
+      request: {path: /BaseConfigEntity}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            AuthEntity:
+              OIDC_AuthzAdminClaim: example-claim-admin
+              OIDC_AuthzOperatorClaim: example-claim-operator
+              OIDC_AuthzViewerClaim: example-claim-viewer
+              OIDC_AuthzScopes: some:scope
+              OIDC_ClientID: example-id
+            OIDC_OutgoingProxy: optional.proxy.settings
+            OIDC_ProviderMetadataURL: https://example.metadata.uri
+            OIDC_RemoteUserClaim: email
+            OIDC_RequireClaim: example-claim
+      source: https://developer.axis.com/vapix/device-configuration/openid-connect-setup/
+  update_base_config_entity:
+    summary: Update the base config entity settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /BaseConfigEntity, body: object}
+    params: {$ref: '#/types/UpdateBaseConfigEntityRequest'}
+    examples:
+    - title: Set all settings
+      request:
+        path: /BaseConfigEntity
+        body:
+          data:
+            AuthEntity:
+              OIDC_AuthzAdminClaim: example-claim-admin
+              OIDC_AuthzOperatorClaim: example-claim-operator
+              OIDC_AuthzViewerClaim: example-claim-viewer
+              OIDC_AuthzScopes: some:scope
+              OIDC_ClientID: example-id
+              OIDC_ClientSecret: example-secret
+            OIDC_OutgoingProxy: optional.proxy.settings
+            OIDC_ProviderMetadataURL: https://example.metadata.uri
+            OIDC_RemoteUserClaim: email
+            OIDC_RequireClaim: example-claim
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/openid-connect-setup/
+  set_base_config_entity_oidc_outgoing_proxy:
+    summary: Set the oidc outgoing proxy of the base config entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/OIDC_OutgoingProxy
+      body_field: OIDC_OutgoingProxy
+      body: value
+    params:
+      type: object
+      required: [OIDC_OutgoingProxy]
+      properties:
+        OIDC_OutgoingProxy: {$ref: '#/types/ProxyType', description: Proxy configuration.}
+    examples:
+    - title: Update a single setting
+      request:
+        path: /BaseConfigEntity/OIDC_OutgoingProxy
+        body: {data: ''}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/openid-connect-setup/
+  set_base_config_entity_oidc_provider_metadata_url:
+    summary: Set the oidc provider metadata url of the base config entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/OIDC_ProviderMetadataURL
+      body_field: OIDC_ProviderMetadataURL
+      body: value
+    params:
+      type: object
+      required: [OIDC_ProviderMetadataURL]
+      properties:
+        OIDC_ProviderMetadataURL:
+          $ref: '#/types/UrlType'
+          description: OIDC discovery API endpoint. Required format `https://<host>/<optional directory>/.well-known/openid-configuration`
+  set_base_config_entity_oidc_remote_user_claim:
+    summary: Set the oidc remote user claim of the base config entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/OIDC_RemoteUserClaim
+      body_field: OIDC_RemoteUserClaim
+      body: value
+    params:
+      type: object
+      required: [OIDC_RemoteUserClaim]
+      properties:
+        OIDC_RemoteUserClaim:
+          $ref: '#/types/RemoteUserClaimType'
+          description: OIDC Remote User Claim (sub, email, preferred_username).
+  set_base_config_entity_oidc_require_claim:
+    summary: Set the oidc require claim of the base config entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/OIDC_RequireClaim
+      body_field: OIDC_RequireClaim
+      body: value
+    params:
+      type: object
+      required: [OIDC_RequireClaim]
+      properties:
+        OIDC_RequireClaim: {$ref: '#/types/ClaimType', description: Required claim.}
+  get_auth_entity:
+    summary: Get the auth entity settings.
+    effect: read
+    binding: {method: GET, path: /BaseConfigEntity/AuthEntity}
+    result: {$ref: '#/types/AuthEntity'}
+  update_auth_entity:
+    summary: Update the auth entity settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /BaseConfigEntity/AuthEntity, body: object}
+    params: {$ref: '#/types/UpdateAuthEntityRequest'}
+  set_auth_entity_oidc_authz_admin_claim:
+    summary: Set the oidc authz admin claim of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/AuthEntity/OIDC_AuthzAdminClaim
+      body_field: OIDC_AuthzAdminClaim
+      body: value
+    params:
+      type: object
+      required: [OIDC_AuthzAdminClaim]
+      properties:
+        OIDC_AuthzAdminClaim:
+          $ref: '#/types/ClaimType'
+          description: To set which claim and value that corresponds to admin
+  set_auth_entity_oidc_authz_operator_claim:
+    summary: Set the oidc authz operator claim of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/AuthEntity/OIDC_AuthzOperatorClaim
+      body_field: OIDC_AuthzOperatorClaim
+      body: value
+    params:
+      type: object
+      required: [OIDC_AuthzOperatorClaim]
+      properties:
+        OIDC_AuthzOperatorClaim:
+          $ref: '#/types/ClaimType'
+          description: To set which claim and value that corresponds to operator
+  set_auth_entity_oidc_authz_scopes:
+    summary: Set the oidc authz scopes of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/AuthEntity/OIDC_AuthzScopes
+      body_field: OIDC_AuthzScopes
+      body: value
+    params:
+      type: object
+      required: [OIDC_AuthzScopes]
+      properties:
+        OIDC_AuthzScopes: {$ref: '#/types/ScopeListType', description: Optional list of additional scopes}
+  set_auth_entity_oidc_authz_viewer_claim:
+    summary: Set the oidc authz viewer claim of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/AuthEntity/OIDC_AuthzViewerClaim
+      body_field: OIDC_AuthzViewerClaim
+      body: value
+    params:
+      type: object
+      required: [OIDC_AuthzViewerClaim]
+      properties:
+        OIDC_AuthzViewerClaim:
+          $ref: '#/types/ClaimType'
+          description: To set which claim and value that corresponds to viewer
+  set_auth_entity_oidc_client_id:
+    summary: Set the oidc client id of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/AuthEntity/OIDC_ClientID
+      body_field: OIDC_ClientID
+      body: value
+    params:
+      type: object
+      required: [OIDC_ClientID]
+      properties:
+        OIDC_ClientID: {$ref: '#/types/ClientIdType', description: OIDC client ID.}
+  set_auth_entity_oidc_client_secret:
+    summary: Set the oidc client secret of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /BaseConfigEntity/AuthEntity/OIDC_ClientSecret
+      body_field: OIDC_ClientSecret
+      body: value
+    params:
+      type: object
+      required: [OIDC_ClientSecret]
+      properties:
+        OIDC_ClientSecret: {$ref: '#/types/PassphraseType', description: OIDC client secret.}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/openid-connect-setup/
+  sha256_md: a88f409cd270b092feabe9439e280d038e2a6f0475d9d2b73d79d2aff6ec42b3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 9 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

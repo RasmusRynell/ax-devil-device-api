@@ -1,0 +1,210 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: network-diagnostics-config
+name: Network diagnostics API
+summary: The VAPIX® Network diagnostics API allows you to interact with various diagnostic tools for troubleshooting
+  network issues.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: network_diagnostics
+  class: NetworkDiagnostics
+docs:
+- https://developer.axis.com/vapix/device-configuration/network-diagnostics/
+access: admin
+discovery:
+- dca: {api: network-diagnostics, version: v1}
+
+binding: {root: /config/rest/network-diagnostics/v1}
+
+types:
+  ConnectionEntry:
+    type: object
+    description: A single network connection entry
+    x-nullable: [state]
+    properties:
+      address:
+        $ref: '#/types/IpAddress'
+        description: Local bound or remote peer IP address of the connection
+      pid: {$ref: '#/types/PositiveInteger', description: Process ID of the owning process}
+      port: {$ref: '#/types/PortNumber', description: Port number of the connection}
+      process: {type: string, description: Name of the owning process}
+      protocol: {$ref: '#/types/Protocol', description: Network protocol used by the connection}
+      service:
+        type: string
+        description: IANA service name associated with the port number, e.g. http, https or ssh; empty if the port
+          has no registered service name
+      state: {$ref: '#/types/ConnectionState', description: Current state of the connection}
+  ConnectionList:
+    type: array
+    items: {$ref: '#/types/ConnectionEntry'}
+    description: A list of active network connections
+  ConnectionListRequest: {type: object, description: Empty request}
+  ConnectionState:
+    type: string
+    enum: [LISTEN, ESTABLISHED, TIME_WAIT, STATELESS]
+    description: Connection state; UDP connections use STATELESS
+  IpAddress: {type: string, description: IPv4 or IPv6 address type}
+  IsoTimestamp:
+    type: string
+    pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$
+    description: Timestamp of the spike in ISO 8601 RFC3339 format
+  PingRequest:
+    type: object
+    description: Parameters for a ping request
+    properties:
+      address: {$ref: '#/types/IpAddress', description: The IP address to ping}
+  PortNumber: {type: integer, minimum: 1, maximum: 65535, description: A valid TCP or UDP port number}
+  PositiveInteger:
+    type: integer
+    minimum: 0
+    description: An integer which is either zero or greater than zero
+  Protocol: {type: string, enum: [TCP, UDP], description: Network protocol identifier}
+  TcpRetransmissionSpike:
+    type: object
+    description: Representation of a TCP retransmission spike
+    properties:
+      retransmissions: {$ref: '#/types/PositiveInteger', description: Magnitude of the spike}
+      timestamp: {$ref: '#/types/IsoTimestamp', description: Timestamp of the spike}
+  TcpRetransmissionSpikes:
+    type: array
+    items: {$ref: '#/types/TcpRetransmissionSpike'}
+    description: A list of retransmission spikes
+  TcpTestRequest:
+    type: object
+    description: Data to be used in TCP connection request
+    x-nullable: [interface, timeout]
+    properties:
+      address: {$ref: '#/types/IpAddress', description: The IP address to send TCP connection request to}
+      interface:
+        type: string
+        description: The local network interface to bind the connection to, such as eth0. If omitted, the operating
+          system routing table will select the outgoing interface automatically
+      port:
+        $ref: '#/types/PortNumber'
+        description: The port number to be used for TCP connection request
+      timeout:
+        $ref: '#/types/PositiveInteger'
+        description: Optional timeout in seconds for TCP connection request. If omitted or set to 0, default 1 second-timeout
+          is used
+  TestResult:
+    type: object
+    description: Connectivity test result
+    properties:
+      success: {type: boolean, description: Device or service reachability test result}
+  NetworkDiagnostics:
+    type: object
+    description: The whole API tree.
+    properties:
+      connectivity: {$ref: '#/types/Connectivity'}
+      netstats: {$ref: '#/types/Netstats'}
+  Connectivity:
+    type: object
+    description: Interface for network connectivity tests.
+    properties: {}
+  Netstats:
+    type: object
+    description: Interface that retrieves network statistics
+    properties:
+      samplingInterval:
+        type: integer
+        description: The interval at which retransmissions and spikes are sampled in seconds.
+
+operations:
+  get_all:
+    summary: All data of the Network diagnostics API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/NetworkDiagnostics'}
+  get_connectivity:
+    summary: Get the connectivity settings.
+    effect: read
+    binding: {method: GET, path: /connectivity}
+  connection_list:
+    summary: Get a list of active network connections.
+    effect: action
+    binding: {method: POST, path: /connectivity/connectionList, body: none}
+    result: {$ref: '#/types/ConnectionList'}
+  ping_test:
+    summary: Ping a target IP address.
+    effect: action
+    binding: {method: POST, path: /connectivity/pingTest, body: object}
+    params:
+      type: object
+      properties:
+        address: {$ref: '#/types/IpAddress', description: The IP address to ping}
+    result: {$ref: '#/types/TestResult'}
+  tcp_test:
+    summary: Send a TCP request to an IP address.
+    effect: action
+    binding: {method: POST, path: /connectivity/tcpTest, body: object}
+    params:
+      type: object
+      x-name: TcpTestRequestArgs
+      properties:
+        address: {$ref: '#/types/IpAddress', description: The IP address to send TCP connection request to}
+        interface:
+          type: string
+          description: The local network interface to bind the connection to, such as eth0. If omitted, the operating
+            system routing table will select the outgoing interface automatically
+        port:
+          $ref: '#/types/PortNumber'
+          description: The port number to be used for TCP connection request
+        timeout:
+          $ref: '#/types/PositiveInteger'
+          description: Optional timeout in seconds for TCP connection request. If omitted or set to 0, default 1
+            second-timeout is used
+    result: {$ref: '#/types/TestResult'}
+  get_netstats:
+    summary: Get the netstat settings.
+    effect: read
+    binding: {method: GET, path: /netstats}
+    result: {$ref: '#/types/Netstats'}
+  tcp_retransmission_spikes:
+    summary: Get an array of the last N TCP retransmission spikes.
+    effect: action
+    binding:
+      method: POST
+      path: /netstats/tcpRetransmissionSpikes
+      body_field: data
+      body: value
+    params:
+      type: object
+      required: [data]
+      properties:
+        data: {description: Action input (PositiveInteger).}
+    result: {$ref: '#/types/TcpRetransmissionSpikes'}
+  tcp_retransmissions:
+    summary: Get number of TCP retransmissions in the last N hours.
+    effect: action
+    binding: {method: POST, path: /netstats/tcpRetransmissions, body_field: data, body: value}
+    params:
+      type: object
+      required: [data]
+      properties:
+        data: {description: Action input (PositiveInteger).}
+    result: {$ref: '#/types/PositiveInteger'}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/network-diagnostics/
+  sha256_md: 5e39873fcd3bb0b42fc0b3bf4a4b7a12870ce19ccc2c4f46871b5113dd1c3cc5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Example ''Check if an address is reachable'' uses POST /config/rest/network-diagnostics.v1.connectivity.pingTest,
+    which does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/network-diagnostics/'
+  - 'Example ''Test TCP connectivity'' uses POST /config/rest/network-diagnostics.v1.connectivity.tcpTest, which
+    does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/network-diagnostics/'
+  - 'Example ''Get active network connections'' uses POST /config/rest/network-diagnostics.v1.connectivity.connectionList,
+    which does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/network-diagnostics/'
+  - 'Several examples use invalid URLs built from the dotted object path, e.g. POST /config/rest/network-diagnostics.v1.connectivity.pingTest,
+    instead of /config/rest/network-diagnostics/v1/connectivity/pingTest (framework mapping, used for the operations).
+    Source: https://developer.axis.com/vapix/device-configuration/network-diagnostics/'
+  - 'migration: dropped-property-gets: 1 per-property GET operations dropped'
+  - 'migration: action-input-unresolved: action input type not defined in the source; passed as a raw value in `data`:
+    tcp_retransmission_spikes, tcp_retransmissions'
+  migrated_from: v1
+  curated: false

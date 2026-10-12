@@ -1,0 +1,591 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: power-settings
+name: Power settings
+summary: 'Control device power: power saving mode, delayed power down, power status, consumers, profiles, configurations,
+  dynamic power mode, history, PoE warning...'
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: power_settings
+  class: PowerSettings
+docs:
+- https://developer.axis.com/vapix/network-video/power-settings/
+access: admin
+discovery:
+- {api_discovery: power-settings}
+
+binding:
+  path: /axis-cgi/power-settings.cgi
+  major: 1
+  versions: ['1.0', '1.1', '1.2', '1.4', '1.5', '1.6', '1.7', '1.9']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  100: {description: The requested API version is not supported., kind: unsupported}
+  4001: {description: Mandatory input parameters was not found in the input., kind: not_found}
+  4002: {description: The type of a provided JSON parameter was incorrect., kind: invalid_argument}
+  8000: {description: Internal error., kind: internal}
+
+types:
+  PowerConsumer:
+    type: object
+    properties:
+      powerConsumer: {type: string, description: Name of the power consumer.}
+      type: {type: string, description: Consumer type.}
+      maxPower: {type: number, description: Maximum power in watts used by the consumer.}
+      adjustablePower: {type: boolean, description: Whether the consumer power can be adjusted.}
+      enabled: {type: boolean, description: Whether the consumer is enabled.}
+  ProfileLabel:
+    type: string
+    enum:
+    - disableHeaters
+    - highPerformance
+    - lowPower
+    - temperatureRange
+    - enableIo
+    - enableHdmiAndAudio
+    description: 'disableHeaters: heaters disabled; highPerformance; lowPower; temperatureRange: suggested range
+      given by lowerTemperature/upperTemperature; enableIo: 12V IO enabled (only used if other profiles have it
+      disabled)...'
+  PowerProfile:
+    type: object
+    properties:
+      powerProfile: {type: string, description: Profile name.}
+      powerRank:
+        type: integer
+        description: Ranks power usage relative to other profiles, lowest to highest.
+      lowerTemperature:
+        type: integer
+        description: Lowest profile-specific temperature limit (full functionality not guaranteed below).
+      upperTemperature: {type: integer, description: Highest profile-specific temperature limit.}
+      labels:
+        type: array
+        items: {$ref: '#/types/ProfileLabel'}
+      default: {type: boolean, description: Whether this is the default profile.}
+      consumers:
+        type: array
+        items:
+          type: object
+          x-name: PowerProfileConsumersItem
+          properties:
+            powerConsumer: {type: string, description: Consumer name.}
+            maxPower: {type: number, description: Max power in watts when profile is used.}
+            enabled: {type: boolean, description: Whether consumer is active when profile is used.}
+
+operations:
+  get_capabilities:
+    summary: Retrieve which power features the device supports.
+    access: operator
+    effect: read
+    binding: {method: getCapabilities}
+    result:
+      type: object
+      properties:
+        powerSavingSupport: {type: boolean, description: Power saving mode supported.}
+        delayedPowerDownSupport: {type: boolean, description: Delayed power down mode supported.}
+        powerProfileSupport: {type: boolean, description: Power profiles supported.}
+        powerConsumerSupport: {type: boolean, description: Power consumers supported.}
+        powerStatusSupport:
+          type: boolean
+          description: Power status supported. Value is -1 if the parameter is not available on the device.
+        powerConfigurationSupport: {type: boolean, description: Power configurations supported.}
+        dynamicPowerModeSupport: {type: boolean, description: Dynamic power mode supported.}
+        powerHistorySupport: {type: boolean, description: Power history supported.}
+        disablePowerWarningOverlaySupport: {type: boolean, description: Device can toggle the power warning overlay.}
+        ioPortPowerSupport: {type: boolean, description: Device can toggle IO Port Power on or off.}
+    examples:
+    - title: Power saving mode
+      request:
+        params: {}
+      response:
+        data:
+          powerSavingSupport: true
+          delayedPowerDownSupport: false
+          powerProfileSupport: true
+          powerConsumerSupport: true
+          powerStatusSupport: true
+          powerConfigurationSupport: false
+          dynamicPowerModeSupport: true
+          powerHistorySupport: true
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-saving-mode
+  get_power_saving_mode:
+    summary: Retrieve the current state of the power saving mode.
+    access: operator
+    effect: read
+    binding: {method: getPowerSavingMode}
+    result:
+      type: object
+      properties:
+        powerSavingMode: {type: boolean, description: true if power saving mode is active.}
+    errors:
+      300: {description: Power saving mode is not supported., kind: unsupported}
+    examples:
+    - title: Power saving mode
+      request:
+        params: {}
+      response:
+        data: {powerSavingMode: true}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-saving-mode
+  set_power_saving_mode:
+    summary: Apply a new state to the power saving mode (no reboot needed).
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setPowerSavingMode}
+    params:
+      type: object
+      required: [powerSavingMode]
+      properties:
+        powerSavingMode: {type: boolean, description: 'true activates, false deactivates power saving mode.'}
+    errors:
+      300: {description: Power saving mode is not supported., kind: unsupported}
+      301: {description: Unable to store Power saving mode.}
+    examples:
+    - title: Power saving mode
+      request:
+        params: {powerSavingMode: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-saving-mode
+  get_delayed_power_down_mode:
+    summary: Retrieve the state of delayed power down mode (vehicle ignition pin).
+    access: operator
+    effect: read
+    binding: {method: getDelayedPowerDownMode}
+    result:
+      type: object
+      properties:
+        delayedPowerDownMode: {type: boolean, description: true if delayed power down mode is active.}
+        delayTime:
+          type: integer
+          minimum: 0
+          description: Delay time in seconds; not used if delayedPowerDownMode is false.
+    errors:
+      300: {description: Delayed power down mode is not supported., kind: unsupported}
+    examples:
+    - title: Delayed power down mode
+      request:
+        params: {}
+      response:
+        data: {delayedPowerDownMode: true, delayTime: 30}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#delayed-power-down-mode
+  set_delayed_power_down_mode:
+    summary: Apply delayed power down mode and its delay timer.
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setDelayedPowerDownMode}
+    params:
+      type: object
+      required: [delayedPowerDownMode]
+      properties:
+        delayedPowerDownMode: {type: boolean, description: 'true activates, false deactivates delayed power down
+            mode.'}
+        delayTime:
+          type: integer
+          minimum: 0
+          description: Delay time in seconds. Not used if delayedPowerDownMode is false. (unit=s)
+    errors:
+      300: {description: Delayed power down mode is not supported., kind: unsupported}
+      301: {description: Unable to set delayed power down mode.}
+    examples:
+    - title: Delayed power down mode
+      request:
+        params: {delayedPowerDownMode: true, delayTime: 30}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#delayed-power-down-mode
+  get_power_status:
+    summary: Retrieve power status (usage statistics, PoE classes, power requested).
+    access: operator
+    effect: read
+    binding: {method: getPowerStatus}
+    result:
+      type: object
+      properties:
+        usage:
+          type: object
+          x-name: GetPowerStatusResultUsage
+          properties:
+            currentPower: {type: number, description: Power in watts currently used.}
+            averagePower: {type: number, description: Average power in watts used.}
+            maxPower: {type: number, description: Max power in watts used.}
+        psePoeClass: {type: integer, description: PoE class according to the hardware power source equipment.}
+        lldpPoeClass: {type: integer, description: PoE class according to LLDP software negotiation.}
+        powerRequested: {type: number, description: Power in watts requested by the device.}
+    errors:
+      300: {description: Power status is not supported., kind: unsupported}
+    examples:
+    - title: Power status information
+      request:
+        params: {}
+      response:
+        data:
+          usage: {currentPower: 60.0, averagePower: 60.0, maxPower: 60.0}
+          psePoeClass: 4
+          lldpPoeClass: 4
+          powerRequested: 30.0
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-status-information
+  get_power_consumers:
+    summary: Retrieve all available power consumers.
+    effect: read
+    binding: {method: getPowerConsumers}
+    result:
+      type: object
+      properties:
+        consumers:
+          type: array
+          items: {$ref: '#/types/PowerConsumer'}
+    errors:
+      300: {description: Power consumers is not supported., kind: unsupported}
+    examples:
+    - title: Check power consumer information
+      request:
+        params: {}
+      response:
+        data:
+          consumers:
+          - powerConsumer: WindowHeater
+            type: Heater
+            maxPower: 5.0
+            adjustablePower: true
+            enabled: true
+      source: https://developer.axis.com/vapix/network-video/power-settings/#check-power-consumer-information
+  set_power_consumer:
+    summary: Apply properties (max power, enabled) to a power consumer.
+    effect: write
+    write: patch
+    binding: {method: setPowerConsumer}
+    params:
+      type: object
+      required: [powerConsumer]
+      properties:
+        powerConsumer: {type: string, description: Name of the power consumer.}
+        maxPower: {type: number, description: Maximum power in watts used by the consumer. (unit=W)}
+        enabled: {type: boolean, description: Whether the consumer is enabled.}
+    errors:
+      300: {description: Power consumers is not supported., kind: unsupported}
+      301: {description: Unable to set power consumer.}
+      302: {description: Invalid parameter value for power consumer., kind: invalid_argument}
+    examples:
+    - title: Configure power consumers
+      request:
+        params: {powerConsumer: WindowHeater, maxPower: 5.0, enabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#configure-power-consumers
+  get_power_profiles:
+    summary: Retrieve the available pre-defined power profiles and the current profile.
+    effect: read
+    binding: {method: getPowerProfiles}
+    result:
+      type: object
+      properties:
+        currentPowerProfile: {type: string, description: Name of the active profile.}
+        profiles:
+          type: array
+          items: {$ref: '#/types/PowerProfile'}
+    errors:
+      300: {description: Power profiles is not supported., kind: unsupported}
+    examples:
+    - title: Retrieve power profile information
+      request:
+        params: {}
+      response:
+        data:
+          currentPowerProfile: Default
+          profiles:
+          - powerProfile: Default
+            powerRank: 10
+            lowerTemperature: -50
+            upperTemperature: 50
+            labels: [highPerformance, temperatureRange]
+            default: true
+            consumers:
+            - {powerConsumer: WindowHeater, maxPower: 5.0, enabled: true}
+          - powerProfile: LimitedTemperatureRange
+            powerRank: 1
+            lowerTemperature: 0
+            upperTemperature: 50
+            labels: [lowPower, temperatureRange, disableHeaters]
+            default: false
+            consumers:
+            - {powerConsumer: WindowHeater, maxPower: 5.0, enabled: false}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#retrieve-power-profile-information
+  set_power_profile:
+    summary: Apply a pre-defined power profile.
+    effect: write
+    write: patch
+    binding: {method: setPowerProfile}
+    params:
+      type: object
+      required: [powerProfile]
+      properties:
+        powerProfile: {type: string, description: Name of the profile to apply.}
+    errors:
+      300: {description: Power profiles is not supported., kind: unsupported}
+      301: {description: Unable to set power profile.}
+      302: {description: Invalid parameter value for power profile., kind: invalid_argument}
+    examples:
+    - title: Set a pre-defined power profile
+      request:
+        params: {powerProfile: LimitedTemperatureRange}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#set-a-pre-defined-power-profile
+  get_power_configurations:
+    summary: Retrieve the available power configurations.
+    effect: read
+    binding: {method: getPowerConfigurations}
+    result:
+      type: object
+      properties:
+        powerConfigurations:
+          type: array
+          items:
+            type: object
+            x-name: GetPowerConfigurationsResultPowerConfigurationsItem
+            properties:
+              index: {type: integer, description: Index of the power configuration.}
+              name: {type: string, description: Name of the power configuration.}
+    errors:
+      300: {description: Power configurations are not supported., kind: unsupported}
+    examples:
+    - title: Power configurations
+      request:
+        params: {}
+      response:
+        data:
+          powerConfigurations:
+          - {index: 0, name: PoE 4}
+          - {index: 1, name: PoE 3}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-configurations
+  get_active_power_configuration:
+    summary: Retrieve the active power configuration.
+    effect: read
+    binding: {method: getActivePowerConfiguration}
+    result:
+      type: object
+      properties:
+        index: {type: integer, description: Index of the active power configuration.}
+    errors:
+      300: {description: Power configurations are not supported., kind: unsupported}
+    examples:
+    - title: Power configurations
+      request:
+        params: {}
+      response:
+        data: {index: 0}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-configurations
+  set_active_power_configuration:
+    summary: Set the active power configuration (e.g.
+    effect: write
+    write: patch
+    binding: {method: setActivePowerConfiguration}
+    params:
+      type: object
+      required: [index]
+      properties:
+        index: {type: integer, description: Index of the power configuration to set.}
+    errors:
+      300: {description: Power configurations are not supported., kind: unsupported}
+      301: {description: 'Unable to set power configuration, index out of bounds.'}
+      302: {description: Invalid parameter value for power configuration., kind: invalid_argument}
+    examples:
+    - title: Power configurations
+      request:
+        params: {index: 2}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-configurations
+  get_dynamic_power_mode:
+    summary: Retrieve the dynamic power mode state.
+    effect: read
+    binding: {method: getDynamicPowerMode}
+    result:
+      type: object
+      properties:
+        dynamicPowerMode: {type: boolean, description: true if dynamic power mode is active.}
+    errors:
+      300: {description: Dynamic power mode is not supported., kind: unsupported}
+    examples:
+    - title: Dynamic power mode
+      request:
+        params: {}
+      response:
+        data: {dynamicPowerMode: true}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#dynamic-power-mode
+  set_dynamic_power_mode:
+    summary: Enable or disable dynamic power mode (lower performance/power during inactivity).
+    effect: write
+    write: patch
+    binding: {method: setDynamicPowerMode}
+    params:
+      type: object
+      required: [dynamicPowerMode]
+      properties:
+        dynamicPowerMode: {type: boolean, description: 'true enables, false disables dynamic power mode.'}
+    errors:
+      300: {description: Dynamic power mode is not supported., kind: unsupported}
+      301: {description: Unable to set dynamic power mode.}
+      302: {description: Invalid parameter value for dynamic power mode., kind: invalid_argument}
+    examples:
+    - title: Dynamic power mode
+      request:
+        params: {dynamicPowerMode: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#dynamic-power-mode
+  get_power_history:
+    summary: Retrieve power history data (persistent long-term statistics).
+    effect: read
+    binding: {method: getPowerHistory}
+    params:
+      type: object
+      required: [requestedTimeSpan]
+      properties:
+        requestedTimeSpan:
+          type: integer
+          minimum: 0
+          description: Requested time length in seconds. Acquired span will likely differ (closest set of data points
+            with highest resolution). Must be >= 0 or error 302. (unit=s)
+    result:
+      type: object
+      properties:
+        acquiredTimeSpan: {type: integer, description: Length of the acquired time span in seconds.}
+        numberOfSamples: {type: integer, description: Number of data points in powerMeasurements.}
+        endTimeStamp: {type: string, description: ISO8601 time stamp of the last data point. (format=date-time)}
+        powerMeasurements:
+          type: array
+          items: {type: number}
+          description: Data points in watts.
+        powerAverage: {type: number, description: Average power in watts over the acquired span.}
+    errors:
+      300: {description: Power history is not supported., kind: unsupported}
+      301: {description: Unable to retrieve power history data.}
+      302: {description: Invalid parameter value for power history., kind: invalid_argument}
+    examples:
+    - title: Power history
+      request:
+        params: {requestedTimeSpan: 7200}
+      response:
+        data:
+          acquiredTimeSpan: 14400
+          numberOfSamples: 16
+          endTimeStamp: '2023-01-23T14:00:01.549356Z'
+          powerMeasurements:
+          - 49.939
+          - 49.893
+          - 49.933
+          - 49.954
+          - 49.949
+          - 49.936
+          - 49.847
+          - 49.929
+          - 49.923
+          - 49.952
+          - 49.962
+          - 49.858
+          - 49.973
+          - 49.964
+          - 49.882
+          - 49.964
+          powerAverage: 49.929
+      source: https://developer.axis.com/vapix/network-video/power-settings/#power-history
+  get_power_warning_overlay:
+    summary: Check whether the insufficient-PoE text overlay warning is enabled.
+    description: If enabled, the system shows the overlay when appropriate. Some products support changing the power
+      configuration with setActivePowerConfiguration instead of disabling the overlay.
+    effect: read
+    binding: {method: getPowerWarningOverlay}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean, description: State of the power warning overlay functionality.}
+    errors:
+      300: {description: Disable Power Warning Overlay is not supported., kind: unsupported}
+      301: {description: Unable to disable Power Warning Overlay.}
+  set_power_warning_overlay:
+    summary: Enable or disable the power warning overlay.
+    effect: write
+    write: patch
+    binding: {method: setPowerWarningOverlay}
+    params:
+      type: object
+      required: [enable]
+      properties:
+        enable: {type: boolean, description: 'true = enabled, false = disabled.'}
+    errors:
+      300: {description: Disable Power Warning Overlay is not supported., kind: unsupported}
+      301: {description: Unable to disable Power Warning Overlay.}
+    examples:
+    - title: Disable the power warning overlay
+      request:
+        params: {enable: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#disable-the-power-warning-overlay
+  get_io_port_power:
+    summary: Check whether the 12V IO Port Power output on the IO connector is enabled.
+    effect: read
+    binding: {method: getIoPortPower}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean, description: IO Port Power state.}
+    errors:
+      300: {description: IO Port Power is not supported., kind: unsupported}
+    examples:
+    - title: Get the current state of the IO Port Power
+      request:
+        params: {}
+      response:
+        data: {enabled: true}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#get-the-current-state-of-the-io-port-power
+  set_io_port_power:
+    summary: Turn the 12V IO Port Power on or off (frees power for e.g.
+    effect: write
+    write: patch
+    binding: {method: setIoPortPower}
+    params:
+      type: object
+      required: [enable]
+      properties:
+        enable: {type: boolean, description: 'true = enabled, false = disabled.'}
+    errors:
+      300: {description: IO Port Power is not supported., kind: unsupported}
+      301: {description: Unable to set IO Port Power to its new state.}
+      302: {description: Invalid parameter value for set IO Port Power., kind: invalid_argument}
+    examples:
+    - title: Enable IO Port Power
+      request:
+        params: {enable: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/power-settings/#enable-io-port-power
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/power-settings/
+  sha256_md: bfe8d12be14696c465248950e42880ba606c2b9023862558671abefeb4ad6396
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - powerStatusSupport is described as boolean but "will be -1 if the parameter isn't available".
+  - Which apiVersion introduced each feature is not documented (examples use 1.0-1.9).
+  - getPowerWarningOverlay/getIoPortPower request syntax shows an empty params object; unclear if required.
+  - Error tables after getPowerHistory are titled "Error codes for setDynamicPowerMode" (copy/paste).
+  - getPowerWarningOverlay lists error 301 "Unable to disable Power Warning Overlay" for a get method.
+  - labels described as <object> but syntax shows an array of strings.
+  - setIoPortPower request syntax missing colon ("enable" <boolean>).
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_power_saving_mode=write/patch,
+    set_delayed_power_down_mode=write/patch, set_power_consumer=write/patch, set_power_profile=write/patch, set_active_power_configuration=write/patch,
+    set_dynamic_power_mode=write/patch, set_power_warning_overlay=write/patch, set_io_port_power=write/patch'
+  migrated_from: v1
+  curated: false

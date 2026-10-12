@@ -1,0 +1,446 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: networkpairing-config
+name: Network Pairing API
+summary: WARNING This API is in BETA stage.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: networkpairing
+  class: Networkpairing
+docs:
+- https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+access: admin
+discovery:
+- dca: {api: networkpairing, version: v1}
+
+binding: {root: /config/rest/networkpairing/v1beta}
+
+types:
+  ConnectionStatus:
+    type: string
+    enum:
+    - connected
+    - disconnected
+    - error_unknown
+    - error_authentication
+    - error_certificate
+    description: Status of the connection between the host and remote device.
+  PairingDescription: {type: string, maxLength: 200, description: Description of a network pairing.}
+  PairingID: {type: string, pattern: '^[1-9][0-9]*$', description: Assigned pairing id.}
+  PairingNiceName: {type: string, maxLength: 50, description: 'Short, user friendly, name of a pairing.'}
+  SLCapability: {type: string, enum: [siren, light], description: SirenLight capability.}
+  SLProfileNames: {type: array, description: Profile name.}
+  SLCapabilities:
+    type: array
+    items: {$ref: '#/types/SLCapability'}
+    description: Not defined in the doc; inferred as an array of SLCapability from the property description ('Array
+      containing string representations of capabilities').
+  Networkpairing:
+    type: object
+    description: The whole API tree.
+    properties:
+      pairings:
+        type: array
+        items: {$ref: '#/types/Pairing'}
+      plugins: {$ref: '#/types/Plugins'}
+  Pairing:
+    type: object
+    description: Configured pairings
+    required: [id]
+    x-read-only: [connection_status, id, model_name]
+    properties:
+      address:
+        type: string
+        description: The network address of the remote device. Must be a FQDN DNS name, an IPv4 address (dotted
+          quad notation), or an IPv6 address.
+      connection_status: {$ref: '#/types/ConnectionStatus', description: Connectivity status of the remote device.}
+      description: {$ref: '#/types/PairingDescription', description: Description of the pairing.}
+      id: {$ref: '#/types/PairingID', description: The pairing identifier.}
+      model_name: {type: string, description: The detected model name of the remote device}
+      nice_name: {$ref: '#/types/PairingNiceName', description: 'Short, user friendly, name of a pairing.'}
+      password:
+        type: string
+        description: The password of the user account on the remote device to use when accessing it.
+      username:
+        type: string
+        description: The name of the user account on the remote device to use when accessing it.
+      features:
+        type: array
+        items: {$ref: '#/types/Feature'}
+  Feature:
+    type: object
+    description: Available capabilities
+    properties:
+      features_category: {type: string, description: The capability category name}
+      capabilities:
+        type: array
+        items: {$ref: '#/types/Capability'}
+  Capability:
+    type: object
+    description: Available capabilities
+    required: [name]
+    x-read-only: [name]
+    properties:
+      enabled: {type: boolean, description: The capability is administratively enabled}
+      name: {type: string, description: Name of a pairing capability.}
+  Plugins:
+    type: object
+    description: Plugins loaded on the device
+    properties:
+      siren_light_supported: {type: boolean}
+      siren_light: {$ref: '#/types/SirenLight'}
+  SirenLight:
+    type: object
+    description: SirenLight plugin
+    properties:
+      capabilities:
+        type: array
+        items: {$ref: '#/types/SirenLightCapability'}
+      profiles:
+        type: array
+        items: {$ref: '#/types/Profile'}
+  SirenLightCapability:
+    type: object
+    description: Capabilities on remote devices
+    properties:
+      pairing_id: {$ref: '#/types/PairingID', description: Unique identifier of a pairing.}
+      supported:
+        $ref: '#/types/SLCapabilities'
+        description: Array containing string representations of capabilities supported by the device
+  Profile:
+    type: object
+    description: The SirenLight profiles available on paired devices
+    required: [pairing]
+    properties:
+      names: {$ref: '#/types/SLProfileNames', description: Profile names}
+      pairing: {$ref: '#/types/PairingID', description: The pairing providing the profiles}
+  AddPairingRequest:
+    type: object
+    description: Arguments of ``add_pairing``.
+    required: [address, password, username]
+    properties:
+      address:
+        type: string
+        description: The network address of the remote device. Must be a FQDN DNS name, an IPv4 address (dotted
+          quad notation), or an IPv6 address.
+      password:
+        type: string
+        description: The password of the user account on the remote device to use when accessing it.
+      username:
+        type: string
+        description: The name of the user account on the remote device to use when accessing it.
+      certificate_common_name: {}
+      description: {$ref: '#/types/PairingDescription', description: Description of the pairing.}
+      nice_name: {$ref: '#/types/PairingNiceName', description: 'Short, user friendly, name of a pairing.'}
+
+operations:
+  get_all:
+    summary: All data of the Network Pairing API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Networkpairing'}
+  list_pairings:
+    summary: List the pairings.
+    effect: read
+    binding: {method: GET, path: /pairings}
+    result:
+      type: array
+      items: {$ref: '#/types/Pairing'}
+    examples:
+    - title: List all pairings
+      request: {path: /pairings}
+      response:
+        status: 200
+        body:
+          data:
+          - address: 192.168.0.2
+            features:
+            - category: SirenLight
+              capabilities:
+              - {enabled: true, name: Actions}
+            description: Device in hallway with analytics turned on.
+            id: '1'
+            model_name: AXIS D4100-E
+            nice_name: HallwayAnalytics
+            username: User
+            connection_status: disconnected
+      source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+  get_pairing:
+    summary: Get one pairing.
+    effect: read
+    binding: {method: GET, path: '/pairings/{id}'}
+    params:
+      type: object
+      x-name: PairingIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+    result: {$ref: '#/types/Pairing'}
+    examples:
+    - title: Get capabilities provided by a pairing
+      request: {path: /pairings/1/features}
+      response:
+        status: 200
+        body:
+          data:
+          - category: SirenLight
+            capabilities:
+            - {enabled: true, name: Actions}
+      source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+  add_pairing:
+    summary: Add a pairing.
+    effect: write
+    write: create
+    binding: {method: POST, path: /pairings, body: object}
+    params: {$ref: '#/types/AddPairingRequest'}
+    examples:
+    - title: Add a pairing
+      request:
+        path: /pairings
+        body:
+          data:
+            address: 192.168.0.2
+            description: Device in hallway with analytics turned on.
+            nice_name: HallwayAnalytics
+            password: password
+            username: user
+      response:
+        status: 200
+        body:
+          data:
+            address: 192.168.0.2
+            features:
+            - category: SirenLight
+              capabilities:
+              - {enabled: true, name: Actions}
+            description: Device in hallway with analytics turned on.
+            id: '1'
+            model_name: AXIS D4100-E
+            nice_name: HallwayAnalytics
+            username: User
+            connection_status: connected
+      source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+  remove_pairing:
+    summary: Remove a pairing.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/pairings/{id}'}
+    params:
+      type: object
+      x-name: PairingIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+    examples:
+    - title: Remove a pairing
+      request: {path: /pairings/1}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+  set_pairing_description:
+    summary: Set the description of a pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /pairings/{id}/description
+      body_field: description
+      body: value
+    params:
+      type: object
+      required: [id, description]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+        description: {$ref: '#/types/PairingDescription', description: Description of the pairing.}
+  set_pairing_nice_name:
+    summary: Set the nice name of a pairing.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/pairings/{id}/nice_name', body_field: nice_name, body: value}
+    params:
+      type: object
+      required: [id, nice_name]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+        nice_name: {$ref: '#/types/PairingNiceName', description: 'Short, user friendly, name of a pairing.'}
+    examples:
+    - title: Edit a pairing
+      request:
+        path: /pairings/1/nice_name
+        body: {data: HallwayAnalytics2}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+  list_features:
+    summary: List the features.
+    effect: read
+    binding: {method: GET, path: '/pairings/{id}/features'}
+    params:
+      type: object
+      x-name: FeatureIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+    result:
+      type: array
+      items: {$ref: '#/types/Feature'}
+  get_feature:
+    summary: Get one feature.
+    effect: read
+    binding: {method: GET, path: '/pairings/{id}/features/{category}'}
+    params:
+      type: object
+      x-name: FeatureIdCategoryRequest
+      required: [id, category]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+        category: {type: string}
+    result: {$ref: '#/types/Feature'}
+  list_feature_capabilities:
+    summary: List the capabilities.
+    effect: read
+    binding: {method: GET, path: '/pairings/{id}/features/{category}/capabilities'}
+    params:
+      type: object
+      x-name: CapabilityIdCategoryRequest
+      required: [id, category]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+        category: {type: string}
+    result:
+      type: array
+      items: {$ref: '#/types/Capability'}
+  get_feature_capability:
+    summary: Get one capability.
+    effect: read
+    binding: {method: GET, path: '/pairings/{id}/features/{category}/capabilities/{name}'}
+    params:
+      type: object
+      x-name: CapabilityIdCategoryNameRequest
+      required: [id, category, name]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+        category: {type: string}
+        name: {type: string, description: Name of a pairing capability.}
+    result: {$ref: '#/types/Capability'}
+  set_capability_enabled:
+    summary: Set the enabled of a capability.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /pairings/{id}/features/{category}/capabilities/{name}/enabled
+      body_field: enabled
+      body: value
+    params:
+      type: object
+      required: [id, category, name, enabled]
+      properties:
+        id: {$ref: '#/types/PairingID'}
+        category: {type: string}
+        name: {type: string, description: Name of a pairing capability.}
+        enabled: {type: boolean, description: The capability is administratively enabled}
+    examples:
+    - title: Toggle functionality on existing pairing
+      request:
+        path: /pairings/1/features/SirenLight/capabilities/Actions/enabled
+        body: {data: false}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+  get_plugins:
+    summary: Get the plugin settings.
+    effect: read
+    binding: {method: GET, path: /plugins}
+    result: {$ref: '#/types/Plugins'}
+  get_siren_light:
+    summary: Get the siren light settings.
+    effect: read
+    binding: {method: GET, path: /plugins/siren_light}
+    result: {$ref: '#/types/SirenLight'}
+  list_siren_light_capabilities:
+    summary: List the capabilities.
+    effect: read
+    binding: {method: GET, path: /plugins/siren_light/capabilities}
+    result:
+      type: array
+      items: {$ref: '#/types/SirenLightCapability'}
+  get_siren_light_capability:
+    summary: Get one capability.
+    effect: read
+    binding: {method: GET, path: '/plugins/siren_light/capabilities/{pairing}'}
+    params:
+      type: object
+      x-name: SirenLightCapabilityPairingRequest
+      required: [pairing]
+      properties:
+        pairing: {type: string}
+    result: {$ref: '#/types/SirenLightCapability'}
+  list_profiles:
+    summary: List the profiles.
+    effect: read
+    binding: {method: GET, path: /plugins/siren_light/profiles}
+    result:
+      type: array
+      items: {$ref: '#/types/Profile'}
+  get_profile:
+    summary: Get one profile.
+    effect: read
+    binding: {method: GET, path: '/plugins/siren_light/profiles/{pairing}'}
+    params:
+      type: object
+      x-name: ProfilePairingRequest
+      required: [pairing]
+      properties:
+        pairing: {$ref: '#/types/PairingID'}
+    result: {$ref: '#/types/Profile'}
+    examples:
+    - title: List all available profiles on remote device
+      request: {path: /plugins/siren_light/profiles/1}
+      response:
+        status: 200
+        body:
+          data: {names: [Loud noise, Police sirens], pairing: '1'}
+      source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
+  sha256_md: 68f90c1074f1606be387cdf206734f9971116d3ee01598449ff10ea58c6c1115
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'Example ''Plugins'' uses GET /config/rest/networkpairing/v1/plugins/siren_light_supported, which does not map
+    to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'Example ''Get capabilities of paired device'' uses GET /config/rest/networkpairing/v1beta/plugins/siren_light/features/1,
+    which does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'add field certificate_common_name of networkpairing.v1.pairings is listed as an operation field but is not
+    defined as a property. Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'property networkpairing.v1.pairings.password lists no operations in the API definition. Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'The API Definition section of this page is malformed: the Structure tree only shows the root, the pairings
+    collection is headed ''id'', and the features/capabilities/siren_light/profiles entities are headed with bare
+    names. Entity paths were reconstructed from the use-case examples and the prose (networkpairing.v1.pairings,
+    pairings.features, pairings.features.capabilities, plugins, plugins.siren_light, plugins.siren_light.capabilities,
+    plugins.siren_light.profiles). Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'Base path: the plugin-check example uses /config/rest/networkpairing/v1/plugins/siren_light_supported while
+    all other examples and the ''Path'' bullets use /config/rest/networkpairing/v1beta (beta API); v1beta is used.
+    Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'The features collection''s key property is ''category'' but the only documented property is ''features_category'';
+    the capabilities collection key is ''name''. Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'Example ''Get capabilities of paired device'' uses GET /config/rest/networkpairing/v1beta/plugins/siren_light/features/1
+    and the prose says plugins.siren_light.features.{pairingID}, but the API definition names the collection ''capabilities''
+    (Path: /networkpairing/v1beta/plugins/siren_light/capabilities) with property ''supported''. Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'nice_name is documented twice in the pairings collection (once with datatype string and no attributes, once
+    with PairingNiceName). The password property lists no operations (write-only at add; ''can be updated but never
+    read'' per prose, but no SET permission is given). Data type SLCapabilities is referenced but only SLCapability
+    is defined. Source: https://developer.axis.com/vapix/device-configuration/network-pairing-api/'
+  - 'migration: dropped-property-gets: 15 per-property GET operations dropped'
+  - 'migration: dropped-keywords: x-inferred x1'
+  migrated_from: v1
+  curated: false

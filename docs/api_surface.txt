@@ -1,0 +1,62 @@
+analytics_mqtt.AddPublisherRequest(id: PublisherId, data_source_key: DataSourceKey, mqtt_topic: MqttTopic, qos: Qos | None, retain: bool | None, use_topic_prefix: bool | None)
+analytics_mqtt.AddPublisherRequest.from_current(Publisher)
+analytics_mqtt.AnalyticsMqtt(data_sources: list[DataSource], publishers: list[Publisher])
+analytics_mqtt.AnalyticsMqttApi.add_publisher(self, /, *, id: PublisherId, data_source_key: DataSourceKey, mqtt_topic: MqttTopic, qos: Qos | MISSING = MISSING, retain: bool | MISSING = MISSING, use_topic_prefix: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+analytics_mqtt.AnalyticsMqttApi.add_publisher(self, request: AddPublisherRequest, /, *, request_options: RequestOptions | None = None) -> None
+analytics_mqtt.AnalyticsMqttApi.get_all(self, *, request_options: RequestOptions | None = None) -> AnalyticsMqtt
+analytics_mqtt.AnalyticsMqttApi.get_data_source(self, key: DataSourceKey, *, request_options: RequestOptions | None = None) -> DataSource
+analytics_mqtt.AnalyticsMqttApi.get_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> Publisher
+analytics_mqtt.AnalyticsMqttApi.list_data_sources(self, *, request_options: RequestOptions | None = None) -> list[DataSource]
+analytics_mqtt.AnalyticsMqttApi.list_publishers(self, *, request_options: RequestOptions | None = None) -> list[Publisher]
+analytics_mqtt.AnalyticsMqttApi.remove_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> None
+analytics_mqtt.AsyncAnalyticsMqttApi.add_publisher(self, /, *, id: PublisherId, data_source_key: DataSourceKey, mqtt_topic: MqttTopic, qos: Qos | MISSING = MISSING, retain: bool | MISSING = MISSING, use_topic_prefix: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+analytics_mqtt.AsyncAnalyticsMqttApi.add_publisher(self, request: AddPublisherRequest, /, *, request_options: RequestOptions | None = None) -> None
+analytics_mqtt.AsyncAnalyticsMqttApi.get_all(self, *, request_options: RequestOptions | None = None) -> AnalyticsMqtt
+analytics_mqtt.AsyncAnalyticsMqttApi.get_data_source(self, key: DataSourceKey, *, request_options: RequestOptions | None = None) -> DataSource
+analytics_mqtt.AsyncAnalyticsMqttApi.get_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> Publisher
+analytics_mqtt.AsyncAnalyticsMqttApi.list_data_sources(self, *, request_options: RequestOptions | None = None) -> list[DataSource]
+analytics_mqtt.AsyncAnalyticsMqttApi.list_publishers(self, *, request_options: RequestOptions | None = None) -> list[Publisher]
+analytics_mqtt.AsyncAnalyticsMqttApi.remove_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> None
+analytics_mqtt.DataSource(key: DataSourceKey)
+analytics_mqtt.DataSourceKey = Annotated[str, Field(min_length=3, max_length=128)]
+analytics_mqtt.DataSourceKeyRequest(key: DataSourceKey)
+analytics_mqtt.MqttTopic = Annotated[str, Field(min_length=1, max_length=128, pattern='^([a-zA-Z0-9_-]+)(/[a-zA-Z0-9_-]+)*$')]
+analytics_mqtt.Publisher(id: PublisherId, data_source_key: DataSourceKey, mqtt_topic: MqttTopic, qos: Qos | None, retain: bool | None, use_topic_prefix: bool | None)
+analytics_mqtt.PublisherId = Annotated[str, Field(min_length=1, max_length=128)]
+analytics_mqtt.PublisherIdRequest(id: PublisherId)
+analytics_mqtt.Qos = Literal[0, 1, 2]
+mqtt_client.AnnouncementMessage(use_default: bool | None [useDefault], topic: str | None, message: str | None, retain: bool | None, qos: Literal[0, 1, 2] | None)
+mqtt_client.AsyncMqttClientApi.activate_client(self, *, request_options: RequestOptions | None = None) -> None
+mqtt_client.AsyncMqttClientApi.configure_client(self, /, *, server: Server, client_id: str, http_proxy: str | MISSING = MISSING, https_proxy: str | MISSING = MISSING, username: str | MISSING = MISSING, password: str | MISSING = MISSING, keep_existing_password: bool | MISSING = MISSING, keep_alive_interval: int | MISSING = MISSING, connect_timeout: int | MISSING = MISSING, clean_session: bool | MISSING = MISSING, auto_reconnect: bool | MISSING = MISSING, device_topic_prefix: str | MISSING = MISSING, last_will_testament: AnnouncementMessage | MISSING = MISSING, connect_message: AnnouncementMessage | MISSING = MISSING, disconnect_message: AnnouncementMessage | MISSING = MISSING, ssl: Ssl | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+mqtt_client.AsyncMqttClientApi.configure_client(self, request: ConfigureClientRequest, /, *, request_options: RequestOptions | None = None) -> None
+mqtt_client.AsyncMqttClientApi.deactivate_client(self, *, request_options: RequestOptions | None = None) -> None
+mqtt_client.AsyncMqttClientApi.get_client_status(self, *, request_options: RequestOptions | None = None) -> ClientStatus
+mqtt_client.ClientConfig(server: Server, client_id: str | None [clientId], http_proxy: str | None [httpProxy], https_proxy: str | None [httpsProxy], username: str | None, password: str | None, keep_alive_interval: int | None [keepAliveInterval], connect_timeout: int | None [connectTimeout], clean_session: bool | None [cleanSession], auto_reconnect: bool | None [autoReconnect], device_topic_prefix: str | None [deviceTopicPrefix], last_will_testament: AnnouncementMessage | None [lastWillTestament], connect_message: AnnouncementMessage | None [connectMessage], disconnect_message: AnnouncementMessage | None [disconnectMessage], ssl: Ssl | None)
+mqtt_client.ClientStatus(status: Status, config: ClientConfig | None)
+mqtt_client.ConfigureClientRequest(server: Server, client_id: str [clientId], http_proxy: str | None [httpProxy], https_proxy: str | None [httpsProxy], username: str | None, password: str | None, keep_existing_password: bool | None [keepExistingPassword], keep_alive_interval: int | None [keepAliveInterval], connect_timeout: int | None [connectTimeout], clean_session: bool | None [cleanSession], auto_reconnect: bool | None [autoReconnect], device_topic_prefix: str | None [deviceTopicPrefix], last_will_testament: AnnouncementMessage | None [lastWillTestament], connect_message: AnnouncementMessage | None [connectMessage], disconnect_message: AnnouncementMessage | None [disconnectMessage], ssl: Ssl | None)
+mqtt_client.ConfigureClientRequest.from_current(ClientConfig)
+mqtt_client.MqttClientApi.activate_client(self, *, request_options: RequestOptions | None = None) -> None
+mqtt_client.MqttClientApi.configure_client(self, /, *, server: Server, client_id: str, http_proxy: str | MISSING = MISSING, https_proxy: str | MISSING = MISSING, username: str | MISSING = MISSING, password: str | MISSING = MISSING, keep_existing_password: bool | MISSING = MISSING, keep_alive_interval: int | MISSING = MISSING, connect_timeout: int | MISSING = MISSING, clean_session: bool | MISSING = MISSING, auto_reconnect: bool | MISSING = MISSING, device_topic_prefix: str | MISSING = MISSING, last_will_testament: AnnouncementMessage | MISSING = MISSING, connect_message: AnnouncementMessage | MISSING = MISSING, disconnect_message: AnnouncementMessage | MISSING = MISSING, ssl: Ssl | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+mqtt_client.MqttClientApi.configure_client(self, request: ConfigureClientRequest, /, *, request_options: RequestOptions | None = None) -> None
+mqtt_client.MqttClientApi.deactivate_client(self, *, request_options: RequestOptions | None = None) -> None
+mqtt_client.MqttClientApi.get_client_status(self, *, request_options: RequestOptions | None = None) -> ClientStatus
+mqtt_client.Protocol = Literal['tcp', 'ssl', 'ws', 'wss']
+mqtt_client.Server(host: str, protocol: Protocol | None, port: int | None, basepath: str | None, alpn_protocol: str | None [alpnProtocol])
+mqtt_client.Ssl(validate_server_cert: bool | None [validateServerCert], client_cert_id: str | None [clientCertID], ca_cert_id: str | None [CACertID])
+mqtt_client.Status(state: Literal['active', 'inactive'], connection_status: Literal['connected', 'disconnected'] [connectionStatus])
+parameter_management.AddRequest(template: str, group: str, parameters: dict[str, str] | None, force: bool | None)
+parameter_management.AsyncParameterManagementApi.add(self, template: str, group: str, parameters: Mapping[str, str] | MISSING = MISSING, *, force: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
+parameter_management.AsyncParameterManagementApi.list(self, group: list[str] | MISSING = MISSING, *, usergroup: UserGroup | MISSING = MISSING, request_options: RequestOptions | None = None) -> dict[str, str]
+parameter_management.AsyncParameterManagementApi.list_definitions(self, group: str | MISSING = MISSING, *, usergroup: UserGroup | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
+parameter_management.AsyncParameterManagementApi.remove(self, group: list[str], *, request_options: RequestOptions | None = None) -> None
+parameter_management.AsyncParameterManagementApi.update(self, parameters: Mapping[str, str], *, usergroup: UserGroup | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+parameter_management.ListDefinitionsRequest(group: str | None, usergroup: UserGroup | None)
+parameter_management.ListRequest(group: list[str] | None, usergroup: UserGroup | None)
+parameter_management.ParameterManagementApi.add(self, template: str, group: str, parameters: Mapping[str, str] | MISSING = MISSING, *, force: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
+parameter_management.ParameterManagementApi.list(self, group: list[str] | MISSING = MISSING, *, usergroup: UserGroup | MISSING = MISSING, request_options: RequestOptions | None = None) -> dict[str, str]
+parameter_management.ParameterManagementApi.list_definitions(self, group: str | MISSING = MISSING, *, usergroup: UserGroup | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
+parameter_management.ParameterManagementApi.remove(self, group: list[str], *, request_options: RequestOptions | None = None) -> None
+parameter_management.ParameterManagementApi.update(self, parameters: Mapping[str, str], *, usergroup: UserGroup | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+parameter_management.RemoveRequest(group: list[str])
+parameter_management.UpdateRequest(parameters: dict[str, str], usergroup: UserGroup | None)
+parameter_management.UserGroup = Literal['anonymous', 'viewer', 'operator', 'admin']

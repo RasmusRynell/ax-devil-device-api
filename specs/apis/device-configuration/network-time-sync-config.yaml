@@ -1,0 +1,111 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: network-time-sync-config
+name: Network time synchronization configuration API
+summary: Configure how the device uses network protocols (NTP client) to synchronize the system time.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: network_time_sync
+  class: NetworkTimeSync
+docs:
+- https://developer.axis.com/vapix/device-configuration/network-time-sync-api/
+access: admin
+discovery:
+- dca: {api: network-time-sync, version: v1}
+
+binding: {root: /config/rest/network-time-sync/v1}
+
+types:
+  NetworkTimeSync:
+    type: object
+    description: The whole API tree.
+    properties:
+      ntp: {$ref: '#/types/Ntp'}
+  Ntp:
+    type: object
+    description: This entity contains properties for the NTP protocol.
+    properties:
+      client: {$ref: '#/types/Client'}
+  Client:
+    type: object
+    description: This entity contains the client specific configuration settings for the NTP protocol, such as polling
+      intervals, server sources, and synchronization status.
+    properties: {}
+  UpdateClientRequest:
+    type: object
+    description: Arguments of ``update_client``.
+    properties:
+      enabled: {}
+      maximumPoll: {}
+      minimumPoll: {}
+      serversSource: {}
+      staticServers: {}
+
+operations:
+  get_client:
+    summary: Get the client settings.
+    effect: read
+    binding: {method: GET, path: /ntp/client}
+    examples:
+    - title: Get NTP client configuration
+      request:
+        path: ''
+        body: {operation: GET, path: network-time-sync.v1.ntp.client}
+      response:
+        body:
+          status: success
+          data:
+            advertisedServers: [192.168.0.1, 192.168.2.1, '1234::55', '1234::66']
+            enabled: true
+            maximumPoll: 10
+            minimumPoll: 6
+            serversSource: DHCP
+            staticServers: [192.168.0.1]
+            synced: false
+            timeOffset: 0
+            timeToNextSync: 0
+      source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#get-ntp-client-configuration
+  update_client:
+    summary: Update the client settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /ntp/client, body: object}
+    params: {$ref: '#/types/UpdateClientRequest'}
+    examples:
+    - title: Enable NTP client configuration
+      request:
+        path: ''
+        body:
+          operation: SET
+          path: network-time-sync.v1.ntp.client
+          data:
+            enabled: true
+            maximumPoll: 10
+            minimumPoll: 6
+            serversSource: DHCP
+            staticServers: [192.168.0.1]
+      response:
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#enable-ntp-client-configuration
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/
+  sha256_md: c83a5f5f41692a8394823b993f8a84f2beda2136f598180ec5870d4306afec83
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: stub
+  open_questions:
+  - 'The API definition has no Entities/properties/data types: only two entity names with one-line descriptions.
+    Property names, types, permissions and operations are inferred from the two abstract JSON examples. Source:
+    https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#api-definition'
+  - 'Version conflict: prose refers to network-time-sync.v2.ntp.client while examples and Objects use network-time-sync.v1.
+    Base path v1 used. Source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#use-cases'
+  - '''Disable NTP client: set network-time-sync.v2.ntp.client to false'' presumably means setting the enabled property;
+    not stated precisely. Source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/#disable-ntp-client-configuration'
+  - 'Maturity (beta/released), AXIS OS version and permissions are not stated. Source: https://developer.axis.com/vapix/device-configuration/network-time-sync-api/'
+  - 'migration: status: v1 status ''unknown'' mapped to released'
+  migrated_from: v1
+  curated: false

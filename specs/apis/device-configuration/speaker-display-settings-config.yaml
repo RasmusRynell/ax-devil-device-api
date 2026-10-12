@@ -1,0 +1,450 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: speaker-display-settings-config
+name: Speaker display settings
+summary: The VAPIX® Speaker display settings API enables configurations for the appearance and availability of the
+  display clock, display brightness and localization.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: speaker_display_settings
+  class: SpeakerDisplaySettings
+docs:
+- https://developer.axis.com/vapix/device-configuration/speaker-display-settings/
+access: admin
+discovery:
+- dca: {api: speaker-display-settings, version: v1}
+
+binding: {root: /config/rest/speaker-display-settings/v1}
+
+types:
+  BrightnessRange: {type: integer, minimum: 1, maximum: 7, description: Supported brightness range.}
+  ColorFormat:
+    type: string
+    pattern: ^#[0-9a-fA-F]{6}$
+    description: Colors are represented using RGB hexadecimal values.
+  DateLanguage:
+    type: string
+    enum:
+    - ar
+    - de
+    - en
+    - es
+    - fr
+    - global
+    - it
+    - ja
+    - ko
+    - th
+    - tr
+    - zh
+    - zh-TW
+    description: String enumeration for supported localizations.
+  PowerSaveModes:
+    type: string
+    enum: [alwaysOn, alwaysOff, presenceDetection, schedule]
+    description: String enumeration for power save modes.
+  PowerSaveTimerMinutes: {type: integer, minimum: null, maximum: 60, description: Power save timeout in minutes.}
+  PresenceDetection:
+    type: object
+    description: Parameters belonging to the power save mode `"presenceDetection"`.
+    properties:
+      powerSaveTimerMinutes:
+        $ref: '#/types/PowerSaveTimerMinutes'
+        description: Time without presence before the display turns off.
+  Schedule:
+    type: object
+    description: Parameters belonging to the power save mode `"schedule"`.
+    x-nullable: [scheduleId]
+    properties:
+      invert:
+        type: boolean
+        description: When enabled, the schedule is inverted. The times it's normally active become inactive and
+          the times it's normally inactive become active.
+      scheduleId:
+        $ref: '#/types/ScheduleIdStr'
+        description: The identification string of a configured schedule.
+  ScheduleIdStr:
+    type: string
+    maxLength: 100
+    description: The identification string of a configured schedule.
+  SpeakerDisplaySettings:
+    type: object
+    description: The whole API tree.
+    properties:
+      appearance: {$ref: '#/types/Appearance'}
+      brightness: {$ref: '#/types/Brightness'}
+      powerSave: {$ref: '#/types/PowerSave'}
+  Appearance:
+    type: object
+    description: Speaker Display Appearance Entity.
+    properties:
+      backgroundColor: {$ref: '#/types/ColorFormat', description: Color of the background.}
+      fontColor: {$ref: '#/types/ColorFormat', description: Color of the text when idle.}
+      language: {$ref: '#/types/DateLanguage', description: Localization of the clock shown when idle.}
+      showDate: {type: boolean, description: 'If enabled, the current date will be displayed.'}
+      showSeconds: {type: boolean, description: 'If enabled, seconds will be displayed.'}
+      use24HourClock:
+        type: boolean
+        description: If enabled, the clock will display the 24-hour format; otherwise, it will display the 12-hour
+          format with AM/PM.
+  Brightness:
+    type: object
+    description: Speaker Display Brightness Entity.
+    properties:
+      adaptiveBrightness:
+        type: boolean
+        description: Adaptive display brightness enabled or disabled. If enabled, display brightness will be automatically
+          adjusted to match ambient luminance. Adaptive display brightness is paused whenever there is an active
+          notification.
+      manualLevel:
+        $ref: '#/types/BrightnessRange'
+        description: Manual display brightness set by user. Applicable only if adaptive brightness is disabled.
+      maxAdaptiveLevel: {$ref: '#/types/BrightnessRange', description: Maximum display brightness for adaptive mode.}
+      minAdaptiveLevel: {$ref: '#/types/BrightnessRange', description: Minimum display brightness for adaptive mode.}
+  PowerSave:
+    type: object
+    description: Speaker Display Power Save Entity.
+    properties:
+      mode:
+        $ref: '#/types/PowerSaveModes'
+        description: Power saving mode can be `alwaysOn`, `alwaysOff`, `schedule`, or `presenceDetection`.
+      presenceDetection:
+        $ref: '#/types/PresenceDetection'
+        description: Parameters belonging to the power save mode `presenceDetection`.
+      schedule:
+        $ref: '#/types/Schedule'
+        description: Parameters belonging to the power save mode `schedule`.
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``.
+    properties: {}
+  UpdateAppearanceRequest:
+    type: object
+    description: Arguments of ``update_appearance``.
+    properties:
+      backgroundColor: {$ref: '#/types/ColorFormat', description: Color of the background.}
+      fontColor: {$ref: '#/types/ColorFormat', description: Color of the text when idle.}
+      language: {$ref: '#/types/DateLanguage', description: Localization of the clock shown when idle.}
+      showDate: {type: boolean, description: 'If enabled, the current date will be displayed.'}
+      showSeconds: {type: boolean, description: 'If enabled, seconds will be displayed.'}
+      use24HourClock:
+        type: boolean
+        description: If enabled, the clock will display the 24-hour format; otherwise, it will display the 12-hour
+          format with AM/PM.
+  UpdateBrightnessRequest:
+    type: object
+    description: Arguments of ``update_brightness``.
+    properties:
+      adaptiveBrightness:
+        type: boolean
+        description: Adaptive display brightness enabled or disabled. If enabled, display brightness will be automatically
+          adjusted to match ambient luminance. Adaptive display brightness is paused whenever there is an active
+          notification.
+      manualLevel:
+        $ref: '#/types/BrightnessRange'
+        description: Manual display brightness set by user. Applicable only if adaptive brightness is disabled.
+      maxAdaptiveLevel: {$ref: '#/types/BrightnessRange', description: Maximum display brightness for adaptive mode.}
+      minAdaptiveLevel: {$ref: '#/types/BrightnessRange', description: Minimum display brightness for adaptive mode.}
+  UpdatePowerSaveRequest:
+    type: object
+    description: Arguments of ``update_power_save``.
+    properties:
+      mode:
+        $ref: '#/types/PowerSaveModes'
+        description: Power saving mode can be `alwaysOn`, `alwaysOff`, `schedule`, or `presenceDetection`.
+      presenceDetection:
+        $ref: '#/types/PresenceDetection'
+        description: Parameters belonging to the power save mode `presenceDetection`.
+      schedule:
+        $ref: '#/types/Schedule'
+        description: Parameters belonging to the power save mode `schedule`.
+
+operations:
+  get_all:
+    summary: All data of the Speaker display settings API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/SpeakerDisplaySettings'}
+    examples:
+    - title: Get all settings
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            appearance:
+              backgroundColor: '#000000'
+              fontColor: '#670f0f'
+              language: en
+              showDate: true
+              showSeconds: false
+              use24HourClock: true
+            brightness: {adaptiveBrightness: true, manualLevel: 6, maxAdaptiveLevel: 6, minAdaptiveLevel: 1}
+            powerSave:
+              mode: presenceDetection
+              presenceDetection: {powerSaveTimerMinutes: 20}
+              schedule: {invert: false, scheduleId: com.axis.schedules.office_hours}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-settings/
+  update_all:
+    summary: Update the Speaker display settings settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '', body: object}
+    params: {$ref: '#/types/UpdateAllRequest'}
+  get_appearance:
+    summary: Get the appearance settings.
+    effect: read
+    binding: {method: GET, path: /appearance}
+    result: {$ref: '#/types/Appearance'}
+  update_appearance:
+    summary: Update the appearance settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /appearance, body: object}
+    params: {$ref: '#/types/UpdateAppearanceRequest'}
+    examples:
+    - title: Set appearance settings
+      request:
+        path: /appearance
+        body:
+          data:
+            backgroundColor: '#000000'
+            fontColor: '#670f0f'
+            language: en
+            showDate: true
+            showSeconds: false
+            use24HourClock: true
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-settings/
+  set_appearance_background_color:
+    summary: Set the background color of the appearance.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /appearance/backgroundColor
+      body_field: backgroundColor
+      body: value
+    params:
+      type: object
+      required: [backgroundColor]
+      properties:
+        backgroundColor: {$ref: '#/types/ColorFormat', description: Color of the background.}
+  set_appearance_font_color:
+    summary: Set the font color of the appearance.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /appearance/fontColor, body_field: fontColor, body: value}
+    params:
+      type: object
+      required: [fontColor]
+      properties:
+        fontColor: {$ref: '#/types/ColorFormat', description: Color of the text when idle.}
+  set_appearance_language:
+    summary: Set the language of the appearance.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /appearance/language, body_field: language, body: value}
+    params:
+      type: object
+      required: [language]
+      properties:
+        language: {$ref: '#/types/DateLanguage', description: Localization of the clock shown when idle.}
+  set_appearance_show_date:
+    summary: Set the show date of the appearance.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /appearance/showDate, body_field: showDate, body: value}
+    params:
+      type: object
+      required: [showDate]
+      properties:
+        showDate: {type: boolean, description: 'If enabled, the current date will be displayed.'}
+  set_appearance_show_seconds:
+    summary: Set the show seconds of the appearance.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /appearance/showSeconds, body_field: showSeconds, body: value}
+    params:
+      type: object
+      required: [showSeconds]
+      properties:
+        showSeconds: {type: boolean, description: 'If enabled, seconds will be displayed.'}
+  set_appearance_use24_hour_clock:
+    summary: Set the use24 hour clock of the appearance.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /appearance/use24HourClock
+      body_field: use24HourClock
+      body: value
+    params:
+      type: object
+      required: [use24HourClock]
+      properties:
+        use24HourClock:
+          type: boolean
+          description: If enabled, the clock will display the 24-hour format; otherwise, it will display the 12-hour
+            format with AM/PM.
+  get_brightness:
+    summary: Get the brightness settings.
+    effect: read
+    binding: {method: GET, path: /brightness}
+    result: {$ref: '#/types/Brightness'}
+  update_brightness:
+    summary: Update the brightness settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /brightness, body: object}
+    params: {$ref: '#/types/UpdateBrightnessRequest'}
+    examples:
+    - title: Set brightness settings
+      request:
+        path: /brightness
+        body:
+          data: {adaptiveBrightness: true, manualLevel: 6, maxAdaptiveLevel: 5, minAdaptiveLevel: 4}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-settings/
+  set_brightness_adaptive_brightness:
+    summary: Set the adaptive brightness of the brightness.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /brightness/adaptiveBrightness
+      body_field: adaptiveBrightness
+      body: value
+    params:
+      type: object
+      required: [adaptiveBrightness]
+      properties:
+        adaptiveBrightness:
+          type: boolean
+          description: Adaptive display brightness enabled or disabled. If enabled, display brightness will be automatically
+            adjusted to match ambient luminance. Adaptive display brightness is paused whenever there is an active
+            notification.
+  set_brightness_manual_level:
+    summary: Set the manual level of the brightness.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /brightness/manualLevel, body_field: manualLevel, body: value}
+    params:
+      type: object
+      required: [manualLevel]
+      properties:
+        manualLevel:
+          $ref: '#/types/BrightnessRange'
+          description: Manual display brightness set by user. Applicable only if adaptive brightness is disabled.
+  set_brightness_max_adaptive_level:
+    summary: Set the max adaptive level of the brightness.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /brightness/maxAdaptiveLevel
+      body_field: maxAdaptiveLevel
+      body: value
+    params:
+      type: object
+      required: [maxAdaptiveLevel]
+      properties:
+        maxAdaptiveLevel: {$ref: '#/types/BrightnessRange', description: Maximum display brightness for adaptive
+            mode.}
+  set_brightness_min_adaptive_level:
+    summary: Set the min adaptive level of the brightness.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /brightness/minAdaptiveLevel
+      body_field: minAdaptiveLevel
+      body: value
+    params:
+      type: object
+      required: [minAdaptiveLevel]
+      properties:
+        minAdaptiveLevel: {$ref: '#/types/BrightnessRange', description: Minimum display brightness for adaptive
+            mode.}
+  get_power_save:
+    summary: Get the power save settings.
+    effect: read
+    binding: {method: GET, path: /powerSave}
+    result: {$ref: '#/types/PowerSave'}
+  update_power_save:
+    summary: Update the power save settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /powerSave, body: object}
+    params: {$ref: '#/types/UpdatePowerSaveRequest'}
+    examples:
+    - title: Set power saving settings
+      request:
+        path: /powerSave
+        body:
+          data:
+            mode: alwaysOff
+            presenceDetection: {powerSaveTimerMinutes: 40}
+            schedule: {invert: true, scheduleId: com.axis.schedules.office_hours}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-settings/
+  set_power_save_mode:
+    summary: Set the mode of the power save.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /powerSave/mode, body_field: mode, body: value}
+    params:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          $ref: '#/types/PowerSaveModes'
+          description: Power saving mode can be `alwaysOn`, `alwaysOff`, `schedule`, or `presenceDetection`.
+  set_power_save_presence_detection:
+    summary: Set the presence detection of the power save.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /powerSave/presenceDetection
+      body_field: presenceDetection
+      body: value
+    params:
+      type: object
+      required: [presenceDetection]
+      properties:
+        presenceDetection:
+          $ref: '#/types/PresenceDetection'
+          description: Parameters belonging to the power save mode `presenceDetection`.
+  set_power_save_schedule:
+    summary: Set the schedule of the power save.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /powerSave/schedule, body_field: schedule, body: value}
+    params:
+      type: object
+      required: [schedule]
+      properties:
+        schedule:
+          $ref: '#/types/Schedule'
+          description: Parameters belonging to the power save mode `schedule`.
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/speaker-display-settings/
+  sha256_md: 658f64766c63aa22036e4016552eb38d3accc30b82cad83a4a5a42b24aa79939
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 13 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,345 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: radar-autotracking
+name: Radar autotracking
+summary: Configure radar-driven PTZ autotracking on Axis radars (e.g.
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: radar_autotracking
+  class: RadarAutotracking
+docs:
+- https://developer.axis.com/vapix/radar/radar-autotracking/
+access: operator
+discovery:
+- {api_discovery: radar-autotracking}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.Radar.Radar, value: 'yes'}
+requires:
+  firmware: '7.10'
+
+binding:
+  path: /axis-cgi/radar-autotracking.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  100:
+    description: UNSUPPORTED_API_VERSION. The requested API version is not supported by this implementation.
+    kind: unsupported
+  102:
+    description: JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input.
+    kind: not_found
+  103:
+    description: JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect.
+    kind: invalid_argument
+  200:
+    description: JSON_INVALID_ERROR. The provided JSON input was invalid.
+    kind: invalid_argument
+  300: {description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument}
+
+operations:
+  get_camera_connection:
+    summary: Retrieve the current camera connection and connection state.
+    effect: read
+    binding: {method: getCameraConnection}
+    result:
+      type: object
+      properties:
+        ip: {type: string, description: IP address of the PTZ camera}
+        user: {type: string, description: user name to login to the PTZ camera}
+        state:
+          type: string
+          enum: [disconnected, connecting, autotune, connected, connect_failed]
+          description: state of the connection
+  set_camera_connection:
+    summary: Set the camera connection of the radar.
+    effect: write
+    write: patch
+    binding: {method: setCameraConnection}
+    params:
+      type: object
+      required: [ip, user, pass]
+      properties:
+        ip: {type: string, description: The camera's IP address.}
+        user: {type: string, description: The username to log in to the camera.}
+        pass: {type: string, description: The password to log in to the camera.}
+  get_camera_mounting_height:
+    summary: Retrieve the current mounting height and its allowed values.
+    effect: read
+    binding: {method: getCameraMountingHeight}
+    result:
+      type: object
+      properties:
+        value: {type: number, description: mounting height in meters}
+        minValue: {type: number, description: minimum (meters)}
+        maxValue: {type: number, description: maximum (meters)}
+  set_camera_mounting_height:
+    summary: Set the mounting height (see getCameraMountingHeight for allowed values).
+    effect: write
+    write: patch
+    binding: {method: setCameraMountingHeight}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: 'The vertical mounting height of the camera, measured in meters.'}
+  get_camera_pan_offset:
+    summary: Retrieve the current camera pan offset and its allowed values.
+    effect: read
+    binding: {method: getCameraPanOffset}
+    result:
+      type: object
+      properties:
+        value: {type: number, description: camera pan offset in degrees}
+        minValue: {type: number, description: minimum (degrees)}
+        maxValue: {type: number, description: maximum (degrees)}
+  set_camera_pan_offset:
+    summary: Set the camera pan offset (see getCameraPanOffset for allowed values).
+    effect: write
+    write: patch
+    binding: {method: setCameraPanOffset}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: 'The camera pan offset, measured in degrees.'}
+  save_camera_pan_offset:
+    summary: Read the current pan position from a connected camera and save it as the camera pan offset.
+    effect: unknown
+    binding: {method: saveCameraPanOffset}
+    errors:
+      301:
+        description: INVALID_CONNECTION_ERROR. Invalid connection to the camera
+        kind: invalid_argument
+  get_camera_tilt_offset:
+    summary: Retrieve the current camera tilt offset and its allowed values.
+    effect: read
+    binding: {method: getCameraTiltOffset}
+    result:
+      type: object
+      properties:
+        value: {type: number, description: camera tilt offset in degrees}
+        minValue: {type: number, description: minimum (degrees)}
+        maxValue: {type: number, description: maximum (degrees)}
+  set_camera_tilt_offset:
+    summary: Set the camera tilt offset (see getCameraTiltOffset for allowed values).
+    effect: write
+    write: patch
+    binding: {method: setCameraTiltOffset}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: 'The camera tilt offset, measured in degrees.'}
+  save_camera_tilt_offset:
+    summary: Read the current tilt position from a connected camera and save it as the camera tilt offset.
+    effect: unknown
+    binding: {method: saveCameraTiltOffset}
+    errors:
+      301:
+        description: INVALID_CONNECTION_ERROR. Invalid connection to the camera
+        kind: invalid_argument
+  get_camera_zoom_degree:
+    summary: Retrieve the current zoom degree and its allowed values.
+    effect: read
+    binding: {method: getCameraZoomDegree}
+    result:
+      type: object
+      properties:
+        value: {type: number, description: zoom degree in percent}
+        minValue: {type: number, description: minimum (percent)}
+        maxValue: {type: number, description: maximum (percent)}
+  set_camera_zoom_degree:
+    summary: Set the zoom degree (in percent) of the camera.
+    effect: write
+    write: patch
+    binding: {method: setCameraZoomDegree}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: 'The camera zoom degree, measured in percent.'}
+  get_tracking_enabled:
+    summary: Retrieve the current status of the enabled tracking.
+    effect: read
+    binding: {method: getTrackingEnabled}
+    result:
+      type: object
+      properties:
+        value: {type: boolean, description: tracking enabled}
+  set_tracking_enabled:
+    summary: Enable or disable the radar tracking.
+    effect: write
+    write: patch
+    binding: {method: setTrackingEnabled}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: boolean
+          description: Must be set to either true or false to enable/disable tracking.
+  get_guard_tour_enabled:
+    summary: Retrieve the current status of the enabled guard tour.
+    effect: read
+    binding: {method: getGuardTourEnabled}
+    result:
+      type: object
+      properties:
+        value: {type: boolean, description: guard tour enabled}
+  set_guard_tour_enabled:
+    summary: Enable or disable the guard tour.
+    effect: write
+    write: patch
+    binding: {method: setGuardTourEnabled}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: boolean
+          description: Must be set to either true or false to enable/disable guard tour.
+  get_guard_tour_time:
+    summary: Retrieve the current guard tour time and its allowed values.
+    effect: read
+    binding: {method: getGuardTourTime}
+    result:
+      type: object
+      properties:
+        value: {type: number, description: guard tour time in seconds}
+        minValue: {type: number, description: minimum (seconds)}
+        maxValue: {type: number, description: maximum (seconds)}
+  set_guard_tour_time:
+    summary: Set the guard tour time (see getGuardTourTime).
+    effect: write
+    write: patch
+    binding: {method: setGuardTourTime}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: 'The guard tour time, measured in seconds.'}
+  get_return_to_home_enabled:
+    summary: Retrieve the current status of return to home enabled.
+    effect: read
+    binding: {method: getReturnToHomeEnabled}
+    result:
+      type: object
+      properties:
+        value: {type: boolean, description: return to home enabled}
+  set_return_to_home_enabled:
+    summary: Enable or disable the return to home function.
+    effect: write
+    write: patch
+    binding: {method: setReturnToHomeEnabled}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: boolean
+          description: Must be set to either true or false to enable/disable the return to home function.
+  get_return_to_home_timeout:
+    summary: Retrieve the current return to home timeout and its min/max values.
+    effect: read
+    binding: {method: getReturnToHomeTimeout}
+    result:
+      type: object
+      properties:
+        value: {type: number, description: timeout in seconds}
+        minTimeout: {type: number, description: minimum timeout in seconds}
+        maxTimeout: {type: number, description: maximum timeout in seconds}
+  set_return_to_home_timeout:
+    summary: Set the return to home timeout.
+    effect: write
+    write: patch
+    binding: {method: setReturnToHomeTimeout}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: Sets the timeout in seconds.}
+  get_object_types_to_track:
+    summary: Retrieve the enabled tracking status for different object types.
+    effect: read
+    binding: {method: getObjectTypesToTrack}
+    result:
+      type: object
+      properties:
+        small: {type: boolean, description: enabled tracking status for small objects}
+        human: {type: boolean, description: enabled tracking status for humans}
+        vehicle: {type: boolean, description: enabled tracking status for vehicles}
+        unknown: {type: boolean, description: enabled tracking status for unidentified objects}
+  set_object_types_to_track:
+    summary: Set the enabled tracking status for different object types.
+    effect: write
+    write: patch
+    binding: {method: setObjectTypesToTrack}
+    params:
+      type: object
+      required: [small, human, vehicle, unknown]
+      properties:
+        small:
+          type: boolean
+          description: Must be set to either true or false to enable/disable tracking small objects.
+        human:
+          type: boolean
+          description: Must be set to either true or false to enable/disable tracking humans.
+        vehicle:
+          type: boolean
+          description: Must be set to either true or false to enable/disable tracking vehicles.
+        unknown:
+          type: boolean
+          description: Must be set to either true or false to enable/disable tracking unidentified objects.
+  get_capabilities:
+    summary: Check which capabilities are available in the API version used.
+    effect: read
+    binding: {method: getCapabilities}
+    result:
+      type: object
+      properties:
+        returnToHomeEnabled: {type: object}
+        returnToHomeTimeout:
+          type: object
+          x-name: GetCapabilitiesResultReturnToHomeTimeout
+          properties:
+            minValue: {type: number}
+            maxValue: {type: number}
+        objectTypesToTrack:
+          type: object
+          x-name: GetCapabilitiesResultObjectTypesToTrack
+          properties:
+            types:
+              type: array
+              items: {type: string, enum: [small, human, vehicle, unknown]}
+
+sources:
+- url: https://developer.axis.com/vapix/radar/radar-autotracking/
+  sha256_md: 91878bcf13b8fb4a9dbce64c8ebbd85d5de52fd960c0a50cb4f4123ca574ff85
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - getCameraConnection common example uses curl --request GET with a JSON body; all other requests use POST. https://developer.axis.com/vapix/radar/radar-autotracking/#camera-connection
+  - setCameraPanOffset syntax path typo '/axi-cgi/radar-autotracking.cgi'.
+  - setCameraMountingHeight response 'method' is 'setMountingHeight' in syntax blocks.
+  - getCapabilities syntax uses 'returnToHomeTimeOut' while the example uses 'returnToHomeTimeout'.
+  - getSupportedVersions failure example uses 'apiVersions' as the envelope key; syntax request uses apiVersion
+    1.1 while only 1.0 appears in examples.
+  - getCameraZoomDegree syntax describes minValue/maxValue both as 'zoom degree in percent'.
+  - Camera connection event topic namespace prefix and payload are not documented (only the RTSP eventtopic filter).
+  - Common example 20 uses method 'getCameraPanOffet' (typo).
+  - 'migration: skipped-op: get_camera_connection_events (rtsp_request) is not a JSON-RPC method; skipped'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_camera_connection=write/patch,
+    set_camera_mounting_height=write/patch, set_camera_pan_offset=write/patch, set_camera_tilt_offset=write/patch,
+    set_camera_zoom_degree=write/patch, set_tracking_enabled=write/patch, set_guard_tour_enabled=write/patch, set_guard_tour_time=write/patch,
+    set_return_to_home_enabled=write/patch, set_return_to_home_timeout=write/patch, set_object_types_to_track=write/patch'
+  - 'migration: effect-unknown: effect could not be inferred from the method name: save_camera_pan_offset, save_camera_tilt_offset'
+  migrated_from: v1
+  curated: false

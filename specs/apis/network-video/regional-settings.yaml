@@ -1,0 +1,98 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: regional-settings
+name: Regional settings
+summary: Store regional settings (e.g.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: regional_settings
+  class: RegionalSettings
+docs:
+- https://developer.axis.com/vapix/network-video/regional-settings/
+access: operator
+discovery:
+- {api_discovery: regional-settings}
+- param: {name: root.Properties.RegionalSettings.RegionalSettings, value: '"yes"'}
+requires:
+  firmware: '9.20'
+
+binding:
+  path: /axis-cgi/regionalsettings.cgi
+  major: 1
+  versions: ['1.0', '1.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error., kind: internal}
+  1001: {description: The requested API version is not supported., kind: unsupported}
+  1002: {description: Unknown method.}
+  1003: {description: Invalid argument., kind: invalid_argument}
+  1004: {description: Invalid request., kind: invalid_argument}
+
+types:
+  LengthUnit: {type: string, enum: [metric, us_customary], description: Default unit is metric.}
+
+operations:
+  get_regional_settings:
+    summary: Retrieve the current regional settings (e.g.
+    effect: read
+    binding: {method: getRegionalSettings}
+    result:
+      type: object
+      properties:
+        units:
+          type: object
+          x-name: GetRegionalSettingsResultUnits
+          properties:
+            length: {$ref: '#/types/LengthUnit'}
+    examples:
+    - title: Get regional settings
+      request:
+        params: {}
+      response:
+        data:
+          units: {length: metric}
+      source: https://developer.axis.com/vapix/network-video/regional-settings/#get-regional-settings
+  set_regional_settings:
+    summary: Set the regional settings used in the GUI.
+    effect: write
+    write: patch
+    binding: {method: setRegionalSettings}
+    params:
+      type: object
+      properties:
+        units:
+          type: object
+          x-name: SetRegionalSettingsRequestUnits
+          required: [length]
+          properties:
+            length:
+              type: string
+              enum: [metric, us_customary]
+              description: Specifies what unit to use for length values.
+    errors:
+      1003:
+        description: Invalid argument — request doesn't contain any parameters, or an invalid value.
+        kind: invalid_argument
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/regional-settings/
+  sha256_md: 0d218cbf63f85e89be745cbda480dd49586818906af8e9e4e0b255e050f9f016
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Request syntax blocks for getRegionalSettings/setRegionalSettings use key 'apiVersions' while tables and examples
+    use 'apiVersion' (doc typo).
+  - params.units.length required-ness not stated; error 1003 is returned when the request contains no parameters,
+    so treated as required.
+  - Whether other unit categories than length exist is not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_regional_settings=write/patch'
+  - 'migration: discovery: discovery method http_probe dropped'
+  migrated_from: v1
+  curated: false

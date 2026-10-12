@@ -1,0 +1,325 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: supervised-io
+name: Supervised I/O
+summary: Configure supervised I/O (tamper detection on I/O ports via end-of-line resistor state ranges) through
+  /axis-cgi/supervisedio.cgi.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: supervised_io
+  class: SupervisedIo
+docs:
+- https://developer.axis.com/vapix/network-video/supervised-io/
+access: operator
+discovery:
+- {api_discovery: supervised-io}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.SupervisedIO.SupervisedIO, value: 'yes'}
+- param: {name: Properties.SupervisedIO.Version, value: '2.00'}
+requires:
+  firmware: '7.10'
+
+binding:
+  path: /axis-cgi/supervisedio.cgi
+  major: 2
+  versions: ['2.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  100: {description: Unsupported API version (API version 1.0), kind: unsupported}
+  101: {description: Internal error (API version 1.0), kind: unsupported}
+  102: {description: Mandatory parameter(s) missing (API version 1.0), kind: unsupported}
+  103: {description: Unknown parameter supplied (API version 1.0), kind: unsupported}
+  200: {description: JSON input error (API version 1.0), kind: unsupported}
+  201: {description: Unexpected error (API version 1.0), kind: unsupported}
+  202: {description: Generic error (API version 1.0), kind: unsupported}
+  203: {description: Invalid method (API version 1.0), kind: unsupported}
+  300: {description: Faulty parameter (API version 1.0), kind: unsupported}
+  301: {description: Invalid range (API version 1.0), kind: unsupported}
+  302: {description: Invalid port parameter (API version 1.0), kind: unsupported}
+  303: {description: Port not supervisable (API version 1.0), kind: unsupported}
+  1100: {description: Internal error (API version 2.0), kind: unsupported}
+  2100: {description: Unsupported API version (API version 2.0), kind: unsupported}
+  2101: {description: JSON input error (API version 2.0), kind: unsupported}
+  2102: {description: Invalid method (API version 2.0), kind: unsupported}
+  2103: {description: Mandatory parameter(s) missing (API version 2.0), kind: unsupported}
+  2200: {description: Unknown parameter supplied (API version 2.0), kind: unsupported}
+  2201: {description: Unexpected error (API version 2.0), kind: unsupported}
+  2202: {description: Generic error (API version 2.0), kind: unsupported}
+  2203: {description: Faulty parameter value (API version 2.0), kind: unsupported}
+  2204: {description: Invalid range (API version 2.0), kind: unsupported}
+  2205: {description: Invalid port parameter (API version 2.0), kind: unsupported}
+  2206: {description: Port not supervisable (API version 2.0), kind: unsupported}
+
+types:
+  Range:
+    type: object
+    properties:
+      state:
+        type: string
+        description: The state to set the ranges for / name of the state (e.g. short, close/closed, open, cut).
+      lowerlimit: {type: integer, description: The lower limit (lower voltage range).}
+      upperlimit: {type: integer, description: The upper limit (upper voltage range).}
+  PortSelector:
+    type: object
+    properties:
+      port: {type: integer}
+
+operations:
+  get_number_of_ports:
+    summary: Return the number of input and output ports.
+    effect: read
+    binding: {method: getNumberOfPorts}
+    result:
+      type: object
+      properties:
+        inputs: {type: integer}
+        outputs: {type: integer}
+    examples:
+    - title: get_number_of_ports
+      request:
+        params: {}
+      response:
+        data: {inputs: 2, outputs: 2}
+      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+  is_supervisable:
+    summary: Check if an I/O port can be set to supervised.
+    effect: read
+    binding: {method: isSupervisable}
+    params:
+      type: array
+      items:
+        type: object
+        x-name: IsSupervisableRequestItem
+        properties:
+          port:
+            type: integer
+            description: Which I/O port to check. If left out, only supervisable ports are returned. params is an
+              array of {port} objects.
+    result:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            x-name: IsSupervisableResultItemsItem
+            properties:
+              port: {type: integer}
+              input: {type: boolean}
+              output: {type: boolean}
+    examples:
+    - title: is_supervisable
+      request:
+        params: {}
+      response:
+        data:
+          items:
+          - {port: 0, input: true, output: false}
+          - {port: 1, input: true, output: false}
+      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+  get_supervised:
+    summary: Check if an I/O port is supervised and its current state and analog level.
+    effect: read
+    binding: {method: getSupervised}
+    params:
+      type: array
+      items:
+        type: object
+        x-name: GetSupervisedRequestItem
+        properties:
+          port:
+            type: integer
+            description: Which I/O port to check. If left out, information regarding all supervised ports are returned.
+    result:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            x-name: GetSupervisedResultItemsItem
+            properties:
+              port: {type: integer}
+              supervised: {type: boolean}
+              supervisable: {type: boolean}
+              state: {type: string}
+              level: {type: integer}
+    examples:
+    - title: Read status from supervised ports
+      request:
+        params:
+        - {port: 1}
+        - {port: 2}
+      response:
+        data:
+          items:
+          - {port: 1, supervised: true, supervisable: true, state: short, level: 0}
+          - {port: 2, supervised: true, supervisable: true, state: open, level: 2300}
+      source: https://developer.axis.com/vapix/network-video/supervised-io/#read-status-from-supervised-ports
+  set_supervised:
+    summary: Enable/disable supervision of an I/O port, or configure the ranges for a supervised port.
+    effect: write
+    write: patch
+    binding: {method: setSupervised}
+    params:
+      type: array
+      items:
+        type: object
+        x-name: SetSupervisedRequestItem
+        required: [supervised]
+        properties:
+          port: {type: integer, description: 'The port to configure. If omitted, all ports are configured.'}
+          supervised:
+            type: boolean
+            description: True activates supervised I/O for the port. False deactivates supervised I/O for the port.
+              (Requiredness not stated.)
+          ranges:
+            type: array
+            items: {$ref: '#/types/Range'}
+            description: Array with range of limits set for each state.
+    result:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            x-name: SetSupervisedResultItemsItem
+            properties:
+              port: {type: integer}
+              code: {type: integer}
+              message: {type: string}
+    examples:
+    - title: Example 1 - set ranges for ports 0 and 1
+      request:
+        params:
+        - port: 0
+          supervised: true
+          ranges:
+          - {state: short, lowerlimit: 0, upperlimit: 9}
+          - {state: close, lowerlimit: 10, upperlimit: 90}
+          - {state: open, lowerlimit: 91, upperlimit: 200}
+          - {state: cut, lowerlimit: 201, upperlimit: 255}
+        - port: 1
+          supervised: true
+          ranges:
+          - {state: short, lowerlimit: 0, upperlimit: 9}
+          - {state: close, lowerlimit: 10, upperlimit: 90}
+          - {state: open, lowerlimit: 91, upperlimit: 200}
+          - {state: cut, lowerlimit: 201, upperlimit: 255}
+      response:
+        data:
+          items:
+          - {port: 0, code: 1, message: ''}
+          - {port: 1, code: 1, message: ''}
+      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+  get_supervised_ranges:
+    summary: Get the ranges corresponding to the states of a port.
+    effect: read
+    binding: {method: getSupervisedRanges}
+    params:
+      type: array
+      items:
+        type: object
+        x-name: GetSupervisedRangesRequestItem
+        properties:
+          port:
+            type: integer
+            description: Which I/O port to check. If it is omitted, information about all ports are returned.
+    result:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            x-name: GetSupervisedRangesResultItemsItem
+            properties:
+              port: {type: integer}
+              ranges:
+                type: array
+                items: {$ref: '#/types/Range'}
+  get_supported_states:
+    summary: Retrieve the states supported (open, close, cut, shorted) per port.
+    effect: read
+    binding: {method: getSupportedStates}
+    params:
+      type: array
+      items:
+        type: object
+        x-name: GetSupportedStatesRequestItem
+        properties:
+          port:
+            type: integer
+            description: Which I/O port to check. If omitted, information regarding all ports is returned.
+    result:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            x-name: GetSupportedStatesResultItemsItem
+            properties:
+              port: {type: integer}
+              states:
+                type: array
+                items:
+                  type: object
+                  x-name: GetSupportedStatesResultItemsItemStatesItem
+                  properties:
+                    name: {type: string}
+    examples:
+    - title: get_supported_states
+      request:
+        params:
+        - {port: 1}
+      response:
+        data:
+          items:
+          - port: 1
+            states:
+            - {name: short}
+            - {name: close}
+            - {name: open}
+            - {name: cut}
+      source: https://developer.axis.com/vapix/network-video/supervised-io/#setup-supervision-of-an-io-port
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/supervised-io/
+  sha256_md: c8bde747cf0e34f8d6cf9afdf272c362d1a559264465bf51971858d7a13e3e31
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'State names are inconsistent: the description lists open, close, cut and shorted; getSupportedStates example
+    returns short/close/open/cut; the A9210 example uses ''closed''. Valid enum values for ranges[].state are not
+    documented.'
+  - Version 1.0 OK response for setSupervised is said to differ but is not documented.
+  - 'Range limit units: getSupervisedRanges says ''voltage range'' but values are raw integers (0-255 or 0-4095
+    in examples); unit not stated.'
+  - 'getSupportedStates error section has no HTTP code/content type listed (others: 200 OK, application/json).'
+  - getSupportedVersions success syntax shows '<Major2>.Minor2' (missing brackets) and the error syntax block is
+    missing a closing brace.
+  - setSupervised table writes 'params[].port<integer>' (missing '='); requiredness of params[].supervised not stated.
+  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: params-array: is_supervisable: params is an array of objects (params[].x)'
+  - 'migration: params-array: get_supervised: params is an array of objects (params[].x)'
+  - 'migration: params-array: set_supervised: params is an array of objects (params[].x)'
+  - 'migration: params-array: get_supervised_ranges: params is an array of objects (params[].x)'
+  - 'migration: params-array: get_supported_states: params is an array of objects (params[].x)'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_supervised=write/patch'
+  - 'migration: params-not-object: is_supervisable: params is not an object schema (generator needs a model)'
+  - 'migration: params-not-object: get_supervised: params is not an object schema (generator needs a model)'
+  - 'migration: params-not-object: set_supervised: params is not an object schema (generator needs a model)'
+  - 'migration: params-not-object: get_supervised_ranges: params is not an object schema (generator needs a model)'
+  - 'migration: params-not-object: get_supported_states: params is not an object schema (generator needs a model)'
+  migrated_from: v1
+  curated: false

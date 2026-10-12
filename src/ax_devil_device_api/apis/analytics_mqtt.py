@@ -1,8 +1,6 @@
 # GENERATED from specs/apis/device-configuration/analytics-mqtt-config.yaml. Do not edit.
-# (Hand-written target for the generator; see docs/design.md section 11.)
-"""Analytics MQTT (Device Configuration API ``analytics-mqtt`` v1).
-
-Publishes analytics data sources to MQTT topics through the device's MQTT client.
+# Regenerate with `uv run python -m codegen generate`.
+"""Publish analytics data sources to MQTT topics through the device's MQTT client.
 
 Docs: https://developer.axis.com/vapix/device-configuration/analytics-mqtt/
 """
@@ -23,7 +21,7 @@ from ._base import AsyncApi, SyncApi
 
 DataSourceKey = Annotated[str, Field(min_length=3, max_length=128)]
 PublisherId = Annotated[str, Field(min_length=1, max_length=128)]
-MqttTopic = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^([a-zA-Z0-9_-]+)(/[a-zA-Z0-9_-]+)*$")]
+MqttTopic = Annotated[str, Field(min_length=1, max_length=128, pattern="^([a-zA-Z0-9_-]+)(/[a-zA-Z0-9_-]+)*$")]
 Qos = Literal[0, 1, 2]
 
 
@@ -52,14 +50,6 @@ class AnalyticsMqtt(Model):
     publishers: list[Publisher] = []
 
 
-class DataSourceKeyRequest(Model):
-    key: DataSourceKey
-
-
-class PublisherIdRequest(Model):
-    id: PublisherId
-
-
 class AddPublisherRequest(Model):
     """Arguments of ``add_publisher``."""
 
@@ -72,8 +62,17 @@ class AddPublisherRequest(Model):
 
     @classmethod
     def from_current(cls, publisher: Publisher) -> AddPublisherRequest:
-        """A request that recreates ``publisher`` (e.g. on another camera)."""
-        return cls(**publisher.request_data())
+        """A request that rewrites ``publisher`` unchanged: copy it, edit fields, send it back."""
+        data = publisher.request_data()
+        return cls(**data)
+
+
+class DataSourceKeyRequest(Model):
+    key: DataSourceKey
+
+
+class PublisherIdRequest(Model):
+    id: PublisherId
 
 
 # ---------------------------------------------------------------------------
@@ -91,32 +90,58 @@ INFO = ApiInfo(
 
 
 class OPS:
-    get_all = Operation(
-        INFO, "get_all", DcaBinding("GET", ROOT), result=AnalyticsMqtt, access="admin", effect="read",
-    )
+    get_all = Operation(INFO, "get_all", DcaBinding("GET", ROOT), result=AnalyticsMqtt, access="admin", effect="read")
     list_data_sources = Operation(
-        INFO, "list_data_sources", DcaBinding("GET", f"{ROOT}/data_sources"),
-        result=list[DataSource], access="admin", effect="read",
+        INFO,
+        "list_data_sources",
+        DcaBinding("GET", f"{ROOT}/data_sources"),
+        result=list[DataSource],
+        access="admin",
+        effect="read",
     )
     get_data_source = Operation(
-        INFO, "get_data_source", DcaBinding("GET", f"{ROOT}/data_sources/{{key}}"),
-        params=DataSourceKeyRequest, result=DataSource, access="admin", effect="read",
+        INFO,
+        "get_data_source",
+        DcaBinding("GET", f"{ROOT}/data_sources/{{key}}"),
+        params=DataSourceKeyRequest,
+        result=DataSource,
+        access="admin",
+        effect="read",
     )
     list_publishers = Operation(
-        INFO, "list_publishers", DcaBinding("GET", f"{ROOT}/publishers"),
-        result=list[Publisher], access="admin", effect="read",
+        INFO,
+        "list_publishers",
+        DcaBinding("GET", f"{ROOT}/publishers"),
+        result=list[Publisher],
+        access="admin",
+        effect="read",
     )
     get_publisher = Operation(
-        INFO, "get_publisher", DcaBinding("GET", f"{ROOT}/publishers/{{id}}"),
-        params=PublisherIdRequest, result=Publisher, access="admin", effect="read",
+        INFO,
+        "get_publisher",
+        DcaBinding("GET", f"{ROOT}/publishers/{{id}}"),
+        params=PublisherIdRequest,
+        result=Publisher,
+        access="admin",
+        effect="read",
     )
     add_publisher = Operation(
-        INFO, "add_publisher", DcaBinding("POST", f"{ROOT}/publishers", body="object"),
-        params=AddPublisherRequest, access="admin", effect="write", write="create",
+        INFO,
+        "add_publisher",
+        DcaBinding("POST", f"{ROOT}/publishers", body="object"),
+        params=AddPublisherRequest,
+        access="admin",
+        effect="write",
+        write="create",
     )
     remove_publisher = Operation(
-        INFO, "remove_publisher", DcaBinding("DELETE", f"{ROOT}/publishers/{{id}}"),
-        params=PublisherIdRequest, access="admin", effect="write", write="delete",
+        INFO,
+        "remove_publisher",
+        DcaBinding("DELETE", f"{ROOT}/publishers/{{id}}"),
+        params=PublisherIdRequest,
+        access="admin",
+        effect="write",
+        write="delete",
     )
 
 
@@ -125,7 +150,7 @@ class OPS:
 
 
 class AnalyticsMqttApi(SyncApi):
-    """Analytics MQTT (``analytics-mqtt`` v1). Support: docs-only."""
+    """Analytics MQTT (``analytics-mqtt-config``, v1)."""
 
     INFO = INFO
 
@@ -150,7 +175,9 @@ class AnalyticsMqttApi(SyncApi):
         return self._run(OPS.get_publisher, None, {"id": id}, request_options)
 
     @overload
-    def add_publisher(self, request: AddPublisherRequest, /, *, request_options: RequestOptions | None = None) -> None: ...
+    def add_publisher(
+        self, request: AddPublisherRequest, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
     @overload
     def add_publisher(
         self,
@@ -165,7 +192,12 @@ class AnalyticsMqttApi(SyncApi):
         request_options: RequestOptions | None = None,
     ) -> None: ...
     def add_publisher(
-        self, request: AddPublisherRequest | None = None, /, *, request_options: RequestOptions | None = None, **kwargs: Any
+        self,
+        request: AddPublisherRequest | None = None,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        **kwargs: Any,
     ) -> None:
         """Create a publisher. Access: admin."""
         self._run(OPS.add_publisher, request, kwargs, request_options)
@@ -176,7 +208,7 @@ class AnalyticsMqttApi(SyncApi):
 
 
 class AsyncAnalyticsMqttApi(AsyncApi):
-    """Analytics MQTT (``analytics-mqtt`` v1). Support: docs-only."""
+    """Analytics MQTT (``analytics-mqtt-config``, v1)."""
 
     INFO = INFO
 
@@ -218,7 +250,12 @@ class AsyncAnalyticsMqttApi(AsyncApi):
         request_options: RequestOptions | None = None,
     ) -> None: ...
     async def add_publisher(
-        self, request: AddPublisherRequest | None = None, /, *, request_options: RequestOptions | None = None, **kwargs: Any
+        self,
+        request: AddPublisherRequest | None = None,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        **kwargs: Any,
     ) -> None:
         """Create a publisher. Access: admin."""
         await self._run(OPS.add_publisher, request, kwargs, request_options)

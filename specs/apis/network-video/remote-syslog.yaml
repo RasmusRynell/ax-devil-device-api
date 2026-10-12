@@ -1,0 +1,296 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: remote-syslog
+name: Remote Syslog
+summary: Configure the device to send system logs to up to two remote syslog servers (UDP/TCP/TLS, format, severity,
+  type); enable/disable/status/test.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: remote_syslog
+  class: RemoteSyslog
+docs:
+- https://developer.axis.com/vapix/network-video/remote-syslog/
+access: admin
+discovery:
+- {api_discovery: remote-syslog}
+
+binding:
+  path: /axis-cgi/remotesyslog.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error, kind: internal}
+  2100: {description: API version not supported, kind: unsupported}
+  2101: {description: Invalid JSON, kind: invalid_argument}
+  2102: {description: Method not supported, kind: unsupported}
+  2103: {description: Required parameter missing, kind: invalid_argument}
+  2104: {description: Invalid parameter value specified, kind: invalid_argument}
+  2105: {description: Authorization failed, kind: access_denied}
+  2106: {description: Authentication failed}
+  2107: {description: Request too large, kind: invalid_argument}
+
+types:
+  Protocol: {type: string, enum: [UDP, TCP, TLS]}
+  SyslogFormat:
+    type: string
+    enum: [AXIS, RFC3164, RFC5424]
+    description: AXIS = AXIS syslog protocol; RFC3164 = BSD syslog; RFC5424 = syslog protocol.
+  Severity:
+    type: string
+    enum:
+    - Emergency
+    - Alert
+    - Critical
+    - Error
+    - Warning
+    - Notice
+    - Informational
+    - Debug
+    description: 'Emergency: system is unusable; Alert: action must be taken immediately; Critical; Error; Warning;
+      Notice: normal but significant; Informational; Debug.'
+  LogType:
+    type: string
+    enum: [Audit, All]
+    description: 'Audit: audit logs are sent (user behavior such as configuration through the API). All: all logs.'
+  ServerConfig:
+    type: object
+    required: [address]
+    properties:
+      address: {type: string, description: 'Remote server address (IPv4, IPv6 or host).'}
+      port:
+        type: integer
+        minimum: 1
+        maximum: 65535
+        description: 'Optional. Default depends on protocol/format (see notes: UDP 514; TCP 514 (AXIS/RFC3164) or
+          601 (RFC5424); TLS 6514).'
+      protocol: {$ref: '#/types/Protocol', default: TLS}
+      syslogFormat: {$ref: '#/types/SyslogFormat', default: RFC5424}
+      severity: {$ref: '#/types/Severity', default: Warning}
+      type: {$ref: '#/types/LogType', default: All}
+  Status:
+    type: object
+    properties:
+      enabled: {type: boolean, description: Whether the remote syslog feature is enabled.}
+      servers:
+        type: array
+        items: {$ref: '#/types/ServerConfig'}
+        description: Empty if no servers configured.
+
+operations:
+  setup:
+    summary: Set the configuration and send system logs to the remote servers.
+    effect: unknown
+    binding: {method: setup}
+    params:
+      type: object
+      required: [servers]
+      properties:
+        servers:
+          type: array
+          items: {$ref: '#/types/ServerConfig'}
+          description: Max 2 servers per request. Servers can be removed if the list is empty. (maxItems=2)
+    result: {$ref: '#/types/Status'}
+    errors:
+      2201: {description: Identical servers not allowed.}
+      2203: {description: Too many servers specified.}
+      2103:
+        description: Required parameter missing (e.g. details.propertyName=address).
+        kind: invalid_argument
+      2104:
+        description: Invalid parameter value specified (details.address, details.propertyName; errors[] when several).
+        kind: invalid_argument
+    examples:
+    - title: Send syslogs over TCP
+      request:
+        params:
+          servers:
+          - address: 10.92.1.29
+            port: 514
+            protocol: TCP
+            syslogFormat: RFC3164
+            severity: Warning
+          - address: 2001:4860:4860::8888
+            port: 1999
+            protocol: TCP
+            syslogFormat: RFC5424
+            severity: Error
+      response:
+        data:
+          enabled: true
+          servers:
+          - address: 10.92.1.29
+            port: 514
+            protocol: TCP
+            syslogFormat: RFC3164
+            severity: Warning
+          - address: 2001:4860:4860::8888
+            port: 1999
+            protocol: TCP
+            syslogFormat: RFC5424
+            severity: Error
+      source: https://developer.axis.com/vapix/network-video/remote-syslog/#send-syslogs-over-tcp
+    - title: Send syslogs over UDP (defaults filled in)
+      request:
+        params:
+          servers:
+          - {address: 10.92.1.29, protocol: UDP}
+          - {address: 172.25.77.186, protocol: UDP}
+      response:
+        data:
+          enabled: true
+          servers:
+          - address: 10.92.1.29
+            port: 514
+            protocol: UDP
+            syslogFormat: RFC5424
+            severity: Warning
+          - address: 172.25.77.186
+            port: 514
+            protocol: UDP
+            syslogFormat: RFC5424
+            severity: Warning
+      source: https://developer.axis.com/vapix/network-video/remote-syslog/#send-syslogs-over-udp
+    - title: Send syslogs over TLS
+      request:
+        params:
+          servers:
+          - {address: 10.92.1.29, protocol: TLS}
+      response:
+        data:
+          enabled: true
+          servers:
+          - address: 10.92.1.29
+            port: 6514
+            protocol: TLS
+            syslogFormat: RFC5424
+            severity: Warning
+      source: https://developer.axis.com/vapix/network-video/remote-syslog/#send-syslogs-over-tls
+  enable:
+    summary: Send system logs to the remote servers.
+    effect: unknown
+    binding: {method: enable}
+    result: {$ref: '#/types/Status'}
+    errors:
+      2200: {description: No server configured.}
+      2201: {description: Identical servers not allowed.}
+    examples:
+    - title: enable
+      request:
+        params: {}
+      response:
+        data:
+          enabled: true
+          servers:
+          - address: 10.92.1.29
+            port: 514
+            protocol: TCP
+            syslogFormat: RFC3164
+            severity: Warning
+          - address: 2001:4860:4860::8888
+            port: 5140
+            protocol: TCP
+            syslogFormat: RFC5424
+            severity: Emergency
+      source: https://developer.axis.com/vapix/network-video/remote-syslog/#enable-syslog-from-remote-server
+  disable:
+    summary: Stop sending system logs to the remote servers.
+    effect: unknown
+    binding: {method: disable}
+    result: {$ref: '#/types/Status'}
+    examples:
+    - title: disable
+      request:
+        params: {}
+      response:
+        data:
+          enabled: false
+          servers:
+          - address: 10.92.1.29
+            port: 514
+            protocol: TCP
+            syslogFormat: RFC3164
+            severity: Warning
+          - address: 2001:4860:4860::8888
+            port: 5140
+            protocol: TCP
+            syslogFormat: RFC5424
+            severity: Emergency
+      source: https://developer.axis.com/vapix/network-video/remote-syslog/#disable-syslog-from-remote-server
+  status:
+    summary: Retrieve the current configuration/status of the remote servers.
+    effect: unknown
+    binding: {method: status}
+    result: {$ref: '#/types/Status'}
+    examples:
+    - title: Both servers configured
+      request:
+        params: {}
+      response:
+        data:
+          enabled: true
+          servers:
+          - address: 10.92.1.29
+            port: 514
+            protocol: TCP
+            syslogFormat: RFC3164
+            severity: Warning
+          - address: 172.25.77.186
+            port: 1999
+            protocol: UDP
+            syslogFormat: RFC5424
+            severity: Debug
+      source: https://developer.axis.com/vapix/network-video/remote-syslog/#get-status-for-one-or-several-remote-servers
+  test:
+    summary: Generate log messages for all severity levels (only configured levels are sent).
+    effect: action
+    binding: {method: test}
+    result: {$ref: '#/types/Status'}
+    errors:
+      2202: {description: 'Remote syslog is disabled, sending test messages is not possible.'}
+    examples:
+    - title: test
+      request:
+        params: {}
+      response:
+        data:
+          enabled: true
+          servers:
+          - address: 10.92.1.29
+            port: 514
+            protocol: TCP
+            syslogFormat: RFC3164
+            severity: Warning
+          - address: 2001:4860:4860::8888
+            port: 5140
+            protocol: TCP
+            syslogFormat: RFC5424
+            severity: Emergency
+      source: https://developer.axis.com/vapix/network-video/remote-syslog/#send-a-test-message-to-the-remote-servers
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/remote-syslog/
+  sha256_md: 14a5d2dda1ec0fbe046a534199dd886e20e519081229b07476a139179eda0013
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Properties table lists 'Server2.Serverity' (typo for Severity).
+  - Request/response syntax lists syslogFormat '<RFC3164 | RFC5424>' while the parameter tables add AXIS.
+  - test response syntax shows a 'test' key instead of 'type' in servers[].
+  - Status example b shows method 'stauts' (typo).
+  - Several failure syntaxes use key 'apiVersions' instead of 'apiVersion'.
+  - 'Defaults conflict: setup says protocol defaults to TLS and severity Warning, but UDP example responses show
+    syslogFormat RFC5424/severity Warning while TCP default port depends on format; param Port default 6514.'
+  - Section 'changes made here might now be shown' likely means 'not be shown'.
+  - 'Versions: examples use apiVersion 1.0 but getSupportedVersions example returns [''1.3'',''2.1''].'
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-unknown: effect could not be inferred from the method name: setup, enable, disable, status'
+  migrated_from: v1
+  curated: false

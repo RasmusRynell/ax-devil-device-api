@@ -1,0 +1,100 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: dnsupdate-configuration-config
+name: DNSUpdate configuration
+summary: The VAPIX® DNSUpdate configuration API makes it possible to configure the DNS (Dynamic Name Server) name
+  registration for the device.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: dnsupdate_configuration
+  class: DnsupdateConfiguration
+docs:
+- https://developer.axis.com/vapix/device-configuration/dnsupdate-configuration-api/
+access: admin
+discovery:
+- dca: {api: dnsupdate-configuration, version: v2}
+
+binding: {root: /config/rest/dnsupdate-configuration/v2}
+
+types:
+  Ttl: {type: integer, minimum: 0, maximum: 4294967295, description: A valid Time To Live.}
+  DnsupdateConfiguration:
+    type: object
+    description: The whole API tree.
+    properties:
+      settings: {$ref: '#/types/Settings'}
+  Settings:
+    type: object
+    description: Configuration settings.
+    properties:
+      enabled: {type: boolean, description: The enabled state of DNSUpdate.}
+      name: {type: string, description: The name to be registered.}
+      ttl: {$ref: '#/types/Ttl', description: The TTL used.}
+  UpdateSettingsRequest:
+    type: object
+    description: Arguments of ``update_settings``.
+    properties:
+      enabled: {type: boolean, description: The enabled state of DNSUpdate.}
+      name: {type: string, description: The name to be registered.}
+      ttl: {$ref: '#/types/Ttl', description: The TTL used.}
+
+operations:
+  get_all:
+    summary: All data of the DNSUpdate configuration API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/DnsupdateConfiguration'}
+  get_settings:
+    summary: Get the setting settings.
+    effect: read
+    binding: {method: GET, path: /settings}
+    result: {$ref: '#/types/Settings'}
+  update_settings:
+    summary: Update the setting settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /settings, body: object}
+    params: {$ref: '#/types/UpdateSettingsRequest'}
+  set_settings_enabled:
+    summary: Set the enabled of the setting.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /settings/enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: The enabled state of DNSUpdate.}
+  set_settings_name:
+    summary: Set the name of the setting.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /settings/name, body_field: name, body: value}
+    params:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, description: The name to be registered.}
+  set_settings_ttl:
+    summary: Set the ttl of the setting.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /settings/ttl, body_field: ttl, body: value}
+    params:
+      type: object
+      required: [ttl]
+      properties:
+        ttl: {$ref: '#/types/Ttl', description: The TTL used.}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/dnsupdate-configuration-api/
+  sha256_md: 7a54110f19e42779b9ad9596711c561207a85855ea41d78912bd6463e99693c7
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 3 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

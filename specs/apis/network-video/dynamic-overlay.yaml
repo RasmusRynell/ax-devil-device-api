@@ -1,0 +1,529 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: dynamic-overlay
+name: Dynamic overlay API
+summary: JSON API (/axis-cgi/dynamicoverlay/dynamicoverlay.cgi) to add, change, list and remove text and image overlays
+  and query overlay capabilities.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: dynamic_overlay
+  class: DynamicOverlay
+docs:
+- https://developer.axis.com/vapix/network-video/overlay-api/
+access: admin
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.DynamicOverlay.DynamicOverlay, value: 'yes'}
+- param: {name: Properties.DynamicOverlay.Version, value: '1.00'}
+requires:
+  firmware: '7.10'
+
+binding:
+  path: /axis-cgi/dynamicoverlay/dynamicoverlay.cgi
+  major: 1
+  versions: ['1.0', '1.8']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  100: {description: The requested API version is not supported., kind: unsupported}
+  101: {description: Internal error., kind: internal}
+  102: {description: A mandatory input parameter was not found in the input., kind: not_found}
+  103: {description: Invalid parameter., kind: invalid_argument}
+  200: {description: The provided input was invalid., kind: invalid_argument}
+  201: {description: Unexpected error., kind: internal}
+  202: {description: Generic error.}
+  203: {description: Invalid method., kind: invalid_argument}
+
+operations:
+  add_text:
+    summary: Creates a text overlay and returns an overlay ID if successful, otherwise returns an error.
+    description: addText is used to create new text overlays. When creating an overlay using the CGI you may also
+      specify properties at the same time.
+    access: operator
+    effect: write
+    write: create
+    binding: {method: addText}
+    params:
+      type: object
+      required: [camera, text]
+      properties:
+        camera:
+          type: integer
+          minimum: 1
+          description: Defines the view area on which the overall shall be displayed on. "x" is the number of available
+            view areas on the product and can be found in Plain Config/Image/Nbr of configs.
+        text:
+          type: string
+          description: Defines text to be displayed. `%0A` can be put in text as a new line to make multi-line string.
+        position:
+          oneOf:
+          - {type: string, enum: [top, topRight, bottomRight, bottom, bottomLeft, topLeft]}
+          - type: array
+            items: {type: number}
+            description: minItems=2, maxItems=2
+          description: Defines the x, y coordinates to place the overlay either by predefined strings or a relative
+            x, y position consisting of an array of two numbers from `-1.0` up to `1.0`.
+        textColor:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          default: black
+          description: Defines which color the text is displayed in. Default is `black`.
+        textBGColor:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          default: transparent
+          description: Defines which background color to display. Default is `transparent`.
+        textOLColor:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          default: transparent
+          description: Defines which outline color to display. Default is `transparent`.
+        fontSize: {type: integer, description: Defines the size of the text.}
+        rotation:
+          type: integer
+          minimum: -180
+          maximum: 180
+          default: 0
+          description: Defines the rotation of the text in degrees. The text rotates around its center point. Default
+            is `0`.
+        reference:
+          type: string
+          enum: [channel, source, sensor, scene]
+          default: channel
+          description: Defines how the position coordinates are expressed.
+        ptPosition: {type: string, description: 'The pan/tilt coordinates of the PTZ, measured in degrees.'}
+        zoomInterval:
+          type: integer
+          minimum: 1
+          maximum: 19999
+          description: '[type taken from the syntax template]'
+        scrollSpeed:
+          type: integer
+          minimum: -20
+          maximum: 20
+          description: This property is used to make the text slide across the stream instead of being stationary.
+        indicator:
+          type: string
+          description: Listed only in the request syntax template (<string>); not described in the parameter list.
+        indicatorSize:
+          type: integer
+          minimum: 0
+          maximum: 200
+          description: Listed only in the request syntax template (<0-200>); not described in the parameter list.
+        indicatorColor:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          description: Listed only in the request syntax template (<black | white | red | transparent | semiTransparent>);
+            not described in the parameter list.
+        indicatorBG:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          description: Listed only in the request syntax template (<black | white | red | transparent | semiTransparent>);
+            not described in the parameter list.
+        indicatorOL:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          description: Listed only in the request syntax template (<black | white | red | transparent | semiTransparent>);
+            not described in the parameter list.
+    result:
+      type: object
+      properties:
+        camera: {type: integer, description: The view area on which the overlay was created.}
+        identity: {type: integer, description: The identity of the overlay created.}
+    errors:
+      300: {description: Unable to create overlays (limit reached).}
+      301: {description: Invalid value for parameter `camera`., kind: invalid_argument}
+      303: {description: Invalid value for parameter `position`., kind: invalid_argument}
+      304: {description: Invalid value for parameter `text`., kind: invalid_argument}
+      306: {description: Invalid value for parameter `textColor`., kind: invalid_argument}
+      307: {description: Invalid value for parameter `textBGColor`., kind: invalid_argument}
+      308: {description: Invalid value for parameter `textOLColor`., kind: invalid_argument}
+      309: {description: Invalid value for parameter `fontSize`., kind: invalid_argument}
+      310: {description: Invalid value for parameter `scrollSpeed`., kind: invalid_argument}
+      311: {description: Invalid value for parameter `visible`, kind: invalid_argument}
+      312: {description: Invalid value for parameter `zIndex`., kind: invalid_argument}
+      313: {description: Invalid value for parameter `reference`. (Deprecated), kind: invalid_argument}
+      314: {description: Invalid value for parameter `ptPosition`., kind: invalid_argument}
+      315: {description: Invalid value for parameter `zoomInterval`., kind: invalid_argument}
+      316: {description: Invalid value for parameter `indicator`., kind: invalid_argument}
+      317: {description: Invalid value for parameter `indicatorSize`., kind: invalid_argument}
+      318: {description: Invalid value for parameter `indicatorColor`., kind: invalid_argument}
+      319: {description: Invalid value for parameter `indicatorBG`., kind: invalid_argument}
+      320: {description: Invalid value for parameter `indicatorOL`., kind: invalid_argument}
+      321: {description: Invalid value for parameter `rotation`., kind: invalid_argument}
+    examples:
+    - title: Add text overlays
+      request:
+        params: {camera: 1, text: '%c', position: topLeft, textColor: white}
+      response:
+        data: {camera: 1, identity: 0}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#add-text-overlays
+    - title: Add text overlays (response 2)
+      request:
+        params: {camera: 1, text: '%c', position: topLeft, textColor: white}
+      response:
+        error: {code: 304, message: Invalid value for parameter text}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#add-text-overlays
+    - title: Add text overlays
+      request:
+        params:
+          camera: 1
+          text: |-
+            Emdalav/u00E4gen 14
+            Lund
+          position: bottomRight
+          fontSize: 14
+          textColor: white
+      response:
+        data: {camera: 1, identity: 1}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#add-text-overlays
+    - title: Add text overlays (response 2)
+      request:
+        params:
+          camera: 1
+          text: |-
+            Emdalav/u00E4gen 14
+            Lund
+          position: bottomRight
+          fontSize: 14
+          textColor: white
+      response:
+        error: {code: 300, message: Unable to create overlays (limit reached)}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#add-text-overlays
+    - title: Add overlay with scrolling text
+      request:
+        params:
+          camera: 1
+          text: 'Weather forecast: Sunny every day! --- Stock index OMSX +0.3%, ...'
+          scrollSpeed: -1
+          position: bottomRight
+          textColor: white
+          textBGColor: black
+      response:
+        data: {camera: 1, identity: 1}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#add-overlay-with-scrolling-text
+    - title: Add overlay with scrolling text (response 2)
+      request:
+        params:
+          camera: 1
+          text: 'Weather forecast: Sunny every day! --- Stock index OMSX +0.3%, ...'
+          scrollSpeed: -1
+          position: bottomRight
+          textColor: white
+          textBGColor: black
+      response:
+        error: {code: 310, message: Invalid value for parameter scroll speed}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#add-overlay-with-scrolling-text
+  add_image:
+    summary: Creates an image overlay and returns an overlay ID if successful, otherwise returns an error.
+    description: addImage is used to create new image overlays. When creating an overlay using the CGI you may also
+      specify properties at the same time. Refer to the Overlay API section on uploading images for instruction
+      on how to upload new images.
+    access: operator
+    effect: write
+    write: create
+    binding: {method: addImage}
+    params:
+      type: object
+      required: [camera, overlayPath]
+      properties:
+        camera:
+          type: integer
+          minimum: 1
+          description: Defines the view area on which the overlay shall be displayed on. x is the number of available
+            view areas on the product and can be found in Plain Config/Image/Nbr of configs.
+        overlayPath: {type: string, description: Defines path to image to display. Default is an empty string.}
+        position:
+          oneOf:
+          - {type: string, enum: [top, topRight, bottomRight, bottom, bottomLeft, topLeft]}
+          - type: array
+            items: {type: number}
+            description: minItems=2, maxItems=2
+          description: Defines the x,y coordinates to place the overlay either by predefined strings or a relative
+            x,y position consisting of an array of two numbers from `-1.0` up to `1.0`.
+    result:
+      type: object
+      properties:
+        camera: {type: integer, description: The view area on which the overlay was created.}
+        identity: {type: integer, description: The identity of the overlay created.}
+    errors:
+      300: {description: Unable to create overlays (limit reached).}
+      301: {description: Invalid value for parameter camera., kind: invalid_argument}
+      303: {description: Invalid value for parameter position., kind: invalid_argument}
+      305: {description: Invalid value for parameter overlayPath, kind: invalid_argument}
+    examples:
+    - title: General preparations
+      request:
+        params: {camera: 1, overlayPath: image.ovl}
+      response:
+        data: {camera: 1, identity: 2}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#add-image-overlays
+  set_text:
+    summary: Change properties of a specific text overlay identified by a specified overlay ID.
+    description: setText is used to update parameters for a certain text overlay. The user may specify more than
+      one parameter at any time. Optional parameters that are not supplied will not be changed.
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setText}
+    params:
+      type: object
+      required: [identity]
+      properties:
+        identity: {type: integer, description: Defines which overlay to change.}
+        text: {type: string, description: Defines the text to be displayed.}
+        position:
+          type: string
+          enum: [top, topRight, bottomRight, bottom, bottomLeft, topLeft]
+          description: Defines the x, y coordinates to place the overlay either by predefined strings or a relative
+            x, y position consisting of an array of two numbers from `-1.0` up to `1.0`. Default is `0.0,0.0`.
+        textColor:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          description: Defines which color the text is displayed in.
+        textBGColor:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          description: Defines which background color to display.
+        textOLColor:
+          type: string
+          enum: [black, white, red, transparent, semiTransparent]
+          description: Defines which outline color to display.
+        fontSize: {type: integer, description: Defines the size of the text.}
+        rotation:
+          type: integer
+          minimum: -180
+          maximum: 180
+          default: 0
+          description: Defines the rotation of the text in degrees. The text rotates around its center point. Default
+            is `0`.
+        scrollSpeed:
+          type: integer
+          minimum: -20
+          maximum: 20
+          description: Defines the speed by which the text slides across the stream.
+    errors:
+      302: {description: Invalid value for parameter `identity`., kind: invalid_argument}
+      303: {description: Invalid value for parameter `position`., kind: invalid_argument}
+      304: {description: Invalid value for parameter `text`., kind: invalid_argument}
+      306: {description: Invalid value for parameter `textColor`., kind: invalid_argument}
+      307: {description: Invalid value for parameter `textBGColor`., kind: invalid_argument}
+      308: {description: Invalid value for parameter `textOLColor`., kind: invalid_argument}
+      309: {description: Invalid value for parameter `fontSize`., kind: invalid_argument}
+      310: {description: Invalid value for parameter `scrollSpeed`., kind: invalid_argument}
+      311: {description: Invalid value for parameter `visible`., kind: invalid_argument}
+      312: {description: Invalid value for parameter `zIndex`., kind: invalid_argument}
+      313: {description: Invalid value for parameter `reference`. (Deprecated), kind: invalid_argument}
+      314: {description: Invalid value for parameter `ptPosition`., kind: invalid_argument}
+      315: {description: Invalid value for parameter `zoomInterval`., kind: invalid_argument}
+      316: {description: Invalid value for parameter `indicator`., kind: invalid_argument}
+      317: {description: Invalid value for parameter `indicatorSize`., kind: invalid_argument}
+      318: {description: Invalid value for parameter `indicatorColor`., kind: invalid_argument}
+      319: {description: Invalid value for parameter `indicatorBG`., kind: invalid_argument}
+      320: {description: Invalid value for parameter `indicatorOL`., kind: invalid_argument}
+      321: {description: Invalid value for parameter `rotation`., kind: invalid_argument}
+    examples:
+    - title: Set text overlay
+      request:
+        params: {identity: 0, textBGColor: red}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#update-overlays
+  set_image:
+    summary: Change properties of a specific image overlay identified by an specified overlay ID.
+    description: setImage is used to update parameters for a certain image overlay. The user may specify more than
+      one parameter at one time, however optional parameters that are not supplied will not be changed.
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setImage}
+    params:
+      type: object
+      required: [identity]
+      properties:
+        identity: {type: integer, description: Defines which overlay to change.}
+        overlayPath: {type: string, description: Defines path to image to display.}
+        position:
+          oneOf:
+          - {type: string, enum: [top, topRight, bottomRight, bottom, bottomLeft, topLeft]}
+          - type: array
+            items: {type: number}
+            description: minItems=2, maxItems=2
+          description: Defines the x, y coordinates to place the overlay either by predefined strings or a relative
+            x, y position consisting of an array of two numbers from `-1.0` up to `1.0`.
+    errors:
+      302: {description: Invalid value for parameter identity., kind: invalid_argument}
+      303: {description: Invalid value for parameter position., kind: invalid_argument}
+      305: {description: Invalid value for parameter overlayPath., kind: invalid_argument}
+    examples:
+    - title: Set image overlay
+      request:
+        params: {identity: 2, camera: 1, overlayPath: redlogo.ovl}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#update-overlays
+  list:
+    summary: Get a summary of all overlays created.
+    description: '`list` all overlays created by the add CGIs and display both their IDs and other properties. If
+      specified, properties for all overlays can be listed for a given camera or, if further specified, for a specific
+      camera layer. The IDs may change for each overlay after a reboot. It is therefore recommended to check the
+      current overlay ID with `list` before it is updated or removed.'
+    access: operator
+    effect: read
+    binding: {method: list}
+    params:
+      type: object
+      properties:
+        camera:
+          type: integer
+          minimum: 1
+          description: Defines which view area we want to list properties for. Supplied either by the add or list
+            CGIs. If not specified all view areas are listed.
+        identity: {type: integer, description: Defines which specific overlay to list properties for.}
+    result:
+      type: object
+      properties:
+        imageFiles:
+          type: array
+          items: {type: string}
+          description: 'List of file names available to use as image overlays, for example: ["/etc/overlays/image1.ovl",
+            "/etc/overlay/image2.ovl"]'
+        imageOverlays:
+          type: array
+          items:
+            type: object
+            x-name: ListResultImageOverlaysItem
+            properties:
+              camera: {type: integer, description: The view area.}
+              identity: {type: integer, description: The overall identity.}
+              overlayPath: {type: string, description: The path to the image used for the overlay.}
+              position: {description: Doc syntax allows alternatives (e.g. array or string).}
+              zIndex: {type: integer, description: If zIndex of the overlay.}
+              visible: {type: boolean, description: If the overlay is visible.}
+              scalable: {type: boolean, description: 'If the overlay is scaled, based on the resolution.'}
+        textOverlays:
+          type: array
+          items:
+            type: object
+            x-name: ListResultTextOverlaysItem
+            properties:
+              camera: {type: integer, description: The view area.}
+              identity: {type: integer, description: The overall identity.}
+              indicator: {type: string, description: The overlay indicator text.}
+              indicatorBG: {type: string, description: The background color for the indicator.}
+              indicatorColor: {type: string, description: The text color for the indicator.}
+              indicatorOL: {type: string, description: The outline color for the indicator.}
+              indicatorSize: {type: integer, description: The font size for the indicator.}
+              position: {description: Doc syntax allows alternatives (e.g. array or string).}
+              ptPosition:
+                type: array
+                items: {type: string, description: 'doc placeholder: decimal'}
+                description: The pan/tilt coordinates of the PTZ, measured in degrees. Defines at which PTZ position
+                  an overlay is visible on the camera image.
+              text: {type: string, description: The overlay text.}
+              textColor: {type: string, description: The text color for the overlay.}
+              textBGColor: {type: string, description: The background color for the overlay.}
+              textOLColor: {type: string, description: The outline color for the overlay.}
+              fontSize: {type: integer, description: The outline color for the overlay.}
+              reference: {type: string, description: The coordinate system of the position of the overlay.}
+              rotation: {type: integer, description: The rotation of the overlay.}
+              scrollSpeed: {type: integer, description: The scroll speed for the overlay.}
+              size:
+                type: array
+                items: {type: integer}
+                description: The actual size in pixels of the text overlay.
+              zIndex: {type: integer, description: If zIndex of the overlay.}
+              zoomInterval:
+                type: array
+                items: {type: string, description: 'doc placeholder: decimal'}
+                description: The zoom interval in which the overlay is visible.
+              visible: {type: boolean, description: If the overlay is visible.}
+              scalable: {type: boolean, description: 'If the overlay is scaled, based on the resolution.'}
+              textLength:
+                type: integer
+                description: The length of the text (in bytes) after any modifiers have been expanded with default
+                  values.
+    errors:
+      301: {description: Invalid value for parameter camera., kind: invalid_argument}
+      302: {description: Invalid value for parameter identity., kind: invalid_argument}
+  remove:
+    summary: Remove the overlay identified by a specific overlay ID.
+    description: remove will delete the overlay identified by the provided id.
+    access: operator
+    effect: write
+    write: delete
+    binding: {method: remove}
+    params:
+      type: object
+      required: [identity]
+      properties:
+        identity:
+          type: integer
+          description: Defines which overlay to remove. Supplied either by the add or list CGIs.
+    errors:
+      301: {description: Invalid value for parameter camera., kind: invalid_argument}
+      302: {description: Invalid value for parameter identity., kind: invalid_argument}
+    examples:
+    - title: Remove overlays
+      request:
+        params: {identity: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#remove-overlays
+  get_overlay_capabilities:
+    summary: Returns the number of the total overlay slots, number of slots occupied per text overlay and the number
+      of occupied slots per image overlay.
+    description: getOverlayCapabilities returns the number of total overlay slots, the number of slots occupied
+      per text overlay and the number of slots occupied per image overlay.
+    access: operator
+    effect: read
+    binding: {method: getOverlayCapabilities}
+    result:
+      type: object
+      properties:
+        maxFontSize: {type: integer, description: The maximum font size for a text overlay.}
+        minFontSize: {type: integer, description: The minimum font size for a text overlay.}
+        maxImageHeight: {type: integer, description: The maximum height in pixels for an image overlay.}
+        maxImageSize: {type: integer, description: The maximum number of pixels for an image overlay.}
+        maxImageWidth: {type: integer, description: The maximum width in pixels of an image overlay.}
+        maxTextLength: {type: integer, description: The maximum length of a text string for a text overlay.}
+        numAvailableSlots: {type: integer, description: The number of slots available that can be used by overlays.}
+        rotationSupported: {type: boolean, description: Indicates if rotation is supported.}
+        slotsPerImageOverlay: {type: integer, description: The number of slots an image overlay occupies.}
+        slotsPerOverlay: {type: integer, description: The number of slots used by an overlay.}
+        slotsPerTextOverlay: {type: integer, description: The number of slots an text overlay occupies.}
+        supportedReferences:
+          type: array
+          items: {type: string}
+          description: List of supported overlay references.
+    examples:
+    - title: Get the maximum number of overlays
+      request:
+        params: {}
+      response:
+        data: {numberAvailbleSlots: 8, slotsPerImageOverlay: 2, slotsPerTextOverlay: 1}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#get-the-maximum-number-of-overlays
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/overlay-api/
+  sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'https://developer.axis.com/vapix/network-video/overlay-api/#list: data.textOverlay[].fontSize described as
+    "The outline color for the overlay" (copy-paste).'
+  - Request syntax templates are pseudo-JSON with enum/range placeholders; parameters only present in the template
+    were added with inferred=true.
+  - reference parameter is deprecated (removal in API version 13.0) in favor of setText per doc note; text of that
+    note is garbled in the mirror.
+  - remove section bullet says method="list" (copy-paste).
+  - Doc examples use curl --data @sample_code.json; request bodies are taken from the JSON samples.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_text=write/patch, set_image=write/patch'
+  migrated_from: v1
+  curated: false

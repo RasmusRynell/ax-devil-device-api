@@ -1,0 +1,734 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: decoder2
+name: Decoder 2
+summary: Decoder2 API (API discovery id decoder, version 3.0) — media sources, sequences/layouts, player control,
+  capabilities and line-out control on Axis decoders.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: decoder2
+  class: Decoder2
+docs:
+- https://developer.axis.com/vapix/network-video/decoder2-api/
+access: admin
+discovery:
+- {api_discovery: decoder}
+requires:
+  firmware: '12.2'
+
+binding:
+  path: /axis-cgi/decoder/player.cgi
+  major: 3
+  versions: ['3.0']
+  negotiation: {fixed: '3.0'}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error (example error response)., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+
+types:
+  Pane:
+    type: object
+    properties:
+      left:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: Left edge is 0, middle 0.5, right 1.
+      right: {type: number, minimum: 0, maximum: 1}
+      top:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: Top edge is 0, middle 0.5, bottom 1.
+      bottom: {type: number, minimum: 0, maximum: 1}
+  Segment:
+    type: object
+    properties:
+      mediaSourceId: {type: integer, minimum: 0, maximum: 999}
+      actionOnPlaybackEnd:
+        type: string
+        enum:
+        - triggerError
+        - triggerFreezePlayback
+        - triggerNextView
+        - triggerRestartPlayback
+        default: triggerFreezePlayback
+        description: 'triggerError: show a default error image on the segment; triggerFreezePlayback: stop playback
+          and show the last frame; triggerNextView: switch to the next view (or first view after last); triggerRestartPlayback:
+          restart...'
+      pane: {$ref: '#/types/Pane'}
+  View:
+    type: object
+    properties:
+      duration:
+        type: integer
+        minimum: 1
+        maximum: 86400
+        description: The view's duration in seconds (1 s to 24 h). Ignored on single-view sequences.
+      segments:
+        type: array
+        items: {$ref: '#/types/Segment'}
+  Sequence:
+    type: object
+    properties:
+      id: {type: integer, minimum: 0, maximum: 24}
+      name: {type: string, maxLength: 64}
+      views:
+        type: array
+        items: {$ref: '#/types/View'}
+  MediaSource:
+    type: object
+    properties:
+      mediaSourceId: {type: integer, minimum: 0, maximum: 999}
+      name: {type: string, maxLength: 64}
+      description: {type: string, maxLength: 250}
+      hasAudio: {type: boolean, description: true if audio should be enabled for the media source.}
+      mediaSourceType: {type: string, enum: [stream, file]}
+      stream:
+        type: object
+        x-name: MediaSourceStream
+        properties:
+          externalIPDeviceInfoId:
+            type: string
+            description: ID from the External IP Device Information API (lets the decoder get the device credentials
+              securely).
+          manufacturer:
+            type: string
+            enum: [com.axis.camera, other]
+            description: com.axis.camera (axisStream, use externalIPDeviceStreamParameters) or other (3rdPartyStream,
+              use videoUri). getMediaSources table lists com.axis.camera / com.axis.acs.
+          externalIPDeviceStreamParameters:
+            type: string
+            description: Stream parameters for com.axis.camera, e.g. camera=1&resolution=1920x1080&fps=25&videocodec=h264.
+          videoUri:
+            type: string
+            maxLength: 255
+            description: Video URI, only for third party cameras (manufacturer other), e.g. rtsp://192.168.0.90/axis-media/media.amp?...
+      file:
+        type: object
+        x-name: MediaSourceFile
+        properties:
+          fileId: {type: string, description: e.g. USB/imagename.jpg}
+  CameraCapabilities:
+    type: object
+    properties:
+      codec:
+        type: array
+        items: {type: string}
+        description: Compression formats, e.g. [h264, h265] (table lists H.264, H.265).
+      audioSources:
+        type: array
+        items:
+          type: object
+          x-name: CameraCapabilitiesAudioSourcesItem
+          properties:
+            audioSourceIndex: {type: string}
+            enabled: {type: string}
+            codec: {type: string}
+            inputType: {type: string}
+            name: {type: string}
+      videoSources:
+        type: array
+        items:
+          type: object
+          x-name: CameraCapabilitiesVideoSourcesItem
+          properties:
+            imageGroupIndex: {type: string}
+            name: {type: string}
+            source: {type: string}
+            enabled: {type: string}
+            maxFPS: {type: string}
+            resolution:
+              type: array
+              items: {type: string}
+  DecoderCapabilities:
+    type: object
+    properties:
+      resolutions:
+        type: array
+        items: {type: string}
+        description: Resolutions supported by the HDMI port, e.g. 3840x2160@30.
+      maxVPUInstances: {type: integer, description: Present in the example; not in the table.}
+      maxStreams: {type: integer, description: Example key maxStreams; table spells it maxstreams.}
+      streamingProtocols:
+        type: array
+        items: {type: string}
+        description: e.g. rtspt, rtsph, rtspsh
+      audioCodingFormats:
+        type: array
+        items: {type: string}
+      videoCodingFormats:
+        type: array
+        items: {type: string}
+      imageCodingFormats:
+        type: array
+        items: {type: string}
+      mediaTypes:
+        type: array
+        items: {type: string}
+
+operations:
+  set_sequence:
+    summary: 'Create a new or update an existing sequence configuration (views of segments: pane + media source
+      + end-of-playback action).'
+    effect: write
+    write: patch
+    binding: {method: setSequence, path: /axis-cgi/decoder/layout.cgi}
+    params:
+      type: object
+      required: [views]
+      properties:
+        id:
+          type: integer
+          minimum: 0
+          maximum: 24
+          description: The sequence ID. If provided and it exists, the configuration is updated; if it does not
+            exist, it is created with this id.
+        name: {type: string, maxLength: 64, description: The sequence name.}
+        views:
+          type: array
+          items: {$ref: '#/types/View'}
+    result:
+      type: object
+      properties:
+        id: {type: integer, description: The ID of the sequence created or edited.}
+    examples:
+    - title: setSequence request 1
+      request:
+        params:
+          name: A Sequence Name
+          views:
+          - duration: 30
+            segments:
+            - mediaSourceId: 0
+              actionOnPlaybackEnd: triggerRestartPlayback
+              pane: {left: 0, top: 0, right: 1, bottom: 1}
+      response:
+        data: {id: 0}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#setsequence
+  get_sequence:
+    summary: Fetch the configuration for a specific sequence.
+    effect: read
+    binding: {method: getSequence, path: /axis-cgi/decoder/layout.cgi}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The sequence ID.}
+    result: {$ref: '#/types/Sequence'}
+    examples:
+    - title: getSequence request
+      request:
+        params: {id: 1}
+      response:
+        data:
+          name: A Sequence Name
+          views:
+          - duration: 30
+            segments:
+            - mediaSourceId: 0
+              actionOnPlaybackEnd: triggerRestartPlayback
+              pane: {left: 0, top: 0, right: 0.5, bottom: 0.5}
+            - mediaSourceId: 1
+              actionOnPlaybackEnd: triggerFreeze
+              pane: {left: 0.5, top: 0, right: 1, bottom: 0.5}
+            - mediaSourceId: 2
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0, top: 0.5, right: 0.5, bottom: 1}
+            - mediaSourceId: 5
+              actionOnPlaybackEnd: triggerNextView
+              pane: {left: 0.5, top: 0.5, right: 1, bottom: 1}
+          - duration: 60
+            segments:
+            - mediaSourceId: 4
+              actionOnPlaybackEnd: triggerFreezePlayback
+              pane: {left: 0, top: 0, right: 0.5, bottom: 0.5}
+            - mediaSourceId: 6
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0.5, top: 0, right: 1, bottom: 0.5}
+            - mediaSourceId: 7
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0, top: 0.5, right: 0.5, bottom: 1}
+            - mediaSourceId: 8
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0.5, top: 0.5, right: 1, bottom: 1}
+          - duration: 120
+            segments:
+            - mediaSourceId: 9
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0, top: 0, right: 0.5, bottom: 0.5}
+            - mediaSourceId: 10
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0.5, top: 0, right: 1, bottom: 0.5}
+            - mediaSourceId: 3
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0, top: 0.5, right: 0.5, bottom: 1}
+            - mediaSourceId: 4
+              actionOnPlaybackEnd: triggerError
+              pane: {left: 0.5, top: 0.5, right: 1, bottom: 1}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getsequence
+  list_sequences:
+    summary: Fetch the identifiers (id, name, duration) of all sequence configurations.
+    effect: read
+    binding: {method: listSequences, path: /axis-cgi/decoder/layout.cgi}
+    result:
+      type: object
+      properties:
+        sequences:
+          type: array
+          items:
+            type: object
+            x-name: ListSequencesResultSequencesItem
+            properties:
+              id: {type: integer, minimum: 0, maximum: 24}
+              name: {type: string, maxLength: 64}
+              duration: {type: integer}
+    examples:
+    - title: listSequences request
+      request:
+        params: {}
+      response:
+        data:
+          sequences:
+          - {name: A Sequence Name, id: 1, duration: 360}
+          - {name: A Sequence Name 2, id: 2, duration: 240}
+          - {name: A Sequence Name 3, id: 3, duration: 120}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#listsequences
+  delete_sequence:
+    summary: Delete a specific sequence configuration.
+    effect: write
+    write: delete
+    binding: {method: deleteSequence, path: /axis-cgi/decoder/layout.cgi}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The sequence ID.}
+        forceSWDecoder:
+          type: boolean
+          description: 'As documented in the deleteSequence table: use software decoding instead of the VPU for
+            this mediasource; when creating a view with more than the maximum VPU instances, extra sources must
+            use software decoding.'
+    examples:
+    - title: deleteSequence request
+      request:
+        params: {id: 0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#deletesequence
+  set_media_sources:
+    summary: 'Create media source configurations (stream: axisStream / 3rdPartyStream, or file).'
+    effect: write
+    write: patch
+    binding: {method: setMediaSources, path: /axis-cgi/decoder/mediasource.cgi}
+    params:
+      type: object
+      required: [mediaSources]
+      properties:
+        mediaSources:
+          type: array
+          items: {$ref: '#/types/MediaSource'}
+    result:
+      type: object
+      properties:
+        ids:
+          type: array
+          items: {type: integer}
+          description: The IDs of the media sources that were created.
+    examples:
+    - title: setMediaSources request
+      request:
+        params:
+          mediaSources:
+          - mediaSourceId: 10
+            name: baker street
+            description: Camera at baker street
+            hasAudio: false
+            mediaSourceType: stream
+            stream:
+              externalIPDeviceInfoId: 1701335688966-dac8ff0a-09de-abfb-83cf-753ad2f760f8
+              manufacturer: com.axis.camera
+              externalIPDeviceStreamParameters: camera=1&resolution=1920x1080&fps=25&videocodec=h264
+          - mediaSourceId: 12
+            name: baker street
+            description: Camera at baker street
+            hasAudio: false
+            mediaSourceType: stream
+            stream:
+              externalIPDeviceInfoId: 1701335688966-dac8ff0a-09de-abfb-83cf-753ad2f760f9
+              manufacturer: other
+              videoUri: rtsp://192.168.0.90/axis-media/media.amp?camera=1&resolution=1280x720&fps=30&videocodec=h264
+          - mediaSourceId: 11
+            name: media sources 1
+            description: Description 1
+            hasAudio: false
+            mediaSourceType: file
+            file: {fileId: USB/imagename.jpg}
+      response:
+        data: {ids: [10, 11, 12]}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#setmediasources
+  get_media_sources:
+    summary: Get configuration information for all configured media sources.
+    effect: read
+    binding: {method: getMediaSources, path: /axis-cgi/decoder/mediasource.cgi}
+    result:
+      type: object
+      properties:
+        mediaSources:
+          type: array
+          items: {$ref: '#/types/MediaSource'}
+    examples:
+    - title: getMediaSources request
+      request:
+        params: {}
+      response:
+        data:
+          mediaSources:
+          - mediaSourceId: 10
+            name: baker street
+            description: Camera at baker street
+            hasAudio: false
+            mediaSourceType: stream
+            stream:
+              externalIPDeviceInfoId: 1701335688966-dac8ff0a-09de-abfb-83cf-753ad2f760f8
+              manufacturer: com.axis.camera
+              externalIPDeviceStreamParameters: camera=1&resolution=1920x1080&fps=25&videocodec=h264
+          - mediaSourceId: 12
+            name: baker street
+            description: Camera at baker street
+            hasAudio: false
+            mediaSourceType: stream
+            stream:
+              externalIPDeviceInfoId: 1701335688966-dac8ff0a-09de-abfb-83cf-753ad2f760f9
+              manufacturer: other
+              videoUri: rtsp://192.168.0.90/axis-media/media.amp?camera=1&resolution=1280x720&fps=30&videocodec=h264
+          - mediaSourceId: 11
+            name: media sources 1
+            description: Description 1
+            hasAudio: false
+            mediaSourceType: file
+            file: {fileId: USB/imagename.jpg}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getmediasources
+  delete_media_sources:
+    summary: Delete one or several media source configurations.
+    effect: write
+    write: delete
+    binding: {method: deleteMediaSources, path: /axis-cgi/decoder/mediasource.cgi}
+    params:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items: {type: integer}
+          description: The IDs of the media sources that should be deleted.
+  play_sequence:
+    summary: Trigger a sequence playback.
+    effect: unknown
+    binding: {method: playSequence}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The sequence ID.}
+        viewIndex: {type: integer, description: The view index to start playing from.}
+        resumeTimeout:
+          type: integer
+          description: Seconds the new sequence should play before resuming the currently playing sequence. (unit=s)
+    examples:
+    - title: playSequence request
+      request:
+        params: {id: 0, viewIndex: 0, resumeTimeout: 3600}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#playsequence
+  stop_sequence:
+    summary: Stop the sequence playback.
+    effect: action
+    binding: {method: stopSequence}
+    examples:
+    - title: stopSequence request
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#stopsequence
+  pause_sequence:
+    summary: 'Pause the sequence: the current view continues to play but does not change to the next view.'
+    effect: unknown
+    binding: {method: pauseSequence}
+    params:
+      type: object
+      properties:
+        resumeTimeout:
+          type: integer
+          description: Timeout in seconds before resuming the previous sequence. (unit=s)
+    examples:
+    - title: pauseSequence request
+      request:
+        params: {resumeTimeout: 60}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#pausesequence
+  resume_sequence:
+    summary: Resume the playback for a sequence.
+    effect: unknown
+    binding: {method: resumeSequence}
+    examples:
+    - title: resumeSequence request
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#resumesequence
+  play_media_source:
+    summary: Play a media source for a time specified by the request, interrupting the current sequence (resumed
+      afterwards).
+    effect: unknown
+    binding: {method: playMediaSource}
+    params:
+      type: object
+      properties:
+        highResolutionId: {type: integer, description: A media source ID suited for a single stream.}
+        mediumResolutionId:
+          type: integer
+          description: A media source ID suited to play alongside half the maximum simultaneous streams.
+        lowResolutionId:
+          type: integer
+          description: A media source ID suited to play alongside the maximum simultaneous streams.
+        resumeTimeout:
+          type: integer
+          description: Seconds after which the interrupted sequence will resume. (unit=s)
+        priority:
+          type: string
+          enum: [high, medium, low]
+          description: If more than one media source is requested, which one will be played.
+        combineMediaSources:
+          type: boolean
+          description: Media sources can be shown side by side if all requests have combineMediaSources set to true.
+    examples:
+    - title: playMediaSource request
+      request:
+        params:
+          highResolutionId: 0
+          mediumResolutionId: 1
+          lowResolutionId: 2
+          resumeTimeout: 20
+          priority: medium
+          combineMediaSources: true
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#playmediasource
+  stop_media_source:
+    summary: Stop a media source that is playing as an alarm; if it is the only one playing, the original sequence
+      is resumed.
+    effect: action
+    binding: {method: stopMediaSource}
+    params:
+      type: object
+      required: [highResolutionId]
+      properties:
+        highResolutionId: {type: integer, description: The ID of the media source that should be stopped.}
+    examples:
+    - title: stopMediaSource request
+      request:
+        params: {highResolutionId: 0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#stopmediasource
+  play_next_view:
+    summary: Play the next view in the currently playing sequence.
+    effect: unknown
+    binding: {method: playNextView}
+  play_previous_view:
+    summary: Play the previous view in the currently playing sequence.
+    effect: unknown
+    binding: {method: playPreviousView}
+  play_view:
+    summary: Play any view in the currently playing sequence.
+    effect: unknown
+    binding: {method: playView}
+    params:
+      type: object
+      properties:
+        viewIndex: {type: integer, description: Index in the currently playing sequence that should be played.}
+  get_current_position:
+    summary: Get the sequence ID, active view index and played time of the active view.
+    effect: read
+    binding: {method: getCurrentPosition}
+    result:
+      type: object
+      properties:
+        sequenceId: {type: integer, minimum: 0, maximum: 24}
+        sequenceIndex: {type: integer, minimum: 0, maximum: 999, description: The index for the active view.}
+        currentViewTime: {type: integer, description: Seconds the active view has been playing.}
+    examples:
+    - title: getCurrentPosition request
+      request:
+        params: {}
+      response:
+        data: {sequenceId: 1, sequenceIndex: 4, currentViewTime: 20}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getcurrentposition
+  get_camera_capabilities:
+    summary: Fetch the capabilities of the selected Axis camera (configured via External IP Device Information).
+    effect: read
+    binding: {method: getCameraCapabilities, path: /axis-cgi/decoder/decodercapabilities.cgi}
+    params:
+      type: object
+      required: [externalIPDeviceInfoId]
+      properties:
+        externalIPDeviceInfoId: {type: string, description: The external IP device info ID.}
+    result: {$ref: '#/types/CameraCapabilities'}
+    examples:
+    - title: getCameraCapabilities request
+      request:
+        params: {externalIPDeviceInfoId: 1674718420952-92736ff4-6a25-84ba-035f-4285c5744c9c}
+      response:
+        data:
+          codec: [h264, h265]
+          audioSources:
+          - {audioSourceIndex: '0', enabled: 'yes', codec: aac, inputType: mic, name: Audio}
+          videoSources:
+          - imageGroupIndex: '0'
+            name: Camera 1
+            source: '0'
+            enabled: 'yes'
+            maxFPS: '25'
+            resolution: [3840x2160, 1920x1080, 800x600]
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getcameracapabilities
+  get_decoder_capabilities:
+    summary: Get the decoder capabilities.
+    effect: read
+    binding: {method: getDecoderCapabilities, path: /axis-cgi/decoder/decodercapabilities.cgi}
+    result: {$ref: '#/types/DecoderCapabilities'}
+    examples:
+    - title: getDecoderCapabilities request
+      request:
+        params: {}
+      response:
+        data:
+          resolutions:
+          - 3840x2160@30
+          - 3840x2160@25
+          - 1920x1080@60
+          - 1920x1080@50
+          - 1920x1080@30
+          - 1920x1080@25
+          - 1280x720@60
+          - 1280x720@50
+          maxVPUInstances: 8
+          maxStreams: 9
+          streamingProtocols: [rtspt, rtsph, rtspsh]
+          audioCodingFormats: [G.711, G.726, OPUS, MP3, AAC-LC, WAV, ADPCM, LPCM]
+          videoCodingFormats: [H.264, H.265]
+          imageCodingFormats: [jpeg, png]
+          mediaTypes:
+          - video/webm
+          - video/x-matroska
+          - video/quicktime
+          - video/mp4
+          - image/jpeg
+          - image/png
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getdecodercapabilities
+  get_unsecure_connection_allowed:
+    summary: Check if camera capabilities can be fetched over an unencrypted (HTTP) connection.
+    effect: read
+    binding: {method: getUnsecureConnectionAllowed, path: /axis-cgi/decoder/decodercapabilities.cgi}
+    result:
+      type: object
+      properties:
+        UnsecureConnectionAllowed: {type: boolean}
+    examples:
+    - title: getUnsecureConnectionAllowed request
+      request:
+        params: {}
+      response:
+        data: {UnsecureConnectionAllowed: true}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getunsecureconnectionallowed
+  set_unsecure_connection_allowed:
+    summary: Enable or disable unsecure (HTTP) connections when fetching camera capabilities.
+    effect: write
+    write: patch
+    binding: {method: setUnsecureConnectionAllowed, path: /axis-cgi/decoder/decodercapabilities.cgi}
+    params:
+      type: object
+      required: [UnsecureConnectionAllowed]
+      properties:
+        UnsecureConnectionAllowed: {type: boolean}
+    examples:
+    - title: setUnsecureConnectionAllowed request
+      request:
+        params: {UnsecureConnectionAllowed: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#setunsecureconnectionallowed
+  set_line_out_enabled:
+    summary: 'Line-out control: enable or disable audio playback through the line-out port.'
+    effect: write
+    write: patch
+    binding: {method: setEnabled}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Sets the line-out port to enabled or disabled.}
+    examples:
+    - title: setEnabled request
+      request:
+        params: {enabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#setenabled
+  get_line_out_enabled:
+    summary: 'Line-out control: check if the line-out port is enabled or disabled.'
+    effect: read
+    binding: {method: getEnabled}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean}
+    examples:
+    - title: getEnabled request
+      request:
+        params: {}
+      response:
+        data: {enabled: true}
+      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getenabled
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/decoder2-api/
+  sha256_md: 6d4283f55e83f28e1fad78e85c074ed3e4bb3af9873e44fd5129758b24fd06c9
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'ID clash: Decoder2''s API discovery id is ''decoder'' (version 3.0); the legacy Decoder API has no discovery
+    id. This spec uses file id decoder2 (see top-level id) to avoid clashing with decoder.yaml.'
+  - CGI path for Line-out Control (setEnabled/getEnabled) is not documented.
+  - Security levels for all methods are not documented; no getSupportedVersions method documented.
+  - Examples use apiVersion 2.0 while API discovery states version 3.0.
+  - 'Method name mismatches: listSequence (headings/links) vs listSequences (tables/examples); SetUnsecureConnectionAllowed
+    heading vs setUnsecureConnectionAllowed; getCameraCapabilities example request uses method ''getCameraCapabilitiesRequest''.'
+  - getSequence example uses actionOnPlaybackEnd 'triggerFreeze' (not in the enum).
+  - deleteSequence table lists forceSWDecoder (describes media sources; likely belongs to setMediaSources/setSequence).
+  - getDecoderCapabilities example contains maxVPUInstances (not in table) and maxStreams vs table 'maxstreams'.
+  - getMediaSources manufacturer valid values listed as com.axis.camera/com.axis.acs vs setMediaSources com.axis.camera/other.
+  - setMediaSources describes fileId as 'The media source ID'.
+  - 'migration: other-majors: API also documents major(s) 2; this spec covers major 3 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_sequence=write/patch, set_media_sources=write/patch,
+    set_unsecure_connection_allowed=write/patch, set_line_out_enabled=write/patch'
+  - 'migration: effect-unknown: effect could not be inferred from the method name: play_sequence, pause_sequence,
+    resume_sequence, play_media_source, play_next_view, play_previous_view, play_view'
+  migrated_from: v1
+  curated: false

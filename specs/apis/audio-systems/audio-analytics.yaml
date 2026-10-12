@@ -1,0 +1,175 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: audio-analytics
+name: Audio Analytics
+summary: Get JSON schemas for and get/set settings of audio analytics plugins (e.g.
+section: audio-systems
+family: jsonrpc
+status: released
+python:
+  module: audio_analytics
+  class: AudioAnalytics
+docs:
+- https://developer.axis.com/vapix/audio-systems/audio-analytics/
+access: operator
+discovery:
+- {api_discovery: audio-analytics}
+
+binding:
+  path: /axis-cgi/audioanalytics.cgi
+  major: 2
+  versions: ['2.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: INTERNAL_ERROR. Internal error., kind: internal}
+  2100:
+    description: UNSUPPORTED_API_VERSION. The requested API version is not supported.
+    kind: unsupported
+  2101:
+    description: JSON_INVALID_ERROR. The provided JSON input was invalid.
+    kind: invalid_argument
+  2102: {description: METHOD_NOT_SUPPORTED. Method not supported., kind: unsupported}
+  2103:
+    description: JSON_KEY_NOT_FOUND. A mandatory input parameter was not found in the input.
+    kind: not_found
+  2104:
+    description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value specified.
+    kind: invalid_argument
+  2105: {description: AUTHORIZATION_ERROR. Authorization failed., kind: access_denied}
+  2106: {description: AUTHENTICATION_ERROR. Authentication failed.}
+  2107: {description: TRANSPORT_LEVEL_ERROR. Transport Level Error.}
+
+types:
+  PluginSchema:
+    type: object
+    properties:
+      $schema:
+        type: string
+        description: The URL for the core schema meta-schema (plugins use draft/2020-12, e.g. http://json-schema.org/draft/2020-12/schema#).
+      title: {type: string, description: The schema title.}
+      id: {type: string, description: Identification of the plugin.}
+      type: {type: string, description: 'The settings type, usually an object.'}
+      properties:
+        type: object
+        description: A unique JSON schema describing the properties of the settings objects returned by getPluginsSettings
+          and sent by setPluginsSettings. Deviations from draft/2020-12 will be explained.
+  PluginSettings:
+    type: object
+    required: [id, settings]
+    properties:
+      id:
+        type: string
+        description: The plugin instance id (e.g. AdaptiveAudioDetection, DirectionOfArrival, AggressionDetection).
+      settings:
+        type: object
+        description: Settings parameters detailed by the response from getPluginsSchemas.
+  IoPlugins:
+    type: object
+    properties:
+      id: {type: string, description: The input/output id.}
+      plugins:
+        type: array
+        items: {$ref: '#/types/PluginSettings'}
+  AudioDevicePlugins:
+    type: object
+    properties:
+      id: {type: string, description: The audio device id (as in Audio Device Control).}
+      inputs:
+        type: array
+        items: {$ref: '#/types/IoPlugins'}
+        description: Lists the device inputs.
+      outputs:
+        type: array
+        items: {$ref: '#/types/IoPlugins'}
+        description: Lists the device outputs.
+
+operations:
+  get_plugins_schemas:
+    summary: Lists the JSON schema for all settings related to the analytics plugins.
+    effect: read
+    binding: {method: getPluginsSchemas}
+    params:
+      type: object
+      properties:
+        plugin:
+          type: string
+          description: The plugin name. Listed in the API specification table, but the common example sends empty
+            params and gets all schemas (see open_questions).
+    result:
+      type: object
+      properties:
+        schemas:
+          type: array
+          items: {$ref: '#/types/PluginSchema'}
+  get_plugins_settings:
+    summary: Lists the plugin settings for all plugin instances for all audio sources.
+    effect: read
+    binding: {method: getPluginsSettings}
+    result:
+      type: object
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/AudioDevicePlugins'}
+    examples:
+    - title: getPluginsSettings
+      request:
+        params: {}
+      response:
+        data:
+          devices:
+          - id: '0'
+            inputs:
+            - id: '0'
+              plugins:
+              - id: AdaptiveAudioDetection
+                settings: {enabled: true, threshold: -6}
+              - id: DirectionOfArrival
+                settings: {enable: true}
+            outputs:
+            - id: '0'
+              plugins:
+              - id: AggressionDetection
+                settings: {enable: true, level: 0}
+      source: https://developer.axis.com/vapix/audio-systems/audio-analytics/#audio-analytics-plugin
+  set_plugins_settings:
+    summary: Applies the plugin settings for plugin instances.
+    effect: write
+    write: patch
+    binding: {method: setPluginsSettings}
+    params:
+      type: object
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/AudioDevicePlugins'}
+          description: List containing audio devices (table labels this data.devices[]).
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/audio-analytics/
+  sha256_md: 8c935a5d90f17bb40fde31f575fa39ae41cba48676563ab7bc2bda7c6f6a365e
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Method name inconsistencies in the API specification: request syntax uses ''getPluginsSchema'' (singular) and
+    ''setPluginsSetting''/''getPluginsSetting''; overview table and examples use getPluginsSchemas/getPluginsSettings/setPluginsSettings.'
+  - 'getPluginsSchemas: spec table lists a ''plugin'' parameter, but the common example sends empty params and receives
+    all schemas; whether ''plugin'' filters is not stated.'
+  - 'getPluginsSchemas example response is invalid JSON (missing opening quote on "title": Adaptive Audio Detection");
+    kept verbatim as raw. Response syntax block also has unbalanced brackets.'
+  - Error syntax shows '"message". <string>' (period instead of colon) — doc typo.
+  - Settings examples mix 'enabled' and 'enable' keys for the same plugin (AdaptiveAudioDetection).
+  - Example places AggressionDetection under an output; analytics on outputs is not explained.
+  - AXIS OS minimum version not stated.
+  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: result-shape: set_plugins_settings: response schema has no data wrapper; result omitted'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_plugins_settings=write/patch'
+  migrated_from: v1
+  curated: false

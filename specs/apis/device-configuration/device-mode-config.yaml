@@ -1,0 +1,163 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: device-mode-config
+name: Device mode configuration
+summary: WARNING This API is in BETA stage.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: device_mode
+  class: DeviceMode
+docs:
+- https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+access: admin
+discovery:
+- dca: {api: device-mode, version: v1}
+
+binding: {root: /config/rest/device-mode/v1beta}
+
+types:
+  ModeId:
+    type: string
+    minLength: 2
+    maxLength: 32
+    pattern: ^[a-z][a-z0-9-]*$
+    description: The device mode identifier as a short descriptive string (`fisheye`, `double-panorama`, etc.)
+  DeviceMode:
+    type: object
+    description: The whole API tree.
+    x-read-only: [activeMode, restartRequired]
+    properties:
+      activeMode: {$ref: '#/types/ModeId', description: The device mode that is currently active}
+      mode:
+        $ref: '#/types/ModeId'
+        description: The pending device mode if different from activeMode, otherwise same as activeMode
+      restartRequired:
+        type: boolean
+        description: Indicates if a restart is required to apply the mode change. This is typically true for current
+          implementations.
+      availableModes:
+        type: array
+        items: {$ref: '#/types/AvailableMode'}
+  AvailableMode:
+    type: object
+    description: The `availableModes` entity collection contains all device modes that are available on the device.
+      Each mode is accessed by its ID (`fisheye`, `double-panorama`, etc.).
+    required: [id]
+    properties:
+      id: {$ref: '#/types/ModeId', description: The device mode identifier (short descriptive string)}
+
+operations:
+  get_all:
+    summary: All data of the Device mode configuration API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/DeviceMode'}
+    examples:
+    - title: Get the root entity
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            activeMode: fisheye
+            mode: fisheye
+            restartRequired: false
+            availableModes:
+              fisheye: {id: fisheye}
+              double-panorama: {id: double-panorama}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+    - title: Revert pending mode change
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            activeMode: fisheye
+            mode: fisheye
+            restartRequired: false
+            availableModes:
+              fisheye: {id: fisheye}
+              double-panorama: {id: double-panorama}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+  set_mode:
+    summary: Set the mode of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /mode, body_field: mode, body: value}
+    params:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          $ref: '#/types/ModeId'
+          description: The pending device mode if different from activeMode, otherwise same as activeMode
+    examples:
+    - title: Change device mode
+      request:
+        path: /mode
+        body: {data: double-panorama}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+    - title: Revert pending mode change
+      request:
+        path: /mode
+        body: {data: fisheye}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+  list_available_modes:
+    summary: List the available modes.
+    effect: read
+    binding: {method: GET, path: /availableModes}
+    result:
+      type: array
+      items: {$ref: '#/types/AvailableMode'}
+    examples:
+    - title: Get all available device modes
+      request: {path: /availableModes}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            fisheye: {id: fisheye}
+            double-panorama: {id: double-panorama}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+  get_available_mode:
+    summary: Get one available mode.
+    effect: read
+    binding: {method: GET, path: '/availableModes/{id}'}
+    params:
+      type: object
+      x-name: AvailableModeIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/ModeId'}
+    result: {$ref: '#/types/AvailableMode'}
+    examples:
+    - title: Get a specific available mode
+      request: {path: /availableModes/double-panorama}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {id: double-panorama}
+      source: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/
+  sha256_md: 4ff107efe312854cddddd5f6ddcada335e4ec17a8371fe4240bf06fb37372d9d
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 4 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

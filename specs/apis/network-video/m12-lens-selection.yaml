@@ -1,0 +1,165 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: m12-lens-selection
+name: M12 Lens Selection API
+summary: Select M12 lenses (field of view / distortion) for individual camera sensors in products controlling a
+  remote PTZ camera with exchangeable lenses.
+section: network-video
+family: jsonrpc
+status: deprecated
+python:
+  module: m12_lens_selection
+  class: M12LensSelection
+docs:
+- https://developer.axis.com/vapix/network-video/m12-lens-selection/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.M12LensSelection.M12LensSelection, value: 'yes'}
+- param: {name: Properties.M12LensSelection.Version, value: '1.00'}
+requires:
+  firmware: '6.50'
+
+binding:
+  path: /axis-cgi/m12-lensselection.cgi
+  major: 2
+  versions: ['2.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Invalid parameter value., kind: invalid_argument}
+  1001: {description: Invalid sensor., kind: invalid_argument}
+  1002: {description: Unsupported lens., kind: unsupported}
+  2000: {description: Out of memory.}
+  2001: {description: Access forbidden (similar to HTTP 403)., kind: access_denied}
+  2002: {description: HTTP request type not supported. Only POST supported., kind: unsupported}
+  2003: {description: The requested API version is not supported., kind: unsupported}
+  2004: {description: Method not supported., kind: unsupported}
+  4000: {description: The provided JSON input was invalid., kind: invalid_argument}
+  4001: {description: A mandatory input parameter was not found in the input., kind: not_found}
+  4002: {description: The type of a provided JSON parameter was incorrect., kind: invalid_argument}
+  8000: {description: 'Internal error, could not complete request.', kind: internal}
+
+types:
+  Lens:
+    type: object
+    properties:
+      lensId: {type: integer, description: The lens ID.}
+      lensName: {type: string, description: The lens name.}
+      sensorIds:
+        type: array
+        items: {type: integer}
+        description: An array of sensor IDs where the lens is used.
+  CurrentLens:
+    type: object
+    properties:
+      sensorId: {type: integer, description: The sensor ID.}
+      lensId: {type: integer, description: The lens ID.}
+      lensName: {type: string, description: The lens name.}
+
+operations:
+  get_supported_lenses:
+    summary: Return a list of supported lenses.
+    effect: read
+    binding: {method: getSupportedLenses}
+    params:
+      type: object
+      properties:
+        listSensorIds:
+          type: boolean
+          description: Optional. The user sets this value and the server will add an array of sensor IDs for the
+            currently used lens.
+    result:
+      type: array
+      items: {$ref: '#/types/Lens'}
+    examples:
+    - title: Get supported lenses
+      request:
+        params: {listSensorIds: true}
+      response:
+        data:
+        - {lensId: 1, lensName: M12 6 mm, sensorIds: [1, 3]}
+        - {lensId: 2, lensName: M12 1.37 mm, sensorIds: [2, 4]}
+        - lensId: 3
+          lensName: M12 16 mm
+          sensorIds: []
+      source: https://developer.axis.com/vapix/network-video/m12-lens-selection/#get-supported-lenses
+    - title: Get supported lenses (error)
+      request:
+        params: {listSensorIds: true}
+      response:
+        error: {code: 8000, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/m12-lens-selection/#get-supported-lenses
+  get_current_lenses:
+    summary: Return the current lenses used by the camera sensors.
+    effect: read
+    binding: {method: getCurrentLenses}
+    params:
+      type: object
+      properties:
+        sensorId:
+          type: integer
+          description: Optional. The server will get the current lens for the specified sensor ID; omitted = all
+            sensors.
+    result:
+      type: array
+      items: {$ref: '#/types/CurrentLens'}
+    examples:
+    - title: Get current lens for sensor 3
+      request:
+        params: {sensorId: 3}
+      response:
+        data:
+        - {sensorId: 3, lensId: 2, lensName: M12 1.37 mm}
+      source: https://developer.axis.com/vapix/network-video/m12-lens-selection/#get-current-lens
+    - title: Get current lens (error)
+      request:
+        params: {sensorId: 3}
+      response:
+        error: {code: 1001, message: Invalid sensor}
+      source: https://developer.axis.com/vapix/network-video/m12-lens-selection/#get-current-lens
+  set_current_lens:
+    summary: Set the current lens for one of the sensors.
+    effect: write
+    write: patch
+    binding: {method: setCurrentLens}
+    params:
+      type: object
+      required: [sensorId, lensId]
+      properties:
+        sensorId: {type: integer, description: The sensor ID that should be set.}
+        lensId: {type: integer, description: The lens ID that should be set.}
+    examples:
+    - title: Set current lens
+      request:
+        params: {sensorId: 1, lensId: 2}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/m12-lens-selection/#set-current-lens
+    - title: Set current lens (error)
+      request:
+        params: {sensorId: 1, lensId: 2}
+      response:
+        error: {code: 1002, message: Unsupported lens}
+      source: https://developer.axis.com/vapix/network-video/m12-lens-selection/#set-current-lens
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/m12-lens-selection/
+  sha256_md: 822f58b83578d1deaade9753f151b61bcb6bf73ebd443b6c436f93de23c01cab
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Doc table describes params as "params=<sensorId>" etc.; mapped to params.sensorId / params.lensId per the request
+    syntax.
+  - Discovery property Properties.M12LensSelection.Version=1.00 while examples use apiVersion 2.1 / 1.3.
+  - getSupportedVersions response syntax omits apiVersion but example includes it.
+  - Deprecated prior to release.
+  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_current_lens=write/patch'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,181 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: overlay-image
+name: Overlay image API
+summary: 'Upload (multipart) and manage overlay images: supported formats, header validation, list, delete, default
+  image (/axis-cgi/uploadoverlayimage.cgi...'
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: overlay_image
+  class: OverlayImage
+docs:
+- https://developer.axis.com/vapix/network-video/overlay-api/
+access: admin
+discovery:
+- {api_discovery: overlayimage}
+
+binding:
+  path: /axis-cgi/manageoverlayimages.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error., kind: internal}
+  1001: {description: The requested API version is not supported., kind: unsupported}
+  1002: {description: Invalid method., kind: invalid_argument}
+  1003: {description: Invalid parameter., kind: invalid_argument}
+  1004: {description: The provided input was invalid., kind: invalid_argument}
+  1005: {description: Image size is too big.}
+  1006: {description: Unsupported image format., kind: unsupported}
+  1007: {description: Not enough space left on the device.}
+  1008: {description: Alpha is not supported., kind: unsupported}
+  1009: {description: Scale-to-resolution is not supported., kind: unsupported}
+  1010: {description: Image already exists.}
+  1011: {description: Image is being used by a dynamic overlay.}
+  1012: {description: Image is being used by a legacy overlay.}
+  1013: {description: Image is being used as default image.}
+  1014: {description: Image is being used by an overlay.}
+
+operations:
+  supported_formats:
+    summary: Get a list of supported image formats.
+    description: 'Use `supportedFormats` to get a list of image formats supported by the camera. Possible values
+      are: - bmp - jpeg - png - svg'
+    access: operator
+    effect: unknown
+    binding: {method: supportedFormats}
+    result:
+      type: object
+      properties:
+        formats:
+          type: array
+          items: {type: string}
+          description: List of supported image formats.
+  validate_image_header:
+    summary: Check if an image is supported based on provided image header data.
+    description: '`validateImageHeader` will check if the image described by the parameters are supported, is of
+      an acceptable file-size and that there are enough memory on the device. In cases where there are an invalid
+      parameter, an error response is sent and the status code is set to reflect what the problem might be.'
+    access: operator
+    effect: unknown
+    binding: {method: validateImageHeader}
+    params:
+      type: object
+      properties:
+        type:
+          type: string
+          description: '*Required*. The image type. Should be one of the values listed in the documentation for
+            `supportedFormats`.'
+        width: {type: integer, description: '*Required*. The width of the image.'}
+        height: {type: integer, description: '*Required*. The height of the image.'}
+    result:
+      type: object
+      properties:
+        supportsAlpha: {type: boolean, description: Indicates if an alpha value may be specified for this image.}
+        supportsScaling: {type: boolean, description: Indicates if scale-to-resolution is supported for this image.}
+  list_images:
+    summary: List all images present on the camera.
+    description: Use `listImages` to get a list of available overlay images.
+    access: operator
+    effect: read
+    binding: {method: listImages}
+    result:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            type: object
+            x-name: ListImagesResultFilesItem
+            properties:
+              path: {type: string, description: The path identifying the image.}
+              scaleWithResolution:
+                type: boolean
+                description: A flag indicating if the image is scaled with the stream resolution.
+          description: The list of available images.
+    examples:
+    - title: List images
+      request:
+        params: {}
+      response:
+        data:
+          files:
+          - {path: /etc/overlays/image1.ov1, scaleWithResolution: true}
+          - {path: /etc/overlays/image2.ov1, scaleWithResolution: false}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#list-available-images
+    - title: List images (response 2)
+      request:
+        params: {}
+      response:
+        error: {code: '1003', message: Invalid parameter}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#list-available-images
+  delete_image:
+    summary: Delete an image.
+    description: Use `deleteImage` to delete an overlay image.
+    access: operator
+    effect: write
+    write: delete
+    binding: {method: deleteImage}
+    params:
+      type: object
+      properties:
+        path: {type: string, description: '*Required*. The path identifying the image.'}
+    examples:
+    - title: Delete image
+      request:
+        params: {}
+      response:
+        error: {code: '1003', message: Invalid parameter}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#delete-an-image
+  get_default_image:
+    summary: Get the currently configured default image.
+    description: '`getDefaultImage` retrieves the currently configured default overlay image.'
+    access: operator
+    effect: read
+    binding: {method: getDefaultImage}
+    result:
+      type: object
+      properties:
+        path: {type: string, description: Path that should be used when referring to this image.}
+  set_default_image:
+    summary: Set the default image.
+    description: Use `setDefaultImage` to set the default overlay image.
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setDefaultImage}
+    params:
+      type: object
+      properties:
+        path: {type: string, description: '*Required*. The path identifying the image to set.'}
+    examples:
+    - title: Set the default image
+      request:
+        params: {}
+      response:
+        error: {code: '1003', message: Invalid parameter}
+      source: https://developer.axis.com/vapix/network-video/overlay-api/#set-the-default-image
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/overlay-api/
+  sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - getSupportedVersions response field documented as data.apiVersion[] (other APIs use apiVersions).
+  - AXIS OS requirement not stated.
+  - Upload response body for the example taken from the following JSON block when present.
+  - 'migration: negotiation: getSupportedVersions exists on several paths; one negotiation used'
+  - 'migration: multipart-op: upload_overlay_image: only multipart parameters; skipped (not representable)'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_default_image=write/patch'
+  - 'migration: effect-unknown: effect could not be inferred from the method name: upload_overlay_image, supported_formats,
+    validate_image_header'
+  migrated_from: v1
+  curated: false

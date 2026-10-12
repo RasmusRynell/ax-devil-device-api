@@ -1,0 +1,76 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: radar-properties
+name: Radar Properties
+summary: Inspect radar properties — detection range and angle limits, maximum number of radar objects, maximum object
+  speed and network pairing status.
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: radar_properties
+  class: RadarProperties
+docs:
+- https://developer.axis.com/vapix/radar/radar-properties/
+access: admin
+discovery:
+- {api_discovery: radar-properties}
+
+binding:
+  path: /properties.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation: {fixed: '1.0'}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed.}
+  2107: {description: Transport level error.}
+
+types:
+  RadarProperties:
+    type: object
+    properties:
+      device: {type: string, description: The product number of the radar device (e.g. D2210-VE).}
+      minDetectionRange: {type: integer, description: The minimum detection range.}
+      maxDetectionRange: {type: integer, description: The maximum detection range.}
+      minHorizontalAngle: {type: integer, description: The minimum horizontal angle.}
+      maxHorizontalAngle: {type: integer, description: The maximum horizontal angle.}
+      minVerticalAngle: {type: integer, description: The minimum vertical angle.}
+      maxVerticalAngle: {type: integer, description: The maximum vertical angle.}
+      maxRadarObjects: {type: integer, description: The maximum number of radar objects.}
+      maxObjectSpeed: {type: number, description: The maximum object speed.}
+      networkPaired: {type: boolean, description: Whether the radar device is paired with another device.}
+
+operations:
+  get_radar_properties:
+    summary: Retrieve all radar properties.
+    effect: read
+    binding: {method: getRadarProperties}
+    result: {$ref: '#/types/RadarProperties'}
+    errors:
+      400: {description: Bad Request}
+      500: {description: Internal server error, kind: internal}
+
+sources:
+- url: https://developer.axis.com/vapix/radar/radar-properties/
+  sha256_md: f32f20068aee5b7588f91382d15783b16fd3f86b6f8b747b8df9ca0963ddb95a
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Endpoint documented as 'http://<servername>/properties.cgi#getRadarProperties'; the real CGI path (likely under
+    /axis-cgi/radar/) is not stated. https://developer.axis.com/vapix/radar/radar-properties/#getradarproperties
+  - Units of detection range (m?), angles (degrees?) and maxObjectSpeed (km/h? m/s?) are not given.
+  - Relationship between HTTP 400/500 text responses and the JSON error body is unclear; access level not stated.
+  - 'migration: discovery: param_property ''Properties.Radar.Properties.Version'' is not a Name=value pair: dropped'
+  migrated_from: v1
+  curated: false

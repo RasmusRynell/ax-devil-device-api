@@ -1,0 +1,222 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: oauth-ccgrant-config
+name: Client credential grants configuration
+summary: WARNING This API is in BETA stage and provided for testing purposes.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: oauth_ccgrant
+  class: OauthCcgrant
+docs:
+- https://developer.axis.com/vapix/device-configuration/client-credential-grants-configuration/
+access: admin
+discovery:
+- dca: {api: oauth-ccgrant, version: v1}
+
+binding: {root: /config/rest/oauth-ccgrant/v1beta}
+
+types:
+  OptionalClaimType: {type: string, maxLength: 256, pattern: ^.*$, description: Optional claims.}
+  RequiredClaimType:
+    type: string
+    minLength: 1
+    maxLength: 256
+    pattern: ^.*$
+    description: Mandatory claims.
+  UrlType:
+    type: string
+    minLength: 1
+    maxLength: 256
+    pattern: ^[\\w "'.:\\-\\/\\/~?]+$
+    description: URL type.
+  OauthCcgrant:
+    type: object
+    description: The whole API tree.
+    properties:
+      AuthEntity: {$ref: '#/types/AuthEntity'}
+  AuthEntity:
+    type: object
+    description: Client authentication properties.
+    properties:
+      CCG_AuthzAdminClaim:
+        $ref: '#/types/OptionalClaimType'
+        description: Claim and value corresponding to to admin access
+      CCG_AuthzOperatorClaim:
+        $ref: '#/types/OptionalClaimType'
+        description: Claim and value corresponding to operator access
+      CCG_AuthzViewerClaim:
+        $ref: '#/types/OptionalClaimType'
+        description: Claim and value corresponding to viewer access
+      CCG_OAuth2TokenVerify: {$ref: '#/types/UrlType', description: JWKS URI that serves the public keys.}
+      CCG_RequireClaim: {$ref: '#/types/RequiredClaimType', description: Required claim.}
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``.
+    properties:
+      AuthEntity: {}
+  UpdateAuthEntityRequest:
+    type: object
+    description: Arguments of ``update_auth_entity``.
+    properties:
+      CCG_AuthzAdminClaim:
+        $ref: '#/types/OptionalClaimType'
+        description: Claim and value corresponding to to admin access
+      CCG_AuthzOperatorClaim:
+        $ref: '#/types/OptionalClaimType'
+        description: Claim and value corresponding to operator access
+      CCG_AuthzViewerClaim:
+        $ref: '#/types/OptionalClaimType'
+        description: Claim and value corresponding to viewer access
+      CCG_OAuth2TokenVerify: {$ref: '#/types/UrlType', description: JWKS URI that serves the public keys.}
+      CCG_RequireClaim: {$ref: '#/types/RequiredClaimType', description: Required claim.}
+
+operations:
+  get_all:
+    summary: All data of the Client credential grants configuration API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/OauthCcgrant'}
+  update_all:
+    summary: Update the Client credential grants configuration settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '', body: object}
+    params: {$ref: '#/types/UpdateAllRequest'}
+  get_auth_entity:
+    summary: Get the auth entity settings.
+    effect: read
+    binding: {method: GET, path: /AuthEntity}
+    result: {$ref: '#/types/AuthEntity'}
+    examples:
+    - title: The JWKS verification URI used for access token verification
+      request: {path: /AuthEntity}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            CCG_AuthzAdminClaim: example-claim-admin
+            CCG_AuthzOperatorClaim: example-claim-operator
+            CCG_AuthzViewerClaim: example-claim-viewer
+            CCG_OAuth2TokenVerify: https://example.jwksverify.uri
+            CCG_RequireClaim: example-claim
+      source: https://developer.axis.com/vapix/device-configuration/client-credential-grants-configuration/
+  update_auth_entity:
+    summary: Update the auth entity settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /AuthEntity, body: object}
+    params: {$ref: '#/types/UpdateAuthEntityRequest'}
+    examples:
+    - title: Specify the JWKS verification URI for access token verification
+      request:
+        path: /AuthEntity
+        body:
+          data:
+            CCG_AuthzAdminClaim: example-claim-admin
+            CCG_AuthzOperatorClaim: example-claim-operator
+            CCG_AuthzViewerClaim: example-claim-viewer
+            CCG_OAuth2TokenVerify: https://example.jwksverify.uri
+            CCG_RequireClaim: example-claim
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/client-credential-grants-configuration/
+  set_auth_entity_ccg_authz_admin_claim:
+    summary: Set the ccg authz admin claim of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /AuthEntity/CCG_AuthzAdminClaim
+      body_field: CCG_AuthzAdminClaim
+      body: value
+    params:
+      type: object
+      required: [CCG_AuthzAdminClaim]
+      properties:
+        CCG_AuthzAdminClaim:
+          $ref: '#/types/OptionalClaimType'
+          description: Claim and value corresponding to to admin access
+    examples:
+    - title: Update a single setting
+      request:
+        path: /AuthEntity/CCG_AuthzAdminClaim
+        body: {data: example-claim-admin}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/client-credential-grants-configuration/
+  set_auth_entity_ccg_authz_operator_claim:
+    summary: Set the ccg authz operator claim of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /AuthEntity/CCG_AuthzOperatorClaim
+      body_field: CCG_AuthzOperatorClaim
+      body: value
+    params:
+      type: object
+      required: [CCG_AuthzOperatorClaim]
+      properties:
+        CCG_AuthzOperatorClaim:
+          $ref: '#/types/OptionalClaimType'
+          description: Claim and value corresponding to operator access
+  set_auth_entity_ccg_authz_viewer_claim:
+    summary: Set the ccg authz viewer claim of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /AuthEntity/CCG_AuthzViewerClaim
+      body_field: CCG_AuthzViewerClaim
+      body: value
+    params:
+      type: object
+      required: [CCG_AuthzViewerClaim]
+      properties:
+        CCG_AuthzViewerClaim:
+          $ref: '#/types/OptionalClaimType'
+          description: Claim and value corresponding to viewer access
+  set_auth_entity_ccg_o_auth2_token_verify:
+    summary: Set the ccg o auth2 token verify of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /AuthEntity/CCG_OAuth2TokenVerify
+      body_field: CCG_OAuth2TokenVerify
+      body: value
+    params:
+      type: object
+      required: [CCG_OAuth2TokenVerify]
+      properties:
+        CCG_OAuth2TokenVerify: {$ref: '#/types/UrlType', description: JWKS URI that serves the public keys.}
+  set_auth_entity_ccg_require_claim:
+    summary: Set the ccg require claim of the auth entity.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /AuthEntity/CCG_RequireClaim
+      body_field: CCG_RequireClaim
+      body: value
+    params:
+      type: object
+      required: [CCG_RequireClaim]
+      properties:
+        CCG_RequireClaim: {$ref: '#/types/RequiredClaimType', description: Required claim.}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/client-credential-grants-configuration/
+  sha256_md: dba7ecb5fcf4052e43a8d278939e0e979695e466513f84fdc154b2405bb0e901
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 5 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

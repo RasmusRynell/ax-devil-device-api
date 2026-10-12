@@ -1,0 +1,824 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: siren-and-light-config
+name: Siren and light configuration
+summary: The VAPIX® Siren and light configuration API allows you to manage signaling features on devices with sirens
+  or lights, such as cameras or standalone IoT...
+section: device-configuration
+family: dca
+status: released
+python:
+  module: siren_and_light_config
+  class: SirenAndLightConfig
+docs:
+- https://developer.axis.com/vapix/device-configuration/siren-and-light-api/
+access: admin
+discovery:
+- dca: {api: siren-and-light, version: v2}
+
+binding: {root: /config/rest/siren-and-light/v2}
+
+errors:
+  100: {description: The specified pattern is invalid or does not exist., kind: not_found}
+  101:
+    description: The specified intensity is invalid, e.g. it may exceed the available power.
+    kind: invalid_argument
+  102:
+    description: The specified priority is not supported for the chosen function and pattern.
+    kind: unsupported
+  103:
+    description: The specified speed is is not supported for the chosen function and pattern.
+    kind: unsupported
+  104:
+    description: The specified function is invalid, e.g. it does not exist or the combination of function and pattern
+      is invalid.
+    kind: not_found
+  105:
+    description: The specified number of colors is invalid, the pattern does not support the number of colors.
+    kind: invalid_argument
+  106:
+    description: The specified color is invalid, e.g. the combination of function and pattern does not support this
+      color.
+    kind: invalid_argument
+  107:
+    description: The specified duration unit is invalid, see the DurationUnit type for valid values.
+    kind: invalid_argument
+  108:
+    description: The specified duration value is invalid, e.g. the number of repetitions exceed the maximum value.
+    kind: invalid_argument
+  109: {description: The specified profile does not exist., kind: not_found}
+  110:
+    description: The specified timestamp is invalid, it must be in ISO 8601 format and within the time diff tolerance
+      for the function.
+    kind: invalid_argument
+  111:
+    description: The specified beam shape is is not supported for the chosen function.
+    kind: unsupported
+
+types:
+  CalibrationStatusString: {type: string, enum: [CALIBRATED, UNCALIBRATED], description: The calibration status}
+  ColorsArray:
+    type: array
+    items: {type: string}
+    description: A list of colors used in the pattern
+  DescriptionString:
+    type: string
+    minLength: 1
+    maxLength: 250
+    pattern: ^(?! )[\p{L}\p{N} .:*,;/_\-+{}!#$%()='\x22?@[]^]+(?<! )$
+    description: The description of a profile
+  Duration:
+    type: object
+    description: Duration input
+    properties:
+      unit:
+        $ref: '#/types/DurationUnit'
+        description: The unit of duration that can be 'seconds', 'repetitions', and 'continuous
+      value: {type: integer, description: Duration value in seconds or number of pattern repetitions}
+  DurationUnit:
+    type: string
+    enum: [SECONDS, REPETITIONS, CONTINUOUS]
+    description: The unit of duration
+  EmptyJson: {type: object, description: Empty response object}
+  FunctionClass: {type: string, enum: [SIREN, LIGHT], description: The class of the function}
+  FunctionTaskIdMap:
+    type: object
+    description: Map of function and task ID
+    properties:
+      function: {$ref: '#/types/NameString', description: The name of the function}
+      taskId: {$ref: '#/types/TaskId', description: The ID of the task}
+  FunctionTaskList:
+    type: array
+    items: {$ref: '#/types/FunctionTaskIdMap'}
+    description: List of function and task ID maps
+  Integer0To100: {type: integer, minimum: 0, maximum: 100, description: Limited integer}
+  Integer0To5: {type: integer, minimum: 0, maximum: 5, description: Limited integer}
+  Integer1To10: {type: integer, minimum: 1, maximum: 10, description: Limited integer}
+  Integer1To13: {type: integer, minimum: 1, maximum: 13, description: Limited integer}
+  Integer1To5: {type: integer, minimum: 1, maximum: 5, description: Limited integer}
+  IntegerArray:
+    type: array
+    items: {type: integer}
+    description: Integer values
+  IntegerMinimum0: {type: integer, minimum: 0, description: Limited integer}
+  IntegerMinimum1: {type: integer, minimum: 1, description: Limited integer}
+  NameString:
+    type: string
+    minLength: 1
+    maxLength: 50
+    pattern: ^(?! )[a-zA-Z0-9 .:*,;/_\-+{}!#$%()='\x22?@[]^]+(?<! )$
+    description: The name of a profile, function, pattern or beam shape
+  PowerModeString: {type: string, enum: [FULL, LIMITED, LIMITED_LEVEL_2], description: The power mode}
+  RunHealthCheckResponse:
+    type: object
+    description: The response from health check
+    properties:
+      isHealthy: {type: boolean, description: 'Health check result, passed or failed'}
+  StartMaintenanceModeRequest:
+    type: object
+    description: The request to start maintenance mode
+    x-nullable: [time]
+    properties:
+      time:
+        $ref: '#/types/IntegerMinimum1'
+        description: The number of seconds that maintenance mode is active
+  StartPatternRequest:
+    type: object
+    description: The request to start pattern
+    x-nullable:
+    - beamShapeOverride
+    - colors
+    - duration
+    - intensity
+    - priority
+    - speed
+    - startAt
+    - threshold
+    properties:
+      beamShapeOverride: {$ref: '#/types/NameString', description: Override beam shape for the pattern}
+      colors: {$ref: '#/types/ColorsArray', description: A list of colors used in the pattern}
+      duration: {$ref: '#/types/Duration', description: The duration the function stays active}
+      intensity: {$ref: '#/types/Integer0To5', description: The intensity level}
+      priority: {$ref: '#/types/Integer1To10', description: The priority level}
+      speed: {$ref: '#/types/Integer1To5', description: The speed of the pattern}
+      startAt:
+        $ref: '#/types/Timestamp'
+        description: Optional timestamp for scheduled start; only valid if the function supports scheduled start
+          and must be within scheduledStartToleranceMs
+      threshold:
+        $ref: '#/types/Integer0To100'
+        description: The threshold value to trigger the audio visualizer
+  StartPatternResponse:
+    type: object
+    description: The response from start pattern
+    properties:
+      taskId: {$ref: '#/types/TaskId', description: Id of started task}
+  StartProfileRequest:
+    type: object
+    description: Request structure for starting a Siren and Light profile
+    x-nullable: [startAt]
+    properties:
+      startAt:
+        $ref: '#/types/Timestamp'
+        description: Optional timestamp for scheduled start; only valid if the function supports scheduled start
+          and must be within scheduledStartToleranceMs
+  StartProfileResponse:
+    type: object
+    description: The response from start profile
+    properties:
+      tasks: {$ref: '#/types/FunctionTaskList', description: List of started tasks}
+  TaskId: {type: string, minLength: 1, maxLength: 10, description: The ID of the task}
+  Timestamp: {type: string, description: A timestamp in ISO 8601 format (format=date-time)}
+  SirenAndLight:
+    type: object
+    description: The whole API tree.
+    properties:
+      functions:
+        type: array
+        items: {$ref: '#/types/Function'}
+      maintenanceMode: {$ref: '#/types/MaintenanceMode'}
+      profiles:
+        type: array
+        items: {$ref: '#/types/Profile'}
+  Function:
+    type: object
+    description: The collection of siren and light functions
+    required: [function]
+    x-nullable: [calibrationStatus, scheduledStartToleranceMs]
+    properties:
+      calibrationStatus:
+        $ref: '#/types/CalibrationStatusString'
+        description: Whether the function has been calibrated
+      function: {$ref: '#/types/NameString', description: The name of the function}
+      functionClass: {$ref: '#/types/FunctionClass', description: The class of the function}
+      healthCheckSupported: {type: boolean, description: Whether the function supports health check}
+      powerMode: {$ref: '#/types/PowerModeString', description: The power mode used by the function}
+      scheduledStartSupported: {type: boolean, description: Whether the function supports scheduled start}
+      scheduledStartToleranceMs:
+        $ref: '#/types/IntegerMinimum1'
+        description: The maximum allowed deviation for the scheduled start timestamp, in milliseconds
+      calibrationStatus_supported: {type: boolean}
+      scheduledStartToleranceMs_supported: {type: boolean}
+      beamShape_supported: {type: boolean}
+      beamShape: {$ref: '#/types/BeamShape'}
+      patterns:
+        type: array
+        items: {$ref: '#/types/Pattern'}
+      tasks:
+        type: array
+        items: {$ref: '#/types/Task'}
+  BeamShape:
+    type: object
+    description: The default and supported beam shapes
+    properties:
+      default: {$ref: '#/types/NameString', description: The default beam shape}
+      beamShapes:
+        type: array
+        items: {$ref: '#/types/BeamShapeBeamShape'}
+  BeamShapeBeamShape:
+    type: object
+    description: The supported beam shapes
+    required: [beamShape]
+    properties:
+      beamShape: {$ref: '#/types/NameString', description: The name of the beam shape}
+  Pattern:
+    type: object
+    description: The supported patterns
+    required: [pattern]
+    x-nullable:
+    - colors
+    - defaultColors
+    - defaultIntensityLimited
+    - defaultSpeed
+    - intensityLimited
+    - maxNbrColors
+    - minNbrColors
+    - speed
+    properties:
+      audioVisualizer: {type: boolean, description: Whether the pattern is synchronized with audio}
+      colors: {$ref: '#/types/ColorsArray', description: The possible colors}
+      defaultColors: {$ref: '#/types/ColorsArray', description: The default colors}
+      defaultIntensity: {$ref: '#/types/Integer0To5', description: The default intensity on full power}
+      defaultIntensityLimited: {$ref: '#/types/Integer0To5', description: The default intensity on limited power}
+      defaultPriority: {$ref: '#/types/Integer1To10', description: The default priority}
+      defaultSpeed: {$ref: '#/types/Integer1To5', description: The default speed}
+      defaultThreshold: {$ref: '#/types/Integer0To100', description: The default threshold of audio visualizer}
+      intensity: {$ref: '#/types/IntegerArray', description: The possible intensities on full power}
+      intensityLimited: {$ref: '#/types/IntegerArray', description: The possible intensities on limited power}
+      maxNbrColors: {type: integer, description: The maximum number of colors allowed}
+      minNbrColors: {type: integer, description: The minimum number of colors required}
+      pattern: {$ref: '#/types/NameString', description: The name of the pattern}
+      priority: {$ref: '#/types/IntegerArray', description: The possible priorities}
+      speed: {$ref: '#/types/IntegerArray', description: The possible speeds}
+      colors_supported: {type: boolean}
+      defaultColors_supported: {type: boolean}
+      defaultIntensityLimited_supported: {type: boolean}
+      defaultSpeed_supported: {type: boolean}
+      defaultThreshold_supported: {type: boolean}
+      intensityLimited_supported: {type: boolean}
+      maxNbrColors_supported: {type: boolean}
+      minNbrColors_supported: {type: boolean}
+      speed_supported: {type: boolean}
+  Task:
+    type: object
+    description: Active tasks
+    required: [taskId]
+    x-nullable: [colors, durationLeft, profile, speed, threshold]
+    x-read-only:
+    - colors
+    - durationLeft
+    - pattern
+    - priority
+    - profile
+    - speed
+    - taskId
+    - beamShape_supported
+    - colors_supported
+    - durationLeft_supported
+    - profile_supported
+    - speed_supported
+    - threshold_supported
+    properties:
+      beamShape: {$ref: '#/types/NameString', description: The beam shape of the pattern}
+      colors: {$ref: '#/types/ColorsArray', description: A list of colors used in the pattern}
+      durationLeft: {$ref: '#/types/IntegerMinimum0', description: The number of seconds left}
+      intensity: {$ref: '#/types/Integer0To5', description: The intensity level}
+      pattern: {$ref: '#/types/NameString', description: The name of the pattern}
+      priority: {$ref: '#/types/Integer1To13', description: The priority level}
+      profile: {$ref: '#/types/NameString', description: The name of the profile}
+      speed: {$ref: '#/types/Integer1To5', description: The speed of the pattern}
+      taskId: {$ref: '#/types/TaskId', description: The ID of the task}
+      threshold:
+        $ref: '#/types/Integer0To100'
+        description: The threshold value to trigger the audio visualizer
+      beamShape_supported: {type: boolean}
+      colors_supported: {type: boolean}
+      durationLeft_supported: {type: boolean}
+      profile_supported: {type: boolean}
+      speed_supported: {type: boolean}
+      threshold_supported: {type: boolean}
+  MaintenanceMode:
+    type: object
+    description: Maintenance mode
+    x-nullable: [running, supported]
+    properties:
+      running: {type: boolean, description: Whether maintenance mode is currently running}
+      supported: {type: boolean, description: Whether maintenance mode is supported}
+  Profile:
+    type: object
+    description: The collection of siren and light profiles
+    required: [profile]
+    x-nullable: [description]
+    x-read-only: [description_supported]
+    properties:
+      description: {$ref: '#/types/DescriptionString', description: Description of the profile}
+      profile: {$ref: '#/types/NameString', description: The name of the profile}
+      resumeOnStartup: {type: boolean, description: Whether the profile should resume after restart}
+      description_supported: {type: boolean}
+      functions:
+        type: array
+        items: {$ref: '#/types/ProfileFunction'}
+  ProfileFunction:
+    type: object
+    description: Functions in profile
+    required: [function]
+    x-nullable: [beamShapeOverride, colors, duration, speed, threshold]
+    x-read-only:
+    - functionClass
+    - patternAvailable
+    - beamShapeOverride_supported
+    - colors_supported
+    - duration_supported
+    - speed_supported
+    - threshold_supported
+    properties:
+      beamShapeOverride: {$ref: '#/types/NameString', description: Override beam shape for this function}
+      colors: {$ref: '#/types/ColorsArray', description: A list of colors used in the pattern}
+      duration: {$ref: '#/types/Duration', description: The duration the function stays active}
+      function: {$ref: '#/types/NameString', description: The name of the function}
+      functionClass: {$ref: '#/types/FunctionClass', description: The class of function}
+      intensity: {$ref: '#/types/Integer0To5', description: The intensity level}
+      pattern: {$ref: '#/types/NameString', description: The name of the pattern}
+      patternAvailable: {type: boolean, description: Whether the pattern is currently available}
+      priority: {$ref: '#/types/Integer1To13', description: The priority level}
+      speed: {$ref: '#/types/Integer1To5', description: The speed of the pattern}
+      threshold:
+        $ref: '#/types/Integer0To100'
+        description: The threshold value to trigger the audio visualizer
+      beamShapeOverride_supported: {type: boolean}
+      colors_supported: {type: boolean}
+      duration_supported: {type: boolean}
+      speed_supported: {type: boolean}
+      threshold_supported: {type: boolean}
+  AddProfileRequest:
+    type: object
+    description: Arguments of ``add_profile``.
+    required: [profile]
+    properties:
+      profile: {$ref: '#/types/NameString', description: The name of the profile}
+      description: {$ref: '#/types/DescriptionString', description: Description of the profile}
+      resumeOnStartup: {type: boolean, description: Whether the profile should resume after restart}
+  AddFunctionRequest:
+    type: object
+    description: Arguments of ``add_function``.
+    required: [profile, function, pattern]
+    properties:
+      profile: {$ref: '#/types/NameString'}
+      function: {$ref: '#/types/NameString', description: The name of the function}
+      pattern: {$ref: '#/types/NameString', description: The name of the pattern}
+      intensity: {$ref: '#/types/Integer0To5', description: The intensity level}
+      speed: {$ref: '#/types/Integer1To5', description: The speed of the pattern}
+      colors: {$ref: '#/types/ColorsArray', description: A list of colors used in the pattern}
+      duration: {$ref: '#/types/Duration', description: The duration the function stays active}
+      priority: {$ref: '#/types/Integer1To13', description: The priority level}
+      threshold:
+        $ref: '#/types/Integer0To100'
+        description: The threshold value to trigger the audio visualizer
+      beamShapeOverride: {$ref: '#/types/NameString', description: Override beam shape for this function}
+
+operations:
+  get_all:
+    summary: All data of the Siren and light configuration API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/SirenAndLight'}
+  stop:
+    summary: Send a request to stop all tasks for all functions
+    access: operator
+    effect: action
+    binding: {method: POST, path: /stop, body: none}
+  list_functions:
+    summary: List the functions.
+    effect: read
+    binding: {method: GET, path: /functions}
+    result:
+      type: array
+      items: {$ref: '#/types/Function'}
+  get_function:
+    summary: Get one function.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}'}
+    params:
+      type: object
+      x-name: FunctionFunctionRequest
+      required: [function]
+      properties:
+        function: {$ref: '#/types/NameString'}
+    result: {$ref: '#/types/Function'}
+  run_health_check:
+    summary: Send a request to run health check
+    access: operator
+    effect: action
+    binding: {method: POST, path: '/functions/{function}/runHealthCheck', body: none}
+    params:
+      type: object
+      x-name: FunctionFunctionRequest
+      required: [function]
+      properties:
+        function: {$ref: '#/types/NameString'}
+    result: {$ref: '#/types/RunHealthCheckResponse'}
+  stop_function:
+    summary: Send a request to stop all running tasks on the function
+    access: operator
+    effect: action
+    binding: {method: POST, path: '/functions/{function}/stop', body: none}
+    params:
+      type: object
+      x-name: FunctionFunctionRequest
+      required: [function]
+      properties:
+        function: {$ref: '#/types/NameString'}
+  get_function_beam_shape:
+    summary: Get the beam shape settings.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}/beamShape'}
+    params:
+      type: object
+      x-name: BeamShapeFunctionRequest
+      required: [function]
+      properties:
+        function: {$ref: '#/types/NameString'}
+    result: {$ref: '#/types/BeamShape'}
+  set_beam_shape_default:
+    summary: Set the default of the beam shape.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /functions/{function}/beamShape/default
+      body_field: default
+      body: value
+    params:
+      type: object
+      required: [function, default]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        default: {$ref: '#/types/NameString', description: The default beam shape}
+  list_beam_shapes:
+    summary: List the beam shapes.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}/beamShape/beamShapes'}
+    params:
+      type: object
+      x-name: BeamShapeBeamShapeFunctionRequest
+      required: [function]
+      properties:
+        function: {$ref: '#/types/NameString'}
+    result:
+      type: array
+      items: {$ref: '#/types/BeamShapeBeamShape'}
+  get_beam_shape_beam_shape:
+    summary: Get one beam shape.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}/beamShape/beamShapes/{beamShape}'}
+    params:
+      type: object
+      x-name: BeamShapeBeamShapeFunctionBeamShapeRequest
+      required: [function, beamShape]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        beamShape: {$ref: '#/types/NameString'}
+    result: {$ref: '#/types/BeamShapeBeamShape'}
+  list_patterns:
+    summary: List the patterns.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}/patterns'}
+    params:
+      type: object
+      x-name: PatternFunctionRequest
+      required: [function]
+      properties:
+        function: {$ref: '#/types/NameString'}
+    result:
+      type: array
+      items: {$ref: '#/types/Pattern'}
+  get_pattern:
+    summary: Get one pattern.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}/patterns/{pattern}'}
+    params:
+      type: object
+      x-name: PatternFunctionPatternRequest
+      required: [function, pattern]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        pattern: {$ref: '#/types/NameString'}
+    result: {$ref: '#/types/Pattern'}
+  start_pattern:
+    summary: Send a request to start pattern
+    access: operator
+    effect: action
+    binding: {method: POST, path: '/functions/{function}/patterns/{pattern}/start', body: object}
+    params:
+      type: object
+      x-name: StartPatternRequestArgs
+      required: [function, pattern]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        pattern: {$ref: '#/types/NameString'}
+        beamShapeOverride: {$ref: '#/types/NameString', description: Override beam shape for the pattern}
+        colors: {$ref: '#/types/ColorsArray', description: A list of colors used in the pattern}
+        duration: {$ref: '#/types/Duration', description: The duration the function stays active}
+        intensity: {$ref: '#/types/Integer0To5', description: The intensity level}
+        priority: {$ref: '#/types/Integer1To10', description: The priority level}
+        speed: {$ref: '#/types/Integer1To5', description: The speed of the pattern}
+        startAt:
+          $ref: '#/types/Timestamp'
+          description: Optional timestamp for scheduled start; only valid if the function supports scheduled start
+            and must be within scheduledStartToleranceMs
+        threshold:
+          $ref: '#/types/Integer0To100'
+          description: The threshold value to trigger the audio visualizer
+    result: {$ref: '#/types/StartPatternResponse'}
+  list_tasks:
+    summary: List the tasks.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}/tasks'}
+    params:
+      type: object
+      x-name: TaskFunctionRequest
+      required: [function]
+      properties:
+        function: {$ref: '#/types/NameString'}
+    result:
+      type: array
+      items: {$ref: '#/types/Task'}
+  get_task:
+    summary: Get one task.
+    effect: read
+    binding: {method: GET, path: '/functions/{function}/tasks/{taskId}'}
+    params:
+      type: object
+      x-name: TaskFunctionTaskIdRequest
+      required: [function, taskId]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        taskId: {$ref: '#/types/TaskId'}
+    result: {$ref: '#/types/Task'}
+  set_task_beam_shape:
+    summary: Set the beam shape of a task.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /functions/{function}/tasks/{taskId}/beamShape
+      body_field: beamShape
+      body: value
+    params:
+      type: object
+      required: [function, taskId, beamShape]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        taskId: {$ref: '#/types/TaskId'}
+        beamShape: {$ref: '#/types/NameString', description: The beam shape of the pattern}
+  set_task_intensity:
+    summary: Set the intensity of a task.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /functions/{function}/tasks/{taskId}/intensity
+      body_field: intensity
+      body: value
+    params:
+      type: object
+      required: [function, taskId, intensity]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        taskId: {$ref: '#/types/TaskId'}
+        intensity: {$ref: '#/types/Integer0To5', description: The intensity level}
+  set_task_threshold:
+    summary: Set the threshold of a task.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /functions/{function}/tasks/{taskId}/threshold
+      body_field: threshold
+      body: value
+    params:
+      type: object
+      required: [function, taskId, threshold]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        taskId: {$ref: '#/types/TaskId'}
+        threshold:
+          $ref: '#/types/Integer0To100'
+          description: The threshold value to trigger the audio visualizer
+  stop_task:
+    summary: Send a request to stop the task
+    access: operator
+    effect: action
+    binding: {method: POST, path: '/functions/{function}/tasks/{taskId}/stop', body: none}
+    params:
+      type: object
+      x-name: TaskFunctionTaskIdRequest
+      required: [function, taskId]
+      properties:
+        function: {$ref: '#/types/NameString'}
+        taskId: {$ref: '#/types/TaskId'}
+  get_maintenance_mode:
+    summary: Get the maintenance mode settings.
+    effect: read
+    binding: {method: GET, path: /maintenanceMode}
+    result: {$ref: '#/types/MaintenanceMode'}
+  start_maintenance_mode:
+    summary: Start maintenance mode
+    access: operator
+    effect: action
+    binding: {method: POST, path: /maintenanceMode/start, body: object}
+    params:
+      type: object
+      x-name: StartMaintenanceModeRequestArgs
+      properties:
+        time:
+          $ref: '#/types/IntegerMinimum1'
+          description: The number of seconds that maintenance mode is active
+  stop_maintenance_mode:
+    summary: Stop maintenance mode
+    access: operator
+    effect: action
+    binding: {method: POST, path: /maintenanceMode/stop, body: none}
+  list_profiles:
+    summary: List the profiles.
+    effect: read
+    binding: {method: GET, path: /profiles}
+    result:
+      type: array
+      items: {$ref: '#/types/Profile'}
+  get_profile:
+    summary: Get one profile.
+    effect: read
+    binding: {method: GET, path: '/profiles/{profile}'}
+    params:
+      type: object
+      x-name: ProfileProfileRequest
+      required: [profile]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+    result: {$ref: '#/types/Profile'}
+  add_profile:
+    summary: Add a profile.
+    access: operator
+    effect: write
+    write: create
+    binding: {method: POST, path: /profiles, body: object}
+    params: {$ref: '#/types/AddProfileRequest'}
+  remove_profile:
+    summary: Remove a profile.
+    access: operator
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/profiles/{profile}'}
+    params:
+      type: object
+      x-name: ProfileProfileRequest
+      required: [profile]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+  start_profile:
+    summary: Send a request to start a Siren and Light profile
+    access: operator
+    effect: action
+    binding: {method: POST, path: '/profiles/{profile}/start', body: object}
+    params:
+      type: object
+      x-name: StartProfileRequestArgs
+      required: [profile]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+        startAt:
+          $ref: '#/types/Timestamp'
+          description: Optional timestamp for scheduled start; only valid if the function supports scheduled start
+            and must be within scheduledStartToleranceMs
+    result: {$ref: '#/types/StartProfileResponse'}
+  stop_profile:
+    summary: Send a request to stop a Siren and Light profile
+    access: operator
+    effect: action
+    binding: {method: POST, path: '/profiles/{profile}/stop', body: none}
+    params:
+      type: object
+      x-name: ProfileProfileRequest
+      required: [profile]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+  list_profile_functions:
+    summary: List the functions.
+    effect: read
+    binding: {method: GET, path: '/profiles/{profile}/functions'}
+    params:
+      type: object
+      x-name: ProfileFunctionProfileRequest
+      required: [profile]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+    result:
+      type: array
+      items: {$ref: '#/types/ProfileFunction'}
+  get_profile_function:
+    summary: Get one function.
+    effect: read
+    binding: {method: GET, path: '/profiles/{profile}/functions/{function}'}
+    params:
+      type: object
+      x-name: ProfileFunctionProfileFunctionRequest
+      required: [profile, function]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+        function: {$ref: '#/types/NameString'}
+    result: {$ref: '#/types/ProfileFunction'}
+  add_function:
+    summary: Add a function.
+    access: operator
+    effect: write
+    write: create
+    binding: {method: POST, path: '/profiles/{profile}/functions', body: object}
+    params: {$ref: '#/types/AddFunctionRequest'}
+  remove_function:
+    summary: Remove a function.
+    access: operator
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/profiles/{profile}/functions/{function}'}
+    params:
+      type: object
+      x-name: ProfileFunctionProfileFunctionRequest
+      required: [profile, function]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+        function: {$ref: '#/types/NameString'}
+  set_function_beam_shape_override:
+    summary: Set the beam shape override of a function.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /profiles/{profile}/functions/{function}/beamShapeOverride
+      body_field: beamShapeOverride
+      body: value
+    params:
+      type: object
+      required: [profile, function, beamShapeOverride]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+        function: {$ref: '#/types/NameString'}
+        beamShapeOverride: {$ref: '#/types/NameString', description: Override beam shape for this function}
+  set_function_intensity:
+    summary: Set the intensity of a function.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /profiles/{profile}/functions/{function}/intensity
+      body_field: intensity
+      body: value
+    params:
+      type: object
+      required: [profile, function, intensity]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+        function: {$ref: '#/types/NameString'}
+        intensity: {$ref: '#/types/Integer0To5', description: The intensity level}
+  set_function_threshold:
+    summary: Set the threshold of a function.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /profiles/{profile}/functions/{function}/threshold
+      body_field: threshold
+      body: value
+    params:
+      type: object
+      required: [profile, function, threshold]
+      properties:
+        profile: {$ref: '#/types/NameString'}
+        function: {$ref: '#/types/NameString'}
+        threshold:
+          $ref: '#/types/Integer0To100'
+          description: The threshold value to trigger the audio visualizer
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/siren-and-light-api/
+  sha256_md: 9fd3d572512beffe9c37ee6df923f71a89cdd2216c40b6bd0260ac59f4b5cdbc
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Example ''Update intensity of a function in a profile'' uses PATCH /config/rest/siren-and-light/v2/profiles/Test/functions/SignalingLED,
+    which does not map to an operation documented in the API definition section (attached to get_profiles_functions_item
+    for reference). Source: https://developer.axis.com/vapix/device-configuration/siren-and-light-api/'
+  - 'migration: dropped-property-gets: 74 per-property GET operations dropped'
+  - 'migration: module-collision: module name siren_and_light collides with another spec; kept siren_and_light_config'
+  - 'migration: dropped-keywords: x-notes x1'
+  migrated_from: v1
+  curated: false

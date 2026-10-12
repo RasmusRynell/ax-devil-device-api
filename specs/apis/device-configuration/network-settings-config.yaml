@@ -1,0 +1,822 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: network-settings-config
+name: Network settings API
+summary: The Network settings API makes it possible to configure the network settings on the device.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: network_settings
+  class: NetworkSettings
+docs:
+- https://developer.axis.com/vapix/device-configuration/network-settings-api/
+access: admin
+discovery:
+- dca: {api: network-settings, version: v2}
+
+binding: {root: /config/rest/network-settings/v2beta}
+
+types:
+  AccessPointName:
+    type: string
+    minLength: 0
+    maxLength: 100
+    pattern: ^[a-zA-Z0-9.-]*$
+    description: The Access Point Name (APN).
+  CellularConnectionStatus:
+    type: string
+    enum: [NOT_REGISTERED, REGISTERED, DATA_ENABLED, IP_ASSIGNED]
+    description: The initial state is no network registration, followed by registered without data connection, then
+      data connection without IP and finally IP assigned.
+  DomainName: {type: string, description: Domain name type.}
+  EmptyJson: {type: object, description: Empty response object.}
+  Hostname: {type: string, description: Hostname type}
+  Iccid: {type: string, description: The Integrated Circuit Card Identification number.}
+  Imei: {type: string, minLength: 15, maxLength: 15, description: The IMEI type.}
+  IpAddress: {type: string, description: The IPv4 or IPv6 address type.}
+  Ipv4Address:
+    type: string
+    pattern: ^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$
+    description: The IPv4 address type.
+  AuthServerEnforced:
+    type: string
+    enum: [NONE, AUTHENTICATED, MACSEC_SECURED]
+    description: The authentication server enforcement level.
+  AuthState:
+    type: string
+    enum: [UNKNOWN, AUTHENTICATED, AUTHENTICATING, STOPPED, FAILED]
+    description: The authentication state type.
+  LinkMode:
+    type: string
+    enum: [UNKNOWN, AUTO, 10HD, 10FD, 100HD, 100FD, 1000HD, 1000FD]
+    description: The link speed and duplex mode of the wired connection.
+  LinkModes:
+    type: array
+    items: {$ref: '#/types/LinkMode'}
+    description: A list of link modes.
+  MacAddress:
+    type: string
+    pattern: ^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$
+    description: The MAC address type.
+  MacSecState:
+    type: string
+    enum: [UNKNOWN, SECURED, CONNECTING, STOPPED, FAILED]
+    description: The MACsec state type.
+  Mtu: {type: integer, description: The maximum transmission unit type.}
+  NameServers:
+    type: array
+    items: {$ref: '#/types/IpAddress'}
+    description: The name servers type. (minItems=0, maxItems=3)
+  RadioGeneration: {type: string, enum: [4G, 5G], description: The radio generation type.}
+  RadioInterface:
+    type: string
+    enum: [4G, 5GSA, 5GNSA, UNKNOWN]
+    description: The connected radio interface type.
+  RadioParameters:
+    type: object
+    description: The radio parameter object.
+    properties:
+      band: {type: integer, description: The radio band class.}
+      bandwidth: {type: integer, description: The bandwidth (in MHz).}
+      downlinkModulationCodingScheme:
+        type: integer
+        description: Typically 0-31 for 5G and 0-28 for 4G. Higher value means better signal quality and higher
+          potential data rates.
+      physicalCellId: {type: integer, description: The physical cell ID.}
+      signalStrength: {$ref: '#/types/SignalStrength', description: The signal strength parameters.}
+      txPower: {type: integer, description: The transmit power (in dBm/10).}
+      uplinkModulationCodingScheme:
+        type: integer
+        description: Typically 0-31 for 5G and 0-28 for 4G. Higher value means better signal quality and higher
+          potential data rates.
+  RemoteAddresses:
+    type: array
+    items: {$ref: '#/types/MacAddress'}
+    description: The remote addresses type.
+  SearchDomains:
+    type: array
+    items: {$ref: '#/types/DomainName'}
+    description: The search domains type. (minItems=0, maxItems=6)
+  SignalStrength:
+    type: object
+    description: The signal strength object.
+    properties:
+      rsrp: {type: integer, description: The Reference Signal Received Power (in dBm).}
+      rsrq: {type: integer, description: The Reference Signal Received Quality (in dB).}
+      rssi: {type: integer, description: The Received Signal Strength Indicator (in dBm).}
+      snr: {type: integer, description: The Signal to noise ratio (in dB).}
+      ssi: {$ref: '#/types/SignalStrengthIndex', description: The Signal Strength Index.}
+  SignalStrengthIndex:
+    type: integer
+    minimum: -1
+    maximum: 4
+    description: The signal strength index ranging from 0 (weakest) to 4 (strongest), -1 if no signal.
+  SimPin:
+    type: string
+    minLength: 4
+    maxLength: 8
+    pattern: ^[0-9]+$
+    description: The SIM PIN type.
+  SimPinAndEnable:
+    type: object
+    description: The PIN and PIN enabled object.
+    properties:
+      enable: {type: boolean, description: 'true if SIM PIN protection should be enabled, otherwise false.'}
+      pin: {$ref: '#/types/SimPin', description: The SIM PIN.}
+  SimPinAndPuk:
+    type: object
+    description: The PIN and PUK object.
+    properties:
+      pin: {$ref: '#/types/SimPin', description: The SIM PIN.}
+      puk: {$ref: '#/types/SimPuk', description: The PUK code of the SIM.}
+  SimPinOldAndNew:
+    type: object
+    description: The old and new PIN object.
+    properties:
+      newpin: {$ref: '#/types/SimPin', description: The new SIM PIN.}
+      oldpin: {$ref: '#/types/SimPin', description: The existing SIM PIN.}
+  SimPuk:
+    type: string
+    minLength: 8
+    maxLength: 8
+    pattern: ^[0-9]+$
+    description: The SIM PUK type.
+  SimSlotId:
+    type: string
+    minLength: 1
+    maxLength: 2
+    pattern: ^[0-9]+$
+    description: A string index from 0 to 99.
+  SimStatus:
+    type: string
+    enum:
+    - PIN_DISABLED
+    - UNLOCKED
+    - LOCKED
+    - BLOCKED
+    - PERMANENTLY_BLOCKED
+    - NO_SIM
+    - UNKNOWN
+    description: The PIN can be disabled, which means the SIM PIN is not required.
+  State: {type: string, enum: [UP, DOWN], description: The link state type.}
+  Uplink: {type: string, enum: [NONE, WIRED, MODEM], description: The uplink device type.}
+  VlanId:
+    type: string
+    pattern: ^([1-9][0-9]{0,2}|[1-3][0-9]{3}|40[0-8][0-9]|409[0-4])$
+    description: The ID of the VLAN. Needs to be between 1 and 4094.
+  NetworkSettings:
+    type: object
+    description: The whole API tree.
+    properties:
+      modem_supported: {type: boolean}
+      switch_supported: {type: boolean, description: Indicates if switch is supported.}
+      wired_supported: {type: boolean}
+      system: {$ref: '#/types/System'}
+      wired: {$ref: '#/types/Wired'}
+      modem: {$ref: '#/types/Modem'}
+      switch: {$ref: '#/types/Switch'}
+  System:
+    type: object
+    description: The global network configuration
+    x-read-only: [activeUplink, hostname, nameServers, searchDomains]
+    properties:
+      activeUplink: {$ref: '#/types/Uplink', description: Indicates which uplink is currently in use.}
+      hostname: {$ref: '#/types/Hostname', description: The currently used hostname}
+      nameServers: {$ref: '#/types/NameServers', description: The name servers currently in use.}
+      searchDomains: {$ref: '#/types/SearchDomains', description: The search domains currently in use.}
+      staticHostname:
+        $ref: '#/types/Hostname'
+        description: The statically configured hostname. It is used if `useDhcpHostname` is set to `false`, or if
+          no `hostname` was obtained by DHCP.
+      staticNameServers:
+        $ref: '#/types/NameServers'
+        description: The statically configured name servers. It is used if useDhcpResolver is set to false, or if
+          no name servers were obtained by DHCP.
+      staticSearchDomains:
+        $ref: '#/types/SearchDomains'
+        description: The statically configured search domains. It is used if useDhcpResolver is set to false, or
+          if no search domains were obtained by DHCP.
+      useDhcpHostname:
+        type: boolean
+        description: Checks which DHCP-assigned `hostname` should be used. If set to `false`, the `staticHostname`
+          will be used.
+  Wired:
+    type: object
+    description: The wired uplink configuration.
+    x-read-only:
+    - linkMode
+    - lowerState
+    - macAddress
+    - maxMtu
+    - maxNumberOfVlans
+    - minMtu
+    - mtu
+    - supportedLinkModes
+    properties:
+      linkMode: {$ref: '#/types/LinkMode', description: The current link mode.}
+      lowerState:
+        $ref: '#/types/State'
+        description: Indicates if the wired network interface device status is UP or DOWN.
+      macAddress: {$ref: '#/types/MacAddress', description: The MAC address of the wired device.}
+      maxMtu: {$ref: '#/types/Mtu', description: The maximum supported MTU of the wired device}
+      maxNumberOfVlans: {type: integer, description: The maximum number of supported VLANs.}
+      minMtu: {$ref: '#/types/Mtu', description: The minimum supported MTU of the wired device}
+      mtu: {$ref: '#/types/Mtu', description: The MTU of the wired device}
+      useDhcpResolver:
+        type: boolean
+        description: Checks if any DHCP-assigned resolver information should be used. If set to false, the static
+          resolver values will be used.
+      staticLinkMode: {$ref: '#/types/LinkMode', description: The statically configured link mode.}
+      staticMtu: {$ref: '#/types/Mtu', description: The statically configured MTU of the wired device}
+      supportedLinkModes: {$ref: '#/types/LinkModes', description: The supported link modes.}
+      vlans:
+        type: array
+        items: {$ref: '#/types/Vlan'}
+  Vlan:
+    type: object
+    description: VLAN configurations.
+    required: [id]
+    properties:
+      id: {$ref: '#/types/VlanId', description: The ID of the VLAN. Needs to be between 1 and 4094.}
+  Modem:
+    type: object
+    description: The modem configuration and SIM management.
+    x-nullable: [imei]
+    properties:
+      imei: {$ref: '#/types/Imei', description: 'The IMEI of the modem, null if the modem is not ready.'}
+      sim:
+        type: array
+        items: {$ref: '#/types/Sim'}
+  Sim:
+    type: object
+    description: The collection of SIM slots.
+    required: [slotId]
+    x-nullable: [iccid, pinRetries, provider, pukRetries]
+    properties:
+      iccid:
+        $ref: '#/types/Iccid'
+        description: The Integrated Circuit Card Identifier of the SIM, null if the SIM is absent.
+      pinRetries:
+        type: integer
+        description: The number of attempts remaining for entering the SIM PIN, null if the SIM is absent.
+      provider: {type: string, description: 'The name of the SIM provider, null if the SIM is absent.'}
+      pukRetries:
+        type: integer
+        description: The number of attempts remaining for entering the SIM PUK, null if the SIM is absent.
+      slotId: {$ref: '#/types/SimSlotId', description: The slot ID of the SIM.}
+      status: {$ref: '#/types/SimStatus', description: The status of the SIM.}
+      connection: {$ref: '#/types/Connection'}
+  Connection:
+    type: object
+    description: The cellular network connection.
+    x-nullable: [operatorName]
+    properties:
+      connectionStatus: {$ref: '#/types/CellularConnectionStatus', description: The connection status.}
+      operatorName: {type: string, description: 'The operator name, null if not connected to a cellular network.'}
+      radioInterface: {$ref: '#/types/RadioInterface', description: The connected radio interface.}
+      networkInterface:
+        type: array
+        items: {$ref: '#/types/NetworkInterface'}
+  NetworkInterface:
+    type: object
+    description: The collection of network interfaces for this SIM.
+    required: [interfaceName]
+    x-nullable: [ipv4Info]
+    properties:
+      accessPointName: {type: string, description: The Access Point Name for this interface.}
+      interfaceName: {type: string, description: The interface name.}
+      ipv4Info:
+        description: The IPv4 information provided by the cellular network, null if an IPv4 connection is not established.
+  Switch:
+    type: object
+    description: Global switch configurations
+    properties:
+      port:
+        type: array
+        items: {$ref: '#/types/Port'}
+  Port:
+    type: object
+    description: Switch port configurations
+    required: [portId]
+    x-read-only: [lowerState, portId, remoteAddresses, security_supported]
+    properties:
+      enabled: {type: boolean, description: Specifies if a network interface device is enabled.}
+      lowerState:
+        $ref: '#/types/State'
+        description: Indicates if the network interface device status is UP or DOWN.
+      portId: {type: string, description: Switch port ID.}
+      remoteAddresses:
+        $ref: '#/types/RemoteAddresses'
+        description: List all stored remote MAC addresses observed on the switch port.
+      security_supported: {type: boolean, description: Indicates if security is supported.}
+      security: {$ref: '#/types/Security'}
+  Security:
+    type: object
+    description: Switch port security configurations.
+    x-read-only: [authState, macSecState]
+    properties:
+      authServerEnabled: {type: boolean, description: Indicates if the authentication server is enabled.}
+      authServerEnforced:
+        $ref: '#/types/AuthServerEnforced'
+        description: Indicates if the authentication server is enforced.
+      authState: {$ref: '#/types/AuthState', description: Indicates the authentication state of the port.}
+      macSecState: {$ref: '#/types/MacSecState', description: Indicates the MACSec state of the port}
+  UpdateSystemRequest:
+    type: object
+    description: Arguments of ``update_system``.
+    properties:
+      staticHostname:
+        $ref: '#/types/Hostname'
+        description: The statically configured hostname. It is used if `useDhcpHostname` is set to `false`, or if
+          no `hostname` was obtained by DHCP.
+      staticNameServers:
+        $ref: '#/types/NameServers'
+        description: The statically configured name servers. It is used if useDhcpResolver is set to false, or if
+          no name servers were obtained by DHCP.
+      staticSearchDomains:
+        $ref: '#/types/SearchDomains'
+        description: The statically configured search domains. It is used if useDhcpResolver is set to false, or
+          if no search domains were obtained by DHCP.
+      useDhcpHostname:
+        type: boolean
+        description: Checks which DHCP-assigned `hostname` should be used. If set to `false`, the `staticHostname`
+          will be used.
+  UpdatePortRequest:
+    type: object
+    description: Arguments of ``update_port``.
+    required: [portId]
+    properties:
+      portId: {type: string, description: Switch port ID.}
+      enabled: {type: boolean, description: Specifies if a network interface device is enabled.}
+  UpdateSecurityRequest:
+    type: object
+    description: Arguments of ``update_security``.
+    required: [portId]
+    properties:
+      portId: {type: string, description: Switch port ID.}
+      authServerEnabled: {type: boolean, description: Indicates if the authentication server is enabled.}
+      authServerEnforced:
+        $ref: '#/types/AuthServerEnforced'
+        description: Indicates if the authentication server is enforced.
+  AddVlanRequest:
+    type: object
+    description: Arguments of ``add_vlan``.
+    required: [id]
+    properties:
+      id: {$ref: '#/types/VlanId', description: The ID of the VLAN. Needs to be between 1 and 4094.}
+
+operations:
+  get_all:
+    summary: All data of the Network settings API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/NetworkSettings'}
+  get_system:
+    summary: Get the system settings.
+    effect: read
+    binding: {method: GET, path: /system}
+    result: {$ref: '#/types/System'}
+  update_system:
+    summary: Update the system settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /system, body: object}
+    params: {$ref: '#/types/UpdateSystemRequest'}
+    examples:
+    - title: Set resolver settings
+      request:
+        path: /system
+        body:
+          data:
+            staticNameServers: [192.168.0.1, 192.168.1.2, '1234::77']
+            staticSearchDomains: [axis.com, example.com]
+            useDhcpResolver: false
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/network-settings-api/
+  set_system_static_hostname:
+    summary: Set the static hostname of the system.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /system/staticHostname
+      body_field: staticHostname
+      body: value
+    params:
+      type: object
+      required: [staticHostname]
+      properties:
+        staticHostname:
+          $ref: '#/types/Hostname'
+          description: The statically configured hostname. It is used if `useDhcpHostname` is set to `false`, or
+            if no `hostname` was obtained by DHCP.
+  set_system_static_name_servers:
+    summary: Set the static name servers of the system.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /system/staticNameServers
+      body_field: staticNameServers
+      body: value
+    params:
+      type: object
+      required: [staticNameServers]
+      properties:
+        staticNameServers:
+          $ref: '#/types/NameServers'
+          description: The statically configured name servers. It is used if useDhcpResolver is set to false, or
+            if no name servers were obtained by DHCP.
+  set_system_static_search_domains:
+    summary: Set the static search domains of the system.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /system/staticSearchDomains
+      body_field: staticSearchDomains
+      body: value
+    params:
+      type: object
+      required: [staticSearchDomains]
+      properties:
+        staticSearchDomains:
+          $ref: '#/types/SearchDomains'
+          description: The statically configured search domains. It is used if useDhcpResolver is set to false,
+            or if no search domains were obtained by DHCP.
+  set_system_use_dhcp_hostname:
+    summary: Set the use dhcp hostname of the system.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /system/useDhcpHostname
+      body_field: useDhcpHostname
+      body: value
+    params:
+      type: object
+      required: [useDhcpHostname]
+      properties:
+        useDhcpHostname:
+          type: boolean
+          description: Checks which DHCP-assigned `hostname` should be used. If set to `false`, the `staticHostname`
+            will be used.
+  get_wired:
+    summary: Get the wired settings.
+    effect: read
+    binding: {method: GET, path: /wired}
+    result: {$ref: '#/types/Wired'}
+    examples:
+    - title: Get wired configuration
+      request: {path: /wired}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - linkMode: 1000FD
+            staticLinkMode: AUTO
+            supportedLinkModes: [AUTO, 10HD, 10FD, 100HD, 100FD, 1000HD, 1000FD]
+            maxNumberOfVlans: 5
+            macAddress: b8:a4:4f:b4:fc:1d
+            maxMtu: 1500
+            minMtu: 68
+            mtu: 1500
+            staticMtu: 1500
+            vlans: []
+      source: https://developer.axis.com/vapix/device-configuration/network-settings-api/
+  set_wired_use_dhcp_resolver:
+    summary: Set the use dhcp resolver of the wired.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /wired/useDhcpResolver
+      body_field: useDhcpResolver
+      body: value
+    params:
+      type: object
+      required: [useDhcpResolver]
+      properties:
+        useDhcpResolver:
+          type: boolean
+          description: Checks if any DHCP-assigned resolver information should be used. If set to false, the static
+            resolver values will be used.
+  set_wired_static_link_mode:
+    summary: Set the static link mode of the wired.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /wired/staticLinkMode
+      body_field: staticLinkMode
+      body: value
+    params:
+      type: object
+      required: [staticLinkMode]
+      properties:
+        staticLinkMode: {$ref: '#/types/LinkMode', description: The statically configured link mode.}
+    examples:
+    - title: Set wired settings
+      request:
+        path: /wired/staticLinkMode
+        body: {data: 100FD}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/network-settings-api/
+  set_wired_static_mtu:
+    summary: Set the static mtu of the wired.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /wired/staticMtu, body_field: staticMtu, body: value}
+    params:
+      type: object
+      required: [staticMtu]
+      properties:
+        staticMtu: {$ref: '#/types/Mtu', description: The statically configured MTU of the wired device}
+  get_modem:
+    summary: Get the modem settings.
+    effect: read
+    binding: {method: GET, path: /modem}
+    result: {$ref: '#/types/Modem'}
+  list_sim:
+    summary: List the sim.
+    effect: read
+    binding: {method: GET, path: /modem/sim}
+    result:
+      type: array
+      items: {$ref: '#/types/Sim'}
+  get_sim:
+    summary: Get one sim.
+    effect: read
+    binding: {method: GET, path: '/modem/sim/{slotId}'}
+    params:
+      type: object
+      x-name: SimSlotIdRequest
+      required: [slotId]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+    result: {$ref: '#/types/Sim'}
+  change_sim_pin:
+    summary: Change the SIM PIN.
+    effect: action
+    binding: {method: POST, path: '/modem/sim/{slotId}/changeSimPin', body: object}
+    params:
+      type: object
+      required: [slotId]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+        newpin: {$ref: '#/types/SimPin', description: The new SIM PIN.}
+        oldpin: {$ref: '#/types/SimPin', description: The existing SIM PIN.}
+  set_sim_protection:
+    summary: Set SIM PIN protection on or off.
+    effect: action
+    binding: {method: POST, path: '/modem/sim/{slotId}/setSimProtection', body: object}
+    params:
+      type: object
+      required: [slotId]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+        enable: {type: boolean, description: 'true if SIM PIN protection should be enabled, otherwise false.'}
+        pin: {$ref: '#/types/SimPin', description: The SIM PIN.}
+  unblock_sim:
+    summary: Unblock the SIM card.
+    effect: action
+    binding: {method: POST, path: '/modem/sim/{slotId}/unblockSim', body: object}
+    params:
+      type: object
+      required: [slotId]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+        pin: {$ref: '#/types/SimPin', description: The SIM PIN.}
+        puk: {$ref: '#/types/SimPuk', description: The PUK code of the SIM.}
+  verify_sim_pin:
+    summary: Unlock the SIM using the PIN or just verify the PIN.
+    effect: action
+    binding:
+      method: POST
+      path: /modem/sim/{slotId}/verifySimPin
+      body_field: data
+      body: value
+    params:
+      type: object
+      required: [slotId, data]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+        data: {description: Action input (SimPin).}
+  get_connection:
+    summary: Get the connection settings.
+    effect: read
+    binding: {method: GET, path: '/modem/sim/{slotId}/connection'}
+    params:
+      type: object
+      x-name: ConnectionSlotIdRequest
+      required: [slotId]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+    result: {$ref: '#/types/Connection'}
+  get_radio_parameters:
+    summary: Get the current radio parameters.
+    effect: action
+    binding:
+      method: POST
+      path: /modem/sim/{slotId}/connection/getRadioParameters
+      body_field: data
+      body: value
+    params:
+      type: object
+      required: [slotId, data]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+        data: {description: Action input (RadioGeneration).}
+    result: {$ref: '#/types/RadioParameters'}
+  list_network_interface:
+    summary: List the network interface.
+    effect: read
+    binding: {method: GET, path: '/modem/sim/{slotId}/connection/networkInterface'}
+    params:
+      type: object
+      x-name: NetworkInterfaceSlotIdRequest
+      required: [slotId]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+    result:
+      type: array
+      items: {$ref: '#/types/NetworkInterface'}
+  get_network_interface:
+    summary: Get one network interface.
+    effect: read
+    binding: {method: GET, path: '/modem/sim/{slotId}/connection/networkInterface/{interfaceName}'}
+    params:
+      type: object
+      x-name: NetworkInterfaceSlotIdInterfaceNameRequest
+      required: [slotId, interfaceName]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+        interfaceName: {type: string, description: The interface name.}
+    result: {$ref: '#/types/NetworkInterface'}
+  set_access_point_name:
+    summary: Set the Access Point Name for a given interface.
+    effect: action
+    binding:
+      method: POST
+      path: /modem/sim/{slotId}/connection/networkInterface/{interfaceName}/setAccessPointName
+      body_field: data
+      body: value
+    params:
+      type: object
+      required: [slotId, interfaceName, data]
+      properties:
+        slotId: {$ref: '#/types/SimSlotId'}
+        interfaceName: {type: string, description: The interface name.}
+        data: {description: Action input (AccessPointName).}
+  get_switch:
+    summary: Get the switch settings.
+    effect: read
+    binding: {method: GET, path: /switch}
+    result: {$ref: '#/types/Switch'}
+  list_port:
+    summary: List the port.
+    effect: read
+    binding: {method: GET, path: /switch/port}
+    result:
+      type: array
+      items: {$ref: '#/types/Port'}
+  get_port:
+    summary: Get one port.
+    effect: read
+    binding: {method: GET, path: '/switch/port/{portId}'}
+    params:
+      type: object
+      x-name: PortPortIdRequest
+      required: [portId]
+      properties:
+        portId: {type: string, description: Switch port ID.}
+    result: {$ref: '#/types/Port'}
+  update_port:
+    summary: Update a port.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/switch/port/{portId}', body: object}
+    params: {$ref: '#/types/UpdatePortRequest'}
+  set_port_enabled:
+    summary: Set the enabled of a port.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /switch/port/{portId}/enabled
+      body_field: enabled
+      body: value
+    params:
+      type: object
+      required: [portId, enabled]
+      properties:
+        portId: {type: string, description: Switch port ID.}
+        enabled: {type: boolean, description: Specifies if a network interface device is enabled.}
+  get_security:
+    summary: Get the security settings.
+    effect: read
+    binding: {method: GET, path: '/switch/port/{portId}/security'}
+    params:
+      type: object
+      x-name: SecurityPortIdRequest
+      required: [portId]
+      properties:
+        portId: {type: string, description: Switch port ID.}
+    result: {$ref: '#/types/Security'}
+  update_security:
+    summary: Update the security settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/switch/port/{portId}/security', body: object}
+    params: {$ref: '#/types/UpdateSecurityRequest'}
+  set_security_auth_server_enabled:
+    summary: Set the auth server enabled of the security.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /switch/port/{portId}/security/authServerEnabled
+      body_field: authServerEnabled
+      body: value
+    params:
+      type: object
+      required: [portId, authServerEnabled]
+      properties:
+        portId: {type: string, description: Switch port ID.}
+        authServerEnabled: {type: boolean, description: Indicates if the authentication server is enabled.}
+  set_security_auth_server_enforced:
+    summary: Set the auth server enforced of the security.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /switch/port/{portId}/security/authServerEnforced
+      body_field: authServerEnforced
+      body: value
+    params:
+      type: object
+      required: [portId, authServerEnforced]
+      properties:
+        portId: {type: string, description: Switch port ID.}
+        authServerEnforced:
+          $ref: '#/types/AuthServerEnforced'
+          description: Indicates if the authentication server is enforced.
+  list_vlans:
+    summary: List the vlans.
+    effect: read
+    binding: {method: GET, path: /wired/vlans}
+    result:
+      type: array
+      items: {$ref: '#/types/Vlan'}
+  get_vlan:
+    summary: Get one vlan.
+    effect: read
+    binding: {method: GET, path: '/wired/vlans/{id}'}
+    params:
+      type: object
+      x-name: VlanIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/VlanId'}
+    result: {$ref: '#/types/Vlan'}
+  add_vlan:
+    summary: Add a vlan.
+    effect: write
+    write: create
+    binding: {method: POST, path: /wired/vlans, body: object}
+    params: {$ref: '#/types/AddVlanRequest'}
+  remove_vlan:
+    summary: Remove a vlan.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/wired/vlans/{id}'}
+    params:
+      type: object
+      x-name: VlanIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/VlanId'}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/network-settings-api/
+  sha256_md: 9da02232acb573701173b85bf49313be171f82623d9d18e54d27b2204de0a576
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Data types referenced but not defined in the Data types section: Ipv4AddressStruct (kept as x-unresolved-type).
+    Source: https://developer.axis.com/vapix/device-configuration/network-settings-api/'
+  - 'migration: unresolved-type: type Ipv4AddressStruct is not defined in the source'
+  - 'migration: dropped-property-gets: 45 per-property GET operations dropped'
+  - 'migration: action-input-unresolved: action input type not defined in the source; passed as a raw value in `data`:
+    verify_sim_pin, get_radio_parameters, set_access_point_name'
+  - 'migration: dropped-keywords: x-doc x1'
+  migrated_from: v1
+  curated: false

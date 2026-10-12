@@ -1,0 +1,93 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: object-snapshot-config
+name: Object Snapshot Configuration API
+summary: The Object Snapshot Configuration API provides configuration for sending cropped snapshots of objects with
+  metadata from analytics metadata producers, for...
+section: device-configuration
+family: dca
+status: released
+python:
+  module: object_snapshot
+  class: ObjectSnapshot
+docs:
+- https://developer.axis.com/vapix/device-configuration/object-snapshot-configuration/
+access: admin
+discovery:
+- dca: {api: object-snapshot, version: v1}
+
+binding: {root: /config/rest/object-snapshot/v1}
+
+types:
+  ObjectSnapshot:
+    type: object
+    description: The whole API tree.
+    properties:
+      enabled:
+        type: boolean
+        description: Whether to generate cropped snapshots of objects that can be included by downstream analytics
+          metadata producers
+      margin:
+        type: boolean
+        description: Whether the cropped snapshot should include more of the image around the object bounding box
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``.
+    properties:
+      enabled:
+        type: boolean
+        description: Whether to generate cropped snapshots of objects that can be included by downstream analytics
+          metadata producers
+      margin:
+        type: boolean
+        description: Whether the cropped snapshot should include more of the image around the object bounding box
+
+operations:
+  get_all:
+    summary: All data of the Object Snapshot Configuration API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/ObjectSnapshot'}
+  update_all:
+    summary: Update the Object Snapshot Configuration API settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '', body: object}
+    params: {$ref: '#/types/UpdateAllRequest'}
+  set_enabled:
+    summary: Set the enabled of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: Whether to generate cropped snapshots of objects that can be included by downstream analytics
+            metadata producers
+  set_margin:
+    summary: Set the margin of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /margin, body_field: margin, body: value}
+    params:
+      type: object
+      required: [margin]
+      properties:
+        margin:
+          type: boolean
+          description: Whether the cropped snapshot should include more of the image around the object bounding
+            box
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/object-snapshot-configuration/
+  sha256_md: 5250d75abb330f06d300e06576ee36a9a221dc0294a6bb3b78dbed75308a17c4
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 2 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

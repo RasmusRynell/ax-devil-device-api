@@ -1,0 +1,187 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: unified-proxy-configuration-config
+name: Proxy Configuration API
+summary: WARNING This API is in BETA stage.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: unified_proxy_configuration
+  class: UnifiedProxyConfiguration
+docs:
+- https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
+access: admin
+discovery:
+- dca: {api: unified-proxy-configuration, version: v1}
+
+binding: {root: /config/rest/unified-proxy-configuration/v1beta}
+
+types:
+  NoProxy:
+    type: array
+    items: {type: string}
+  UnifiedProxyConfiguration:
+    type: object
+    description: The whole API tree.
+    properties:
+      globalHttpProxy:
+        type: string
+        description: Global HTTP proxy (e.g. https://192.168.0.211:80). Not defined in the API definition; type
+          inferred from the use-case examples (string, empty string allowed).
+      globalHttpsProxy:
+        type: string
+        description: Global HTTPS proxy. Not defined in the API definition; type inferred from the use-case examples
+          (string, empty string allowed).
+      globalNoProxyList:
+        $ref: '#/types/NoProxy'
+        description: List of hosts/addresses that bypass the proxy. Datatype NoProxy is defined (array of strings,
+          validated in the backend) but the property itself is not defined; mapping inferred from examples.
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``.
+    properties:
+      globalHttpProxy:
+        type: string
+        description: Global HTTP proxy (e.g. https://192.168.0.211:80). Not defined in the API definition; type
+          inferred from the use-case examples (string, empty string allowed).
+      globalHttpsProxy:
+        type: string
+        description: Global HTTPS proxy. Not defined in the API definition; type inferred from the use-case examples
+          (string, empty string allowed).
+      globalNoProxyList:
+        $ref: '#/types/NoProxy'
+        description: List of hosts/addresses that bypass the proxy. Datatype NoProxy is defined (array of strings,
+          validated in the backend) but the property itself is not defined; mapping inferred from examples.
+
+operations:
+  get_all:
+    summary: All data of the Proxy Configuration API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/UnifiedProxyConfiguration'}
+    examples:
+    - title: Get root entity
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            globalHttpProxy: https://192.168.0.210:81
+            globalHttpsProxy: ''
+            globalNoProxyList:
+            - 192.168.0.1
+            - 192.168.0.2
+            - 192.168.0.3
+            - 192.168.0.4
+            - 192.168.0.5
+            - 192.168.0.6
+      source: https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
+  update_all:
+    summary: Update the Proxy Configuration API settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '', body: object}
+    params: {$ref: '#/types/UpdateAllRequest'}
+    examples:
+    - title: Set root entity
+      request:
+        path: ''
+        body:
+          data:
+            globalHttpProxy: https://192.168.0.211:80
+            globalHttpsProxy: https://192.168.0.210:80
+            globalNoProxyList: [192.168.0.8]
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
+  set_global_http_proxy:
+    summary: Set the global http proxy of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /globalHttpProxy, body_field: globalHttpProxy, body: value}
+    params:
+      type: object
+      required: [globalHttpProxy]
+      properties:
+        globalHttpProxy:
+          type: string
+          description: Global HTTP proxy (e.g. https://192.168.0.211:80). Not defined in the API definition; type
+            inferred from the use-case examples (string, empty string allowed).
+    examples:
+    - title: Set globalHttpProxy
+      request:
+        path: /globalHttpProxy
+        body: {data: 'https://192.168.0.211:80'}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
+  set_global_https_proxy:
+    summary: Set the global https proxy of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /globalHttpsProxy, body_field: globalHttpsProxy, body: value}
+    params:
+      type: object
+      required: [globalHttpsProxy]
+      properties:
+        globalHttpsProxy:
+          type: string
+          description: Global HTTPS proxy. Not defined in the API definition; type inferred from the use-case examples
+            (string, empty string allowed).
+    examples:
+    - title: Set globalHttpsProxy
+      request:
+        path: /globalHttpsProxy
+        body: {data: 'https://192.168.0.211:80'}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
+  set_global_no_proxy_list:
+    summary: Set the global no proxy list of the device.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /globalNoProxyList
+      body_field: globalNoProxyList
+      body: value
+    params:
+      type: object
+      required: [globalNoProxyList]
+      properties:
+        globalNoProxyList:
+          $ref: '#/types/NoProxy'
+          description: List of hosts/addresses that bypass the proxy. Datatype NoProxy is defined (array of strings,
+            validated in the backend) but the property itself is not defined; mapping inferred from examples.
+    examples:
+    - title: Set globalNoProxyList
+      request:
+        path: /globalNoProxyList
+        body: {data: [192.168.0.1, 192.168.0.2, 192.168.0.3, 192.168.0.4]}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
+  sha256_md: ee131be29a53b38b3c601e9d8dcfc442babc93d5d5af9e4b4875dcfa863da756
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'The API definition lists the properties globalHttpProxy, globalHttpsProxy and globalNoProxyList only in the
+    Structure tree and the root SET fields; no property definitions (datatype, permissions, nullability) are given.
+    Property GET/SET operations were added from the use-case examples (marked inferred); permissions unknown. Source:
+    https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/'
+  - 'Proxy URL format/validation rules are not documented. Source: https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/'
+  - 'migration: dropped-property-gets: 3 per-property GET operations dropped'
+  - 'migration: dropped-keywords: x-notes x1'
+  migrated_from: v1
+  curated: false

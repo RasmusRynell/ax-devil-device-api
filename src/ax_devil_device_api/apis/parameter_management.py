@@ -1,6 +1,6 @@
 # GENERATED from specs/apis/network-video/parameter-management.yaml. Do not edit.
-# (Hand-written target for the generator; see docs/design.md section 11.)
-"""Parameter management (``param.cgi``): list, update, add and remove device parameters.
+# Regenerate with `uv run python -m codegen generate`.
+"""``param.cgi``: list, update, add and remove device parameters.
 
 Docs: https://developer.axis.com/vapix/network-video/parameter-management/
 """
@@ -18,10 +18,10 @@ from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Text, TextKv, TextOk, Xml
 from ._base import AsyncApi, SyncApi
 
-UserGroup = Literal["anonymous", "viewer", "operator", "admin"]
-
 # ---------------------------------------------------------------------------
 # Models
+
+UserGroup = Literal["anonymous", "viewer", "operator", "admin"]
 
 
 class ListRequest(Model):
@@ -63,40 +63,83 @@ INFO = ApiInfo(
     docs=("https://developer.axis.com/vapix/network-video/parameter-management/",),
 )
 
-_USERGROUP = CgiArg("usergroup")
-
 
 class OPS:
     list = Operation(
-        INFO, "list",
-        CgiBinding(PATH, fixed_query=(("action", "list"),), args=(CgiArg("group", style="csv"), _USERGROUP),
-                   reply=TextKv(strip_prefix="root."), accept="text/plain"),
-        params=ListRequest, result=dict[str, str], access="viewer", effect="read",
+        INFO,
+        "list",
+        CgiBinding(
+            PATH,
+            fixed_query=(("action", "list"),),
+            args=(CgiArg("group", style="csv"), CgiArg("usergroup")),
+            reply=TextKv(strip_prefix="root."),
+            accept="text/plain",
+        ),
+        params=ListRequest,
+        result=dict[str, str],
+        access="viewer",
+        effect="read",
     )
     list_definitions = Operation(
-        INFO, "list_definitions",
-        CgiBinding(PATH, fixed_query=(("action", "listdefinitions"), ("listformat", "xmlschema")),
-                   args=(CgiArg("group"), _USERGROUP), reply=Xml()),
-        params=ListDefinitionsRequest, result=ET.Element, access="viewer", effect="read",
+        INFO,
+        "list_definitions",
+        CgiBinding(
+            PATH,
+            fixed_query=(("action", "listdefinitions"), ("listformat", "xmlschema")),
+            args=(CgiArg("group"), CgiArg("usergroup")),
+            reply=Xml(),
+        ),
+        params=ListDefinitionsRequest,
+        result=ET.Element,
+        access="viewer",
+        effect="read",
     )
     update = Operation(
-        INFO, "update",
-        CgiBinding(PATH, method="POST", encoding="form", fixed_query=(("action", "update"),),
-                   args=(CgiArg("parameters", style="spread"), _USERGROUP), reply=TextOk()),
-        params=UpdateRequest, access="operator", effect="write", write="patch",
+        INFO,
+        "update",
+        CgiBinding(
+            PATH,
+            method="POST",
+            encoding="form",
+            fixed_query=(("action", "update"),),
+            args=(CgiArg("parameters", style="spread"), CgiArg("usergroup")),
+            reply=TextOk(),
+        ),
+        params=UpdateRequest,
+        access="operator",
+        effect="write",
+        write="patch",
     )
     add = Operation(
-        INFO, "add",
-        CgiBinding(PATH, method="POST", encoding="form", fixed_query=(("action", "add"),),
-                   args=(CgiArg("template"), CgiArg("group"), CgiArg("parameters", style="spread"),
-                         CgiArg("force", style="axis_bool")),
-                   reply=Text()),
-        params=AddRequest, result=str, access="operator", effect="write", write="create",
+        INFO,
+        "add",
+        CgiBinding(
+            PATH,
+            method="POST",
+            encoding="form",
+            fixed_query=(("action", "add"),),
+            args=(
+                CgiArg("template"),
+                CgiArg("group"),
+                CgiArg("parameters", style="spread"),
+                CgiArg("force", style="axis_bool"),
+            ),
+            reply=Text(),
+        ),
+        params=AddRequest,
+        result=str,
+        access="operator",
+        effect="write",
+        write="create",
     )
     remove = Operation(
-        INFO, "remove",
+        INFO,
+        "remove",
         CgiBinding(PATH, fixed_query=(("action", "remove"),), args=(CgiArg("group", style="csv"),), reply=TextOk()),
-        params=RemoveRequest, access="operator", effect="write", write="delete",
+        params=RemoveRequest,
+        access="operator",
+        effect="write",
+        write="delete",
     )
 
 
@@ -105,7 +148,7 @@ class OPS:
 
 
 class ParameterManagementApi(SyncApi):
-    """Parameter management (``param.cgi``). Support: docs-only."""
+    """Parameter management (``parameter-management``)."""
 
     INFO = INFO
 
@@ -118,8 +161,10 @@ class ParameterManagementApi(SyncApi):
     ) -> dict[str, str]:
         """Parameter values as ``{"Group.Name": "value"}`` (``root.`` removed).
 
-        ``group`` entries may use ``*`` wildcards; omit it to list everything.
-        Only parameters readable by the user are returned. Access: viewer.
+        ``group`` entries may use ``*`` wildcards; omit it to list everything. Only parameters readable by
+        the user are returned.
+
+        Access: viewer.
         """
         return self._run(OPS.list, None, {"group": group, "usergroup": usergroup}, request_options)
 
@@ -142,7 +187,9 @@ class ParameterManagementApi(SyncApi):
     ) -> None:
         """Set parameters, e.g. ``{"Image.I0.Appearance.Resolution": "1920x1080"}``.
 
-        Only the given parameters change. Access: operator.
+        Only the given parameters change.
+
+        Changes only the fields given. Access: operator.
         """
         self._run(OPS.update, None, {"parameters": dict(parameters), "usergroup": usergroup}, request_options)
 
@@ -155,7 +202,10 @@ class ParameterManagementApi(SyncApi):
         force: bool | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> str:
-        """Add a dynamic group from a template; returns the device reply (``"<entry> OK"``). Access: operator."""
+        """Add a dynamic group from a template; returns the device reply (``"<entry> OK"``).
+
+        Access: operator.
+        """
         args = {"template": template, "group": group, "force": force}
         if parameters is not MISSING:
             args["parameters"] = dict(parameters)
@@ -167,7 +217,7 @@ class ParameterManagementApi(SyncApi):
 
 
 class AsyncParameterManagementApi(AsyncApi):
-    """Parameter management (``param.cgi``). Support: docs-only."""
+    """Parameter management (``parameter-management``)."""
 
     INFO = INFO
 
@@ -180,8 +230,10 @@ class AsyncParameterManagementApi(AsyncApi):
     ) -> dict[str, str]:
         """Parameter values as ``{"Group.Name": "value"}`` (``root.`` removed).
 
-        ``group`` entries may use ``*`` wildcards; omit it to list everything.
-        Only parameters readable by the user are returned. Access: viewer.
+        ``group`` entries may use ``*`` wildcards; omit it to list everything. Only parameters readable by
+        the user are returned.
+
+        Access: viewer.
         """
         return await self._run(OPS.list, None, {"group": group, "usergroup": usergroup}, request_options)
 
@@ -204,7 +256,9 @@ class AsyncParameterManagementApi(AsyncApi):
     ) -> None:
         """Set parameters, e.g. ``{"Image.I0.Appearance.Resolution": "1920x1080"}``.
 
-        Only the given parameters change. Access: operator.
+        Only the given parameters change.
+
+        Changes only the fields given. Access: operator.
         """
         await self._run(OPS.update, None, {"parameters": dict(parameters), "usergroup": usergroup}, request_options)
 
@@ -217,7 +271,10 @@ class AsyncParameterManagementApi(AsyncApi):
         force: bool | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> str:
-        """Add a dynamic group from a template; returns the device reply (``"<entry> OK"``). Access: operator."""
+        """Add a dynamic group from a template; returns the device reply (``"<entry> OK"``).
+
+        Access: operator.
+        """
         args = {"template": template, "group": group, "force": force}
         if parameters is not MISSING:
             args["parameters"] = dict(parameters)

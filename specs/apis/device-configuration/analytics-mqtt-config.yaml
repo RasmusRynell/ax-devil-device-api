@@ -1,0 +1,152 @@
+format: 2
+id: analytics-mqtt-config
+name: Analytics MQTT
+summary: Publish analytics data sources to MQTT topics through the device's MQTT client.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: analytics_mqtt
+  class: AnalyticsMqtt
+docs:
+  - https://developer.axis.com/vapix/device-configuration/analytics-mqtt/
+access: admin
+discovery:
+  - dca: {api: analytics-mqtt, version: v1}
+binding:
+  root: /config/rest/analytics-mqtt/v1
+
+types:
+  DataSourceKey: {type: string, minLength: 3, maxLength: 128}
+  PublisherId: {type: string, minLength: 1, maxLength: 128}
+  MqttTopic: {type: string, minLength: 1, maxLength: 128, pattern: "^([a-zA-Z0-9_-]+)(/[a-zA-Z0-9_-]+)*$"}
+  Qos: {enum: [0, 1, 2]}
+
+  DataSource:
+    type: object
+    description: An analytics data source that can be published.
+    required: [key]
+    properties:
+      key: {$ref: "#/types/DataSourceKey"}
+
+  Publisher:
+    type: object
+    description: A configured publisher of one data source to one MQTT topic.
+    required: [id, data_source_key, mqtt_topic]
+    properties:
+      id: {$ref: "#/types/PublisherId"}
+      data_source_key: {$ref: "#/types/DataSourceKey"}
+      mqtt_topic: {$ref: "#/types/MqttTopic"}
+      qos: {$ref: "#/types/Qos"}
+      retain: {type: boolean}
+      use_topic_prefix: {type: boolean, description: Prefix the topic with the device topic prefix configured in the MQTT client.}
+
+  AnalyticsMqtt:
+    type: object
+    description: The whole API tree.
+    properties:
+      data_sources: {type: array, items: {$ref: "#/types/DataSource"}, default: []}
+      publishers: {type: array, items: {$ref: "#/types/Publisher"}, default: []}
+
+  AddPublisherRequest:
+    type: object
+    description: Arguments of ``add_publisher``.
+    required: [id, data_source_key, mqtt_topic]
+    properties:
+      id: {$ref: "#/types/PublisherId"}
+      data_source_key: {$ref: "#/types/DataSourceKey"}
+      mqtt_topic: {$ref: "#/types/MqttTopic"}
+      qos: {$ref: "#/types/Qos"}
+      retain: {type: boolean}
+      use_topic_prefix: {type: boolean}
+
+operations:
+  get_all:
+    summary: All data sources and publishers.
+    effect: read
+    binding: {method: GET, path: ""}
+    result: {$ref: "#/types/AnalyticsMqtt"}
+
+  list_data_sources:
+    summary: Data sources that can be published.
+    effect: read
+    binding: {method: GET, path: /data_sources}
+    result: {type: array, items: {$ref: "#/types/DataSource"}}
+
+  get_data_source:
+    summary: One data source.
+    effect: read
+    binding: {method: GET, path: "/data_sources/{key}"}
+    params:
+      type: object
+      x-name: DataSourceKeyRequest
+      required: [key]
+      properties:
+        key: {$ref: "#/types/DataSourceKey"}
+    result: {$ref: "#/types/DataSource"}
+
+  list_publishers:
+    summary: Configured publishers.
+    effect: read
+    binding: {method: GET, path: /publishers}
+    result: {type: array, items: {$ref: "#/types/Publisher"}}
+    examples:
+      - title: List publishers
+        request: {}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              - {id: my_publisher, data_source_key: "com.axis.analytics_scene_description.v0.beta#1", mqtt_topic: my_mqtt_topic, qos: 0, retain: false, use_topic_prefix: false}
+        source: https://developer.axis.com/vapix/device-configuration/analytics-mqtt/
+
+  get_publisher:
+    summary: One publisher.
+    effect: read
+    binding: {method: GET, path: "/publishers/{id}"}
+    params:
+      type: object
+      x-name: PublisherIdRequest
+      required: [id]
+      properties:
+        id: {$ref: "#/types/PublisherId"}
+    result: {$ref: "#/types/Publisher"}
+
+  add_publisher:
+    summary: Create a publisher.
+    effect: write
+    write: create
+    binding: {method: POST, path: /publishers, body: object}
+    params: {$ref: "#/types/AddPublisherRequest"}
+    round_trip:
+      from: Publisher
+    examples:
+      - title: Add a publisher
+        request:
+          path: /publishers
+          body:
+            data: {id: my_publisher, data_source_key: "com.axis.analytics_scene_description.v0.beta#1", mqtt_topic: my_mqtt_topic, qos: 0, retain: false, use_topic_prefix: false}
+        response: {status: 201, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/analytics-mqtt/
+
+  remove_publisher:
+    summary: Delete a publisher.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: "/publishers/{id}"}
+    params:
+      type: object
+      x-name: PublisherIdRequest
+      required: [id]
+      properties:
+        id: {$ref: "#/types/PublisherId"}
+
+sources:
+  - url: https://developer.axis.com/vapix/device-configuration/analytics-mqtt-api/
+    sha256_md: 5515ddf18f8de3e9b2daf5530f5e21328c6e8de73efc1b05b1640be3298ed664
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  migrated_from: v1
+  curated: true

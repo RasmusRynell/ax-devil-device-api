@@ -67,6 +67,9 @@ class JsonRpcBinding:
     negotiation: Negotiation = GetSupportedVersions()
     params_placement: Literal["params", "top_level"] = "params"
     """``top_level`` merges arguments into the envelope instead of ``params``."""
+    params_field: str | None = None
+    """For APIs whose ``params`` is an array or a free-form map: the one
+    request field whose value is sent as the whole ``params``."""
     auth: AuthPolicy = "required"
     timeout: float | None = None
 
@@ -157,7 +160,13 @@ def flow(op: Operation[JsonRpcBinding], params: Model | None, state: DeviceState
 
     body = _envelope(binding.method, version)
     args = params.to_wire() if params is not None else {}
-    if binding.params_placement == "top_level":
+    if binding.params_field is not None:
+        assert params is not None
+        field = type(params).model_fields[binding.params_field]
+        alias = field.serialization_alias or binding.params_field
+        if alias in args:
+            body["params"] = args[alias]
+    elif binding.params_placement == "top_level":
         body.update(args)
     elif args:
         body["params"] = args

@@ -20,6 +20,7 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked
+      - run: uv run python -m codegen check
       - run: uv run pyright
       - run: uv run pytest
 

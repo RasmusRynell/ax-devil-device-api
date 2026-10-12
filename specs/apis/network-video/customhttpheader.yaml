@@ -1,0 +1,118 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: customhttpheader
+name: Custom HTTP header API
+summary: List, add (set) and remove custom HTTP headers added to the HTTP responses of the device's web server.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: custom_http_header
+  class: CustomHttpHeader
+docs:
+- https://developer.axis.com/vapix/network-video/custom-http-header-api/
+access: admin
+discovery:
+- {api_discovery: customhttpheader}
+requires:
+  firmware: '9.80'
+
+binding:
+  path: /axis-cgi/customhttpheader.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error. Refer to message field or logs., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON format., kind: invalid_argument}
+  2102: {description: Method does not exist., kind: not_found}
+
+types:
+  HeaderMap:
+    type: object
+    additionalProperties: {type: string}
+    description: Map of custom header name -> header value (the doc's CustomHeaderName / CustomHeaderValue are placeholders
+      for the key and value).
+
+operations:
+  list:
+    summary: Lists the custom headers available on the device.
+    effect: read
+    binding: {method: list}
+    result: {$ref: '#/types/HeaderMap'}
+    examples:
+    - title: List custom headers
+      request:
+        params: {}
+      response:
+        data:
+          Set-Cookie: deviceId=123; Max-Age=200
+          CustomName: CustomValue
+          Another-Example: Another-value
+      source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#list-custom-headers
+  set:
+    summary: Sets one or more custom headers on the device (multiple at once requires AXIS OS 10.11).
+    effect: write
+    write: patch
+    binding: {method: set}
+    params:
+      $ref: '#/types/HeaderMap'
+      description: 'params.<CustomHeaderName> = <CustomHeaderValue>: the name of the header (key) and the content
+        of the header (value).'
+    result: {$ref: '#/types/HeaderMap'}
+    examples:
+    - title: Set CORS header
+      request:
+        params: {Access-Control-Allow-Origin: 'http://axis.trusted.example.server.com'}
+      response:
+        data: {Access-Control-Allow-Origin: 'http://axis.trusted.example.server.com'}
+      source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#set-cors-header
+    - title: Set a Cookie header
+      request:
+        params: {Set-Cookie: device=123; Max-Age=200}
+      response:
+        data: {Set-Cookie: deviceId=123; Max-Age=200}
+      source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#set-a-cookie-header
+  remove:
+    summary: Removes a custom header from the device.
+    effect: write
+    write: delete
+    binding: {method: remove}
+    params:
+      type: object
+      additionalProperties: {type: string}
+      description: params.<CustomHeaderName> = <CustomHeaderValue>. The header is identified by its name; any header
+        value is optional and can be omitted.
+    result: {$ref: '#/types/HeaderMap'}
+    examples:
+    - title: Remove the Set-Cookie header
+      request:
+        params: {Set-Cookie: deviceId=123; Max-Age=200}
+      response:
+        data: {Set-Cookie: deviceId=123; Max-Age=200}
+      source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#remove-a-custom-header
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/custom-http-header-api/
+  sha256_md: 71a278f4884a247d3b36d79e7987baf0bb8d4353455f1de12fc6ee2fe3cec2c3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Parameter tables name params.CustomHeaderName / params.CustomHeaderValue, but examples show params as a map
+    {<header name>: <value>}; the map form is used here.'
+  - Set-Cookie example request uses 'device=123' and context 'OpticalContext' but the response echoes 'deviceId=123'
+    and 'OptionalContext' (doc inconsistency).
+  - getSupportedVersions tables say method="remove" (copy/paste error).
+  - Security level for getSupportedVersions is stated as Administrator (unusual).
+  - Whether the web server restart is automatic after set/remove is not stated ('once it has been restarted').
+  - 'migration: effect-guessed: write semantics guessed from the method name: set=write/patch'
+  - 'migration: params-not-object: set: params refers to a non-object type (generator needs a model)'
+  - 'migration: params-not-object: remove: params is not an object schema (generator needs a model)'
+  migrated_from: v1
+  curated: false

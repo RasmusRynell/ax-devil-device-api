@@ -1,0 +1,326 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: event-mqtt-bridge
+name: MQTT Event Bridge
+summary: 'Bridge Event Service events and MQTT: publish selected device events to the broker and convert subscribed
+  MQTT messages into events (/axis-cgi/mqtt/event.cgi).'
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: mqtt_event_bridge
+  class: MqttEventBridge
+docs:
+- https://developer.axis.com/vapix/network-video/mqtt-event-bridge/
+access: admin
+discovery:
+- {api_discovery: event-mqtt-bridge}
+
+binding:
+  path: /axis-cgi/mqtt/event.cgi
+  major: 1
+  versions: ['1.0', '1.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON format., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing or invalid., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failure., kind: access_denied}
+  2106: {description: Request size too large., kind: invalid_argument}
+
+types:
+  EventFilter:
+    type: object
+    properties:
+      topicFilter: {type: string, description: A subscription filter that should be used in the Event system.}
+      qos:
+        type: integer
+        enum: [0, 1, 2]
+        default: 0
+        description: A Qos policy that should be used when publishing any event from this filter. Possible values
+          are `0`, `1`, `2`. Default value is `0`.
+      retain:
+        type: string
+        enum: [none, property, all]
+        default: none
+        description: A retain policy that should be used when publishing any event from this filter.
+  MqttFilter:
+    type: object
+    properties:
+      topicFilter:
+        type: string
+        description: An MQTT subscription topic filter that should be used together with the external broker. Please
+          note that `+` and `#` are only allowed for stateless event conversions, i.e. when the `isStateData` is
+          set to false.
+      useDeviceTopicPrefix:
+        type: boolean
+        default: false
+        description: Governs the use of the device topic prefixes on subscriptions.
+      qos:
+        type: integer
+        enum: [0, 1, 2]
+        default: 0
+        description: The MQTT subscription QoS that should be used together with the external broker. Possible values
+          are 0, 1, 2. Default value is 0.
+      isStateData:
+        type: boolean
+        default: false
+        description: Specifies if matching MQTT messages contain state data.
+  EventPublicationConfig:
+    type: object
+    properties:
+      topicPrefix:
+        type: string
+        enum: [default, custom]
+        default: default
+        description: Controls the topic prefix.
+      customTopicPrefix:
+        type: string
+        description: Specifies which custom topic prefix that should be used. If `topicPrefix` is set to `custom`,
+          this parameter will also be required.
+      appendEventTopic:
+        type: boolean
+        default: true
+        description: If this parameter is set to true (its default value), the topic of the event will be appended
+          to the prefix. [doc type column says String; description and examples use boolean]
+      includeTopicNamespaces:
+        type: boolean
+        default: true
+        description: Specifies if ONVIF topic namespaces should be included in the MQTT message topic. The default
+          value is `true`.
+      includeSerialNumberInPayload:
+        type: boolean
+        default: false
+        description: Specifies if a serial number should be included in the payload message. The default value is
+          `false`.
+      eventFilterList:
+        type: array
+        items: {$ref: '#/types/EventFilter'}
+  MqttSubscriptionConfig:
+    type: object
+    properties:
+      mqttFilterList:
+        type: array
+        items: {$ref: '#/types/MqttFilter'}
+
+operations:
+  configure_event_publication:
+    summary: Select events that should be published (configures event publishing).
+    effect: write
+    write: replace
+    binding: {method: configureEventPublication}
+    params:
+      type: object
+      required: [eventFilterList]
+      properties:
+        topicPrefix:
+          type: string
+          enum: [default, custom]
+          default: default
+          description: Controls the topic prefix.
+        customTopicPrefix:
+          type: string
+          description: Specifies which custom topic prefix that should be used. If `topicPrefix` is set to `custom`,
+            this parameter will also be required.
+        appendEventTopic:
+          type: boolean
+          default: true
+          description: If this parameter is set to true (its default value), the topic of the event will be appended
+            to the prefix. [doc type column says String; description and examples use boolean]
+        includeTopicNamespaces:
+          type: boolean
+          default: true
+          description: Specifies if ONVIF topic namespaces should be included in the MQTT message topic. The default
+            value is `true`.
+        includeSerialNumberInPayload:
+          type: boolean
+          default: false
+          description: Specifies if a serial number should be included in the payload message. The default value
+            is `false`.
+        eventFilterList:
+          type: array
+          items:
+            type: object
+            x-name: ConfigureEventPublicationRequestEventFilterListItem
+            properties:
+              topicFilter: {type: string, description: A subscription filter that should be used in the Event system.}
+              qos:
+                type: integer
+                enum: [0, 1, 2]
+                default: 0
+                description: A Qos policy that should be used when publishing any event from this filter. Possible
+                  values are `0`, `1`, `2`. Default value is `0`.
+              retain:
+                type: string
+                enum: [none, property, all]
+                default: none
+                description: A retain policy that should be used when publishing any event from this filter.
+          description: 'A list of filters that should be applied on messages originating from the Event system.
+            If a message matches multiple filters it will be published several times. [doc type: Object list]'
+    examples:
+    - title: Configure an event publication
+      request:
+        params:
+          eventFilterList:
+          - {topicFilter: 'onvif:PTZController/axis:PTZReady'}
+          - {topicFilter: 'onvif:Device/axis:IO/VirtualInput'}
+          - {topicFilter: 'onvif:Device/axis:Status//.'}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#configure-an-event-publication
+    - title: Configure an event publication (error)
+      request:
+        params:
+          eventFilterList:
+          - {topicFilter: 'onvif:PTZController/axis:PTZReady'}
+          - {topicFilter: 'onvif:Device/axis:IO/VirtualInput'}
+          - {topicFilter: 'onvif:Device/axis:Status//.'}
+      response:
+        error: {code: 1100, message: Internal Error}
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#configure-an-event-publication
+  get_event_publication_config:
+    summary: Return the event publish configuration.
+    effect: read
+    binding: {method: getEventPublicationConfig}
+    result:
+      type: object
+      properties:
+        eventPublicationConfig: {$ref: '#/types/EventPublicationConfig'}
+    examples:
+    - title: Get event publication configuration
+      request:
+        params: {}
+      response:
+        data:
+          eventPublicationConfig:
+            topicPrefix: default
+            customTopicPrefix: ''
+            appendEventTopic: true
+            includeTopicNamespaces: true
+            includeSerialNumberInPayload: false
+            eventFilterList:
+            - {topicFilter: 'onvif:Device/axis:IO/VirtualPort', qos: 0, retain: none}
+            - {topicFilter: 'onvif:Device/axis:Status/SystemReady', qos: 0, retain: none}
+            - {topicFilter: 'onvif:Device/axis:Status//.', qos: 0, retain: none}
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#get-event-publication-configuration
+    - title: Get event publication configuration (error)
+      request:
+        params: {}
+      response:
+        error: {code: 1100, message: Internal Error}
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#get-event-publication-configuration
+  configure_mqtt_subscription:
+    summary: Configure the MQTT subscription (incoming MQTT messages converted to events).
+    effect: write
+    write: replace
+    binding: {method: configureMqttSubscription}
+    params:
+      type: object
+      required: [mqttFilterList]
+      properties:
+        mqttFilterList:
+          type: array
+          items:
+            type: object
+            x-name: ConfigureMqttSubscriptionRequestMqttFilterListItem
+            properties:
+              topicFilter:
+                type: string
+                description: An MQTT subscription topic filter that should be used together with the external broker.
+                  Please note that `+` and `#` are only allowed for stateless event conversions, i.e. when the `isStateData`
+                  is set to false.
+              useDeviceTopicPrefix:
+                type: boolean
+                default: false
+                description: Governs the use of the device topic prefixes on subscriptions.
+              qos:
+                type: integer
+                enum: [0, 1, 2]
+                default: 0
+                description: The MQTT subscription QoS that should be used together with the external broker. Possible
+                  values are 0, 1, 2. Default value is 0.
+              isStateData:
+                type: boolean
+                default: false
+                description: Specifies if matching MQTT messages contain state data.
+          description: 'Lists the MQTT topic filters used to subscribe to the external broker. Messages matching
+            the topic filters will be converted to internal events. [doc type: List]'
+    examples:
+    - title: Configure MQTT subscription
+      request:
+        params:
+          mqttFilterList:
+          - {topicFilter: building/A/door/10/opened, qos: 1, isStateData: false}
+          - {topicFilter: building/A/window/10/state, qos: 0, isStateData: true}
+          - {topicFilter: building/+/window/#, qos: 1, isStateData: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#configure-mqtt-subscription
+    - title: Configure MQTT subscription (error)
+      request:
+        params:
+          mqttFilterList:
+          - {topicFilter: building/A/door/10/opened, qos: 1, isStateData: false}
+          - {topicFilter: building/A/window/10/state, qos: 0, isStateData: true}
+          - {topicFilter: building/+/window/#, qos: 1, isStateData: false}
+      response:
+        error: {code: 1100, message: Internal Error}
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#configure-mqtt-subscription
+  get_mqtt_subscription_config:
+    summary: Return the subscription configuration.
+    effect: read
+    binding: {method: getMqttSubscriptionConfig}
+    result:
+      type: object
+      properties:
+        mqttSubscriptionConfig: {$ref: '#/types/MqttSubscriptionConfig'}
+    examples:
+    - title: Retrieve MQTT subscription configuration
+      request:
+        params: {}
+      response:
+        data:
+          mqttSubscriptionConfig:
+            mqttFilterList:
+            - topicFilter: building/A/door/10/opened
+              useDeviceTopicPrefix: false
+              qos: 1
+              isStateData: false
+            - topicFilter: building/A/window/10/state
+              useDeviceTopicPrefix: false
+              qos: 0
+              isStateData: true
+            - topicFilter: building/+/window/#
+              useDeviceTopicPrefix: false
+              qos: 1
+              isStateData: false
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#retrieve-mqtt-subscription-configurations
+    - title: Retrieve MQTT subscription configuration (error)
+      request:
+        params: {}
+      response:
+        error: {code: 1100, message: Internal Error}
+      source: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/#retrieve-mqtt-subscription-configurations
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/mqtt-event-bridge/
+  sha256_md: 64bea450e6949b5924834499cabfe9ad5e865333fa48f8ddc7c97a7b9ab261a6
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - appendEventTopic typed String in table but described/used as boolean.
+  - The event topic created for converted incoming MQTT messages is not documented on this page.
+  - Version that introduced subscriptions (examples use 1.1) and useDeviceTopicPrefix is not stated.
+  - error.message typed Integer (doc error).
+  - The ID "event-mqtt-bridge" differs from the page slug (mqtt-event-bridge).
+  - AXIS OS minimum not stated.
+  migrated_from: v1
+  curated: false

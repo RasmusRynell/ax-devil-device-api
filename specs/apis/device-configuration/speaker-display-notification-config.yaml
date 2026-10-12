@@ -1,0 +1,203 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: speaker-display-notification-config
+name: Speaker display notification
+summary: The VAPIX® Speaker display notification API provides an interface to trigger new notifications on the display,
+  or stop an ongoing notification.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: speaker_display_notification
+  class: SpeakerDisplayNotification
+docs:
+- https://developer.axis.com/vapix/device-configuration/speaker-display-notification/
+access: admin
+discovery:
+- dca: {api: speaker-display-notification, version: v1}
+
+binding: {root: /config/rest/speaker-display-notification/v1}
+
+types:
+  ColorFormat:
+    type: string
+    pattern: ^#[0-9a-fA-F]{6}$
+    description: Colors are represented using RGB hexadecimal values.
+  DurationInt:
+    type: integer
+    minimum: 1
+    maximum: 2147483647
+    description: The value of the duration. Limited to a signed 32-bit integer.
+  NotificationResponse:
+    type: object
+    description: Response received from a simple notification request.
+    properties:
+      duration: {type: integer, description: Duration of the notification in milliseconds.}
+  ScrollDirectionEnum:
+    type: string
+    enum: [fromRightToLeft, fromBottomToTop]
+    description: Direction of the scrolling.
+  ScrollSpeedInt: {type: integer, minimum: 0, maximum: 10, description: Scroll speed range.}
+  SimpleDurationObject:
+    type: object
+    description: Duration object for simple notification.
+    properties:
+      type:
+        $ref: '#/types/SimpleDurationType'
+        description: Duration type can be repetitions, time or timeCompleteMessage.
+      value:
+        $ref: '#/types/DurationInt'
+        description: If type is repetitions, the message will be displayed for a number of repetitions; otherwise,
+          it will be displayed for a duration in milliseconds.
+  SimpleDurationType:
+    type: string
+    enum: [repetitions, time, timeCompleteMessage]
+    description: String enums for supported duration types for simple notification.
+  SimpleMessageStr: {type: string, maxLength: 1000, description: String for simple notification message.}
+  SimpleNotificationRequest:
+    type: object
+    description: Available fields to send a simple notification request.
+    properties:
+      backgroundColor:
+        $ref: '#/types/ColorFormat'
+        description: Background color. Format is RGB in hex 6 digits '#RRGGBB'.
+      duration:
+        $ref: '#/types/SimpleDurationObject'
+        description: Duration. Default is infinite repetitions.
+      message:
+        $ref: '#/types/SimpleMessageStr'
+        description: The display message. Max length is 1000 characters.
+      scrollDirection:
+        $ref: '#/types/ScrollDirectionEnum'
+        description: The scrolling direction. Can be either from right to left or bottom to top.
+      scrollSpeed:
+        $ref: '#/types/ScrollSpeedInt'
+        description: Message scroll speed. 1 is slow and 10 is fast. 0 means no scrolling.
+      textColor:
+        $ref: '#/types/ColorFormat'
+        description: The color of the message letters. Format is RGB in hex 6 digits '#RRGGBB'.
+      textSize:
+        $ref: '#/types/TextSizeEnum'
+        description: The text size. Can be either small, medium or large.
+  StopNotificationRequest: {type: object, description: Request to stop a simple notification.}
+  StopNotificationResponse: {}
+  TextSizeEnum: {type: string, enum: [small, medium, large], description: Size of the text.}
+  SpeakerDisplayNotification:
+    type: object
+    description: The whole API tree.
+    properties: {}
+
+operations:
+  get_all:
+    summary: All data of the Speaker display notification API.
+    effect: read
+    binding: {method: GET, path: ''}
+  simple:
+    summary: A simple notification which can either be static or scrolling.
+    effect: action
+    binding: {method: POST, path: /simple, body: object}
+    params:
+      type: object
+      properties:
+        backgroundColor:
+          $ref: '#/types/ColorFormat'
+          description: Background color. Format is RGB in hex 6 digits '#RRGGBB'.
+        duration:
+          $ref: '#/types/SimpleDurationObject'
+          description: Duration. Default is infinite repetitions.
+        message:
+          $ref: '#/types/SimpleMessageStr'
+          description: The display message. Max length is 1000 characters.
+        scrollDirection:
+          $ref: '#/types/ScrollDirectionEnum'
+          description: The scrolling direction. Can be either from right to left or bottom to top.
+        scrollSpeed:
+          $ref: '#/types/ScrollSpeedInt'
+          description: Message scroll speed. 1 is slow and 10 is fast. 0 means no scrolling.
+        textColor:
+          $ref: '#/types/ColorFormat'
+          description: The color of the message letters. Format is RGB in hex 6 digits '#RRGGBB'.
+        textSize:
+          $ref: '#/types/TextSizeEnum'
+          description: The text size. Can be either small, medium or large.
+    result: {$ref: '#/types/NotificationResponse'}
+    examples:
+    - title: Send a simple notification with horizontally scrolling large size text
+      request:
+        path: /simple
+        body:
+          data:
+            message: A horizontally scrolling notification
+            textColor: '#000000'
+            backgroundColor: '#FFFFFF'
+            textSize: large
+            scrollDirection: fromRightToLeft
+            scrollSpeed: 5
+            duration: {type: repetitions, value: 3}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {duration: 15000}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-notification/
+    - title: Send a simple notification with vertically scrolling medium size text
+      request:
+        path: /simple
+        body:
+          data:
+            message: A vertically scrolling notification
+            textColor: '#FFFFFF'
+            backgroundColor: '#000000'
+            textSize: medium
+            scrollDirection: fromBottomToTop
+            scrollSpeed: 8
+            duration: {type: time, value: 10000}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {duration: 10000}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-notification/
+    - title: Send a simple notification with non-scrolling medium size text with indefinite duration
+      request:
+        path: /simple
+        body:
+          data:
+            message: A static text notification
+            textColor: '#FFFFFF'
+            backgroundColor: '#000000'
+            textSize: medium
+            scrollSpeed: 0
+      response:
+        status: 200
+        body:
+          status: success
+          data: {duration: 0}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-notification/
+  stop:
+    summary: Stop the ongoing notification.
+    effect: action
+    binding: {method: POST, path: /stop, body: none}
+    examples:
+    - title: Stop the ongoing notification
+      request:
+        path: /stop
+        body:
+          data: {}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {}
+      source: https://developer.axis.com/vapix/device-configuration/speaker-display-notification/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/speaker-display-notification/
+  sha256_md: 9446225729de815934bfddc1cb59a8b1dcca4557e55a5547d052ec3ecb931e2a
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-keywords: x-notes x1']
+  migrated_from: v1
+  curated: false

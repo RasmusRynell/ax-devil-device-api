@@ -1,0 +1,325 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: radar-control2
+name: Radar configuration - Control API
+summary: 'Configure radar motion detection (RMD) event rules via /axis-cgi/radar/control.cgi: channels and profiles
+  with include area / cross line / multiple line...'
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: radar_control
+  class: RadarControl
+docs:
+- https://developer.axis.com/vapix/radar/radar-configuration/
+access: admin
+discovery:
+- {api_discovery: radar-control2}
+
+binding:
+  path: /axis-cgi/radar/control.cgi
+  major: 2
+  versions: ['2.2']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error., kind: internal}
+  2000:
+    description: The requested API version is not supported by this implementation.
+    kind: unsupported
+  2001:
+    description: The format of a provided JSON parameter was incorrect.
+    kind: invalid_argument
+  2002:
+    description: Conflicting input parameters, e.g. two profiles with the same uid.
+    kind: invalid_argument
+  2003: {description: A mandatory input parameter was not found in the input., kind: not_found}
+  2004: {description: An input parameter has an incorrect type., kind: invalid_argument}
+  2005: {description: An unexpected parameter was passed., kind: invalid_argument}
+  8000:
+    description: The requested method is not supported by this implementation.
+    kind: unsupported
+  8003: {description: The provided input was not well-formed JSON.}
+
+types:
+  Point:
+    type: array
+    items: {type: number, minimum: -1, maximum: 1}
+    description: '[x, y] normalized so that the visible view spans -1..1 in both directions. (minItems=2, maxItems=2)'
+  Channel:
+    type: object
+    properties:
+      active:
+        type: boolean
+        default: true
+        description: Active profiles for the channel are set to true; inactive to false.
+      id:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Channel value applied when requesting video with media.amp (starts at 1).
+  Filter:
+    oneOf:
+    - type: object
+      properties:
+        type: {const: objectType}
+        active: {type: boolean}
+        small:
+          type: boolean
+          default: true
+          description: Small objects (small animals such as rodents, small dogs, birds) generate events.
+        human: {type: boolean, default: true}
+        vehicle: {type: boolean, default: true}
+        unknown: {type: boolean, default: true, description: Everything not applicable by the other types.}
+    - type: object
+      properties:
+        type: {const: timeShortLivedLimit}
+        active: {type: boolean}
+        data:
+          type: integer
+          minimum: 1
+          description: Seconds an object is tracked before raising an alarm.
+    - type: object
+      properties:
+        type: {const: excludeArea}
+        data:
+          type: array
+          items: {$ref: '#/types/Point'}
+          description: Exclude area polygon.
+        trackPassingObjects: {type: boolean, description: Enable passing objects tracking.}
+    - type: object
+      properties:
+        type: {const: minimumSpeedLimit}
+        active: {type: boolean}
+        data:
+          type: number
+          minimum: 0
+          description: Minimum speed in m/s (max from getConfigurationCapabilities).
+    - type: object
+      properties:
+        type: {const: maximumSpeedLimit}
+        active: {type: boolean}
+        data:
+          type: number
+          minimum: 0
+          description: Maximum speed in m/s (max from getConfigurationCapabilities).
+    description: Exclusion filter (all optional). A filter not present is created with defaults from getConfigurationCapabilities.
+  Trigger:
+    oneOf:
+    - type: object
+      properties:
+        type: {const: includeArea}
+        data:
+          type: array
+          items: {$ref: '#/types/Point'}
+          description: Include area polygon.
+    - type: object
+      properties:
+        type: {const: crossLine}
+        alarmDirection: {type: string, enum: [leftToRight, rightToLeft]}
+        data:
+          type: array
+          items: {$ref: '#/types/Point'}
+          description: Cross line polyline.
+    - type: object
+      properties:
+        type: {const: multipleLineCrossLine}
+        alarmDirection: {type: string, enum: [leftToRight, rightToLeft]}
+        data:
+          type: array
+          items:
+            type: array
+            items: {$ref: '#/types/Point'}
+          description: Array of lines, each [[x0,y0],...,[xn,yn]].
+        crossingTimeLimit:
+          type: number
+          default: 0
+          description: Max seconds an object can take to cross the two lines before raising an alarm; 0 disables
+            the time limit.
+    description: At most one trigger per profile.
+  Profile:
+    type: object
+    properties:
+      name:
+        type: string
+        default: Profile <uid>
+        description: Unicode string in the event nice name, visible in the action rule list.
+      channel: {type: integer, default: 1, description: Should match id of the corresponding channel.}
+      uid: {type: integer, default: 1, description: Unique profile id.}
+      filters:
+        type: array
+        items: {$ref: '#/types/Filter'}
+      triggers:
+        type: array
+        items: {$ref: '#/types/Trigger'}
+        description: maxItems=1
+      minimumTriggerDuration:
+        type: number
+        minimum: 0
+        description: Optional. Minimum time the profile remains active after it has been triggered.
+  Configuration:
+    type: object
+    properties:
+      channels:
+        type: array
+        items: {$ref: '#/types/Channel'}
+      profiles:
+        type: array
+        items: {$ref: '#/types/Profile'}
+        description: To remove a profile, remove it from the array.
+      configurationStatus:
+        type: integer
+        description: Read-only, ignored by setConfiguration. 0 = default configuration; +1 per set up to 2147483647,
+          then reset to 1.
+  ConfigurationCapabilities:
+    type: object
+    properties:
+      filters:
+        type: array
+        items:
+          type: object
+          x-name: ConfigurationCapabilitiesFiltersItem
+          properties:
+            type:
+              type: string
+              enum:
+              - excludeArea
+              - objectType
+              - timeShortLivedLimit
+              - minimumSpeedLimit
+              - maximumSpeedLimit
+            min: {}
+            max: {}
+            default: {}
+            defaultActive: {type: boolean}
+            minNbrVertices: {type: integer}
+            maxNbrVertices: {type: integer}
+            defaultInstance: {}
+            defaultTrackPassingObjects: {type: boolean}
+      triggers:
+        type: array
+        items:
+          type: object
+          x-name: ConfigurationCapabilitiesTriggersItem
+          properties:
+            type: {type: string, enum: [crossLine, multipleLineCrossLine, includeArea]}
+            min:
+              type: array
+              items: {type: number}
+            max:
+              type: array
+              items: {type: number}
+            minNbrVertices: {type: integer}
+            maxNbrVertices: {type: integer}
+            minNbrLines: {type: integer}
+            maxNbrLines: {type: integer}
+            minNbrInstances: {type: integer}
+            maxNbrInstances: {type: integer}
+            validAlarmDirections:
+              type: array
+              items: {type: string}
+            defaultInstance: {}
+            defaultAlarmDirection: {type: string}
+            defaultAlarmDirections: {type: string}
+            defaultCrossingTimeLimit: {type: number}
+            minCrossingTimeLimit: {type: number}
+            maxCrossingTimeLimit: {type: number}
+      profiles:
+        type: object
+        x-name: ConfigurationCapabilitiesProfiles
+        properties:
+          minNbrProfilesPerChannel: {type: number}
+          maxNbrProfilesPerChannel: {type: number}
+          minLengthName: {type: number}
+          maxLengthName: {type: number}
+          minMinimumTriggerDuration: {type: number}
+          maxMinimumTriggerDuration: {type: number}
+          defaultMinimumTriggerDuration: {type: number}
+      radarProfile:
+        type: object
+        x-name: ConfigurationCapabilitiesRadarProfile
+        properties:
+          values:
+            type: array
+            items: {type: string}
+            description: e.g. area, road
+          default: {type: string}
+
+operations:
+  get_configuration:
+    summary: Request the current radar event configuration.
+    effect: read
+    binding: {method: getConfiguration}
+    result: {$ref: '#/types/Configuration'}
+  set_configuration:
+    summary: Apply a new (complete) event configuration.
+    description: When modifying, i represents an index in the profile array. The exclude area object should be removed
+      when not in use.
+    effect: write
+    write: patch
+    binding: {method: setConfiguration}
+    params:
+      $ref: '#/types/Configuration'
+      description: A complete event configuration (see types.Configuration). To remove a profile, remove it from
+        params.profiles.
+  get_configuration_capabilities:
+    summary: Request the boundaries and default values of the Control API configuration.
+    effect: read
+    binding: {method: getConfigurationCapabilities}
+    result: {$ref: '#/types/ConfigurationCapabilities'}
+  get_enabled:
+    summary: Determine if the radar is currently enabled or disabled.
+    effect: read
+    binding: {method: getEnabled}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean}
+  set_enabled:
+    summary: Enable or disable the radar.
+    effect: write
+    write: patch
+    binding: {method: setEnabled}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: 'true = enable radar, false = disable.'}
+  send_alarm_event:
+    summary: Send a stateful alarm event for a profile uid (active a few seconds; response immediate).
+    access: operator
+    effect: action
+    binding: {method: sendAlarmEvent}
+    params:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          type: integer
+          description: uid of the profile that should raise an alarm (documented as 'data.profile'; examples use
+            params.profile).
+
+sources:
+- url: https://developer.axis.com/vapix/radar/radar-configuration/
+  sha256_md: 972321519f60d398dbea52af43f10373ecdb87f0aec9308f1fbc4c49434e24bf
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - sendAlarmEvent parameter documented as 'data.profile=<uid>' (JSON object) while the request example uses params.profile.
+    https://developer.axis.com/vapix/radar/radar-configuration/#sendalarmevent
+  - Capabilities example uses 'validAlarmDirection' while the table says 'validAlarmDirections'; multipleLineCrossLine
+    'defaultAlarmDirections' typed string.
+  - excludeArea table lists 'profiles[j].triggers[k].data' for the exclude polygon (presumably filters[k].data).
+  - ONVIF 'specific profile' RTSP example reuses the tnsaxis:RadarSource topic.
+  - API version numbers in examples vary (2.2 for control; getLanes 2.4; radar profile 1.4).
+  - System event topic path inferred from declaration nesting (tns1:Device/tnsaxis:HardwareFailure/RadarFailure).
+  - 'migration: skipped-op: get_event_stream (rtsp_request) is not a JSON-RPC method; skipped'
+  - 'migration: skipped-op: get_metadata_stream (rtsp_request) is not a JSON-RPC method; skipped'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_configuration=write/patch, set_enabled=write/patch'
+  - 'migration: dropped-keywords: title x8'
+  migrated_from: v1
+  curated: false

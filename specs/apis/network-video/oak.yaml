@@ -1,0 +1,64 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: oak
+name: OAK API
+summary: Retrieve the Owner Authentication Key (OAK) used to authenticate the device owner towards the AXIS O3C
+  Dispatcher service.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: oak
+  class: Oak
+docs:
+- https://developer.axis.com/vapix/network-video/oak-api/
+access: admin
+discovery:
+- {api_discovery: oak}
+
+binding:
+  path: /axis-cgi/oak.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2000: {description: Invalid request., kind: invalid_argument}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON data., kind: invalid_argument}
+  2102: {description: Method does not exist., kind: not_found}
+  2103: {description: Missing parameter method., kind: invalid_argument}
+
+operations:
+  get_oak:
+    summary: Retrieve the product specific OAK.
+    effect: read
+    binding: {method: getOAK}
+    result:
+      type: object
+      properties:
+        oak: {type: string, description: The owner authentication key.}
+    examples:
+    - title: Retrieve OAK
+      request:
+        params: {}
+      response:
+        data: {oak: OAK}
+      source: https://developer.axis.com/vapix/network-video/oak-api/#retrieve-oak
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/oak-api/
+  sha256_md: 90579475dda68076578ce73195502933e1d184210d807396095a01b201d45b18
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - getSupportedVersions is documented with Security level Administrator (unusual; other APIs allow anonymous).
+  - AXIS OS minimum not stated.
+  - Error response syntax block is not valid JSON (<integer error code> placeholder).
+  migrated_from: v1
+  curated: false

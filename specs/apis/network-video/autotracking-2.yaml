@@ -1,0 +1,910 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: autotracking-2
+name: PTZ Autotracker API
+summary: 'Track moving objects with an Axis PTZ camera: application/tracker settings, viewport rotation, manual
+  target, automatic zone triggers, profiles (zones)...'
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: ptz_autotracker
+  class: PtzAutotracker
+docs:
+- https://developer.axis.com/vapix/network-video/ptz-autotracker-api/
+access: operator
+discovery:
+- {api_discovery: autotracking-2}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '9.10'
+
+binding:
+  path: /axis-cgi/ptz-autotracking/operator.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1001: {description: The provided JSON input was invalid., kind: invalid_argument}
+  1002: {description: No Method name tag found in request.}
+  1003: {description: Method not supported., kind: unsupported}
+  1004: {description: 'Parameter tag ("params") required, but missing.', kind: invalid_argument}
+  1005: {description: Required parameter missing., kind: invalid_argument}
+  1006: {description: Invalid value of parameter., kind: invalid_argument}
+  1007: {description: Internal error., kind: internal}
+
+types:
+  MinObjectSize:
+    type: object
+    properties:
+      width: {type: number, description: Min width in percent of the screen.}
+      height: {type: number, description: Min height in percent of the screen.}
+      enabled: {type: boolean, description: Whether the filter is enabled.}
+  MinObjectLifespan:
+    type: object
+    properties:
+      time: {type: number, description: Minimum lifespan in seconds.}
+      enabled: {type: boolean, description: Whether the filter is enabled.}
+  TrackingParams:
+    type: object
+    properties:
+      timeoutToHome:
+        type: number
+        description: Seconds the tracker waits after losing an object before returning to preset (global; profiles
+          may override).
+      zoomLimitHigh: {type: number, description: Maximum zoom magnification (>= 1.0).}
+      zoomLimitLow: {type: number, description: Minimum zoom magnification (>= 1.0).}
+      maxProfileNumber: {type: integer, description: Maximum number of profiles you can create.}
+      trackerType: {type: integer, description: 'Data source: 0 MOTE, 5 VOD++, 6 Radar.'}
+      returnToPreset: {type: integer, description: Preset to return to after click-to-track; -1 = home preset.}
+      maxTrackingTime:
+        type: integer
+        description: Max seconds an object is tracked before returning; 0 = indefinitely.
+  TrackerSupport:
+    type: object
+    properties:
+      supported:
+        type: array
+        items:
+          type: object
+          x-name: TrackerSupportSupportedItem
+          properties:
+            trackerId: {type: integer, description: Tracker id.}
+            trackerName: {type: string, description: 'e.g. MOTE, VOD2, RadarFusion.'}
+        description: Read-only list of supported trackers.
+      activeTrackerId: {type: integer, description: Currently active trackerId.}
+  Profile:
+    type: object
+    properties:
+      id: {type: integer, description: Profile ID.}
+      name: {type: string, description: Profile name.}
+      preset: {type: integer, description: Connected preset number; -1 if none.}
+      enabled: {type: boolean, description: Profile/zone enabled.}
+      zoneType: {type: integer, description: Zone type.}
+      timeoutToHome: {type: integer, description: Local timeout override in seconds; -1 = use global.}
+      aoaId:
+        type: string
+        description: ID of an AOA scenario used for triggering (either aoaId or px_polygon).
+      px_polygon:
+        type: array
+        items: {type: number}
+        description: Flat [x0,y0,x1,y1,...] polygon in the current viewport; 3-10 points.
+  TrackingRequirement: {type: string, enum: [requireRadarTrigger, requireRadarTrack, requireAny]}
+  RadarProfile:
+    type: object
+    properties:
+      id: {type: integer, description: Profile ID.}
+      radarScenarioUuid: {type: string, description: Unique ID of the radar scenario (Radar Configuration CGI).}
+      name: {type: string, description: Profile name.}
+      enabled: {type: boolean, description: Profile enabled.}
+      priority: {type: integer, description: 'Profile priority (capabilities: 1-20).'}
+      videoObjectClassifications:
+        type: array
+        items: {type: string, enum: [human, bus, car, truck, motorcycle_bicycle, vehicle_other]}
+      trackingRequirement: {$ref: '#/types/TrackingRequirement'}
+      vodConfirmationTime:
+        type: number
+        description: Seconds allowed for VOD confirmation of a radar track before blocking (5-15, default 5).
+  ObjectPriority:
+    type: object
+    properties:
+      usedPriority:
+        type: string
+        enum: [first, last, periodic, closest, furthest, slowest, fastest]
+        description: Object priority when multiple objects.
+      periodicTimeSeconds: {type: number, description: Period for "periodic" (min 0.1).}
+
+operations:
+  get_application_settings:
+    summary: Return the general application settings (service active, version, API support).
+    access: viewer
+    effect: read
+    binding: {method: getApplicationSettings, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    result:
+      type: object
+      properties:
+        service:
+          type: object
+          x-name: GetApplicationSettingsResultService
+          properties:
+            active: {type: boolean, description: Whether the autotracking service is active.}
+            version: {type: string, description: Optional service version.}
+        apiSupport:
+          type: object
+          x-name: GetApplicationSettingsResultApiSupport
+          properties:
+            aoa: {type: boolean, description: Optional. AOA API supported.}
+            radar: {type: boolean, description: Optional. Radar API supported.}
+    examples:
+    - title: getApplicationSettings
+      request:
+        params: {}
+      response:
+        data:
+          service: {active: true, version: 2.6.125}
+          apiSupport: {aoa: true, radar: true}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getapplicationsettings
+  set_application_settings:
+    summary: Set whether the Autotracking service is running (subscribes to data sources).
+    effect: write
+    write: patch
+    binding: {method: setApplicationSettings}
+    params:
+      type: object
+      required: [service]
+      properties:
+        service:
+          type: object
+          x-name: SetApplicationSettingsRequestService
+          description: Container for active state.
+          properties:
+            active:
+              type: boolean
+              description: Whether the application subscribes to data sources and stays active.
+    examples:
+    - title: setApplicationSettings
+      request:
+        params:
+          service: {active: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#setapplicationsettings
+  get_autotracking_settings:
+    summary: List the general autotracking settings (filters, trackers, tracking params, profiles).
+    access: viewer
+    effect: read
+    binding: {method: getAutotrackingSettings, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    result:
+      type: object
+      properties:
+        minObjectSize: {$ref: '#/types/MinObjectSize'}
+        minObjectLifespan: {$ref: '#/types/MinObjectLifespan'}
+        trackerSupport: {$ref: '#/types/TrackerSupport'}
+        trackingParams: {$ref: '#/types/TrackingParams'}
+        profiles:
+          type: array
+          items: {$ref: '#/types/Profile'}
+    examples:
+    - title: Get settings
+      request:
+        params: {}
+      response:
+        data:
+          minObjectSize: {width: 7, height: 7, enabled: true}
+          minObjectLifespan: {time: 3, enabled: true}
+          trackingParams: {timeoutToHome: 5, zoomLimit: 8, maxProfileNumber: 10}
+          svgFrameColours:
+            colourCombinations:
+            - {id: 1, tracked: '#ed1a3b', default: '#8dc63f'}
+            - {id: 2, tracked: '#ffc300', default: '#3dc8ff'}
+            - {id: 3, tracked: '#ed1a3b', default: '#3dc8ff'}
+            activeId: 3
+            highlightObjects: false
+          profiles:
+          - {id: 1, name: Profile 1, preset: -1, enabled: false}
+          - {id: 2, name: Profile 2, preset: -1, enabled: false}
+          - {id: 3, name: Profile 3, preset: 5, enabled: false}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#get-settings
+    - title: getAutotrackingSettings
+      request:
+        params: {}
+      response:
+        data:
+          minObjectSize: {width: 7, height: 7, enabled: true}
+          minObjectLifespan: {time: 3, enabled: true}
+          trackerSupport:
+            supported:
+            - {trackerId: 0, trackerName: MOTE}
+            - {trackerId: 5, trackerName: VOD2}
+            - {trackerId: 6, trackerName: RadarFusion}
+            activeTrackerId: 5
+          trackingParams:
+            timeoutToHome: 5.0
+            zoomLimitHigh: 8.0
+            zoomLimitLow: 1.0
+            maxProfileNumber: 10
+            trackerType: 5
+            returnToPreset: -1
+            maxTrackingTime: 0
+          profiles:
+          - {id: 1, name: Profile 1, preset: -1, enabled: false}
+          - {id: 2, name: Profile 2, preset: -1, enabled: false}
+          - {id: 3, name: Profile 3, preset: 5, enabled: false}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getautotrackingsettings
+  set_autotracking_settings:
+    summary: Change the general autotracking settings (not profile settings).
+    effect: write
+    write: patch
+    binding: {method: setAutotrackingSettings}
+    params:
+      type: object
+      properties:
+        minObjectSize: {$ref: '#/types/MinObjectSize', description: Optional. Min object size filter.}
+        minObjectLifespan: {$ref: '#/types/MinObjectLifespan', description: Optional. Min lifespan filter.}
+        trackerSupport:
+          type: object
+          x-name: SetAutotrackingSettingsRequestTrackerSupport
+          description: Optional. Change activeTrackerId (supported list is read-only).
+          properties:
+            activeTrackerId: {type: integer}
+        trackingParams: {$ref: '#/types/TrackingParams', description: Optional. Tracker-related settings.}
+    errors:
+      1101: {description: Invalid profile ID, kind: invalid_argument}
+      1102: {description: Max number of profiles reached}
+      1103:
+        description: Invalid number of coordinates in zone (not equal x/y for example)
+        kind: invalid_argument
+      1104: {description: Too many coordinates in zone}
+      1105: {description: Too few coordinates in zone}
+      1106: {description: Profile name empty}
+      1107: {description: Invalid preset, kind: invalid_argument}
+      1108: {description: Could not update zone}
+      1109: {description: No zone included}
+      1110: {description: Tracker not active}
+      1201: {description: Invalid color ID, kind: invalid_argument}
+      1202: {description: No colors configured}
+      1301: {description: Invalid min object size width, kind: invalid_argument}
+      1302: {description: Invalid min object size height, kind: invalid_argument}
+      1401: {description: Invalid lifespan time, kind: invalid_argument}
+      1801: {description: Invalid value for timeout to home, kind: invalid_argument}
+      1802: {description: Invalid value for zoom limit, kind: invalid_argument}
+      1803: {description: Invalid value for max profile number, kind: invalid_argument}
+    examples:
+    - title: Update current settings
+      request:
+        params:
+          minObjectSize: {width: 3, height: 3, enabled: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#update-current-settings
+    - title: setAutotrackingSettings
+      request:
+        params:
+          minObjectSize: {width: 7, height: 7, enabled: true}
+          minObjectLifespan: {time: 3, enabled: true}
+          trackerSupport: {activeTrackerId: 5}
+          trackingParams:
+            timeoutToHome: 5.0
+            zoomLimitHigh: 8.0
+            zoomLimitLow: 1.0
+            maxProfileNumber: 10
+            trackerType: 5
+            returnToPreset: -1
+            maxTrackingTime: 0
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#setautotrackingsettings
+  get_viewport_config:
+    summary: Return the rotation set by setViewportConfig (-1 if not initialized).
+    access: viewer
+    effect: read
+    binding: {method: getViewportConfig, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    result:
+      type: object
+      properties:
+        rotation: {type: integer, description: -1 if not initialized; 0 or 180 otherwise.}
+    examples:
+    - title: getViewportConfig
+      request:
+        params: {}
+      response:
+        data: {rotation: 180}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getviewportconfig
+  set_viewport_config:
+    summary: Set the viewport rotation (0 or 180) used by the backend; object data is not streamed until this is
+      called.
+    description: If two different frontends set different rotation settings, backend behaviour is unspecified.
+    access: viewer
+    effect: write
+    write: patch
+    binding: {method: setViewportConfig, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    params:
+      type: object
+      required: [rotation]
+      properties:
+        rotation: {type: integer, enum: [0, 180], description: Camera rotation; only 0 and 180 supported.}
+        metadata:
+          type: boolean
+          default: true
+          description: Whether metadata should be enabled (default true).
+    errors:
+      1101: {description: Unsupported rotation value, kind: unsupported}
+    examples:
+    - title: Set current viewport
+      request:
+        params: {rotation: 180}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#set-current-viewport
+    - title: setViewportConfig
+      request:
+        params: {rotation: 180, metadata: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#setviewportconfig
+  get_autotracking_target:
+    summary: Return the ID of the currently tracked object (-1 if not tracking).
+    access: viewer
+    effect: read
+    binding: {method: getAutotrackingTarget, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    result:
+      type: object
+      properties:
+        targetId: {type: integer, description: Tracked object ID; -1 when not tracking.}
+    examples:
+    - title: getAutotrackingTarget
+      request:
+        params: {}
+      response:
+        data: {targetId: 101}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getautotrackingtarget
+  set_autotracking_target:
+    summary: Start following an object (positive ID from the object stream) or stop with -1.
+    effect: write
+    write: patch
+    binding: {method: setAutotrackingTarget}
+    params:
+      type: object
+      required: [targetId]
+      properties:
+        targetId: {type: integer, description: Object ID to follow; -1 to stop tracking.}
+    errors:
+      1101: {description: Invalid object ID, kind: invalid_argument}
+    examples:
+    - title: setAutotrackingTarget
+      request:
+        params: {targetId: 101}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#setautotrackingtarget
+  get_autotracking_state:
+    summary: Return whether automatic triggering in zones is enabled (automatic mode).
+    access: viewer
+    effect: read
+    binding: {method: getAutotrackingState, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean, description: Automatic triggering in zones enabled.}
+    examples:
+    - title: getAutotrackingState
+      request:
+        params: {}
+      response:
+        data: {enabled: true}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getautotrackingstate
+  set_autotracking_state:
+    summary: 'Enable (automatic mode: first object entering a visible zone triggers tracking) or disable (manual:
+      client calls setAutotrackingTarget).'
+    effect: write
+    write: patch
+    binding: {method: setAutotrackingState}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Whether tracking (automatic triggering) is enabled.}
+    examples:
+    - title: setAutotrackingState
+      request:
+        params: {enabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#setautotrackingstate
+  add_profile:
+    summary: Create a new profile (zone).
+    effect: write
+    write: create
+    binding: {method: addProfile}
+    params:
+      type: object
+      required: [preset]
+      properties:
+        name: {type: string, description: Name of the profile.}
+        preset: {type: integer, description: Connected preset number; -1 if none.}
+        enabled: {type: boolean, description: Profile/zone enabled (default true).}
+        timeoutToHome:
+          type: integer
+          description: Local timeout in seconds overriding global timeoutToHome; -1 = global (default -1).
+        aoaId:
+          type: string
+          description: 'Conditional: either aoaId or px_polygon is required. AOA scenario ID.'
+        px_polygon:
+          type: array
+          items: {type: number}
+          description: 'Conditional: either aoaId or px_polygon. Flat [x0,y0,...] floats; max ten points.'
+    result:
+      type: object
+      properties:
+        id: {type: integer, description: ID of the new profile.}
+        name: {type: string, description: Optional profile name.}
+    errors:
+      1102: {description: Max number of profiles reached}
+      1103:
+        description: Invalid number of coordinates in zone (not equal x/y for example)
+        kind: invalid_argument
+      1104: {description: Too many coordinates in zone}
+      1105: {description: Too few coordinates in zone}
+    examples:
+    - title: addProfile
+      request:
+        params: {}
+      response:
+        data: {id: 1}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#addprofile
+  get_profile:
+    summary: Return all settings of a profile.
+    access: viewer
+    effect: read
+    binding: {method: getProfile, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: ID of the requested profile.}
+    result: {$ref: '#/types/Profile'}
+    examples:
+    - title: getProfile
+      request:
+        params: {id: 1}
+      response:
+        data:
+          id: 1
+          name: Profile 1
+          preset: -1
+          enabled: false
+          px_polygon: [0.426, 0.574, 0.326, 0.774, 0.526, 0.774]
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getprofile
+  update_profile:
+    summary: Change settings of an existing profile; only included fields are updated.
+    effect: write
+    write: patch
+    binding: {method: updateProfile}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: ID of the profile.}
+        name: {type: string, description: Name of the profile.}
+        preset: {type: integer, description: Connected preset number; -1 if none.}
+        enabled: {type: boolean, description: Profile/zone enabled.}
+        timeoutToHome:
+          type: integer
+          description: Local timeout in seconds overriding global timeoutToHome; -1 = global.
+        aoaId:
+          type: string
+          description: 'Conditional: either aoaId or px_polygon is required. AOA scenario ID.'
+        px_polygon:
+          type: array
+          items: {type: number}
+          description: 'Conditional: either aoaId or px_polygon. Flat [x0,y0,...] floats; max ten points.'
+    result: {$ref: '#/types/Profile'}
+    examples:
+    - title: updateProfile
+      request:
+        params:
+          id: 1
+          name: Profile 1
+          preset: -1
+          enabled: false
+          px_polygon: [0.426, 0.574, 0.326, 0.774, 0.526, 0.774]
+      response:
+        data: {id: 1, name: Profile 1, preset: -1, enabled: false}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#updateprofile
+  delete_profile:
+    summary: Remove a profile.
+    effect: write
+    write: delete
+    binding: {method: deleteProfile}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: ID of profile to delete.}
+    examples:
+    - title: deleteProfile
+      request:
+        params: {id: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#deleteprofile
+  set_temp_zone:
+    summary: Create a temporary zone for automatic detection and tracking.
+    effect: write
+    write: patch
+    binding: {method: setTempZone}
+    params:
+      type: object
+      properties:
+        zoneType:
+          type: string
+          enum: [fullscreen]
+          default: fullscreen
+          description: Zone type (default "fullscreen", only supported value).
+        timeout:
+          type: integer
+          minimum: 5
+          maximum: 120
+          default: 30
+          description: Zone lifetime 5..120 s (default 30). (unit=s)
+    examples:
+    - title: setTempZone
+      request:
+        params: {zoneType: fullscreen, timeout: 15}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#settempzone
+  get_radar_autotracking_settings:
+    summary: Get the radar autotracker settings (alignment, radar profiles, object priority).
+    access: viewer
+    effect: read
+    binding: {method: getRadarAutotrackingSettings, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    result:
+      type: object
+      properties:
+        radarPTZAlignment:
+          type: object
+          x-name: GetRadarAutotrackingSettingsResultRadarPTZAlignment
+          properties:
+            radarPanOffset: {type: number, description: Pan offset in degrees aligning radar and PTZ.}
+        radarProfiles:
+          type: array
+          items: {$ref: '#/types/RadarProfile'}
+        objectPriority: {$ref: '#/types/ObjectPriority'}
+    examples:
+    - title: Get radar autotracking settings
+      request:
+        params: {}
+      response:
+        data:
+          radarPTZAlignment: {radarPanOffset: 0.0}
+          radarProfiles:
+          - id: 1
+            radarScenarioUuid: 550e8400-e29b-41d4-a716-446655440000
+            name: Profile 1
+            enabled: true
+            priority: 1
+            videoObjectClassifications: [car, human]
+            trackingRequirement: requireRadarTrack
+            vodConfirmationTime: 5.0
+          objectPriority: {usedPriority: periodic, periodicTimeSeconds: 20.0}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#get-radar-autotracking-settings
+    - title: getRadarAutotrackingSettings
+      request:
+        params: {}
+      response:
+        data:
+          radarPTZAlignment: {radarPanOffset: 0.0}
+          radarProfiles:
+          - id: 1
+            radarScenarioUuid: 550e8400-e29b-41d4-a716-446655440000
+            name: Profile 1
+            enabled: true
+            priority: 1
+            videoObjectClassifications: [car, human]
+            trackingRequirement: requireRadarTrack
+            vodConfirmationTime: 5.0
+          objectPriority: {usedPriority: periodic, periodicTimeSeconds: 20.0}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getradarautotrackingsettings
+  set_radar_autotracking_settings:
+    summary: Change radar autotracker settings; omitted objects keep previous settings.
+    effect: write
+    write: patch
+    binding: {method: setRadarAutotrackingSettings}
+    params:
+      type: object
+      properties:
+        radarPTZAlignment:
+          type: object
+          x-name: SetRadarAutotrackingSettingsRequestRadarPTZAlignment
+          description: Optional. Degrees to align radar and PTZ.
+          properties:
+            radarPanOffset: {type: number}
+        radarProfiles:
+          type: array
+          items: {$ref: '#/types/RadarProfile'}
+          description: Optional. Radar profile options.
+        objectPriority: {$ref: '#/types/ObjectPriority', description: Optional. Object priority for multiple objects.}
+    examples:
+    - title: Update current radar settings
+      request:
+        params:
+          radarPTZAlignment: {radarPanOffset: 60.0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#update-current-radar-settings
+    - title: setRadarAutotrackingSettings
+      request:
+        params:
+          radarPTZAlignment: {radarPanOffset: 0.0}
+          radarProfiles:
+          - radarScenarioUuid: 550e8400-e29b-41d4-a716-446655440000
+            name: Profile 1
+            enabled: true
+            priority: 1
+            videoObjectClassifications: [car, human]
+            trackingRequirement: requireRadarTrack
+            vodConfirmationTime: 5.0
+          objectPriority: {usedPriority: periodic, periodicTimeSeconds: 20.0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#setradarautotrackingsettings
+  get_radar_autotracking_capabilities:
+    summary: Get radar autotracker capabilities (valid ranges and allowed values).
+    access: viewer
+    effect: read
+    binding: {method: getRadarAutotrackingCapabilities, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    result:
+      type: object
+      properties:
+        radarPTZAlignment:
+          type: object
+          x-name: GetRadarAutotrackingCapabilitiesResultRadarPTZAlignment
+          properties:
+            radarPanOffset:
+              type: object
+              x-name: GetRadarAutotrackingCapabilitiesResultRadarPTZAlignmentRadarPanOffset
+              properties:
+                min: {type: number}
+                max: {type: number}
+        objectPriority:
+          type: object
+          x-name: GetRadarAutotrackingCapabilitiesResultObjectPriority
+          properties:
+            objectPriorities:
+              type: array
+              items: {type: string}
+            periodicTimeSeconds:
+              type: object
+              x-name: GetRadarAutotrackingCapabilitiesResultObjectPriorityPeriodicTimeSeconds
+              properties:
+                min: {type: number}
+        radarProfiles:
+          type: object
+          x-name: GetRadarAutotrackingCapabilitiesResultRadarProfiles
+          properties:
+            priority:
+              type: object
+              x-name: GetRadarAutotrackingCapabilitiesResultRadarProfilesPriority
+              properties:
+                min: {type: integer}
+                max: {type: integer}
+            videoObjectClassifications:
+              type: array
+              items: {type: string}
+            trackingRequirements:
+              type: array
+              items: {type: string}
+            vodConfirmationTime:
+              type: object
+              x-name: GetRadarAutotrackingCapabilitiesResultRadarProfilesVodConfirmationTime
+              properties:
+                min: {type: number}
+                default: {type: number}
+                max: {type: number}
+    examples:
+    - title: Get radar autotracking capabilities
+      request:
+        params: {}
+      response:
+        data:
+          radarPTZAlignment:
+            radarPanOffset: {min: -180.0, max: 180.0}
+          objectPriority:
+            objectPriorities: [first, last, periodic, closest, furthest, slowest, fastest]
+            periodicTimeSeconds: {min: 0.1}
+          radarProfiles:
+            priority: {min: 1, max: 20}
+            videoObjectClassifications: [human, bus, car, truck, motorcycle_bicycle, vehicle_other]
+            trackingRequirements: [requireRadarTrigger, requireRadarTrack, requireAny]
+            vodConfirmationTime: {min: 5.0, default: 5.0, max: 15.0}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#get-radar-autotracking-capabilities
+    - title: getRadarAutotrackingCapabilities
+      request:
+        params: {}
+      response:
+        data:
+          radarPTZAlignment:
+            radarPanOffset: {min: -180.0, max: 180.0}
+          objectPriority:
+            objectPriorities: [first, last, periodic, closest, furthest, slowest, fastest]
+            periodicTimeSeconds: {min: 0.1}
+          radarProfiles:
+            priority: {min: 1, max: 20}
+            videoObjectClassifications: [human, bus, car, truck, motorcycle_bicycle, vehicle_other]
+            trackingRequirements: [requireRadarTrigger, requireRadarTrack, requireAny]
+            vodConfirmationTime: {min: 5.0, default: 5.0, max: 15.0}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getradarautotrackingcapabilities
+  add_radar_profile:
+    summary: Add a radar profile (service must be active; fails if radarScenarioUuid already exists).
+    description: radarScenarioUuid identifies a scenario in the Radar Configuration CGI; you must keep radar profiles
+      updated if UUIDs change or are removed.
+    effect: write
+    write: create
+    binding: {method: addRadarProfile}
+    params:
+      type: object
+      required:
+      - radarScenarioUuid
+      - name
+      - enabled
+      - priority
+      - videoObjectClassifications
+      - trackingRequirement
+      properties:
+        radarScenarioUuid: {type: string, description: unique ID of the radar scenario.}
+        name: {type: string, description: profile name.}
+        enabled: {type: boolean, description: whether the profile is enabled.}
+        priority: {type: integer, description: profile priority.}
+        videoObjectClassifications:
+          type: array
+          items: {type: string}
+          description: object types to track.
+        trackingRequirement:
+          type: string
+          enum: [requireRadarTrigger, requireRadarTrack, requireAny]
+          description: strategy for how to track an object.
+        vodConfirmationTime: {type: number, description: seconds allowed for VOD confirmation of a radar track.}
+    examples:
+    - title: addRadarProfile
+      request:
+        params:
+          radarScenarioUuid: 550e8400-e29b-41d4-a716-446655440000
+          name: Profile 1
+          enabled: true
+          priority: 1
+          videoObjectClassifications: [car, human]
+          trackingRequirement: requireRadarTrack
+          vodConfirmationTime: 5.0
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#addradarprofile
+  get_radar_profile:
+    summary: Get the settings of a radar profile.
+    access: viewer
+    effect: read
+    binding: {method: getRadarProfile, path: /axis-cgi/ptz-autotracking/viewer.cgi}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: ID of the requested profile.}
+    result: {$ref: '#/types/RadarProfile'}
+    examples:
+    - title: getRadarProfile
+      request:
+        params: {id: 1}
+      response:
+        data:
+          id: 1
+          radarScenarioUuid: 550e8400-e29b-41d4-a716-446655440000
+          name: Profile 1
+          enabled: true
+          priority: 1
+          videoObjectClassifications: [car, human]
+          trackingRequirement: requireRadarTrack
+          vodConfirmationTime: 5.0
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#getradarprofile
+  update_radar_profile:
+    summary: Update a radar profile; only included fields are updated.
+    effect: write
+    write: patch
+    binding: {method: updateRadarProfile}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: ID of the profile to update.}
+        radarScenarioUuid: {type: string, description: New unique ID of the radar scenario.}
+        name: {type: string, description: New profile name.}
+        enabled: {type: boolean, description: New whether the profile is enabled.}
+        priority: {type: integer, description: New profile priority.}
+        videoObjectClassifications:
+          type: array
+          items: {type: string}
+          description: New object types to track.
+        trackingRequirement:
+          type: string
+          enum: [requireRadarTrigger, requireRadarTrack, requireAny]
+          description: New strategy for how to track an object.
+        vodConfirmationTime: {type: number, description: New seconds allowed for VOD confirmation of a radar track.}
+    examples:
+    - title: updateRadarProfile
+      request:
+        params:
+          id: 1
+          radarScenarioUuid: 550e8400-e29b-41d4-a716-446655440000
+          name: Profile 1
+          enabled: true
+          priority: 1
+          videoObjectClassifications: [car, human]
+          trackingRequirement: requireRadarTrack
+          vodConfirmationTime: 5.0
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#updateradarprofile
+  delete_radar_profile:
+    summary: Delete a radar profile.
+    effect: write
+    write: delete
+    binding: {method: deleteRadarProfile}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: ID of the profile to delete.}
+    examples:
+    - title: deleteRadarProfile
+      request:
+        params: {id: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#deleteradarprofile
+  send_test_autotracking_event:
+    summary: Temporarily trigger an autotracking event (service must be active).
+    effect: action
+    binding: {method: sendTestAutotrackingEvent}
+    params:
+      type: object
+      required: [eventType]
+      properties:
+        eventType:
+          type: integer
+          enum: [0, 1]
+          description: '0: global autotracking state event; 1: autotracking profile event.'
+        profileId: {type: integer, description: Active profile ID; required if eventType > 0.}
+    examples:
+    - title: sendTestAutotrackingEvent
+      request:
+        params: {eventType: 0, profileId: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/#sendtestautotrackingevent
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/ptz-autotracker-api/
+  sha256_md: af6ad28e140722b2b04725a6c42b7348a0ee08434e90db522af4c720db87e42c
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Which methods are accepted on which CGI (admin/operator/viewer.cgi) is inferred from per-method user levels.
+  - Error code 1101 means "Invalid profile ID", "Unsupported rotation value" and "Invalid object ID" in different
+    methods.
+  - setViewportConfig description says values "between 0 and 180" but only 0 and 180 are supported; listed as Viewer
+    level for a set method.
+  - Version history lists params (maxObjectSpeed, minObjectSizeDegrees, svgFrameColours) not documented elsewhere.
+  - addProfile request syntax shows empty params; fields from table.
+  - SetTemporaryZone event timeout range 3..120 vs setTempZone 5..120 and action 5..120.
+  - Error codes 1201/1202 (color IDs) reference color combinations not otherwise documented.
+  - Events and actions are delivered via the VAPIX event service (spec id not linked).
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_application_settings=write/patch,
+    set_autotracking_settings=write/patch, set_viewport_config=write/patch, set_autotracking_target=write/patch,
+    set_autotracking_state=write/patch, update_profile=write/patch, set_temp_zone=write/patch, set_radar_autotracking_settings=write/patch,
+    update_radar_profile=write/patch'
+  migrated_from: v1
+  curated: false

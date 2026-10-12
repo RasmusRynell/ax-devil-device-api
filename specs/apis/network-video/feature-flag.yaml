@@ -1,0 +1,144 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: feature-flag
+name: Feature Flag Service
+summary: Set, get and list device feature flags (toggle experimental features, gradual roll-outs).
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: feature_flag
+  class: FeatureFlag
+docs:
+- https://developer.axis.com/vapix/network-video/feature-flag-service/
+access: admin
+discovery:
+- {api_discovery: feature-flag}
+
+binding:
+  path: /axis-cgi/featureflag.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed.}
+  2107: {description: Request too large., kind: invalid_argument}
+  2200: {description: Flags does not exist., kind: not_found}
+
+types:
+  Flag:
+    type: object
+    properties:
+      name: {type: string, description: The name of the flag.}
+      value: {type: boolean, description: The current flag value.}
+      description: {type: string, description: A short description of the flag.}
+      defaultValue: {type: boolean, description: The initial flag value.}
+
+operations:
+  set:
+    summary: Set the value of one or multiple flags.
+    effect: write
+    write: patch
+    binding: {method: set}
+    params:
+      type: object
+      required: [flagValues]
+      properties:
+        flagValues:
+          type: object
+          additionalProperties: {type: boolean}
+          description: Contains the flag name and value pairs. The flags will be updated according to this list.
+    result:
+      type: object
+      properties:
+        result: {type: string, const: Success}
+    examples:
+    - title: Set flags
+      request:
+        params:
+          flagValues: {flag.name.1: true, flag.name.2: true}
+      response:
+        data: {result: Success}
+      source: https://developer.axis.com/vapix/network-video/feature-flag-service/#set-flags
+  get:
+    summary: Retrieve the value of one or multiple flags.
+    effect: read
+    binding: {method: get}
+    params:
+      type: object
+      required: [names]
+      properties:
+        names:
+          type: array
+          items: {type: string}
+          description: List containing the flag names that should be retrieved. (The parameter table calls this
+            params.flagValues, but all request examples use params.names.)
+    result:
+      type: object
+      properties:
+        flagValues:
+          type: object
+          additionalProperties: {type: boolean}
+    errors:
+      2200: {description: Flag(s) does not exist (message lists the unknown flags)., kind: not_found}
+    examples:
+    - title: Get flags
+      request:
+        params: {names: [flag.name.1, flag.name.2]}
+      response:
+        data:
+          flagValues: {flag.name.1: true, flag.name.2: false}
+      source: https://developer.axis.com/vapix/network-video/feature-flag-service/#get-flags
+  list_all:
+    summary: Retrieve the value and metadata of all flags.
+    effect: read
+    binding: {method: listAll}
+    result:
+      type: object
+      properties:
+        flags:
+          type: array
+          items: {$ref: '#/types/Flag'}
+    examples:
+    - title: List all flags
+      request:
+        params: {}
+      response:
+        data:
+          flags:
+          - name: flag.name.1
+            value: true
+            description: Use both hands for parameter handling.
+            defaultValue: false
+          - name: flag.name.2
+            value: false
+            description: Run action engine on ethanol.
+            defaultValue: false
+      source: https://developer.axis.com/vapix/network-video/feature-flag-service/#list-all-flags
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/feature-flag-service/
+  sha256_md: ab0810b2c50d205327063e165f1b77132e6f13c0c5e45234b070af8315f49209
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'get: parameter table documents params.flagValues (list of names) but all examples use params.names; params.names
+    used.'
+  - 'set: success table documents a top-level ''result'' but examples return data.result.'
+  - The set of available flag names is device-specific and not documented.
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set=write/patch'
+  migrated_from: v1
+  curated: false

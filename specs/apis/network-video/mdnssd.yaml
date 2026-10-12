@@ -1,0 +1,194 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: mdnssd
+name: mDNS-SD API
+summary: Configure the mDNS-SD (Bonjour) service (enabled state, friendly name) and discover mDNS-SD services on
+  the network via /axis-cgi/mdnssd.cgi.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: mdnssd
+  class: Mdnssd
+docs:
+- https://developer.axis.com/vapix/network-video/mdns-sd-api/
+access: admin
+discovery:
+- {api_discovery: mdnssd}
+
+binding:
+  path: /axis-cgi/mdnssd.cgi
+  major: 1
+  versions: ['1.0', '1.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error, kind: internal}
+  2000: {description: Invalid request, kind: invalid_argument}
+  2001: {description: Request body too large, kind: invalid_argument}
+  3000: {description: Invalid JSON data, kind: invalid_argument}
+  4000: {description: Method does not exist, kind: not_found}
+  4001: {description: The specified version is not supported, kind: unsupported}
+  4002: {description: Authorization failed, kind: access_denied}
+  4003: {description: Missing parameter(s), kind: invalid_argument}
+  4004: {description: Invalid parameter(s), kind: invalid_argument}
+
+types:
+  DiscoveredDevice:
+    type: object
+    properties:
+      friendlyName: {type: string}
+      hostname: {type: string}
+      interface: {type: string, description: The network interface on which the device was discovered.}
+      ipv4Addresses:
+        type: array
+        items: {type: string}
+      ipv6Addresses:
+        type: array
+        items: {type: string}
+      services:
+        type: array
+        items: {$ref: '#/types/Service'}
+  Service:
+    type: object
+    properties:
+      name: {type: string, description: The name of the service.}
+      port: {type: integer, description: The port on which the service may be found.}
+      txt: {type: string, description: The text record of the service.}
+
+operations:
+  get_mdnssd_info:
+    summary: 'Retrieve the mDNS-SD configuration: enabled state and friendly name used when responding to discover
+      queries.'
+    effect: read
+    binding: {method: getMdnssdInfo}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean}
+        friendlyName: {type: string}
+    examples:
+    - title: Get mDNS-SD info
+      request:
+        params: {}
+      response:
+        data: {enabled: true, friendlyName: AXIS P1234 - 00408C1A2B3C}
+      source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#configure-the-mdns-sd-service-on-the-axis-device
+    - title: Get mDNS-SD info (internal error)
+      request:
+        params: {}
+      response:
+        error: {code: 1000, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#configure-the-mdns-sd-service-on-the-axis-device
+  set_mdnssd_configuration:
+    summary: Set the enabled state of the mDNS-SD service and the friendly name.
+    effect: write
+    write: patch
+    binding: {method: setMdnssdConfiguration}
+    params:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: '*Optional*. Specifies the desired enabled state of the mDNS-SD service. `true` means that
+            the service is enabled and running, `false` that it is disabled and not running.'
+        friendlyName:
+          type: string
+          maxLength: 48
+          description: '*Optional*. The friendly name the mDNS-SD service should use when responding to a discovery
+            query. This string is limited to a maximum size of 48 bytes.'
+    errors:
+      4004/subCode 1: {description: The invalid parameter is enabled., kind: invalid_argument}
+      4004/subCode 2: {description: The invalid parameter is friendlyName., kind: invalid_argument}
+    examples:
+    - title: Set mDNS-SD configuration
+      request:
+        params: {enabled: true, friendlyName: Kitchen camera}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#configure-the-mdns-sd-service-on-the-axis-device
+    - title: Missing parameter(s)
+      request:
+        params: {enabled: true, friendlyName: Kitchen camera}
+      response:
+        error: {code: 4003, message: Missing parameter(s)}
+      source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#configure-the-mdns-sd-service-on-the-axis-device
+    - title: Invalid parameter(s) with subCode
+      request:
+        params: {enabled: true, friendlyName: Kitchen camera}
+      response:
+        error: {code: 4004, message: Invalid parameter(s)}
+      source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#configure-the-mdns-sd-service-on-the-axis-device
+  discover:
+    summary: Discover devices on the network exposing the specified mDNS-SD services; returns after the timeout.
+    effect: unknown
+    since: '1.1'
+    binding: {method: discover}
+    params:
+      type: object
+      required: [services, timeout]
+      properties:
+        services:
+          type: array
+          items: {type: string}
+          description: The list of services, wherein at least one must be in the DNS SRV record format.
+        timeout:
+          type: integer
+          minimum: 1
+          maximum: 15
+          description: The timeout for the discover services procedure that must be between 1–15 seconds. (unit=seconds)
+    result:
+      type: object
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/DiscoveredDevice'}
+    examples:
+    - title: Discover devices exposing video services
+      request:
+        params: {services: [_axis-video._tcp], timeout: 5}
+      response:
+        data:
+          devices:
+          - friendlyName: device-1
+            hostname: axis-abc
+            interface: eth0
+            ipv4Addresses: [192.168.0.91, 160.254.0.1]
+            ipv6Addresses: []
+            services:
+            - {name: _axis-video._tcp, port: 80, txt: 'macaddress:abcdefghijk'}
+          - friendlyName: device-2
+            hostname: axis-abd
+            interface: eth0
+            ipv4Addresses: [192.168.0.92, 160.254.0.2]
+            ipv6Addresses: []
+            services:
+            - {name: _axis-video._tcp, port: 80, txt: 'macaddress:abcdefghijl'}
+      source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#discover-devices-and-their-services-on-the-network
+    - title: Discover (error)
+      request:
+        params: {services: [_axis-video._tcp], timeout: 5}
+      response:
+        error: {code: 1000, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/mdns-sd-api/#discover-devices-and-their-services-on-the-network
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/mdns-sd-api/
+  sha256_md: b93b9e1de6594e6dea8633b50066208601fbb8131ac890e3e039a9d66f4909fd
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Service types written as "_axis_video.txp" and "_axis_nvr.tcp" in text but "_axis-video._tcp" in the example
+    (doc typo).
+  - Version where discover was introduced is not stated (examples use 1.1).
+  - getMdnssdInfo error table says method "was created" (wording).
+  - AXIS OS minimum not stated.
+  - discover response syntax contains a trailing comma in ipv6Addresses ([<string>,]) — doc typo.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_mdnssd_configuration=write/patch'
+  - 'migration: effect-unknown: effect could not be inferred from the method name: discover'
+  migrated_from: v1
+  curated: false

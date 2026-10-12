@@ -1,0 +1,250 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: data-transformation-config
+name: Data transformation API
+summary: The Data transformation API provides configuration and runtime status for transforming JSON data in Device
+  Data Hub topics using JSON Query (JQ) expressions.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: data_transformation
+  class: DataTransformation
+docs:
+- https://developer.axis.com/vapix/device-configuration/data-transformation/
+access: admin
+discovery:
+- dca: {api: data-transformation, version: v1}
+
+binding: {root: /config/rest/data-transformation/v1}
+
+types:
+  JqExpression:
+    type: string
+    minLength: 1
+    maxLength: 20480
+    description: The jq program used to transform the input to output format
+  Statistics:
+    type: object
+    description: Runtime statistics for a transform. Resets when the transform is modified or device is restarted.
+    properties:
+      avgMsgProcessingTimeNs: {type: integer, description: Average processing time over the last 30 messages}
+      avgMsgsPerSec:
+        type: number
+        description: Average number of input messages per second over the last 30 messages
+      byteInCount: {type: integer, description: Total number of bytes received}
+      byteOutCount: {type: integer, description: Total number of bytes sent after jq processing}
+      jqTransformationErrCount: {type: integer, description: Number of jq transformation errors}
+      lastErrMsg: {type: string, description: Last error message when failing to transform or send a message}
+      maxMsgProcessingTimeNs: {type: integer, description: Maximum processing time over the last 30 messages}
+      msgDroppedCount: {type: integer, description: Number of dropped messages}
+      msgInCount: {type: integer, description: Total number of input messages}
+      msgOutCount: {type: integer, description: Total number of output messages (errors don't count)}
+      publishErrCount:
+        type: integer
+        description: Number of failed Device Data Hub publications (for example, a missing key field)
+  Topic:
+    type: string
+    minLength: 1
+    maxLength: 128
+    pattern: ^([a-zA-Z0-9_-]+)(\.[a-zA-Z0-9_-]+)*$
+    description: Topic
+  TopicInfo:
+    type: object
+    description: Info about a Device Data Hub topic
+    properties:
+      description: {type: string, description: Topic description}
+      keys: {$ref: '#/types/TopicKeys', description: Topic keys}
+      topicName: {$ref: '#/types/Topic', description: Topic}
+      version: {type: string, description: Topic version}
+  TopicKeys:
+    type: array
+    items: {type: string}
+    description: Topic key paths
+  TopicList:
+    type: array
+    items: {$ref: '#/types/TopicInfo'}
+    description: Information about topics
+  Version:
+    type: string
+    minLength: 1
+    maxLength: 32
+    pattern: ^\d+\.\d+(\.\d+)?(\-(alpha|beta)\.\d+)?$
+    description: Device Data Hub Topic Version
+  DataTransformation:
+    type: object
+    description: The whole API tree.
+    properties:
+      availableTopics: {$ref: '#/types/AvailableTopics'}
+      transforms:
+        type: array
+        items: {$ref: '#/types/Transform'}
+  AvailableTopics:
+    type: object
+    description: Topics that can be used as an input.
+    properties:
+      topics: {$ref: '#/types/TopicList', description: Topics that can be used as an input.}
+  Transform:
+    type: object
+    description: The set of all transformations configured by the system.
+    required: [outputTopic]
+    x-read-only: [statistics]
+    properties:
+      inputTopic: {$ref: '#/types/Topic', description: The input topic.}
+      jqExpression:
+        $ref: '#/types/JqExpression'
+        description: The jq program used to transform the input to another output format.
+      outputTopic: {$ref: '#/types/Topic', description: The output topic.}
+      outputTopicDescription: {type: string, description: Output topic description.}
+      outputTopicVersion: {$ref: '#/types/Version', description: Output topic version.}
+      statistics: {$ref: '#/types/Statistics', description: Runtime statistics for the transform.}
+  UpdateTransformRequest:
+    type: object
+    description: Arguments of ``update_transform``.
+    required: [outputTopic]
+    properties:
+      outputTopic: {$ref: '#/types/Topic'}
+      inputTopic: {$ref: '#/types/Topic', description: The input topic.}
+      jqExpression:
+        $ref: '#/types/JqExpression'
+        description: The jq program used to transform the input to another output format.
+      outputTopicDescription: {type: string, description: Output topic description.}
+      outputTopicVersion: {$ref: '#/types/Version', description: Output topic version.}
+  AddTransformRequest:
+    type: object
+    description: Arguments of ``add_transform``.
+    required: [inputTopic, jqExpression, outputTopic]
+    properties:
+      inputTopic: {$ref: '#/types/Topic', description: The input topic.}
+      jqExpression:
+        $ref: '#/types/JqExpression'
+        description: The jq program used to transform the input to another output format.
+      outputTopic: {$ref: '#/types/Topic', description: The output topic.}
+      outputTopicDescription: {type: string, description: Output topic description.}
+      outputTopicVersion: {$ref: '#/types/Version', description: Output topic version.}
+
+operations:
+  get_all:
+    summary: All data of the Data transformation API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/DataTransformation'}
+  get_available_topics:
+    summary: Get the available topic settings.
+    effect: read
+    binding: {method: GET, path: /availableTopics}
+    result: {$ref: '#/types/AvailableTopics'}
+  list_transforms:
+    summary: List the transforms.
+    effect: read
+    binding: {method: GET, path: /transforms}
+    result:
+      type: array
+      items: {$ref: '#/types/Transform'}
+  get_transform:
+    summary: Get one transform.
+    effect: read
+    binding: {method: GET, path: '/transforms/{outputTopic}'}
+    params:
+      type: object
+      x-name: TransformOutputTopicRequest
+      required: [outputTopic]
+      properties:
+        outputTopic: {$ref: '#/types/Topic'}
+    result: {$ref: '#/types/Transform'}
+  update_transform:
+    summary: Update a transform.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/transforms/{outputTopic}', body: object}
+    params: {$ref: '#/types/UpdateTransformRequest'}
+  add_transform:
+    summary: Add a transform.
+    effect: write
+    write: create
+    binding: {method: POST, path: /transforms, body: object}
+    params: {$ref: '#/types/AddTransformRequest'}
+  remove_transform:
+    summary: Remove a transform.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/transforms/{outputTopic}'}
+    params:
+      type: object
+      x-name: TransformOutputTopicRequest
+      required: [outputTopic]
+      properties:
+        outputTopic: {$ref: '#/types/Topic'}
+  set_transform_input_topic:
+    summary: Set the input topic of a transform.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /transforms/{outputTopic}/inputTopic
+      body_field: inputTopic
+      body: value
+    params:
+      type: object
+      required: [outputTopic, inputTopic]
+      properties:
+        outputTopic: {$ref: '#/types/Topic'}
+        inputTopic: {$ref: '#/types/Topic', description: The input topic.}
+  set_transform_jq_expression:
+    summary: Set the jq expression of a transform.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /transforms/{outputTopic}/jqExpression
+      body_field: jqExpression
+      body: value
+    params:
+      type: object
+      required: [outputTopic, jqExpression]
+      properties:
+        outputTopic: {$ref: '#/types/Topic'}
+        jqExpression:
+          $ref: '#/types/JqExpression'
+          description: The jq program used to transform the input to another output format.
+  set_transform_output_topic_description:
+    summary: Set the output topic description of a transform.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /transforms/{outputTopic}/outputTopicDescription
+      body_field: outputTopicDescription
+      body: value
+    params:
+      type: object
+      required: [outputTopic, outputTopicDescription]
+      properties:
+        outputTopic: {$ref: '#/types/Topic'}
+        outputTopicDescription: {type: string, description: Output topic description.}
+  set_transform_output_topic_version:
+    summary: Set the output topic version of a transform.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /transforms/{outputTopic}/outputTopicVersion
+      body_field: outputTopicVersion
+      body: value
+    params:
+      type: object
+      required: [outputTopic, outputTopicVersion]
+      properties:
+        outputTopic: {$ref: '#/types/Topic'}
+        outputTopicVersion: {$ref: '#/types/Version', description: Output topic version.}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/data-transformation/
+  sha256_md: 7c39c56a8e3a6428a37de294a3a49dd0520fcfd6d6c6746d1e99cdda6ffed196
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 7 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

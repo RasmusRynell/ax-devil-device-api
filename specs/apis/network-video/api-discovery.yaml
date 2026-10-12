@@ -1,0 +1,140 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: api-discovery
+name: API Discovery service
+summary: Retrieve information about the public APIs (id, version, status, doc link, name) supported on the device.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: api_discovery
+  class: ApiDiscovery
+docs:
+- https://developer.axis.com/vapix/network-video/api-discovery-service/
+access: anonymous
+discovery:
+- param: {name: Properties.ApiDiscovery.ApiDiscovery, value: '"yes"'}
+- {api_discovery: api-discovery}
+requires:
+  firmware: '8.50'
+
+binding:
+  path: /axis-cgi/apidiscovery.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Invalid parameter value specified., kind: invalid_argument}
+  2002: {description: HTTP request type not supported. Only POST is supported., kind: unsupported}
+  2003: {description: The requested API version is not supported., kind: unsupported}
+  2004: {description: This method is not supported., kind: unsupported}
+  4000: {description: Invalid JSON format., kind: invalid_argument}
+  4002: {description: Required parameter missing or invalid., kind: invalid_argument}
+  8000: {description: Internal error. Refer to message field or logs., kind: internal}
+
+types:
+  ApiEntry:
+    type: object
+    properties:
+      id: {type: string, description: 'The API id, that together with the version forms an unique id.'}
+      version: {type: string, description: The current API version.}
+      status:
+        type: string
+        enum: [released, alpha, beta, deprecated]
+        description: The API status.
+      docLink: {type: string, description: HTTP link to documentation.}
+      name: {type: string, description: The name of the API.}
+
+operations:
+  get_api_list:
+    summary: Retrieve all public APIs that are supported by the device, optionally filtered by id and/or version.
+    effect: read
+    binding: {method: getApiList}
+    params:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Za-z0-9_*?-]+$
+          default: '*'
+          description: Provides the API id, that together with version forms a unique id. Supports globing. If omitted,
+            the id filter defaults to no filtering (same as GLOB pattern *).
+        version:
+          type: string
+          pattern: ^[A-Za-z0-9_.*?-]+$
+          default: '*'
+          description: Provides the API version. Supports globing. If omitted, defaults to no filtering (same as
+            GLOB pattern *). If both params.id and params.version are omitted, params need not be provided.
+    result:
+      type: object
+      properties:
+        apiList:
+          type: array
+          items: {$ref: '#/types/ApiEntry'}
+    examples:
+    - title: Get all APIs (no params)
+      request:
+        params: {}
+      response:
+        data:
+          apiList:
+          - id: api-discovery
+            version: '1.0'
+            status: released
+            docLink: link to doc
+            name: API name as described in the VAPIX documentation.
+          - id: api-discovery
+            version: '2.0'
+            status: released
+            docLink: link to doc
+            name: API name as described in the VAPIX documentation.
+          - id: basic-device-info
+            version: '1.2'
+            status: released
+            docLink: link to doc
+            name: API name as described in the VAPIX documentation.
+      source: https://developer.axis.com/vapix/network-video/api-discovery-service/#get-all-apis
+    - title: Get a subset of APIs (version glob)
+      request:
+        params: {id: api-discovery, version: '*'}
+      response:
+        data:
+          apiList:
+          - id: api-discovery
+            version: '1.0'
+            status: released
+            docLink: link to doc
+            name: API name as described in the VAPIX documentation
+          - id: api-discovery
+            version: '2.0'
+            status: released
+            docLink: link to doc
+            name: API name as described in the VAPIX documentation
+      source: https://developer.axis.com/vapix/network-video/api-discovery-service/#get-a-subset-of-apis
+    - title: Unsupported API id returns empty list
+      request:
+        params: {id: api_unsupported_on_this_device}
+      response:
+        data:
+          apiList: []
+      source: https://developer.axis.com/vapix/network-video/api-discovery-service/#handle-errors
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/api-discovery-service/
+  sha256_md: 5a6793224216f82b399202ca56d98eab5676972bbd32402a5e93b039be1335c2
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - params.version description says 'If this parameter is omitted, the API id filter defaults to no filtering' —
+    likely means the version filter (copy/paste).
+  - The 'Get API information' curl example passes --user although no authentication is required (except AXIS OS
+    9.80/10.12); the exact error returned on 9.80/10.12 without auth is not documented.
+  - Example responses list api-discovery version 2.0, but the only apiVersion shown in examples/getSupportedVersions
+    is 1.0; no 2.0 method differences are documented.
+  migrated_from: v1
+  curated: false

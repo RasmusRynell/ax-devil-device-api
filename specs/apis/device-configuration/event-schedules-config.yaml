@@ -1,0 +1,155 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: event-schedules-config
+name: Event schedules API
+summary: The Event schedules API is used to manage scheduled events sent by the event system according to certain
+  schedules.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: event_schedules
+  class: EventSchedules
+docs:
+- https://developer.axis.com/vapix/device-configuration/event-schedules-api/
+access: admin
+discovery:
+- dca: {api: event-schedules, version: v2}
+
+binding: {root: /config/rest/event-schedules/v2}
+
+types:
+  ScheduleVariant: {type: string, enum: [PULSE, INTERVAL], description: Type of schedule}
+  EventSchedules:
+    type: object
+    description: The whole API tree.
+    properties:
+      schedules:
+        type: array
+        items: {$ref: '#/types/Schedule'}
+  Schedule:
+    type: object
+    description: Schedules
+    required: [id]
+    x-read-only: [scheduleType]
+    properties:
+      id:
+        type: string
+        description: Unique identifier for a schedule. Automatically generated if not provided during add.
+      name: {type: string, description: Well-known name of the schedule.}
+      schedule: {type: string, description: 'Schedule definition, based on the iCalendar format.'}
+      scheduleType:
+        $ref: '#/types/ScheduleVariant'
+        description: Type of schedule, either 'Pulse' or 'Interval'.
+  UpdateScheduleRequest:
+    type: object
+    description: Arguments of ``update_schedule``.
+    required: [id]
+    properties:
+      id:
+        type: string
+        description: Unique identifier for a schedule. Automatically generated if not provided during add.
+      name: {type: string, description: Well-known name of the schedule.}
+      schedule: {type: string, description: 'Schedule definition, based on the iCalendar format.'}
+      scheduleType:
+        $ref: '#/types/ScheduleVariant'
+        description: Type of schedule, either 'Pulse' or 'Interval'.
+  AddScheduleRequest:
+    type: object
+    description: Arguments of ``add_schedule``.
+    required: [name, schedule]
+    properties:
+      name: {type: string, description: Well-known name of the schedule.}
+      schedule: {type: string, description: 'Schedule definition, based on the iCalendar format.'}
+      id:
+        type: string
+        description: Unique identifier for a schedule. Automatically generated if not provided during add.
+
+operations:
+  get_all:
+    summary: All data of the Event schedules API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/EventSchedules'}
+  list_schedules:
+    summary: List the schedules.
+    effect: read
+    binding: {method: GET, path: /schedules}
+    result:
+      type: array
+      items: {$ref: '#/types/Schedule'}
+  get_schedule:
+    summary: Get one schedule.
+    effect: read
+    binding: {method: GET, path: '/schedules/{id}'}
+    params:
+      type: object
+      x-name: ScheduleIdRequest
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+    result: {$ref: '#/types/Schedule'}
+  update_schedule:
+    summary: Update a schedule.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/schedules/{id}', body: object}
+    params: {$ref: '#/types/UpdateScheduleRequest'}
+  add_schedule:
+    summary: Add a schedule.
+    effect: write
+    write: create
+    binding: {method: POST, path: /schedules, body: object}
+    params: {$ref: '#/types/AddScheduleRequest'}
+  remove_schedule:
+    summary: Remove a schedule.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/schedules/{id}'}
+    params:
+      type: object
+      x-name: ScheduleIdRequest
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+  set_schedule_name:
+    summary: Set the name of a schedule.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/schedules/{id}/name', body_field: name, body: value}
+    params:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+        name: {type: string, description: Well-known name of the schedule.}
+  set_schedule_schedule:
+    summary: Set the schedule of a schedule.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/schedules/{id}/schedule', body_field: schedule, body: value}
+    params:
+      type: object
+      required: [id, schedule]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for a schedule. Automatically generated if not provided during add.
+        schedule: {type: string, description: 'Schedule definition, based on the iCalendar format.'}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
+  sha256_md: 70b3d382d5f119f7dcbb25164a9003d80fa53cfc5ada3e2e49030d3a63b9dab2
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 4 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,132 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: coordinate-conversion-config
+name: Coordinate conversion API
+summary: The VAPIX® Coordinate conversion API is used to query which coordinate spaces that a product has knowledge
+  of, and to convert points located in one coordinate...
+section: device-configuration
+family: dca
+status: released
+python:
+  module: coordinate_conversion
+  class: CoordinateConversion
+docs:
+- https://developer.axis.com/vapix/device-configuration/coordinate-conversion-api/
+access: admin
+discovery:
+- dca: {api: coordinate-conversion, version: v1}
+
+binding: {root: /config/rest/coordinate-conversion/v1}
+
+types:
+  ConvertRequest:
+    type: object
+    description: Request object for the `convert` action.
+    properties:
+      destination:
+        $ref: '#/types/CoordinateSpaceAndSystem'
+        description: The destination coordinate space and system.
+      points:
+        $ref: '#/types/PointList'
+        description: The list of points to convert to the destination space and system.
+  ConvertResponse:
+    type: object
+    description: Response object for the `convert` action.
+    properties:
+      points:
+        $ref: '#/types/OutputPointList'
+        description: The list of output points from a conversion request. Points which could not be converted are
+          represented as an empty list.
+  CoordinateSpaceAndSystem:
+    type: string
+    description: A string identifying a coordinate system defined inside a single instance of a coordinate space.
+  OutputPointList:
+    type: array
+    items: {$ref: '#/types/PointList'}
+    description: A list of output points that have been converted.
+  Point:
+    type: array
+    items: {type: number}
+    description: Denotes a point with real coordinates in a coordinate space. The interpretation of the individual
+      coordinate values of this point is dependent on the coordinate system used in that space. (maxItems=12)
+  PointList:
+    type: array
+    items: {$ref: '#/types/Point'}
+    description: A list of points. (maxItems=1000)
+  CoordinateSpaceAndSystem2: {}
+  CoordinateConversion:
+    type: object
+    description: The whole API tree.
+    properties:
+      spaces:
+        type: array
+        items: {$ref: '#/types/Space'}
+  Space:
+    type: object
+    description: The collection of supported coordinate spaces.
+    required: [name]
+    properties:
+      name: {type: string, description: The name of this coordinate space.}
+
+operations:
+  get_all:
+    summary: All data of the Coordinate conversion API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/CoordinateConversion'}
+  list_spaces:
+    summary: List the spaces.
+    effect: read
+    binding: {method: GET, path: /spaces}
+    result:
+      type: array
+      items: {$ref: '#/types/Space'}
+  get_space:
+    summary: Get one space.
+    effect: read
+    binding: {method: GET, path: '/spaces/{name}'}
+    params:
+      type: object
+      x-name: SpaceNameRequest
+      required: [name]
+      properties:
+        name: {type: string, description: The name of this coordinate space.}
+    result: {$ref: '#/types/Space'}
+  convert:
+    summary: Convert a set of points from this coordinate space to another.
+    access: viewer
+    effect: action
+    binding: {method: POST, path: '/spaces/{name}/convert', body: object}
+    params:
+      type: object
+      x-name: ConvertRequestArgs
+      required: [name]
+      properties:
+        name: {type: string, description: The name of this coordinate space.}
+        destination:
+          $ref: '#/types/CoordinateSpaceAndSystem'
+          description: The destination coordinate space and system.
+        points:
+          $ref: '#/types/PointList'
+          description: The list of points to convert to the destination space and system.
+    result: {$ref: '#/types/ConvertResponse'}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/coordinate-conversion-api/
+  sha256_md: 34263a62d76b65b46274032dbbafa4e6bece3b80ed0effcbcb23f0f253409f3a
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Example ''Get the list of supported coordinate spaces'' uses GET /config/rest/coordinate-conversion-api/v1/spaces,
+    which does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/coordinate-conversion-api/'
+  - 'Example ''Convert a set of points between coordinate spaces'' uses POST /config/rest/coordinate-conversion-api/v1/spaces/cameraImage@1/convert,
+    which does not map to an operation documented in the API definition section (not attached). Source: https://developer.axis.com/vapix/device-configuration/coordinate-conversion-api/'
+  - 'Base path conflict: root entity coordinate-conversion.v1 implies /config/rest/coordinate-conversion/v1, while
+    all examples use /config/rest/coordinate-conversion-api/v1. Verify on a device (/config/discover/apis). Source:
+    https://developer.axis.com/vapix/device-configuration/coordinate-conversion-api/'
+  - 'migration: dropped-property-gets: 1 per-property GET operations dropped'
+  - 'migration: dropped-keywords: x-notes x1'
+  migrated_from: v1
+  curated: false

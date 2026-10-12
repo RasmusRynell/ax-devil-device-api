@@ -1,0 +1,132 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: network-radar-pairing
+name: Network Radar Pairing
+summary: Pair a camera with a network-connected Axis radar so it appears as a built-in radar sensor (set/get connection,
+  activate, clear).
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: network_radar_pairing
+  class: NetworkRadarPairing
+docs:
+- https://developer.axis.com/vapix/radar/network-radar-pairing/
+access: admin
+discovery:
+- {api_discovery: network-radar-pairing}
+
+binding:
+  path: /networkradarpairing.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed.}
+  2107:
+    description: Transport level error (HTTP 405 Method not allowed, 411 Length required, 413 Payload too large).
+    kind: invalid_argument
+  2200: {description: Configuration cannot be changed or removed while enabled.}
+  2201: {description: Missing configuration., kind: invalid_argument}
+  2202: {description: Usability test of the configuration failed.}
+
+types:
+  ConnectionState:
+    type: string
+    enum:
+    - failed
+    - address-failed
+    - connect-failed
+    - authentication-failed
+    - transfer-failed
+    - not-configured
+    - not-active
+    - ok
+    description: 'failed: catch all failure statuses; address-failed: address resolution failed; connect-failed:
+      connecting to the radar device failed; authentication-failed: authentication to the radar device failed; transfer-failed...'
+  RadarConnection:
+    type: object
+    properties:
+      address: {type: string, description: The IP address.}
+      user: {type: string, description: The user name.}
+      state: {$ref: '#/types/ConnectionState'}
+
+operations:
+  get_radar_connection:
+    summary: Retrieve the network radar pairing configuration and all of its setting information.
+    effect: read
+    binding: {method: getRadarConnection}
+    result: {$ref: '#/types/RadarConnection'}
+  set_radar_connection:
+    summary: Set the network radar pairing configuration (radar address and credentials).
+    effect: write
+    write: patch
+    binding: {method: setRadarConnection}
+    params:
+      type: object
+      required: [address, user, password]
+      properties:
+        address: {type: string, description: The IP address.}
+        user: {type: string, description: The user name.}
+        password:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The remote radar account password.
+        tls-certificate-cn:
+          type: string
+          description: The common name for which the remote radar's certificate is issued.
+        state:
+          type: string
+          description: Present in the request example ('ok') but not in the request parameter table.
+  clear_configuration:
+    summary: Clear all stored configurations from the network radar pairing.
+    effect: write
+    write: delete
+    binding: {method: clearConfiguration}
+  get_active:
+    summary: Retrieve the activation state of the network radar pairing.
+    effect: read
+    binding: {method: getActive}
+    result:
+      type: object
+      properties:
+        active: {type: boolean}
+  set_active:
+    summary: Activate (or deactivate) an already configured network radar pairing.
+    effect: write
+    write: patch
+    binding: {method: setActive}
+    params:
+      type: object
+      required: [active]
+      properties:
+        active: {type: boolean}
+
+sources:
+- url: https://developer.axis.com/vapix/radar/network-radar-pairing/
+  sha256_md: c42dbbf50174baabdccaa47844f540dcfca9ebe6643ae4aaef736c7dc4f0c21d
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Endpoint documented as '/networkradarpairing.cgi#<method>'; real CGI path (likely under /axis-cgi/) not stated.
+    https://developer.axis.com/vapix/radar/network-radar-pairing/#api-specifications
+  - setRadarConnection example includes 'state' but the parameter table does not list it.
+  - Per-method mapping of errors 2200-2202 is inferred from method descriptions, not stated per method; access level
+    not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_radar_connection=write/patch,
+    clear_configuration=write/delete, set_active=write/patch'
+  migrated_from: v1
+  curated: false

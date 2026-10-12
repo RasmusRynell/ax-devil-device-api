@@ -1,0 +1,324 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: time-config
+name: Time API
+summary: The VAPIX® Time API enables the configuration and management of time, date and time zone information on
+  your Axis device.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: time
+  class: Time
+docs:
+- https://developer.axis.com/vapix/device-configuration/time-api/
+access: admin
+discovery:
+- dca: {api: time, version: v2}
+
+binding: {root: /config/rest/time/v2}
+
+types:
+  TimeZoneEntry:
+    type: object
+    description: An object containing time zone information.
+    properties:
+      timeZone: {type: string, description: The time zone string.}
+  TimeZonesArray:
+    type: array
+    items: {$ref: '#/types/TimeZoneEntry'}
+    description: An array containing objects of time zone entries.
+  Time:
+    type: object
+    description: The whole API tree.
+    properties:
+      time: {$ref: '#/types/TimeTime'}
+      timeZone: {$ref: '#/types/TimeZone'}
+  TimeTime:
+    type: object
+    description: Handle date and time configuration.
+    x-read-only: [localDateTime, maxSupportedYear]
+    properties:
+      dateTime:
+        type: string
+        description: The system date and time in UTC. The format is in ISO 8601. The date should be between Unix
+          time (`UTC 1970-01-01T00:00:00`) and the last second of the year declared in `maxSupportedYear`.
+      localDateTime: {type: string, description: The local date and time. The format is in ISO 8601.}
+      maxSupportedYear: {type: integer, description: Latest year that the date can be set to.}
+  TimeZone:
+    type: object
+    description: Handle all settings related to time zones.
+    properties:
+      activeTimeZone: {type: string, description: The currently active system time zone.}
+      dhcp: {$ref: '#/types/Dhcp'}
+      iana: {$ref: '#/types/Iana'}
+      posix: {$ref: '#/types/Posix'}
+  Dhcp:
+    type: object
+    description: Handle DHCP time zone configuration.
+    x-nullable: [timeZone]
+    x-read-only: [timeZone]
+    properties:
+      enabled:
+        type: boolean
+        description: Flag which enables the device to use DHCP time zone from the network.
+      timeZone:
+        type: string
+        description: The DHCP time zone supplied by the network. Can be in either the IANA or POSIX format. Is set
+          to `null` if the DHCP time zone isn't available.
+  Iana:
+    type: object
+    description: Handle IANA time zone configuration.
+    x-nullable: [posixTimeZone, timeZone]
+    x-read-only: [posixTimeZone]
+    properties:
+      posixTimeZone:
+        type: string
+        description: The time zone in POSIX format corresponding to the time of the last transition.
+      timeZone:
+        type: string
+        description: The system time zone in the IANA format. Example `Europe/Prague`. If set to a valid value,
+          `dhcp.enabled` will be set to `false` and `posix.timeZone` will be set to `null`.
+  Posix:
+    type: object
+    description: Handle POSIX time zone configuration.
+    x-nullable: [timeZone]
+    properties:
+      dstEnabled: {type: boolean, description: The DST flag for controlling the POSIX time zone string.}
+      timeZone:
+        type: string
+        description: The system time zone in the POSIX format. Example `EST5EDT,M3.2.0,M11.1.0`. If set to a valid
+          value, `dhcp.enabled` will be set to `false` and `iana.timeZone` will be set to `null`.
+  UpdatePosixRequest:
+    type: object
+    description: Arguments of ``update_posix``.
+    properties:
+      dstEnabled: {type: boolean, description: The DST flag for controlling the POSIX time zone string.}
+      timeZone:
+        type: string
+        description: The system time zone in the POSIX format. Example `EST5EDT,M3.2.0,M11.1.0`. If set to a valid
+          value, `dhcp.enabled` will be set to `false` and `iana.timeZone` will be set to `null`.
+
+operations:
+  get_all:
+    summary: All data of the Time API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Time'}
+    examples:
+    - title: Get all settings
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            time:
+              dateTime: '2024-07-04T15:16:05Z'
+              localDateTime: '2024-07-04T17:16:05+02:00'
+              maxSupportedYear: 2069
+            timeZone:
+              activeTimeZone: Europe/Stockholm
+              dhcp: {enabled: false, timeZone: null}
+              iana: {posixTimeZone: 'CET-1CEST,M3.5.0,M10.5.0/3', timeZone: Europe/Stockholm}
+              posix: {dstEnabled: true, timeZone: null}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  get_time:
+    summary: Get the time settings.
+    effect: read
+    binding: {method: GET, path: /time}
+    result: {$ref: '#/types/TimeTime'}
+    examples:
+    - title: Get all time settings
+      request: {path: /time}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            time:
+              dateTime: '2024-07-04T15:16:05Z'
+              localDateTime: '2024-07-04T17:16:05+02:00'
+              maxSupportedYear: 2069
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  set_time_date_time:
+    summary: Set the date time of the time.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /time/dateTime, body_field: dateTime, body: value}
+    params:
+      type: object
+      required: [dateTime]
+      properties:
+        dateTime:
+          type: string
+          description: The system date and time in UTC. The format is in ISO 8601. The date should be between Unix
+            time (`UTC 1970-01-01T00:00:00`) and the last second of the year declared in `maxSupportedYear`.
+    examples:
+    - title: Set time and date
+      request:
+        path: /time/dateTime
+        body: {data: '1995-11-07T12:00:00Z'}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  get_time_zone:
+    summary: Get the time zone settings.
+    effect: read
+    binding: {method: GET, path: /timeZone}
+    result: {$ref: '#/types/TimeZone'}
+    examples:
+    - title: Get all time zone settings
+      request: {path: /timeZone}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            timeZone:
+              activeTimeZone: Europe/Stockholm
+              dhcp: {enabled: false, timeZone: null}
+              iana: {posixTimeZone: 'CET-1CEST,M3.5.0,M10.5.0/3', timeZone: Europe/Stockholm}
+              posix: {dstEnabled: true, timeZone: null}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  get_dhcp:
+    summary: Get the dhcp settings.
+    effect: read
+    binding: {method: GET, path: /timeZone/dhcp}
+    result: {$ref: '#/types/Dhcp'}
+  set_dhcp_enabled:
+    summary: Set the enabled of the dhcp.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /timeZone/dhcp/enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: Flag which enables the device to use DHCP time zone from the network.
+    examples:
+    - title: Set the DHCP time zone
+      request:
+        path: /timeZone/dhcp/enabled
+        body: {data: true}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  get_iana:
+    summary: Get the iana settings.
+    effect: read
+    binding: {method: GET, path: /timeZone/iana}
+    result: {$ref: '#/types/Iana'}
+  set_iana_time_zone:
+    summary: Set the time zone of the iana.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /timeZone/iana/timeZone, body_field: timeZone, body: value}
+    params:
+      type: object
+      required: [timeZone]
+      properties:
+        timeZone:
+          type: string
+          description: The system time zone in the IANA format. Example `Europe/Prague`. If set to a valid value,
+            `dhcp.enabled` will be set to `false` and `posix.timeZone` will be set to `null`.
+    examples:
+    - title: Set the IANA time zone
+      request:
+        path: /timeZone/iana/timeZone
+        body: {data: Europe/Copenhagen}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  get_time_zone_list:
+    summary: List of all time zones on the device
+    effect: action
+    binding: {method: POST, path: /timeZone/iana/getTimeZoneList, body_field: data, body: value}
+    params:
+      type: object
+      required: [data]
+      properties:
+        data: {description: Action input (Empty Object).}
+    result: {$ref: '#/types/TimeZonesArray'}
+    examples:
+    - title: Set the IANA time zone
+      request:
+        path: /timeZone/iana/getTimeZoneList
+        body:
+          data: {}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {timeZone: Europe/Copenhagen}
+          - {timeZone: Europe/Prague}
+          - {timeZone: '...'}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  get_posix:
+    summary: Get the posix settings.
+    effect: read
+    binding: {method: GET, path: /timeZone/posix}
+    result: {$ref: '#/types/Posix'}
+  update_posix:
+    summary: Update the posix settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /timeZone/posix, body: object}
+    params: {$ref: '#/types/UpdatePosixRequest'}
+    examples:
+    - title: Set the POSIX time zone
+      request:
+        path: /timeZone/posix
+        body:
+          data: {timeZone: 'CET-1CEST,M3.5.0,M10.5.0/3', dstEnabled: false}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/time-api/
+  set_posix_dst_enabled:
+    summary: Set the dst enabled of the posix.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /timeZone/posix/dstEnabled
+      body_field: dstEnabled
+      body: value
+    params:
+      type: object
+      required: [dstEnabled]
+      properties:
+        dstEnabled: {type: boolean, description: The DST flag for controlling the POSIX time zone string.}
+  set_posix_time_zone:
+    summary: Set the time zone of the posix.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /timeZone/posix/timeZone, body_field: timeZone, body: value}
+    params:
+      type: object
+      required: [timeZone]
+      properties:
+        timeZone:
+          type: string
+          description: The system time zone in the POSIX format. Example `EST5EDT,M3.2.0,M11.1.0`. If set to a valid
+            value, `dhcp.enabled` will be set to `false` and `iana.timeZone` will be set to `null`.
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/time-api/
+  sha256_md: 63d8cbf61b4aa02cde66f9b569fc862e2380ba0f54a2ab36eca5bdf33e265df8
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'migration: dropped-property-gets: 10 per-property GET operations dropped'
+  - 'migration: action-input-unresolved: action input type not defined in the source; passed as a raw value in `data`:
+    get_time_zone_list'
+  migrated_from: v1
+  curated: false

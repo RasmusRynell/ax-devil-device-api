@@ -1,0 +1,319 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: radar-image
+name: Radar image
+summary: Configure the radar virtual video stream (background/reference map, grid, echoes, tracks, trails) and calibrate
+  a reference map against radar data.
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: radar_image
+  class: RadarImage
+docs:
+- https://developer.axis.com/vapix/radar/radar-image/
+access: operator
+discovery:
+- param: {name: Properties.Radar.Radar, value: 'yes'}
+- param: {name: Properties.AddOnFramework.AddOnFramework, value: 'yes'}
+requires:
+  firmware: '7.10'
+  application: axis-rmd (listed as active by getInfo in /axis-cgi/packagemanager.cgi)
+
+binding:
+  path: /axis-cgi/radar/radarimage.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: value}
+  params_placement: params
+
+errors:
+  1000: {description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument}
+  2000: {description: RESOURCE_MEM_ERROR. Failed to allocate memory.}
+  3000:
+    description: UNSUPPORTED_API_VERSION. The requested API version is not supported.
+    kind: unsupported
+  3001:
+    description: CGI_INVALID_PARAM_ERROR. A CGI parameter is missing or invalid.
+    kind: invalid_argument
+  3002: {description: CGI_NOT_FOUND. The cgi name was not found., kind: not_found}
+  4000:
+    description: JSON_INVALID_ERROR. The provided JSON input was invalid.
+    kind: invalid_argument
+  4001:
+    description: JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input.
+    kind: not_found
+  4002:
+    description: JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect.
+    kind: invalid_argument
+  4003: {description: JSON_METHOD_NOT_FOUND_ERROR. The JSON method was not found., kind: not_found}
+  4004: {description: JSON_FAIL_TO_LOAD_ERROR. Failed to load JSON from HTTP POST data.}
+  6000:
+    description: CALIB_INVALID_STATE_ERROR. Can not perform command in current calibration state.
+    kind: invalid_argument
+  8000: {description: INTERNAL_ERROR. Internal error., kind: internal}
+  8001: {description: UNEXPECTED_ERROR. Unexpected error., kind: internal}
+  8002: {description: GENERIC_ERROR. Generic error.}
+
+operations:
+  start_calibration_tracking:
+    summary: Start or restart the reference map calibration by tracking the installer (user) moving away from the
+      radar within its field of view.
+    effect: action
+    binding: {method: startCalibrationTracking}
+  set_calibration_point:
+    summary: Use the supplied reference-map coordinates and the current position of the tracked object as a calibration
+      point.
+    effect: write
+    write: patch
+    binding: {method: setCalibrationPoint}
+    params:
+      type: object
+      required: [x_pos, y_pos]
+      properties:
+        x_pos:
+          type: number
+          minimum: -1
+          maximum: 1
+          description: The x coordinate for the calibration point normalized between -1 and 1.
+        y_pos:
+          type: number
+          minimum: -1
+          maximum: 1
+          description: The y coordinate for the calibration point normalized between -1 and 1.
+    errors:
+      6001:
+        description: CALIB_OUT_OF_RANGE_ERROR. The tracked object walked out of range so tracking is lost and calibration
+          need to be restarted.
+      6003:
+        description: CALIB_NOT_DETECTED_ERROR. Placed first calibration point before tracking detected any object
+          close to the radar unit.
+      6004: {description: CALIB_TOO_CLOSE_TO_RADAR_ERROR. The tracked object is too close to radar.}
+      6005: {description: CALIB_TOO_CLOSE_TO_POINT_ERROR. The tracked object is too close to last point.}
+      6006:
+        description: CALIB_INVALID_SCALE_ERROR. Calibration resulted in invalid scale.
+        kind: invalid_argument
+      6007:
+        description: CALIB_INVALID_POSITION_ERROR. The calculated radar direction (x, y) is too far outside of the
+          image.
+        kind: invalid_argument
+      6008:
+        description: CALIB_GENERAL_CALC_ERROR. The calibration calculation result is invalid so calibration should
+          be done again.
+        kind: invalid_argument
+      6009:
+        description: CALIB_POINT_INVALID. The calibration point is out of range -1 to 1.
+        kind: invalid_argument
+      6010:
+        description: CALIB_OBJ_MOVING. The tracked object was moving when setting calibration point. May indicate
+          that the wrong object is being tracked.
+  stop_calibration_tracking:
+    summary: Stop tracking the calibration object and store the result if the calibration was successful.
+    effect: action
+    binding: {method: stopCalibrationTracking}
+    errors:
+      6002:
+        description: CALIB_NOT_ENOUGH_POINTS_ERROR. Need at least two calibration points to stop calibration successfully.
+  abort_calibration:
+    summary: Stop tracking the calibration object and reset all parameters related to the current reference map.
+    effect: unknown
+    binding: {method: abortCalibration}
+  reset_calibration:
+    summary: Reset the calibration by removing the reference map and its parameters.
+    effect: write
+    write: replace
+    binding: {method: resetCalibration}
+  get_calibration_state:
+    summary: Return the current state of the calibration.
+    effect: read
+    binding: {method: getCalibrationState}
+    result:
+      type: object
+      properties:
+        value:
+          type: string
+          enum: [reset, image_uploaded, tracking, successful, calibrated]
+          description: 'reset: back to default background and grid; image_uploaded: a reference map is uploaded
+            for calibration; tracking: user has started tracking of calibration object; successful: calibration
+            successful but not stopped yet...'
+  set_manual_radar_position:
+    summary: Manually set a point in the reference map as the new radar position (calibrate without tracking an
+      object).
+    effect: write
+    write: patch
+    binding: {method: setManualRadarPosition}
+    params:
+      type: object
+      required: [x_pos, y_pos]
+      properties:
+        x_pos:
+          type: number
+          minimum: -1
+          maximum: 1
+          description: The x coordinate for the calibration point normalized between -1 and 1.
+        y_pos:
+          type: number
+          minimum: -1
+          maximum: 1
+          description: The y coordinate for the calibration point normalized between -1 and 1.
+  set_manual_calibration_point:
+    summary: Manually set a point in the reference map used to calibrate the radar.
+    effect: write
+    write: patch
+    binding: {method: setManualCalibrationPoint}
+    params:
+      type: object
+      required: [x_pos, y_pos, range, angle]
+      properties:
+        x_pos:
+          type: number
+          minimum: -1
+          maximum: 1
+          description: The x coordinate for the calibration point normalized between -1 and 1.
+        y_pos:
+          type: number
+          minimum: -1
+          maximum: 1
+          description: The y coordinate for the calibration point normalized between -1 and 1.
+        range:
+          type: number
+          description: Actual distance of the calibration point from the radar in meters.
+        angle:
+          type: number
+          description: Actual angle from the radar to the calibration point in degrees.
+  get_trail_lifetime:
+    summary: Return current trail lifetime and its minimum and maximum value.
+    effect: read
+    binding: {method: getTrailLifetime}
+    result:
+      type: object
+      properties:
+        value: {type: integer, description: trail lifetime in seconds}
+        minValue: {type: integer}
+        maxValue: {type: integer}
+  set_trail_lifetime:
+    summary: Set how long (seconds) the trail of a tracked object is visible in the video stream.
+    effect: write
+    write: patch
+    binding: {method: setTrailLifetime}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: integer, description: Value for how long the trails should be in seconds.}
+  get_color_scheme:
+    summary: Return the current color scheme and a list of possible color schemes.
+    effect: read
+    binding: {method: getColorScheme}
+    result:
+      type: object
+      properties:
+        value: {type: string, description: current color scheme}
+        allowedValues:
+          type: array
+          items: {type: string}
+  set_color_scheme:
+    summary: Set the color scheme (affects grid, echoes and radar trail).
+    effect: write
+    write: patch
+    binding: {method: setColorScheme}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: string, description: Color scheme used in the video stream.}
+  get_grid_opaque:
+    summary: Return current grid opaque level and its minimum and maximum.
+    effect: read
+    binding: {method: getGridOpaque}
+    result:
+      type: object
+      properties:
+        value: {type: integer, description: grid opaque level}
+        minValue: {type: integer}
+        maxValue: {type: integer}
+  set_grid_opaque:
+    summary: 'Set the opaque level of the grid: 0 = fully transparent, 100 = fully opaque.'
+    effect: write
+    write: patch
+    binding: {method: setGridOpaque}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Opaque level used for the grid in the video stream.
+  get_echo_visualization_level:
+    summary: Return current level of echo visualization and a list of possible levels.
+    effect: read
+    binding: {method: getEchoVisualizationLevel}
+    result:
+      type: object
+      properties:
+        value: {type: string, description: current echo visualization level}
+        allowedValues:
+          type: array
+          items: {type: string}
+  set_echo_visualization_level:
+    summary: Set the level of visualization of the radar echoes (raw responses of the electromagnetic waves).
+    effect: write
+    write: patch
+    binding: {method: setEchoVisualizationLevel}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: string
+          enum: [disable, associated, all]
+          description: 'Value for visualization level: disable (no echoes), associated (echoes associated with a
+            track), all (all echoes).'
+  get_image_metric_size:
+    summary: Return the height of the video stream in meters (to transform between pixels and meters).
+    effect: read
+    binding: {method: getImageMetricSize}
+    result:
+      type: object
+      properties:
+        value: {type: number, description: height of the video stream in meters}
+  get_filename:
+    summary: Return the name of the reference map currently displayed in the video stream.
+    effect: read
+    binding: {method: getFilename}
+    result:
+      type: object
+      properties:
+        value: {type: string, description: file name}
+    errors:
+      5002: {description: FILE_NOT_UPLOADED_ERROR. No image file uploaded to radar.}
+
+sources:
+- url: https://developer.axis.com/vapix/radar/radar-image/
+  sha256_md: 314200c8e1b4ecfc3bf64e005b81ed331181e6ac5e412c16c2c192667ef6e837
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Restart calibration example uses method 'startCalibration' (and step 3 'starCalibrationTracking'); the documented
+    method is startCalibrationTracking. https://developer.axis.com/vapix/radar/radar-image/#restart-calibration
+  - Error code 5002 is both FILE_CONTENT_INVALID_ERROR (upload/replace) and FILE_NOT_UPLOADED_ERROR (getFilename).
+  - 'getEchoVisualizationLevel syntax returns value: true instead of a level string.'
+  - getTrailLifetime maxValue 60 in syntax vs 600 in the common example; getImageMetricSize returns value as number
+    (72) vs string ('57').
+  - Multipart form part name for uploads is not specified ('<name>'); replace example has malformed headers.
+  - getSupportedVersions returns data.value instead of apiVersions used elsewhere.
+  - 'migration: skipped-op: upload_radar_image (http_endpoint) is not a JSON-RPC method; skipped'
+  - 'migration: skipped-op: replace_radar_image (http_endpoint) is not a JSON-RPC method; skipped'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_calibration_point=write/patch,
+    reset_calibration=write/replace, set_manual_radar_position=write/patch, set_manual_calibration_point=write/patch,
+    set_trail_lifetime=write/patch, set_color_scheme=write/patch, set_grid_opaque=write/patch, set_echo_visualization_level=write/patch'
+  - 'migration: effect-unknown: effect could not be inferred from the method name: abort_calibration'
+  - 'migration: discovery: param_property ''Properties.AddOnFramework.Version>=1.0'' is not a Name=value pair: dropped'
+  - 'migration: discovery: discovery method other dropped'
+  migrated_from: v1
+  curated: false

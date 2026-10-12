@@ -1,0 +1,138 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: reposition-quadview
+name: QuadView configuration
+summary: Reorder the four dewarped sub views of a fisheye quad view, and enable/disable QuadEye (quad view plus
+  a centre overview).
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: quadview_configuration
+  class: QuadViewConfiguration
+docs:
+- https://developer.axis.com/vapix/network-video/quadview-configuration/
+access: operator
+discovery:
+- {api_discovery: reposition-quadview}
+- param: {name: Properties.QuadOverview.QuadViewOrder, value: 'yes'}
+- param: {name: Properties.QuadOverview.QuadOverview, value: 'yes'}
+
+binding:
+  path: /axis-cgi/quadviewsetup.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error, kind: internal}
+  2100: {description: API version not supported, kind: unsupported}
+  2101: {description: Invalid JSON, kind: invalid_argument}
+  2102: {description: Method not supported, kind: unsupported}
+  2103: {description: Required parameter missing, kind: invalid_argument}
+  2104: {description: Invalid parameter value specified, kind: invalid_argument}
+
+types:
+  Order:
+    type: array
+    items: {type: integer, minimum: 1, maximum: 4}
+    description: 'Order of sub views: top left, top right, bottom left, bottom right. IDs represent the part of
+      the overview dewarped into a view. (minItems=4, maxItems=4)'
+
+operations:
+  get_order:
+    summary: Retrieve the order of sub views in a quad view.
+    effect: read
+    binding: {method: getOrder}
+    result:
+      type: object
+      properties:
+        id: {$ref: '#/types/Order'}
+    examples:
+    - title: get_order
+      request:
+        params: {}
+      response:
+        data: {id: [1, 2, 3, 4]}
+      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#get-the-current-order-of-the-sub-views
+  set_order:
+    summary: Set the order of sub views in a quad view.
+    effect: write
+    write: patch
+    binding: {method: setOrder}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: array
+          items: {type: integer, minimum: 1, maximum: 4}
+          description: New order for the sub views; integers 1 to 4. (minItems=4, maxItems=4)
+    result:
+      type: object
+      properties:
+        id: {$ref: '#/types/Order'}
+    examples:
+    - title: Switch top-right and bottom-left
+      request:
+        params: {id: [1, 4, 2, 3]}
+      response:
+        data: {id: [1, 4, 2, 3]}
+      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#reorder-the-sub-views
+  get_quad_eye_value:
+    summary: Read if quad view and overview (QuadEye) is enabled or disabled.
+    effect: read
+    binding: {method: getQuadEyeValue}
+    result:
+      type: object
+      properties:
+        quadeye: {type: string, enum: ['true', 'false'], description: String true or false.}
+    examples:
+    - title: get_quad_eye_value
+      request:
+        params: {}
+      response:
+        data: {quadeye: 'false'}
+      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#get-the-status-of-the-quadeye
+  set_quad_eye_value:
+    summary: Enable or disable quad view plus overview.
+    effect: write
+    write: patch
+    binding: {method: setQuadEyeValue}
+    params:
+      type: object
+      required: [quadeye]
+      properties:
+        quadeye: {type: boolean, description: Defines whether quadeye should be enabled or disabled.}
+    result:
+      type: object
+      properties:
+        quadeye: {type: string, enum: ['true', 'false']}
+    examples:
+    - title: set_quad_eye_value
+      request:
+        params: {quadeye: true}
+      response:
+        data: {quadeye: 'true'}
+      source: https://developer.axis.com/vapix/network-video/quadview-configuration/#enable-and-disable-the-quadeye
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/quadview-configuration/
+  sha256_md: 5ae804aff6b7c08f1ad501dad264b8183c75b1561553c0d1d3944531704a90f5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Example text says reordered views are '1, 2, 4, 3' but the request/response shows [1, 4, 2, 3].
+  - Mounting parameter written root.ImageSource.IO.CameraTiltOrientation (letter O; likely I0).
+  - setQuadEyeValue takes a boolean but data.quadeye is returned as a string 'true'/'false'.
+  - Success tables for setOrder/getQuadEyeValue say method='addText' (copy/paste).
+  - The API Discovery id 'reposition-quadview' is stated only for the order feature; no separate discovery id for
+    QuadEye.
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_order=write/patch, set_quad_eye_value=write/patch'
+  migrated_from: v1
+  curated: false

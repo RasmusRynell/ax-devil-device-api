@@ -1,0 +1,177 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: audio-mixer-api
+name: Audio mixer API
+summary: Get plugin JSON schemas and get/set settings of audio plugins (e.g.
+section: audio-systems
+family: jsonrpc
+status: released
+python:
+  module: audio_mixer
+  class: AudioMixer
+docs:
+- https://developer.axis.com/vapix/audio-systems/audio-mixer-api/
+access: operator
+
+binding:
+  path: /axis-cgi/audiomixer.cgi
+  major: 2
+  versions: ['2.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: INTERNAL_ERROR. Internal error., kind: internal}
+  2100:
+    description: UNSUPPORTED_API_VERSION. The requested API version is not supported.
+    kind: unsupported
+  2101:
+    description: JSON_INVALID_ERROR. The provided JSON input was invalid.
+    kind: invalid_argument
+  2102: {description: METHOD_NOT_SUPPORTED. Method not supported., kind: unsupported}
+  2103:
+    description: JSON_KEY_NOT_FOUND. A mandatory input parameter was not found in the input.
+    kind: not_found
+  2104:
+    description: PARAM_INVALID_VALUE_ERROR. Invalid parameter value specified.
+    kind: invalid_argument
+  2105: {description: AUTHORIZATION_ERROR. Authorization failed., kind: access_denied}
+  2106: {description: AUTHENTICATION_ERROR. Authentication failed.}
+  2107: {description: TRANSPORT_LEVEL_ERROR. Transport level error.}
+
+types:
+  PluginSettings:
+    type: object
+    required: [id, settings]
+    properties:
+      id:
+        type: string
+        description: The plugin instance identification (e.g. automaticGainControl, voiceEnhancer, simpleEq).
+      settings:
+        type: object
+        description: Settings parameters described by the response from getPluginSchema.
+  IoPlugins:
+    type: object
+    properties:
+      id: {type: string, description: The input/output ID.}
+      plugins:
+        type: array
+        items: {$ref: '#/types/PluginSettings'}
+        description: List of plugin settings.
+  AudioDevicePlugins:
+    type: object
+    properties:
+      id: {type: string, description: The audio device ID.}
+      inputs:
+        type: array
+        items: {$ref: '#/types/IoPlugins'}
+        description: List of device inputs.
+      outputs:
+        type: array
+        items: {$ref: '#/types/IoPlugins'}
+        description: List of outputs in a device.
+
+operations:
+  get_plugin_schema:
+    summary: Retrieve the JSON schema for a plugin's settings object (as used by getPluginsSettings/setPluginsSettings).
+    effect: read
+    binding: {method: getPluginSchema}
+    params:
+      type: object
+      required: [plugin]
+      properties:
+        plugin:
+          type: string
+          description: The name of the plugin that retrieves the settings object JSON schema.
+    result:
+      type: object
+      properties:
+        $schema: {type: string, description: The URL to the core schema meta-schema.}
+        title: {type: string, description: The schema title.}
+        type: {type: string, description: 'The type of settings, most likely an object.'}
+        properties:
+          type: object
+          description: A unique JSON schema describing the properties of the plugin settings object.
+    examples:
+    - title: Retrieve the plugin schema
+      request:
+        params: {plugin: automaticGainControl}
+      response:
+        data:
+          $schema: http://json-schema.org/draft-07/schema#
+          title: automaticGainControl
+          type: object
+          properties:
+            target: {type: number, description: Desired output level, minimum: -180, maximum: 0}
+            dynamic_range: {type: number, description: Allowed dynamic range, minimum: 0}
+      source: https://developer.axis.com/vapix/audio-systems/audio-mixer-api/#retrieve-the-plugin-schema
+  get_plugins_settings:
+    summary: Retrieve the plugin settings for all plugin instances on all audio devices/inputs/outputs.
+    effect: read
+    binding: {method: getPluginsSettings}
+    result:
+      type: object
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/AudioDevicePlugins'}
+    examples:
+    - title: Retrieve plugin settings
+      request:
+        params: {}
+      response:
+        data:
+          devices:
+          - id: '0'
+            inputs:
+            - id: '0'
+              plugins:
+              - id: automaticGainControl
+                settings: {enabled: true, target: -6, dynamicRange: 3}
+              - id: voiceEnhancer
+                settings: {enabled: true, noiseSuppression: -6}
+            outputs:
+            - id: '0'
+              plugins:
+              - id: simpleEq
+                settings: {enabled: true, band0: -16, band1: -12}
+      source: https://developer.axis.com/vapix/audio-systems/audio-mixer-api/#retrieve-plugin-settings
+  set_plugins_settings:
+    summary: Configure plugin instances (structure as returned by getPluginsSettings).
+    description: Only parameters that are changed need to be specified; non-specified parameters retain their existing
+      values.
+    effect: write
+    write: patch
+    binding: {method: setPluginsSettings}
+    params:
+      type: object
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          items: {$ref: '#/types/AudioDevicePlugins'}
+          description: List of audio devices (table labels this data.devices[]).
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/audio-mixer-api/
+  sha256_md: 43bd86b9b81d18c5e82be8d932dca420d1dc526590a917a5f9613449ee6d1d56
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - API Discovery id is not stated (only a link to the API Discovery service); spec id uses the URL slug 'audio-mixer-api'.
+  - Example getPluginSchema response for automaticGainControl uses 'dynamic_range' while settings examples use 'dynamicRange'.
+  - setPluginsSettings parameter table labels the list 'data.devices[]' although it goes under params.
+  - 'Versions seen: examples use apiVersion 1.0 while getSupportedVersions example returns [''1.3'',''2.1'']; differences
+    between versions are not documented.'
+  - 'AXIS OS minimum version not stated. Available plugin names are not enumerated (examples: automaticGainControl,
+    voiceEnhancer, simpleEq).'
+  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 2 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: result-shape: set_plugins_settings: response schema has no data wrapper; result omitted'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_plugins_settings=write/patch'
+  - 'migration: discovery: api_discovery entry without id dropped'
+  migrated_from: v1
+  curated: false

@@ -36,6 +36,10 @@ dev = [
     "pytest",
     "anyio",
     "pyright",
+    "ruff>=0.17.0",
+    "pyyaml>=6.0.3",
+    "jsonschema>=4.26.0",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.hatch.build.targets.wheel]

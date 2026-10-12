@@ -1,0 +1,467 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: stitching
+name: Stitching
+summary: 'Tune multi-sensor panoramic stitching: blending amount, parallax compensation distance, per-sensor rotation,
+  restore, horizon straightening, field of view and...'
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: stitching
+  class: Stitching
+docs:
+- https://developer.axis.com/vapix/network-video/stitching/
+access: admin
+discovery:
+- {api_discovery: stitching}
+
+binding:
+  path: /axis-cgi/stitching.cgi
+  major: 3
+  versions: ['3.2', '3.4']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Invalid parameter value., kind: invalid_argument}
+  2000: {description: Failed to allocate memory.}
+  2004: {description: Method not supported., kind: unsupported}
+  2200: {description: Unknown error has occurred.}
+  2201: {description: Failed to init transformation tables., kind: invalid_argument}
+  2202: {description: Failed to generate table with given parameters., kind: invalid_argument}
+  2203: {description: Failed to apply table with given parameters., kind: invalid_argument}
+  2205: {description: Failed read calibration file.}
+  2206: {description: Calibration file is missing., kind: invalid_argument}
+  2207: {description: Failed to unlink calibration file.}
+  2208: {description: Unsupported stitching mode., kind: unsupported}
+  2209: {description: Failed to read configuration file.}
+  2210: {description: Failed to save configuration file.}
+  2211: {description: Failed to parse configuration file.}
+  2212: {description: Method is not allowed in disabled mode.}
+  2213: {description: Operation is not supported., kind: unsupported}
+  2300: {description: 'Internal vipd error, could not complete request.', kind: internal}
+  4001: {description: Mandatory input parameters was not found in the input., kind: not_found}
+  4002: {description: The type of a provided JSON parameter was incorrect., kind: invalid_argument}
+  8000: {description: 'Internal error, could not complete request.', kind: internal}
+  8002: {description: Generic error.}
+
+operations:
+  get_capabilities:
+    summary: Retrieve which stitching.cgi methods are supported and the parameter limits.
+    effect: read
+    binding: {method: getCapabilities}
+    result:
+      type: object
+      properties:
+        capabilities:
+          type: object
+          x-name: GetCapabilitiesResultCapabilities
+          description: true/false per method depending on support.
+          properties:
+            getBlendingAmount: {type: boolean}
+            setBlendingAmount: {type: boolean}
+            getParallaxCompensationDistance: {type: boolean}
+            setParallaxCompensationDistance: {type: boolean}
+            rotateAngle: {type: boolean}
+            restore: {type: boolean}
+            setHorizonStraighteningEnabled: {type: boolean}
+            getHorizonStraighteningEnabled: {type: boolean}
+            getHorizonStraighteningProperties: {type: boolean}
+            setHorizonStraighteningTilt: {type: boolean}
+            setHorizonStraighteningStretchEnabled: {type: boolean}
+            setHorizonStraighteningStretchAmount: {type: boolean}
+            getFieldOfView: {type: boolean}
+            setStitchingEnabled: {type: boolean}
+            getStitchingEnabled: {type: boolean}
+        limits:
+          type: object
+          x-name: GetCapabilitiesResultLimits
+          properties:
+            blendingAmountMin: {type: number, description: Minimum blending amount for setBlendingAmount.}
+            blendingAmountMax: {type: number, description: Maximum blending amount for setBlendingAmount.}
+            parallaxCompensationDistanceMin: {type: number, description: Minimum parallax compensation distance.}
+            parallaxCompensationDistanceMax: {type: number, description: Maximum parallax compensation distance.}
+            idMin: {type: number, description: Minimum id for rotateAngle and restore.}
+            idMax: {type: number, description: Maximum id for rotateAngle and restore.}
+            angleMin: {type: number, description: Minimum angle for rotateAngle.}
+            angleMax: {type: number, description: Maximum angle for rotateAngle.}
+            horizonStraighteningTiltMin: {type: number, description: Minimum for setHorizonStraighteningTilt.}
+            horizonStraighteningTiltMax: {type: number, description: Maximum for setHorizonStraighteningTilt.}
+            horizonStraighteningStretchMin: {type: number, description: Minimum for setHorizonStraighteningStretchAmount.}
+            horizonStraighteningStretchMax: {type: number, description: Maximum for setHorizonStraighteningStretchAmount.}
+    examples:
+    - title: Retrieve supported capabilities
+      request:
+        params: {}
+      response:
+        data:
+          capabilities:
+            getBlendingAmount: true
+            setBlendingAmount: true
+            getParallaxCompensationDistance: true
+            setParallaxCompensationDistance: true
+            rotateAngle: true
+            restore: true
+          limits:
+            blendingAmountMin: 0.0
+            blendingAmountMax: 100.0
+            parallaxCompensationDistanceMin: 1.0
+            parallaxCompensationDistanceMax: 50.0
+            idMin: 0
+            idMax: 3
+            angleMin: -180
+            angleMax: 180
+      source: https://developer.axis.com/vapix/network-video/stitching/#retrieve-supported-capabilities
+  get_blending_amount:
+    summary: Retrieve the current blending amount.
+    effect: read
+    binding: {method: getBlendingAmount}
+    result:
+      type: object
+      properties:
+        blendingAmount: {type: number, description: Current amount of blurriness around the image seams.}
+    examples:
+    - title: Retrieve blending amount
+      request:
+        params: {}
+      response:
+        data: {blendingAmount: 50.0}
+      source: https://developer.axis.com/vapix/network-video/stitching/#retrieve-blending-amount
+  set_blending_amount:
+    summary: Set the blending amount.
+    description: Useful when white balance differs between sensors. 0 when there is only one object at the parallax
+      compensation distance around the seams (sharp transition); increase when many objects at different distances
+      (blurs skewed alignments).
+    effect: write
+    write: patch
+    binding: {method: setBlendingAmount}
+    params:
+      type: object
+      required: [blendingAmount]
+      properties:
+        blendingAmount:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 0-100; 0 = sharp edges with no blurriness, 100 = maximum blurriness. Only the first 15 decimals
+            are used.
+    errors:
+      2204: {description: Failed to apply blending.}
+      2214: {description: Blending is disabled.}
+    examples:
+    - title: Set blending amount
+      request:
+        params: {blendingAmount: 75.0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#set-blending-amount
+  get_parallax_compensation_distance:
+    summary: Retrieve the current parallax compensation distance (meters).
+    effect: read
+    binding: {method: getParallaxCompensationDistance}
+    result:
+      type: object
+      properties:
+        parallaxCompensationDistance: {type: number, description: 'Distance where alignment is currently calculated,
+            in meters.'}
+    examples:
+    - title: Retrieve parallax compensation distance
+      request:
+        params: {}
+      response:
+        data: {parallaxCompensationDistance: 10.0}
+      source: https://developer.axis.com/vapix/network-video/stitching/#retrieve-parallax-compensation-distance
+  set_parallax_compensation_distance:
+    summary: Set the distance (meters) to the objects where seam alignment is calculated.
+    effect: write
+    write: patch
+    binding: {method: setParallaxCompensationDistance}
+    params:
+      type: object
+      required: [parallaxCompensationDistance]
+      properties:
+        parallaxCompensationDistance:
+          type: number
+          minimum: 1
+          maximum: 50
+          description: Distance in meters, 1-50. Only the first 15 decimals are used. (unit=m)
+    examples:
+    - title: Set parallax compensation distance
+      request:
+        params: {parallaxCompensationDistance: 20.0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#set-parallax-compensation-distance
+  rotate_angle:
+    summary: Rotate a sensor image on pan, tilt or roll to align the panoramic view.
+    description: Hard limits -180..+180 degrees; lower product/sensor dependent soft limits exist (e.g. AXIS Q3819-PVE
+      ±1.4 degrees pan). Exceeding them can cause unknown image behavior.
+    effect: unknown
+    binding: {method: rotateAngle}
+    params:
+      type: object
+      required: [id, axis, angle]
+      properties:
+        id:
+          type: integer
+          minimum: 0
+          description: Sensor image to rotate; 0 to number of sensors - 1 (see limits idMin/idMax).
+        axis: {type: string, enum: [pan, tilt, roll], description: Axis to rotate.}
+        angle:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Degrees to rotate, -180..+180. Only the first 15 decimals are used. (unit=degrees)
+    examples:
+    - title: Align the sensor images in a panoramic view
+      request:
+        params: {id: 2, axis: pan, angle: 0.05}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#align-the-sensor-images-in-a-panoramic-view
+    - title: Align the sensor images in a panoramic view
+      request:
+        params: {id: 0, axis: tilt, angle: 0.15}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#align-the-sensor-images-in-a-panoramic-view
+  restore:
+    summary: Restore a sensor to factory default (removes changes from setBlendingAmount, setParallaxCompensationDistance
+      and rotateAngle).
+    effect: unknown
+    binding: {method: restore}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          minimum: 0
+          description: Sensor image to restore; 0 to number of sensors - 1.
+    examples:
+    - title: Restore settings back to factory default
+      request:
+        params: {id: 0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#restore-settings-back-to-factory-default
+  set_horizon_straightening_enabled:
+    summary: Enable or disable horizon straightening.
+    effect: write
+    write: patch
+    binding: {method: setHorizonStraighteningEnabled}
+    params:
+      type: object
+      required: [horizonStraighteningEnabled]
+      properties:
+        horizonStraighteningEnabled: {type: boolean, description: 'true: enable; false: disable.'}
+    examples:
+    - title: Enable horizon straightening
+      request:
+        params: {horizonStraighteningEnabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#enable-horizon-straightening
+    - title: Disable horizon straightening
+      request:
+        params: {horizonStraighteningEnabled: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#disable-horizon-straightening
+  get_horizon_straightening_enabled:
+    summary: Retrieve if horizon straightening is enabled.
+    effect: read
+    binding: {method: getHorizonStraighteningEnabled}
+    result:
+      type: object
+      properties:
+        enabled: {type: boolean}
+    examples:
+    - title: Check if horizon straightening is enabled
+      request:
+        params: {}
+      response:
+        data: {enabled: true}
+      source: https://developer.axis.com/vapix/network-video/stitching/#check-if-horizon-straightening-is-enabled
+  get_horizon_straightening_properties:
+    summary: Retrieve horizon straightening tilt, stretch enabled and stretch amount.
+    effect: read
+    binding: {method: getHorizonStraighteningProperties}
+    result:
+      type: object
+      properties:
+        horizonStraighteningTilt: {type: number, description: Current straight horizon position.}
+        horizonStraighteningStretchEnabled: {type: boolean, description: Whether the image is stretched over the
+            black areas.}
+        horizonStraighteningStretchAmount: {type: number, description: How the stretching is performed.}
+    errors:
+      2215: {description: Horizon straightening is not enabled.}
+    examples:
+    - title: Retrieve horizon straightening properties
+      request:
+        params: {}
+      response:
+        data:
+          horizonStraighteningTilt: 10.0
+          horizonStraighteningStretchEnabled: true
+          horizonStraighteningStretchAmount: 50.0
+      source: https://developer.axis.com/vapix/network-video/stitching/#retrieve-horizon-straightening-properties
+    - title: Retrieve horizon straightening properties
+      request:
+        params: {}
+      response:
+        data:
+          horizonStraighteningTilt: 10.0
+          horizonStraighteningStretchEnabled: true
+          horizonStraighteningStretchAmount: 50.0
+      source: https://developer.axis.com/vapix/network-video/stitching/#retrieve-horizon-straightening-properties
+  set_horizon_straightening_tilt:
+    summary: Set the position of the straight horizon (so it is not in the middle of the image).
+    effect: write
+    write: patch
+    binding: {method: setHorizonStraighteningTilt}
+    params:
+      type: object
+      required: [horizonStraighteningTilt]
+      properties:
+        horizonStraighteningTilt:
+          type: number
+          description: Position of the straight horizon in angles relative to the middle of the image (limits horizonStraighteningTiltMin/Max).
+            Only the first 15 decimals are used. (unit=degrees)
+    errors:
+      2215: {description: Horizon straightening is not enabled.}
+    examples:
+    - title: Set horizon straightening tilt
+      request:
+        params: {horizonStraighteningTilt: 10}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#set-horizon-straightening-tilt
+  set_horizon_straightening_stretch_enabled:
+    summary: Enable or disable horizon straightening stretch.
+    effect: write
+    write: patch
+    binding: {method: setHorizonStraighteningStretchEnabled}
+    params:
+      type: object
+      required: [horizonStraighteningStretchEnabled]
+      properties:
+        horizonStraighteningStretchEnabled: {type: boolean, description: 'true: enable stretch; false: disable.'}
+    errors:
+      2215: {description: Horizon straightening is not enabled.}
+    examples:
+    - title: Enable horizon straightening stretch
+      request:
+        params: {horizonStraighteningStretchEnabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#enable-horizon-straightening-stretch
+    - title: Disable horizon straightening stretch
+      request:
+        params: {horizonStraighteningStretchEnabled: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#disable-horizon-straightening-stretch
+  set_horizon_straightening_stretch_amount:
+    summary: Set the horizon straightening stretch amount.
+    effect: write
+    write: patch
+    binding: {method: setHorizonStraighteningStretchAmount}
+    params:
+      type: object
+      required: [horizonStraighteningStretchAmount]
+      properties:
+        horizonStraighteningStretchAmount:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 0-100; 0 = stretch images non-linearly, 100 = linearly.
+    errors:
+      2215: {description: Horizon straightening is not enabled.}
+      2216: {description: Horizon Straightening stretch is disabled.}
+    examples:
+    - title: Set horizon straightening stretch amount
+      request:
+        params: {horizonStraighteningStretchAmount: 50}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#set-horizon-straightening-stretch-amount
+  get_field_of_view:
+    summary: Retrieve the supported horizontal and vertical field of view.
+    effect: read
+    binding: {method: getFieldOfView}
+    result:
+      type: object
+      properties:
+        hFoV: {type: number, description: Supported horizontal field of view.}
+        vFoV: {type: number, description: Supported vertical field of view.}
+    examples:
+    - title: Get horizontal and vertical field of view
+      request:
+        params: {}
+      response:
+        data: {hFoV: 180, vFoV: 90}
+      source: https://developer.axis.com/vapix/network-video/stitching/#get-horizontal-and-vertical-field-of-view
+  get_stitching_enabled:
+    summary: Retrieve the most recent stitching status set by setStitchingEnabled.
+    effect: read
+    binding: {method: getStitchingEnabled}
+    result:
+      type: object
+      properties:
+        stitchingEnabled: {type: boolean}
+    examples:
+    - title: Disable the stitching
+      request:
+        params: {}
+      response:
+        data: {stitchingEnabled: true}
+      source: https://developer.axis.com/vapix/network-video/stitching/#disable-the-stitching
+  set_stitching_enabled:
+    summary: Enable or disable stitching (e.g.
+    effect: write
+    write: patch
+    binding: {method: setStitchingEnabled}
+    params:
+      type: object
+      required: [stitchingEnabled]
+      properties:
+        stitchingEnabled: {type: boolean, description: Whether stitching should be enabled.}
+    examples:
+    - title: Disable the stitching
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stitching/#disable-the-stitching
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/stitching/
+  sha256_md: 1468d7cd5e030463d0d1f642269eb4da0a3e63ccca40adb36d34c1fe053e9615
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - getCapabilities response syntax lists only some capabilities and limits; the table lists all (incl. horizon
+    straightening, getFieldOfView, set/getStitchingEnabled and horizonStraightening* limits). Syntax shows rotateAngle/restore
+    literal true.
+  - getParallaxCompensationDistance response syntax key spelled parallaxComensationDistance; table and examples
+    should be checked against a device.
+  - Request syntax blocks are invalid JSON (missing comma after method, trailing commas).
+  - setStitchingEnabled use-case example omits params.stitchingEnabled.
+  - Range of horizonStraighteningTilt not stated (only via limits horizonStraighteningTiltMin/Max); table key horizonStraighteningStretchMin
+    lacks "=".
+  - Exact API version history (1.x vs 3.x) not documented; which version introduced horizon straightening / stitchingEnabled
+    unknown.
+  - AXIS OS minimum version not stated.
+  - 'migration: other-majors: API also documents major(s) 1; this spec covers major 3 only. A separate spec (module
+    suffix _v2 for later majors) is needed for the others'
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_blending_amount=write/patch, set_parallax_compensation_distance=write/patch,
+    set_horizon_straightening_enabled=write/patch, set_horizon_straightening_tilt=write/patch, set_horizon_straightening_stretch_enabled=write/patch,
+    set_horizon_straightening_stretch_amount=write/patch, set_stitching_enabled=write/patch'
+  - 'migration: effect-unknown: effect could not be inferred from the method name: rotate_angle, restore'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,328 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: decoder
+name: Decoder API
+summary: Configure what a network video decoder displays (views made of panes + streams, sequences) and query its
+  capabilities.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: decoder
+  class: Decoder
+docs:
+- https://developer.axis.com/vapix/network-video/decoder-api/
+access: operator
+discovery:
+- param: {name: Properties.API.Decoder.Decoder, value: 'yes'}
+
+binding:
+  path: /axis-cgi/decoder.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  100:
+    description: Configuration changed. The configuration has been changed. The ID of the new configuration is provided
+      in the message field.
+  200: {description: Internal error. Generic error., kind: internal}
+  201:
+    description: Unsupported API version. The decoder does not support the API version provided in the request.
+    kind: unsupported
+  202:
+    description: Invalid JSON. The decoder could not parse the provided JSON object.
+    kind: invalid_argument
+  210: {description: Illegal view ID. ID is either a duplicate or not a positive integer.}
+  211: {description: Illegal pane ID. ID is either a duplicate or not a positive integer.}
+  212: {description: 'Pane out of bound. Parts of the pane are outside of the view. Message: Pane ID.'}
+  213:
+    description: 'Overlapping pane. The pane is overlapping another pane and the decoder does not support picture-in-picture
+      (overlappingPanes=false). Message: Pane ID.'
+  400: {description: Failed to connect. The decoder could not connect to the streaming device.}
+  401: {description: Not authenticated. The provided credentials were not accepted.}
+  402:
+    description: Out of resources. The decoder does not have enough resources to render the provided configuration.
+  403:
+    description: Unsupported protocol. The decoder is not able to play the video or audio provided in the configuration.
+    kind: unsupported
+  410: {description: Illegal stream ID. ID is either a duplicate or not a positive integer.}
+
+types:
+  Pane:
+    type: object
+    description: Canvas on which a video stream is drawn; size and position within the view (0,0 top-left.. 1,1
+      bottom-right). Stream keeps its own aspect ratio.
+    properties:
+      paneId: {type: integer, minimum: 0}
+      left: {type: number, minimum: 0, maximum: 1}
+      top: {type: number, minimum: 0, maximum: 1}
+      right: {type: number, minimum: 0, maximum: 1}
+      bottom: {type: number, minimum: 0, maximum: 1}
+  Stream:
+    type: object
+    description: Video stream information.
+    required: [streamId, url, videoCodec]
+    properties:
+      streamId: {type: integer, minimum: 0}
+      url:
+        type: string
+        description: Where the decoder can reach the video, e.g. rtsp://192.168.0.90/axis-media/media.amp?resolution=1920x1080.
+      videoCodec: {type: string, description: 'e.g. H264 (capabilities list H264/H.264, MPEG4, MJPEG).'}
+      audioCodec: {type: string, description: 'e.g. AAC, G711, G726; empty by default.'}
+      username: {type: string}
+      password: {type: string}
+  Segment:
+    type: object
+    properties:
+      stream: {type: integer, description: streamId}
+      pane: {type: integer, description: paneId}
+  View:
+    type: object
+    properties:
+      viewId: {type: integer, minimum: 0}
+      duration:
+        type: integer
+        minimum: 0
+        description: Seconds the view is shown in a sequence; 0 = displayed continuously.
+      segments:
+        type: array
+        items: {$ref: '#/types/Segment'}
+  Event:
+    type: object
+    description: 'Base event {code, message}; stream event additionally {viewId, streamId}. Code ranges: 1xx information,
+      2xx error, 3xx reserved for stream information, 4xx stream error.'
+    properties:
+      code: {type: integer, minimum: 0}
+      message: {type: string}
+      viewId: {type: integer, minimum: 0}
+      streamId: {type: integer, minimum: 0}
+
+operations:
+  get_capabilities:
+    summary: List all the capabilities that the decoder supports.
+    effect: read
+    binding: {method: getCapabilities}
+    result:
+      type: object
+      properties:
+        resolution:
+          type: string
+          description: Decoder resolution currently in use; one of 1920x1080, 1280x720, 720x480, 640x480.
+        maxStreams: {type: integer, minimum: 1, description: Maximum supported amount of open video streams.}
+        videoCodecs:
+          type: array
+          items: {type: string}
+          description: H264, MPEG4, MJPEG
+        audioCodecs:
+          type: array
+          items: {type: string}
+          description: AAC, G711, G726
+        overlappingPanes: {type: boolean, description: Whether overlapping panes (picture in picture) are supported.}
+    errors:
+      200: {description: Internal error., kind: internal}
+      201: {description: Unsupported API version., kind: unsupported}
+      202: {description: Invalid JSON., kind: invalid_argument}
+    examples:
+    - title: Get decoder capabilities
+      request:
+        params: {}
+      response:
+        data:
+          resolution: 1920x1080
+          maxStreams: 16
+          videoCodecs: [H.264, MJPEG, MPEG4]
+          audioCodecs: []
+          overlappingPanes: false
+      source: https://developer.axis.com/vapix/network-video/decoder-api/#get-decoder-capabilities
+  get_view_configuration:
+    summary: Returns the ID of the currently running configuration.
+    effect: read
+    binding: {method: getViewConfiguration}
+    result:
+      type: object
+      properties:
+        configurationId: {type: string}
+    errors:
+      200: {description: Internal error., kind: internal}
+      201: {description: Unsupported API version., kind: unsupported}
+      202: {description: Invalid JSON., kind: invalid_argument}
+    examples:
+    - title: Retrieve running configuration
+      request:
+        params: {}
+      response:
+        data: {configurationId: '23'}
+      source: https://developer.axis.com/vapix/network-video/decoder-api/#retrieve-running-configuration
+  set_view_configuration:
+    summary: Configure what the decoder shall display; returns the ID of the new configuration.
+    description: The decoder has only one running configuration; it is overwritten by the next successful call and
+      saved so the decoder recovers after restart. If errors are not serious (e.g. cannot connect to some streams)
+      the decoder may still use the configuration, returning errors plus a 100 'Configuration changed' event with
+      the new configuration ID; it keeps trying to reconnect.
+    effect: write
+    write: patch
+    binding: {method: setViewConfiguration}
+    params:
+      type: object
+      required: [panes, streams, views]
+      properties:
+        panes:
+          type: array
+          items: {$ref: '#/types/Pane'}
+        streams:
+          type: array
+          items: {$ref: '#/types/Stream'}
+        views:
+          type: array
+          items: {$ref: '#/types/View'}
+          description: Views; each view's duration (seconds) controls sequence run time; 0 = continuous.
+    result:
+      type: object
+      properties:
+        configurationId: {type: string}
+    errors:
+      100:
+        description: Configuration changed. The configuration has been changed; message holds the new configuration
+          ID.
+      210: {description: Illegal view ID}
+      211: {description: Illegal pane ID}
+      212: {description: Pane out of bound}
+      400: {description: Failed to connect}
+      401: {description: Not authenticated}
+      402: {description: Out of resources}
+      403: {description: Unsupported protocol, kind: unsupported}
+      410: {description: Illegal stream ID}
+    examples:
+    - title: Display a single video stream
+      request:
+        params:
+          panes:
+          - {paneId: 0, left: 0.0, top: 0.0, right: 1.0, bottom: 1.0}
+          streams:
+          - streamId: 0
+            url: rtsp://192.168.0.90/axis-media/media.amp?resolution=1920x1080
+            videoCodec: H264
+            audioCodec: ''
+            username: viewer
+            password: pass
+          views:
+          - viewId: 0
+            duration: 0
+            segments:
+            - {stream: 0, pane: 0}
+      response:
+        data: {configurationId: '1042'}
+      source: https://developer.axis.com/vapix/network-video/decoder-api/#display-a-single-video-stream
+    - title: Display multiple video streams (quad)
+      request:
+        params:
+          panes:
+          - {paneId: 0, left: 0.0, top: 0.0, right: 0.5, bottom: 0.5}
+          - {paneId: 1, left: 0.5, top: 0.0, right: 1.0, bottom: 0.5}
+          - {paneId: 2, left: 0.0, top: 0.5, right: 0.5, bottom: 1.0}
+          - {paneId: 3, left: 0.5, top: 0.5, right: 1.0, bottom: 1.0}
+          streams:
+          - streamId: 0
+            url: rtsp://192.168.0.90/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            audioCodec: AAC
+            username: viewer
+            password: pass
+          - streamId: 1
+            url: rtsp://192.168.0.91/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          - streamId: 2
+            url: rtsp://192.168.0.92/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          - streamId: 3
+            url: rtsp://192.168.0.93/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          views:
+          - viewId: 0
+            duration: 0
+            segments:
+            - {stream: 0, pane: 0}
+            - {stream: 1, pane: 1}
+            - {stream: 2, pane: 2}
+            - {stream: 3, pane: 3}
+      response:
+        data: {configurationId: '1042'}
+      source: https://developer.axis.com/vapix/network-video/decoder-api/#display-multiple-video-streams
+    - title: Display multiple video streams in a sequence
+      request:
+        params:
+          panes:
+          - {paneId: 0, left: 0.0, top: 0.0, right: 0.5, bottom: 0.5}
+          - {paneId: 1, left: 0.5, top: 0.0, right: 1.0, bottom: 0.5}
+          - {paneId: 2, left: 0.0, top: 0.5, right: 0.5, bottom: 1.0}
+          - {paneId: 3, left: 0.5, top: 0.5, right: 1.0, bottom: 1.0}
+          - {paneId: 4, left: 0.0, top: 0.0, right: 1.0, bottom: 1.0}
+          streams:
+          - streamId: 0
+            url: rtsp://192.168.0.90/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          - streamId: 1
+            url: rtsp://192.168.0.91/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          - streamId: 2
+            url: rtsp://192.168.0.92/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          - streamId: 3
+            url: rtsp://192.168.0.93/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          - streamId: 4
+            url: rtsp://192.168.0.94/axis-media/media.amp?resolution=1280x720...
+            videoCodec: H264
+            username: viewer
+            password: pass
+          views:
+          - viewId: 0
+            duration: 60
+            segments:
+            - {stream: 0, pane: 0}
+            - {stream: 1, pane: 1}
+            - {stream: 2, pane: 2}
+            - {stream: 3, pane: 3}
+          - viewId: 1
+            duration: 60
+            segments:
+            - {stream: 4, pane: 4}
+      response:
+        data: {configurationId: '1042'}
+      source: https://developer.axis.com/vapix/network-video/decoder-api/#display-multiple-video-streams-in-a-sequence
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/decoder-api/
+  sha256_md: f9a0a043dd84296ff2bbaf43ac42764b4a5d070d14506f75df21ab1e7d5c80aa
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - setViewConfiguration table describes 'duration' as a top-level Array, but examples put duration (integer) inside
+    each view.
+  - Capabilities table lists video codec 'H264' but the example returns 'H.264'; audioCodecs described as 'List
+    of video codecs' (typo).
+  - IDs must be 'positive integer' per error descriptions, yet examples use 0.
+  - getSupportedVersions failure uses 'error' (array) whereas setViewConfiguration uses 'errors'.
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_view_configuration=write/patch'
+  migrated_from: v1
+  curated: false

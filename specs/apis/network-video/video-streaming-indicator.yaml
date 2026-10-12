@@ -1,0 +1,167 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: video-streaming-indicator
+name: Video streaming indicator
+summary: Superimpose an animation over the video stream to show that the stream is live even without scene motion.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: video_streaming_indicator
+  class: VideoStreamingIndicator
+docs:
+- https://developer.axis.com/vapix/network-video/video-streaming-indicator/
+access: operator
+discovery:
+- {api_discovery: video-streaming-indicator}
+- param: {name: Properties.VideoStreamingIndicator.VideoStreamingIndicator, value: 'yes'}
+
+binding:
+  path: /axis-cgi/videostreamingindicator.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersion}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error., kind: internal}
+  1001: {description: The requested API version is not supported., kind: unsupported}
+  1002: {description: Invalid method., kind: invalid_argument}
+  1003: {description: Invalid parameter., kind: invalid_argument}
+  1004: {description: The provided input was invalid., kind: invalid_argument}
+
+types:
+  IndicatorSize:
+    type: string
+    enum: [small, medium, large, H1, H2, H3, H4, H5]
+    description: H1, H2 and H3 correspond to small, medium and large. H4 and H5 are additional, larger sizes.
+  Position:
+    oneOf:
+    - {type: string, enum: [topLeft, topRight, bottomLeft, bottomRight]}
+    - type: array
+      items: {type: number, minimum: -1.0, maximum: 1.0}
+      description: minItems=2, maxItems=2
+    description: Predefined value or [x, y] coordinates normalized in the range [-1.0, 1.0].
+  IndicatorConfig:
+    type: object
+    properties:
+      indicatorSize: {$ref: '#/types/IndicatorSize'}
+      position: {$ref: '#/types/Position'}
+      color: {type: string, enum: [black, white, red, semiTransparent]}
+      bgColor:
+        type: string
+        enum: [black, white, transparent, semiTransparent]
+        description: Tables list black|white|transparent; set response syntax additionally shows semiTransparent.
+      size:
+        type: array
+        items: {type: integer}
+        description: The size of the indicator's bounding box. (minItems=2, maxItems=2)
+      isActive: {type: boolean, description: Flag showing if the indicator is currently active or not.}
+
+operations:
+  get:
+    summary: Get the current configuration of the indicator.
+    effect: read
+    binding: {method: get}
+    result: {$ref: '#/types/IndicatorConfig'}
+    examples:
+    - title: get
+      request:
+        params: {}
+      response:
+        data:
+          indicatorSize: H2
+          position: topLeft
+          color: red
+          bgColor: transparent
+          size: [64, 64]
+          isActive: false
+      source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#get-configuration
+  set:
+    summary: Update the configuration of the indicator.
+    effect: write
+    write: patch
+    binding: {method: set}
+    params:
+      type: object
+      properties:
+        indicatorSize:
+          type: string
+          enum: [small, medium, large, H1, H2, H3, H4, H5]
+          description: Specifies the size of the indicator.
+        position:
+          $ref: '#/types/Position'
+          description: Predefined value (topLeft, topRight, bottomLeft, bottomRight) or an array with x and y coordinates
+            normalized in [-1.0, 1.0].
+        color:
+          type: string
+          enum: [black, white, red, semiTransparent]
+          description: Specifies the color of the indicator.
+        bgColor:
+          type: string
+          enum: [black, white, transparent]
+          description: Specifies the background color of the indicator.
+    result: {$ref: '#/types/IndicatorConfig'}
+    examples:
+    - title: set
+      request:
+        params:
+          indicatorSize: H3
+          position: [0.0, 0.0]
+          color: semiTransparent
+          bgColor: transparent
+      response:
+        data:
+          indicatorSize: H3
+          position: [0.0, 0.0]
+          color: semiTransparent
+          bgColor: transparent
+          size: [128, 128]
+          isActive: false
+      source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#set-configuration
+  'on':
+    summary: Enable the indicator.
+    effect: unknown
+    binding: {method: 'on'}
+    examples:
+    - title: 'on'
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#enable-the-indicator
+  'off':
+    summary: Disable the indicator.
+    effect: unknown
+    binding: {method: 'off'}
+    examples:
+    - title: 'off'
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/video-streaming-indicator/#disable-the-indicator
+  show:
+    summary: Show the indicator for 5 seconds (non-adjustable).
+    effect: unknown
+    binding: {method: show}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-streaming-indicator/
+  sha256_md: 9ada270089ea235cafba10f1b4fbfdf47ef783bd5e492e315407ff082f54d04e
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - getSupportedVersions response uses data.apiVersion (singular) whereas other Axis APIs use data.apiVersions;
+    client should accept both.
+  - set response syntax lists bgColor value semiTransparent but the tables only list black/white/transparent.
+  - HTTP status for failure responses is not stated (presumably 200).
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set=write/patch'
+  - 'migration: effect-unknown: effect could not be inferred from the method name: on, off, show'
+  - 'migration: dropped-keywords: maxProperties x3'
+  migrated_from: v1
+  curated: false

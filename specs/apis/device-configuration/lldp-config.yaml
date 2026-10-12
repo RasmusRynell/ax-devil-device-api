@@ -1,0 +1,137 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: lldp-config
+name: LLDP Configuration API
+summary: The VAPIX® LLDP Configuration API makes it possible to activate and deactivate LLDP (Link Layer Discovery
+  Protocol) as well as get neighbors information.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: lldp
+  class: Lldp
+docs:
+- https://developer.axis.com/vapix/device-configuration/lldp-configuration-api/
+access: admin
+discovery:
+- dca: {api: lldp, version: v1}
+
+binding: {root: /config/rest/lldp/v1}
+
+types:
+  ChassisID:
+    type: object
+    description: The chassis ID type
+    properties:
+      subType: {$ref: '#/types/ChassisIDSubType', description: Chassis ID subtype}
+      value: {type: string, description: A chassis ID of the type specified by the subType field}
+  ChassisIDSubType:
+    type: string
+    enum:
+    - ChassisComponent
+    - InterfaceAlias
+    - PortComponent
+    - MACAddress
+    - NetworkAddress
+    - InterfaceName
+    - LocallyAssigned
+    description: The type of the identifier used for the chassis.
+  MgmtIP:
+    type: object
+    description: The chassis ID type
+    properties:
+      subType: {$ref: '#/types/MgmtIPSubType', description: Management IP address subtype}
+      value:
+        type: string
+        description: A management IP address of the type specified by the subType field
+  MgmtIPSubType:
+    type: string
+    enum: [IPv4, IPv6]
+    description: The type of the address used for the management IP
+  Neighbor:
+    type: object
+    description: Neighbor information
+    x-nullable: [mgmtIP, portDescr, sysDescr, sysName]
+    properties:
+      TTL: {$ref: '#/types/PositiveInt', description: Time To Live}
+      age:
+        $ref: '#/types/PositiveInt'
+        description: Age of the neighbor information in seconds from epoch
+      chassisID: {$ref: '#/types/ChassisID', description: The chassis ID of the neighbor}
+      ifName: {type: string, description: Name of the interface from which the information is received}
+      mgmtIP: {$ref: '#/types/MgmtIP', description: Management IP of the neighbor}
+      portDescr: {type: string, description: Port description of the neighbor}
+      portID: {$ref: '#/types/PortID', description: Port ID of the neighbor}
+      protocol: {$ref: '#/types/Protocol', description: The protocol used}
+      sysDescr: {type: string, description: System description of the neighbor}
+      sysName: {type: string, description: System hostname of the neighbor}
+  Neighbors:
+    type: array
+    items: {$ref: '#/types/Neighbor'}
+    description: A list of neighbor information
+  PortID:
+    type: object
+    description: The port ID type
+    properties:
+      subType: {$ref: '#/types/PortIDSubType', description: Port ID subtype}
+      value: {type: string, description: A port ID of the type specified by the subType field}
+  PortIDSubType:
+    type: string
+    enum:
+    - InterfaceAlias
+    - PortComponent
+    - MACAddress
+    - NetworkAddress
+    - InterfaceName
+    - AgentCircuitID
+    - LocallyAssigned
+    description: The type of the identifier used for the port
+  PositiveInt: {type: integer, minimum: 0, description: Positive integer type}
+  Protocol:
+    type: string
+    enum: [LLDP, CDPv1, CDPv2]
+    description: The type of the identifier used for the chassis
+  Lldp:
+    type: object
+    description: The whole API tree.
+    x-read-only: [neighbors]
+    properties:
+      activated: {type: boolean, description: LLDP state}
+      neighbors: {$ref: '#/types/Neighbors', description: Information about neighbors on the interface}
+
+operations:
+  get_all:
+    summary: All data of the LLDP Configuration API API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Lldp'}
+  set_activated:
+    summary: Set the activated of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /activated, body_field: activated, body: value}
+    params:
+      type: object
+      required: [activated]
+      properties:
+        activated: {type: boolean, description: LLDP state}
+    examples:
+    - title: activate/deactivate LLDP
+      request:
+        path: /activated
+        body: {data: true}
+      response:
+        status: 200
+        body: {status: success, information: [string], warnings: [string]}
+      source: https://developer.axis.com/vapix/device-configuration/lldp-configuration-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/lldp-configuration-api/
+  sha256_md: c5e6f55bcd4f5391369b1c69bdea4a553628d23597469df9fbbc871e80c79344
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 2 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false

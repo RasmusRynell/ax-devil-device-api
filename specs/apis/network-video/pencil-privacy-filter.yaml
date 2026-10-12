@@ -1,0 +1,172 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: pencil-privacy-filter
+name: Pencil privacy filter
+summary: Add a black and white "pencil image" privacy effect to the video stream; select filter, configure flags,
+  query capabilities.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: pencil_privacy_filter
+  class: PencilPrivacyFilter
+docs:
+- https://developer.axis.com/vapix/network-video/pencil-privacy-filter/
+access: admin
+discovery:
+- {api_discovery: pencil-privacy-filter}
+
+binding:
+  path: /axis-cgi/pencil.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  2101: {description: Bad request. Invalid JSON., kind: invalid_argument}
+  2106: {description: Authentication failed. Authentication failed.}
+  2105: {description: Authorization failed. Authorization failed., kind: access_denied}
+  2107: {description: Transport Level Error. Transport Level Error.}
+  1100: {description: Internal error. Internal error., kind: internal}
+
+types:
+  FilterSetting:
+    type: object
+    required: [type]
+    properties:
+      type: {type: string, description: 'Filter type, e.g. pencil, or none.'}
+      flags:
+        type: object
+        additionalProperties: true
+        description: 'Flags, differ depending on the filter type (e.g. inverted: boolean, threshold: integer).'
+  FlagCapability:
+    type: object
+    properties:
+      type: {type: string, description: 'e.g. bool, integer'}
+      min: {type: number}
+      max: {type: number}
+      description: {type: string}
+  FilterCapability:
+    type: object
+    properties:
+      type: {type: string}
+      description: {type: string}
+      flags:
+        type: array
+        items:
+          type: object
+          additionalProperties: {$ref: '#/types/FlagCapability'}
+          description: Single-key object <flag_name> -> capability.
+
+operations:
+  set_filter_settings:
+    summary: Change the values for a valid filter type and one or more flags.
+    effect: write
+    write: patch
+    binding: {method: setFilterSettings}
+    params:
+      type: array
+      items: {$ref: '#/types/FilterSetting'}
+      description: 'Array of {type, flags}. type: the filter type that will receive new or updated flags. flags:
+        differ depending on the filter type.'
+  get_filter_settings:
+    summary: Check the values and settings for a valid filter type and its current flag values.
+    effect: read
+    binding: {method: getFilterSettings}
+    params:
+      type: array
+      items:
+        type: object
+        x-name: GetFilterSettingsRequestItem
+        required: [type]
+        properties:
+          type: {type: string}
+      description: 'Array of {type}: the filter that will be checked.'
+    result:
+      type: array
+      items: {$ref: '#/types/FilterSetting'}
+    examples:
+    - title: get_filter_settings
+      request:
+        params:
+        - {type: pencil}
+      response:
+        data:
+        - type: pencil
+          flags: {inverted: true, threshold: 23}
+      source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#check-filter-settings
+  set_selected_filter:
+    summary: Select which filter should be active (none deactivates).
+    effect: write
+    write: patch
+    binding: {method: setSelectedFilter}
+    params:
+      type: array
+      items:
+        type: object
+        x-name: SetSelectedFilterRequestItem
+        required: [type]
+        properties:
+          type: {type: string}
+      description: 'Array of {type}: the filter type that should be active. none will deactivate the filter.'
+  get_selected_filter:
+    summary: Request status information about the currently active filter.
+    effect: read
+    binding: {method: getSelectedFilter}
+    result:
+      type: object
+      properties:
+        type: {type: string, description: Current filter type; none if no filter is active.}
+    examples:
+    - title: get_selected_filter
+      request:
+        params: {}
+      response:
+        data: {type: pencil}
+      source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-filter-information
+  get_filter_capabilities:
+    summary: Request all available filters with their supported parameters and flags.
+    effect: read
+    binding: {method: getFilterCapabilities}
+    result:
+      type: object
+      properties:
+        filters:
+          type: array
+          items: {$ref: '#/types/FilterCapability'}
+    examples:
+    - title: get_filter_capabilities
+      request:
+        params: {}
+      response:
+        data:
+          filters:
+          - type: pencil
+            description: string
+            flags:
+            - <flag_name>: {type: bool, description: string}
+            - <flag_name>: {type: integer, min: 0, max: 255, description: string}
+      source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-all-filter-capabilities
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/
+  sha256_md: c899966c74c811a03311ff04091088ac7545387fc1553619a75c004bb449ebde
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Security level/access level not stated for any method.
+  - Concrete flag names (inverted, threshold) appear only in examples; the full flag set is only discoverable via
+    getFilterCapabilities.
+  - Filter capability flag type strings ('bool', 'integer') are shown with placeholder values; full list of possible
+    types unknown.
+  - AXIS OS minimum version not stated.
+  - 'migration: effect-guessed: write semantics guessed from the method name: set_filter_settings=write/patch, set_selected_filter=write/patch'
+  - 'migration: params-not-object: set_filter_settings: params is not an object schema (generator needs a model)'
+  - 'migration: params-not-object: get_filter_settings: params is not an object schema (generator needs a model)'
+  - 'migration: params-not-object: set_selected_filter: params is not an object schema (generator needs a model)'
+  migrated_from: v1
+  curated: false

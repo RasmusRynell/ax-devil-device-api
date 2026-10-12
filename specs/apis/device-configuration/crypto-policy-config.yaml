@@ -1,0 +1,114 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: crypto-policy-config
+name: Cryptographic policy
+summary: The VAPIX® Cryptographic policy management API allows you to configure a cryptographic policy for services
+  in the system.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: crypto_policy
+  class: CryptoPolicy
+docs:
+- https://developer.axis.com/vapix/device-configuration/cryptographic-policy-api/
+access: admin
+discovery:
+- dca: {api: crypto-policy, version: v1}
+
+binding: {root: /config/rest/crypto-policy/v1}
+
+types:
+  Name:
+    type: string
+    minLength: 1
+    maxLength: 32
+    description: Identifier for a cryptographic policy
+  NiceName:
+    type: string
+    minLength: 1
+    maxLength: 128
+    description: A human friendly name for a cryptographic policy
+  PolDescription: {type: string, maxLength: 1024, description: The cryptographic policy description}
+  CryptoPolicy:
+    type: object
+    description: The whole API tree.
+    properties:
+      active_policy: {$ref: '#/types/Name', description: The cryptographic policy that is active}
+      policies:
+        type: array
+        items: {$ref: '#/types/Policy'}
+  Policy:
+    type: object
+    description: The cryptographic policies
+    required: [name]
+    properties:
+      description: {$ref: '#/types/PolDescription', description: The policy description}
+      name: {$ref: '#/types/Name', description: The policy identifier}
+      nice_name: {$ref: '#/types/NiceName', description: Human friendly name for the policy}
+
+operations:
+  get_all:
+    summary: All data of the Cryptographic policy API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/CryptoPolicy'}
+  set_active_policy:
+    summary: Set the active policy of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /active_policy, body_field: active_policy, body: value}
+    params:
+      type: object
+      required: [active_policy]
+      properties:
+        active_policy: {$ref: '#/types/Name', description: The cryptographic policy that is active}
+    examples:
+    - title: Set the active cryptographic policy
+      request:
+        path: /active_policy
+        body: {data: FIPS}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/cryptographic-policy-api/
+  list_policies:
+    summary: List the policies.
+    effect: read
+    binding: {method: GET, path: /policies}
+    result:
+      type: array
+      items: {$ref: '#/types/Policy'}
+    examples:
+    - title: List all policies
+      request: {path: /policies}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {name: DEFAULT, nice_name: Default, description: Default policy from OpenSSL}
+          - {name: FIPS, nice_name: FIPS 140-3, description: Policy to comply with FIPS 140-3}
+      source: https://developer.axis.com/vapix/device-configuration/cryptographic-policy-api/
+  get_policy:
+    summary: Get one policy.
+    effect: read
+    binding: {method: GET, path: '/policies/{name}'}
+    params:
+      type: object
+      x-name: PolicyNameRequest
+      required: [name]
+      properties:
+        name: {$ref: '#/types/Name'}
+    result: {$ref: '#/types/Policy'}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/cryptographic-policy-api/
+  sha256_md: 46a26ff7f0572d7bc677d619a5ade14bd016c22f3d05d71a7ecf330c9bbbbab5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: ['migration: dropped-property-gets: 4 per-property GET operations dropped']
+  migrated_from: v1
+  curated: false
