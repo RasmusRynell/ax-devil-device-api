@@ -401,3 +401,63 @@ def test_base_path_prefixes_every_request() -> None:
         assert dev.supports(MqttClientApi).status is Support.UNKNOWN  # prefixed discovery paths are unregistered
 
     assert camera.requests and all(r.path.startswith(prefix + "/") for r in camera.requests)
+
+
+# ---------------------------------------------------------------------------
+# ">=" param comparison and installed-ACAP discovery (pure decision + probe flow)
+
+
+def _caps(**kw):
+    from datetime import datetime, timezone
+
+    from ax_devil_device_api._runtime.capabilities import Capabilities
+
+    base = dict(classic_apis=None, dca_apis=None, properties=None, errors={}, observed_at=datetime.now(timezone.utc))
+    return Capabilities(**{**base, **kw})
+
+
+def _info(*discovery):
+    from ax_devil_device_api._protocols.base import ApiInfo, Family
+
+    return ApiInfo(id="x", name="x", family=Family.CGI, discovery=tuple(discovery))
+
+
+@pytest.mark.parametrize(
+    ("have", "expected"),
+    [("1.20", Support.YES), ("1.21", Support.YES), ("2.0", Support.YES), ("1.9", Support.NO), ("1.19.5", Support.NO), ("abc", Support.NO)],
+)
+def test_param_discovery_gte_compares_dotted_numbers(have: str, expected: Support) -> None:
+    from ax_devil_device_api._protocols.base import ParamDiscovery
+    from ax_devil_device_api._runtime.capabilities import decide_support
+
+    info = _info(ParamDiscovery("Properties.EmbeddedDevelopment.Version", "1.20", ">="))
+    result = decide_support(info, _caps(properties={"Properties.EmbeddedDevelopment.Version": have}))
+    assert result.status is expected
+
+
+def test_acap_discovery_installed_missing_and_unknown() -> None:
+    from ax_devil_device_api._protocols.base import AcapDiscovery
+    from ax_devil_device_api._runtime.capabilities import decide_support
+
+    info = _info(AcapDiscovery("loiteringguard"))
+    assert decide_support(info, _caps(applications={"LoiteringGuard": "1.0"})).status is Support.YES
+    assert decide_support(info, _caps(applications={"motionguard": "1.0"})).status is Support.NO
+    unknown = decide_support(info, _caps(errors={"applications": "AuthError: denied"}))
+    assert unknown.status is Support.UNKNOWN and "denied" in unknown.errors[0]
+
+
+def test_applications_probe_reads_installed_names() -> None:
+    from ax_devil_device_api._http.types import Headers, Response
+    from ax_devil_device_api._protocols.state import DeviceState
+    from ax_devil_device_api._runtime.capabilities import applications_flow, extra_probes
+    from ax_devil_device_api._protocols.base import AcapDiscovery
+
+    flow = applications_flow(DeviceState())
+    request = next(flow)
+    assert (request.method, request.path) == ("POST", "/axis-cgi/applications/list.cgi")
+    xml = b'<reply result="ok"><application Name="loiteringguard" Version="2.1"/><application Name="vmd" Version="4.9"/></reply>'
+    with pytest.raises(StopIteration) as done:
+        flow.send(Response(200, Headers(), xml, request))
+    assert done.value.value == {"loiteringguard": "2.1", "vmd": "4.9"}
+    assert extra_probes(_info(AcapDiscovery("vmd"))) == ("applications",)
+    assert extra_probes(_info()) == ()

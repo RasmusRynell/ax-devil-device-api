@@ -335,3 +335,39 @@ async def test_async_device_offering_only_newer_major_is_not_supported() -> None
             await dev.apis.mqtt_client.activate_client()
 
     assert camera.calls("activateClient") == []
+
+
+# ---------------------------------------------------------------------------
+# Error envelope variants
+
+
+def _failure(body: dict[str, Any]) -> ApiError:
+    camera = Camera(replies={"activateClient": httpx.Response(200, json=body)})
+    with connect(camera) as dev, pytest.raises(ApiError) as caught:
+        dev.apis.mqtt_client.activate_client()
+    return caught.value
+
+
+def test_error_member_names_error_code_and_error_msg() -> None:
+    error = _failure(envelope("activateClient", error={"errorCode": 2002, "errorMsg": "locale not supported"}))
+    assert (error.code, error.message) == (2002, "locale not supported")
+
+
+def test_top_level_errors_array_is_api_error_with_first_entry() -> None:
+    body = {
+        "apiVersion": "1.0",
+        "method": "activateClient",
+        "errors": [{"code": 400, "message": "Failed to connect", "viewId": 0}, {"code": 100, "message": "15"}],
+    }
+    error = _failure(body)
+    assert error.code == 400
+    assert error.message == "Failed to connect (and 1 more error)"
+    assert error.details == body["errors"]
+
+
+def test_errors_array_next_to_data_is_not_a_failure() -> None:
+    camera = Camera(
+        replies={"activateClient": httpx.Response(200, json={**envelope("activateClient"), "errors": [{"code": 400, "message": "x"}]})}
+    )
+    with connect(camera) as dev:
+        dev.apis.mqtt_client.activate_client()

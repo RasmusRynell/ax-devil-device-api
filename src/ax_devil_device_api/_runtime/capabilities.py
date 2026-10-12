@@ -1,10 +1,11 @@
 """Device identity, discovery probes and API support checks (sans-IO).
 
-Three probes describe what a device offers:
+Three probes describe what a device offers, and a fourth runs only for APIs that need it:
 
 - classic API discovery (``apidiscovery.cgi`` ``getApiList``),
 - Device Configuration discovery (``/config/discover``),
-- the ``param.cgi`` ``Properties.API`` group.
+- the ``param.cgi`` ``Properties.API`` group,
+- installed ACAP applications (``applications/list.cgi``).
 
 Each probe either succeeds (its result is cached until ``refresh()``) or
 fails (the error is reported and the probe is retried next time). A probe
@@ -14,8 +15,9 @@ failure never turns into "not supported".
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -23,6 +25,7 @@ from typing import Any
 from ..errors import DeviceError, ResponseFormatError
 from .._http.types import Request
 from .._protocols.base import (
+    AcapDiscovery,
     ApiDiscovery,
     ApiInfo,
     ApiVersion,
@@ -35,10 +38,12 @@ from .._protocols.base import (
     http_error,
 )
 from .._protocols.cgi import CgiArg, CgiBinding, TextKv
-from .._protocols.jsonrpc import FixedVersion, GetSupportedVersions, JsonRpcBinding
+from .._protocols.jsonrpc import FixedVersion
 from .._protocols.jsonrpc import flow as jsonrpc_flow
 from .._protocols.cgi import flow as cgi_flow
 from .._protocols.state import DeviceState
+from ..apis import api_discovery as _api_discovery
+from ..apis import basic_device_info as _basic_device_info
 
 # ---------------------------------------------------------------------------
 # Public results
@@ -93,14 +98,26 @@ class Capabilities:
     errors: Mapping[str, str]
     """Probe name -> error, for probes that failed."""
     observed_at: datetime
+    applications: Mapping[str, str] | None = None
+    """Installed ACAP applications: ``Name`` -> ``Version``. ``None`` if the probe failed or was not run."""
+
+    @classmethod
+    def from_probes(cls, values: Mapping[str, Any], errors: Mapping[str, str]) -> Capabilities:
+        """Assemble from probe results keyed like ``PROBES``."""
+        return cls(
+            classic_apis=values.get("classic_apis"),
+            dca_apis=values.get("dca_apis"),
+            properties=values.get("properties"),
+            errors=dict(errors),
+            observed_at=datetime.now(timezone.utc),
+            applications=values.get("applications"),
+        )
 
 
 # ---------------------------------------------------------------------------
 # Internal operations used by the probes
 
 _INTERNAL = ApiInfo(id="device", name="Device runtime", family=Family.JSONRPC, major=1, known_versions=(ApiVersion(1, 0),))
-_CLASSIC_INFO = ApiInfo(id="api-discovery", name="API discovery", family=Family.JSONRPC, major=1, known_versions=(ApiVersion(1, 0),))
-_BASIC_INFO = ApiInfo(id="basic-device-info", name="Basic device information", family=Family.JSONRPC, major=1, known_versions=(ApiVersion(1, 0),))
 _PARAM_INFO = ApiInfo(id="parameter-management", name="Parameter management", family=Family.CGI)
 
 
@@ -108,24 +125,18 @@ class _ParamListRequest(Model):
     group: list[str]
 
 
-_GET_API_LIST = Operation(
-    _CLASSIC_INFO,
-    "get_api_list",
-    JsonRpcBinding("getApiList", "/axis-cgi/apidiscovery.cgi", negotiation=FixedVersion(ApiVersion(1, 0)), auth="if_challenged"),
-    result=dict,
-    effect="read",
-)
-_GET_ALL_PROPERTIES = Operation(
-    _BASIC_INFO,
-    "get_all_properties",
-    JsonRpcBinding(
-        "getAllProperties",
-        "/axis-cgi/basicdeviceinfo.cgi",
-        negotiation=GetSupportedVersions(key="apiVersions"),
+# The probes reuse the generated operations (path, method, API info, error table) but read
+# the raw reply: identity keeps every property the device returns, not only the modelled ones.
+# API discovery is anonymous, so it neither negotiates nor demands credentials up front.
+_GET_API_LIST = replace(
+    _api_discovery.OPS.get_api_list,
+    binding=replace(
+        _api_discovery.OPS.get_api_list.binding, negotiation=FixedVersion(ApiVersion(1, 0)), auth="if_challenged"
     ),
+    params=None,
     result=dict,
-    effect="read",
 )
+_GET_ALL_PROPERTIES = replace(_basic_device_info.OPS.get_all_properties, result=dict)
 _LIST_PROPERTIES = Operation(
     _PARAM_INFO,
     "list",
@@ -140,6 +151,7 @@ _LIST_PROPERTIES = Operation(
     effect="read",
 )
 _DISCOVER_OP = Operation(_INTERNAL, "config_discover", object(), effect="read")
+_APPLICATIONS_OP = Operation(_INTERNAL, "applications_list", object(), effect="read")
 
 
 # ---------------------------------------------------------------------------
@@ -200,11 +212,37 @@ def properties_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     return data
 
 
+def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
+    response = yield Request("POST", "/axis-cgi/applications/list.cgi", accept="text/xml")
+    if not 200 <= response.status < 300:
+        raise http_error(_APPLICATIONS_OP, response)
+    try:
+        root = ET.fromstring(response.content)
+    except ET.ParseError as error:
+        raise ResponseFormatError("applications", "list", "response is not valid XML") from error
+    if root.get("result") not in (None, "ok"):
+        raise ResponseFormatError("applications", "list", f"device answered result={root.get('result')!r}")
+    return {
+        name: app.get("Version", "")
+        for app in root.iter()
+        if app.tag.rpartition("}")[2] == "application" and (name := app.get("Name"))
+    }
+
+
 PROBES = {
     "classic_apis": classic_apis_flow,
     "dca_apis": dca_apis_flow,
     "properties": properties_flow,
 }
+
+OPTIONAL_PROBES = {"applications": applications_flow}
+"""Probes that cost an extra (administrator) request and are only needed by some APIs.
+``extra_probes(info)`` says which ones an API's discovery wants."""
+
+
+def extra_probes(info: ApiInfo) -> tuple[str, ...]:
+    """Names of the ``OPTIONAL_PROBES`` that ``info``'s discovery needs."""
+    return ("applications",) if any(isinstance(m, AcapDiscovery) for m in info.discovery) else ()
 
 
 # ---------------------------------------------------------------------------
@@ -241,12 +279,33 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
                 unknown.append(f"parameter probe failed: {caps.errors.get('properties')}")
                 continue
             value = caps.properties.get(method.name)
-            if value is not None and (method.value is None or value == method.value):
+            if value is not None and _param_matches(method, value):
                 return SupportResult(Support.YES, f"parameter {method.name}={value}", observed_at=caps.observed_at)
+        elif isinstance(method, AcapDiscovery):
+            if caps.applications is None:
+                unknown.append(f"installed applications probe failed: {caps.errors.get('applications', 'not run')}")
+                continue
+            for name, version in caps.applications.items():
+                if name.casefold() == method.name.casefold():
+                    return SupportResult(Support.YES, f"application {name} {version} is installed", observed_at=caps.observed_at)
 
     if unknown:
         return SupportResult(Support.UNKNOWN, "discovery was incomplete", tuple(unknown), caps.observed_at)
     return SupportResult(Support.NO, f"{info.id} is not listed by the device's discovery", observed_at=caps.observed_at)
+
+
+def _version_key(text: str) -> tuple[int, ...] | None:
+    parts = text.strip().split(".")
+    return tuple(int(p) for p in parts) if all(p.isdigit() for p in parts) else None
+
+
+def _param_matches(method: ParamDiscovery, value: str) -> bool:
+    if method.value is None:
+        return True
+    if method.compare == ">=":
+        have, want = _version_key(value), _version_key(method.value)
+        return have is not None and want is not None and have >= want
+    return value == method.value
 
 
 def probe_error(error: Exception) -> str:

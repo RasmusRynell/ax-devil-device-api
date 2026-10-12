@@ -41,6 +41,9 @@ class DcaBinding:
     path: str
     body: Literal["none", "object", "value"] = "none"
     body_field: str | None = None
+    key_styles: tuple[tuple[str, Literal["segment", "dots_to_slashes"]], ...] = ()
+    """Per placeholder: ``dots_to_slashes`` writes a dotted key as nested path segments
+    (``com.axis.topic`` -> ``com/axis/topic``); the default is one encoded segment."""
     auth: AuthPolicy = "required"
     timeout: float | None = None
 
@@ -54,26 +57,45 @@ def _build(op: Operation[DcaBinding], params: Model | None) -> Request:
     wire = params.to_wire() if params is not None else {}
     path_values: dict[str, str] = {}
     for name in binding.path_params:
-        value = getattr(params, name, None) if params is not None else None
+        field = _field_for(params, name) if params is not None else None
+        value = getattr(params, field, None) if field is not None else None
         if value is None:
             raise TypeError(f"{op.api.id}.{op.id}: missing path parameter {name!r}")
         text = str(value)
-        if text in ("", ".", ".."):
-            # These would address a different resource after URL normalization.
-            raise ValueError(f"{op.api.id}.{op.id}: {name}={text!r} is not a valid path segment")
-        path_values[name] = quote(text, safe="")
+        segments = text.split(".") if dict(binding.key_styles).get(name) == "dots_to_slashes" else [text]
+        for segment in segments:
+            if segment in ("", ".", ".."):
+                # These would address a different resource after URL normalization.
+                raise ValueError(f"{op.api.id}.{op.id}: {name}={text!r} is not a valid path segment")
+        path_values[name] = "/".join(quote(segment, safe="") for segment in segments)
     path = binding.path.format(**path_values)
 
     body: JsonBody | None = None
     if binding.body == "object":
-        assert params is not None
-        excluded = {_alias(params, name) for name in binding.path_params}
+        # Actions without arguments still send an empty object: {"data": {}}.
+        excluded = (
+            {_alias(params, f) for f in (_field_for(params, n) for n in binding.path_params) if f is not None}
+            if params is not None
+            else set()
+        )
         body = JsonBody({"data": {k: v for k, v in wire.items() if k not in excluded}})
     elif binding.body == "value":
         assert params is not None and binding.body_field is not None
-        body = JsonBody({"data": wire.get(_alias(params, binding.body_field))})
+        field = _field_for(params, binding.body_field) or binding.body_field
+        body = JsonBody({"data": wire.get(_alias(params, field))})
 
     return Request(binding.method, path, body=body, accept="application/json", auth=binding.auth, timeout=binding.timeout)
+
+
+def _field_for(params: Model | type[Model], placeholder: str) -> str | None:
+    """The params field a path placeholder refers to, by Python name or wire name."""
+    fields = (params if isinstance(params, type) else type(params)).model_fields
+    if placeholder in fields:
+        return placeholder
+    for name, info in fields.items():
+        if placeholder in (info.serialization_alias, info.validation_alias, info.alias):
+            return name
+    return None
 
 
 def _alias(params: Model, name: str) -> str:
@@ -99,7 +121,8 @@ def _decode(op: Operation[DcaBinding], response: Response) -> Any:
         raise http_error(op, response)
     if not response.content:
         return None
-    if not isinstance(payload, dict) or payload.get("status") != "success":
+    # Some documented responses omit "status" on success; a 2xx with "data" is accepted.
+    if not isinstance(payload, dict) or payload.get("status", "success" if "data" in payload else None) != "success":
         raise ResponseFormatError(op.api.id, op.id, "response is not a Device Configuration success envelope")
     return payload.get("data")
 

@@ -290,13 +290,25 @@ class DcaDiscovery:
 
 @dataclass(frozen=True)
 class ParamDiscovery:
-    """A ``param.cgi`` property, e.g. ``Properties.API.HTTP.Version`` == ``3``."""
+    """A ``param.cgi`` property, e.g. ``Properties.API.HTTP.Version`` == ``3``.
+
+    ``compare`` ``">="`` accepts any value that is at least ``value``: dotted
+    numbers compare component by component (``1.20`` >= ``1.9``).
+    """
 
     name: str
     value: str | None = None
+    compare: Literal["==", ">="] = "=="
 
 
-Discovery = ApiDiscovery | DcaDiscovery | ParamDiscovery
+@dataclass(frozen=True)
+class AcapDiscovery:
+    """An ACAP application is installed (``applications/list.cgi``), matched by its ``Name`` attribute."""
+
+    name: str
+
+
+Discovery = ApiDiscovery | DcaDiscovery | ParamDiscovery | AcapDiscovery
 
 
 @dataclass(frozen=True)

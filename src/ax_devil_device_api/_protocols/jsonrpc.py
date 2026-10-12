@@ -3,6 +3,8 @@
 Request:  POST <path> {"apiVersion": "M.m", "method": "...", "params": {...}}
 Success:  {"apiVersion", "method", "data": {...}}
 Error:    {"apiVersion", "method", "error": {"code": int, "message": str}}
+          also seen: "error": {"errorCode", "errorMsg"} and, without "data",
+          a top-level "errors": [{"code", "message", ...}, ...] array (decoder)
 
 Errors are usually returned with HTTP 200 but some APIs use 4xx/5xx, so the
 body is always inspected before the status.
@@ -94,11 +96,21 @@ def _decode(op: Operation[Any], response: Response) -> dict[str, Any]:
     if isinstance(payload, dict) and "error" in payload:
         error = payload["error"]
         if isinstance(error, dict):
-            code = error.get("code")
-            message = str(error.get("message", ""))
+            # Some APIs (on-screen-controls, radar-configuration) name the members errorCode/errorMsg.
+            code = error.get("code", error.get("errorCode"))
+            message = str(error.get("message", error.get("errorMsg", "")))
         else:
             code, message = None, str(error)
         raise api_error(op, code, message, http_status=response.status, details=error)
+    errors = payload.get("errors") if isinstance(payload, dict) and "data" not in payload else None
+    if isinstance(errors, list) and errors:
+        # Decoder-style failure: a top-level array of {code, message, ...} instead of one error object.
+        first = errors[0] if isinstance(errors[0], dict) else {}
+        code = first.get("code", first.get("errorCode"))
+        message = str(first.get("message", first.get("errorMsg", "")))
+        if len(errors) > 1:
+            message = f"{message} (and {len(errors) - 1} more error{'s' if len(errors) > 2 else ''})"
+        raise api_error(op, code, message, http_status=response.status, details=errors)
     if response.status != 200:
         raise http_error(op, response)
     if not isinstance(payload, dict):
