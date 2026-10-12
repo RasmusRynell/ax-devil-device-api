@@ -1,0 +1,58 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: trigger-data
+name: Trigger data
+summary: (Deprecated) Axis trigger data embedded in JPEG comment headers, MPEG-4 GOV headers and H.264 SEI messages,
+  configured with param.cgi.
+section: network-video
+family: cgi
+status: deprecated
+python:
+  module: trigger_data
+  class: TriggerData
+docs:
+- https://developer.axis.com/vapix/network-video/trigger-data/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  configure_trigger_data:
+    summary: Enable trigger/user data and select included triggers through param.cgi.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      properties:
+        Image.TriggerDataEnabled: {type: string, enum: ['yes', 'no']}
+        Image.I#.MPEG.UserDataEnabled: {type: string, enum: ['yes', 'no']}
+        Image.I#.TriggerData.<parameter>: {type: string, description: Any parameter of the Image.I#.TriggerData
+            group.}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/trigger-data/
+  sha256_md: 1862d2126a4fb1959ec020c6fe6a8989eb9d640f90ddfa6d2a5515273f59ec52
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Binary hex dump examples (MJPEG/MPEG-4/H.264) are not reproduced byte-for-byte; see source page. Bold markers
+    are lost in the Markdown.
+  - Second param.cgi example contains '&&' (empty parameter) verbatim.
+  - AXIS OS version field shown as '0x##.0x##' (dot) - encoding of major/minor not specified.
+  - Schema cannot express binary framing; captured as x- keys inside types.
+  - 'migration: types-dropped: types not referenced by any migrated operation: TriggerDataBlock, UserDataHeader'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-keywords: x-axis-ids x1, x-h264-framing x1, x-mjpeg-framing x1, x-mpeg4-framing x1, x-product-information-layout
+    x1, x-time-stamp-layout x1, x-trigger-tags x1'
+  migrated_from: v1
+  curated: false

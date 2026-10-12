@@ -1,0 +1,142 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: ptz-focus-recall
+name: Focus recall API
+summary: 'Manage PTZ memory zones (pan/tilt/zoom areas with a saved focus) that give instant focus: add, remove,
+  list, goto.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: focus_recall
+  class: FocusRecall
+docs:
+- https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+access: viewer
+discovery:
+- {api_discovery: ptz-focus-recall}
+- param: {name: Properties.MemoryZones.MemoryZones, value: 'yes'}
+- param: {name: Properties.MemoryZones.Version, value: '0.1'}
+requires:
+  firmware: '6.25'
+
+binding: {path: /axis-cgi/memoryzones/add.cgi}
+
+operations:
+  add_memory_zone:
+    summary: Add a memory zone saving a focus position for a polygon/zoom range.
+    effect: write
+    write: create
+    binding: {method: GET, reply: json}
+    params:
+      type: object
+      required: [focus]
+      properties:
+        name: {type: string, maxLength: 32, description: 'Zone name (UTF-8), max 32 characters.'}
+        polygon:
+          type: string
+          description: Image coordinates of the corners "<x1>,<y1>:<x2>,<y2>:<x3>,<y3>:<x4>,<y4>" (floats).
+        zoomrange:
+          type: string
+          default: 1:19999
+          description: '"<zoom_min>:<zoom_max>" in VAPIX scale 1-19999.'
+        camera:
+          type: integer
+          default: 1
+          description: Camera source index; not required with one camera source.
+        focus:
+          type: string
+          description: 'Focus to save: 1-9999 (VAPIX focus position) or current (save the current focus).'
+    result:
+      type: object
+      properties:
+        name: {type: string}
+        index: {type: integer}
+    errors:
+      504: {description: List full}
+      505: {description: Name already defined}
+      506: {description: Name too long}
+  remove_memory_zone:
+    summary: Remove a memory zone (by index, the current one, or all).
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/memoryzones/remove.cgi, method: GET, reply: json}
+    params:
+      type: object
+      properties:
+        index: {type: integer, description: Zone index; not required when removing all.}
+        camera:
+          type: integer
+          default: 1
+          description: Camera source index; not required with one camera source.
+        removeall: {type: integer, enum: [1], description: 1 removes all configured zones.}
+    errors:
+      503: {description: Unknown index}
+  list_memory_zones:
+    summary: List all zones, the zone at the current coordinate, or zones inside the current view.
+    effect: read
+    binding: {path: /axis-cgi/memoryzones/list.cgi, method: GET, reply: json}
+    params:
+      type: object
+      properties:
+        camera:
+          type: integer
+          default: 1
+          description: Camera source index; not required with one camera source.
+        query:
+          type: string
+          enum: [list, current, view]
+          description: 'What to list. Values: list: All memory zones; current: Zone at the current coordinate ({name:"",index:-1}
+            if none); view: Zones inside the current view (includes image polygon)'
+    result:
+      type: array
+      items:
+        type: object
+        x-name: ListMemoryZonesResultItem
+        properties:
+          name: {type: string}
+          index: {type: integer}
+          polygon: {type: string, description: Image coordinates (query=view only).}
+          ptpolygon: {type: string, description: 'Pan/tilt polygon "x,y:x,y:x,y:x,y".'}
+          zoomrange: {type: string, description: '"min:max".'}
+          focus: {type: integer}
+      description: Array of zones for list/view ([] if none); object {name,index} for current.
+    errors:
+      503: {description: Unknown index}
+  goto_memory_zone:
+    summary: Go to and focus on memory zone coordinates.
+    effect: action
+    binding: {path: /axis-cgi/memoryzones/goto.cgi, method: GET, reply: json}
+    params:
+      type: object
+      required: [index]
+      properties:
+        camera:
+          type: integer
+          default: 1
+          description: Camera source index; not required with one camera source.
+        index: {type: integer, description: Memory zone index.}
+    errors:
+      504: {description: List full}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+  sha256_md: b1dc685e0bec7a017399a605bfd9687f3d7fa81ef8e929c4a119a65719e79416
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - General error response is shown as XML while method error bodies are JSON {"error":{id,message}} with Content-Type
+    application/json.
+  - remove.cgi success body is "Empty" but the example returns {name,index}; index 4 example returns "None".
+  - goto.cgi success code "204 OK".
+  - Error 504 "List full" listed for goto.cgi (likely add only).
+  - query default for list.cgi not stated.
+  - 'migration: json-untyped: remove_memory_zone: JSON reply without schema; result is untyped'
+  - 'migration: multi-type: type list [''array'', ''object''] reduced to array'
+  - 'migration: json-untyped: goto_memory_zone: JSON reply without schema; result is untyped'
+  - 'migration: discovery: param_property ''Properties.MemoryZones.MaxNbrOfMemoryZones'' is not a Name=value pair:
+    dropped'
+  migrated_from: v1
+  curated: false

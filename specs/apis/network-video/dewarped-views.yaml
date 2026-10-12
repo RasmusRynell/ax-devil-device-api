@@ -1,0 +1,90 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: dewarped-views
+name: Dewarped views
+summary: param.cgi parameters and stream arguments for using the view modes (dewarped views) of Axis 360°/180° cameras.
+section: network-video
+family: cgi
+status: released
+python:
+  module: dewarped_views
+  class: DewarpedViews
+docs:
+- https://developer.axis.com/vapix/network-video/dewarped-views/
+access: admin
+discovery:
+- param: {name: Properties.Image.Dewarp, value: 'yes'}
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  list_parameters:
+    summary: List dewarping-related parameters (Properties.Image.Dewarp, Properties.Image.NbrOfViews, Properties.Image.I<#>.*,
+      Image.*.Name, Image.I<#>.Enabled...
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply:
+        text_kv: {strip_prefix: root.}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: 'Parameter group, wildcards allowed (e.g. Image.*.Name).'}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Identification
+      request:
+        query: {group: Properties.Image.Dewarp}
+      response: {status: 200, text: Properties.Image.Dewarp=yes}
+      source: https://developer.axis.com/vapix/network-video/dewarped-views/#identification
+    - title: Number of views
+      request:
+        query: {group: Properties.Image.NbrOfViews}
+      response: {status: 200, text: <int>}
+      source: https://developer.axis.com/vapix/network-video/dewarped-views/#enable-and-configure-views
+    - title: Supported resolutions/rotations for view mode Overview
+      request:
+        query: {group: Properties.Image.I0}
+      response:
+        status: 200
+        text: |-
+          root.Properties.Image.I0.Rotation=0,180
+          root.Properties.Image.I0.Resolution=2592x1944,2048x1536,1600x1200,1280x960,1024x768,
+          800x600,640x480,480x360,320x240,240x180,160x120
+      source: https://developer.axis.com/vapix/network-video/dewarped-views/#check-valid-resolutions-and-rotations
+  set_camera_tilt_orientation:
+    summary: Set the camera orientation (mounting position), which affects view modes and PTZ.
+    effect: write
+    write: patch
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [ImageSource.I0.CameraTiltOrientation]
+      properties:
+        ImageSource.I0.CameraTiltOrientation: {type: integer, enum: [-90, 0, 90]}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/dewarped-views/
+  sha256_md: 54c7e361d6b1d0649b4091d135be31a04a63e1a15c5726b098559639074bd61b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - '''Set camera orientation'' request is documented as action=list (would only read the value) — likely should
+    be action=update.'
+  - Identification prose says 'Property.Image.Dewarp' while the table and request use Properties.Image.Dewarp.
+  - Access column lists read/write for every view mode; footnote says the access refers to Image.I<#>.Name — security
+    levels not documented.
+  - Properties.Image.Resolutions (plural) vs Properties.Image.I<#>.Resolution (singular) naming as documented.
+  - AXIS OS requirement not stated.
+  - 'migration: op-skipped: get_mjpeg_stream: kind stream is not a classic CGI call'
+  - 'migration: op-skipped: get_rtsp_stream: kind rtsp_request is not a classic CGI call'
+  - 'migration: types-dropped: types not referenced by any migrated operation: ViewModeNumber'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

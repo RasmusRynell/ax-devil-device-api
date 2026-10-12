@@ -1,0 +1,80 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: digital-autotracking
+name: Digital autotracking API
+summary: Configure the AXIS Digital Autotracking ACAP (view area, include/exclude areas, ignore filters) via vaconfig.cgi
+  XML and receive its stateful tracking event.
+section: applications
+family: cgi
+status: released
+python:
+  module: digital_autotracking
+  class: DigitalAutotracking
+docs:
+- https://developer.axis.com/vapix/applications/digital-autotracking-api/
+access: admin
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.PTZ.PTZ, value: 'yes'}
+- param: {name: Properties.PTZ.DigitalPTZ, value: 'yes'}
+requires:
+  application: AXIS Digital Autotracking (package DigitalAutotracking, file AXISDigitalAutotracking.eap)
+
+binding: {path: /axis-cgi/vaconfig.cgi}
+
+operations:
+  get_configuration:
+    summary: Retrieve the application configuration XML.
+    description: Deprecated.
+    effect: read
+    binding:
+      method: GET
+      query: {action: get, name: DigitalAutotracking}
+      reply: xml
+    result: {x-xml: true}
+  modify_configuration:
+    summary: Upload a new application configuration file (view area, include area, exclude areas, filters).
+    description: Deprecated.
+    effect: write
+    write: patch
+    binding: {method: POST, encoding: form, reply: xml}
+    params:
+      type: object
+      required: [action, name, config]
+      properties:
+        action: {type: string, enum: [modify], default: modify}
+        name: {type: string, enum: [DigitalAutotracking], default: DigitalAutotracking}
+        config:
+          type: string
+          x-python-name: config_xml
+          description: <config version="1.0">...</config> XML appended after the form fields and a newline.
+
+sources:
+- url: https://developer.axis.com/vapix/applications/digital-autotracking-api/
+  sha256_md: 99c6d88fd868ec27c1f762c0f41e2042630c8f9b388596945d694f6ae95bbf8f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Event stream example topic is 'tns1:RuleEnginge/...' (typo). Event source SimpleItem Name is 'View Area' in
+    the stream but 'camera' in the declaration.
+  - Table uses attribute 'knownTypeName'/'knownType' while XML uses 'knownNameType'.
+  - 'Example rule names differ: ''detection_DigitalAutotracking'' function ''trackObjects'' vs ''detection_0'' function
+    ''guardIncludeArea'' in modify example.'
+  - The view-area enabling example sets PTZ.Various.V8.Locked=False for view area 7 (Image.I7); the index relation
+    is not explained.
+  - Event declaration block is malformed (<tracking wstop="true"> and unclosed <tracking>).
+  - Default values of filters not stated beyond example values (-10 for Time/Width/Height, 0 for swaying).
+  - 'migration: op-skipped: get_event_stream: kind rtsp_request is not a classic CGI call'
+  - 'migration: xml-unmapped: get_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: modify_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=1.40'' is not a Name=value pair:
+    dropped'
+  - 'migration: discovery: param_property ''Properties.Image.NbrOfViews>1'' is not a Name=value pair: dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: NamedObjectsV2, Point'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,394 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: people-counter
+name: People counter API
+summary: Read real-time and historical two-way people counting data (JSON/CSV/XML/binary cnt), occupancy data, live
+  view line placement, parameters and logs from the...
+section: applications
+family: cgi
+status: released
+python:
+  module: people_counter
+  class: PeopleCounter
+docs:
+- https://developer.axis.com/vapix/applications/people-counter-api/
+access: admin
+requires:
+  application: AXIS People Counter
+
+binding: {path: /local/tvpc/.api}
+
+types:
+  LiveSum:
+    type: object
+    properties:
+      serial: {type: string, description: camera serial number}
+      name: {type: string, description: name of the counter}
+      timestamp: {type: string, description: time in the camera in the format YYYYMMDDhhmmss}
+      in: {type: integer, description: number of people passing in until now today}
+      out: {type: integer, description: number of people passing out until now}
+  DayList:
+    type: object
+    properties:
+      timestamp: {type: string, description: time in the camera in the format YYYYMMDDhhmmss}
+      days:
+        type: array
+        items: {type: string, description: YYYYMMDD}
+        description: an array of days where data exists
+  CountPosition:
+    type: object
+    properties:
+      width: {type: integer, description: dimension of the video stream (width)}
+      height: {type: integer, description: dimension of the video stream (height)}
+      left:
+        type: integer
+        description: x coordinate in pixels for start of the blue lines in Live view
+      right: {type: integer, description: x coordinate in pixels for stop of the blue lines in Live view}
+      top:
+        type: integer
+        description: y coordinate in pixels for the first of the two blue lines in Live view
+      bottom:
+        type: integer
+        description: y coordinate in pixels for the second of the two blue lines in Live view
+      yfirst:
+        type: integer
+        description: y coordinate in pixels for the top of the red counting area, disregarding curvature
+      ylast:
+        type: integer
+        description: y coordinate in pixels for the bottom of the red counting area, disregarding curvature
+      radius:
+        type: integer
+        description: radius in pixels describing the curvature of the red counting area, as measured in the center
+          of the area on both axes, or 0 if the area is not curved
+  OccupancyExport:
+    type: object
+    properties:
+      counter:
+        type: object
+        x-name: OccupancyExportCounter
+        properties:
+          name: {type: string, description: 'The name of the application, chosen by the client.'}
+          serial: {type: string, description: The Mac address for the camera.}
+          delta: {type: integer, description: 'The time difference between data entries, measured in seconds.'}
+          types:
+            type: object
+            additionalProperties: {type: integer}
+            description: Column ids for 'Occupancy' (number of people currently in the location), 'Average Time'
+              (average time a person is staying in a location), 'Total In', 'Total Out'.
+      data:
+        type: object
+        additionalProperties:
+          type: array
+          items: {type: integer}
+        description: Keyed by timestamp YYYYMMDDhhmmss; arrays ordered as [Occupancy, Average Time, Total In, Total
+          Out] in the example.
+
+operations:
+  get_live_sum:
+    summary: Request real-time counting data.
+    effect: read
+    binding:
+      method: GET
+      query: {live-sum.json: ''}
+      reply: json
+    result: {$ref: '#/types/LiveSum'}
+    examples:
+    - title: Template
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          {
+            "serial":"<camera-serial>",
+            "name":"<counter-name>",
+            "timestamp":"<timestamp>",
+            "in":<in>,
+            "out":<out>
+          }
+  list_available_days:
+    summary: List days where counting data exists.
+    effect: read
+    binding:
+      method: GET
+      query: {list-cnt.json: ''}
+      reply: json
+    result: {$ref: '#/types/DayList'}
+    examples:
+    - title: Template
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          {
+            "timestamp" : "<timestamp>",
+            "days":["YYYYMMDD", [..] "YYYYMMDD"]}
+          }
+  export_cnt:
+    summary: Download a binary data file (.cnt) for the given date(s), to be used in AXIS Store Data Manager.
+    effect: read
+    binding:
+      method: GET
+      query: {export-cnt: ''}
+      reply: binary
+    params:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          description: a date YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
+            or all for all available data. Required-ness inferred from the template (not bracketed).
+    result: {type: string, format: binary}
+  export_csv:
+    summary: Request historical data in CSV format.
+    description: Plain text comma-separated values. The first line contains a description of each element, and the
+      following lines contain the corresponding data for the chosen time interval and resolution.
+    effect: read
+    binding:
+      method: GET
+      query: {export-csv: ''}
+      reply: text
+    params:
+      type: object
+      properties:
+        date:
+          type: string
+          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          default: all
+          description: a date YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
+            or all (default) for all available data.
+        res: {type: string, enum: [15m, 1h, 24h], default: 15m}
+    result: {type: string}
+  export_json:
+    summary: Request historical data in JSON format.
+    effect: read
+    binding:
+      method: GET
+      query: {export-json: ''}
+      reply: json
+    params:
+      type: object
+      properties:
+        date:
+          type: string
+          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          default: all
+          description: a date YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
+            or all (default) for all available data.
+        res: {type: string, enum: [15m, 1h, 24h], default: 15m}
+  export_xml:
+    summary: Request historical data in XML format.
+    effect: read
+    binding:
+      method: GET
+      query: {export-xml: ''}
+      reply: xml
+    params:
+      type: object
+      properties:
+        date:
+          type: string
+          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          default: all
+          description: a date YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
+            or all (default) for all available data.
+        res: {type: string, enum: [15m, 1h, 24h], default: 15m}
+    result: {x-xml: true}
+  clear_data:
+    summary: Clear counting data.
+    effect: write
+    write: delete
+    binding:
+      path: /local/tvpc/.apioperator
+      method: GET
+      query: {clear-data: ''}
+      reply: text_ok
+    examples:
+    - title: Clear counting data
+      request:
+        query: {}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/applications/people-counter-api/#clear-counting-data
+  get_count_position:
+    summary: Live view information — placement of the lines in Live view.
+    effect: read
+    binding:
+      method: GET
+      query: {cntpos.json: ''}
+      reply: json
+    result: {$ref: '#/types/CountPosition'}
+    examples:
+    - title: Template
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          {
+            "width":<width>,
+            "height":<height>,
+            "left":<left>,
+            "right":<right>,
+            "top":<top>,
+            "bottom":<bottom>,
+            "yfirst":<yfirst>,
+            "ylast":<ylast>,
+            "radius":<radius>
+          }
+  show_logs:
+    summary: Show the system log.
+    effect: read
+    binding:
+      path: /local/tvpc/.apioperator
+      method: GET
+      query: {show-logs: ''}
+      reply: text
+    result: {type: string}
+  generate_logs:
+    summary: Generate a log archive (tar.gz).
+    effect: read
+    binding:
+      path: /local/tvpc/.apioperator
+      method: GET
+      query: {generate-logs: ''}
+      reply: binary
+    result: {type: string, format: binary}
+  get_params:
+    summary: List people counter parameters.
+    effect: read
+    binding:
+      method: GET
+      query: {params.json: ''}
+      reply: json
+    result: {type: object, additionalProperties: true}
+  set_params:
+    summary: Set people counter parameters.
+    description: 'Legacy format uses pairs: &p1=Counter.Enable&v1=1&p2=Counter.Height&v2=280&setparams=needstobeincluded.
+      For AXIS OS version 5.60 and later, use setparams&Counter.Height=280 instead (parameter name as key).'
+    effect: write
+    write: patch
+    binding:
+      path: /local/tvpc/.apioperator
+      method: POST
+      query: {setparams: ''}
+      reply: text_ok
+    params:
+      type: object
+      required: [<Parameter.Name>]
+      properties:
+        <Parameter.Name>:
+          type: object
+          x-python-name: params
+          description: 'AXIS OS 5.60 and later: one key per parameter, e.g. Counter.Height=280. Client should accept
+            a mapping {name: value}.'
+        p<n>/v<n>:
+          type: object
+          x-python-name: legacy_pairs
+          description: 'Pre-5.60 format: pN=<parameter name>, vN=<value> pairs (n = 1, 2,...), plus setparams=needstobeincluded.'
+  get_live_occupancy:
+    summary: Request real-time occupancy data (JSON).
+    effect: read
+    binding:
+      path: /tvpc/.api
+      method: GET
+      query: {live-occupancy.json: ''}
+      reply: json
+  reset_occupancy:
+    summary: Reset the available occupancy data.
+    effect: write
+    write: replace
+    binding:
+      path: /tvpc/.api
+      method: GET
+      query: {occupancy-reset: ''}
+      reply: text
+    params:
+      type: object
+      properties:
+        occ:
+          type: integer
+          description: Occupancy value to reset to ([value] in the template); semantics and type not documented.
+  occupancy_export_csv:
+    summary: Export occupancy data in CSV format.
+    effect: read
+    binding:
+      method: GET
+      query: {occupancy-export-csv: ''}
+      reply: text
+    params:
+      type: object
+      required: [date, res]
+      properties:
+        date:
+          type: string
+          description: A date in the form YYYYMMDD, for example date=20180520. The occupancy JSON example also uses
+            date=all.
+        res: {type: string, enum: [1m, 15m, 1h, 24h]}
+    result: {type: string}
+  occupancy_export_json:
+    summary: Export occupancy data in JSON format (total number of people entering/leaving and average visit time).
+    effect: read
+    binding:
+      method: GET
+      query: {occupancy-export-json: ''}
+      reply: json
+    params:
+      type: object
+      required: [date, res]
+      properties:
+        date:
+          type: string
+          description: A date in the form YYYYMMDD, for example date=20180520. The occupancy JSON example also uses
+            date=all.
+        res: {type: string, enum: [1m, 15m, 1h, 24h]}
+    result: {$ref: '#/types/OccupancyExport'}
+  occupancy_export_xml:
+    summary: Export occupancy data in XML format.
+    effect: read
+    binding:
+      method: GET
+      query: {occupancy-export-xml: ''}
+      reply: xml
+    params:
+      type: object
+      required: [date, res]
+      properties:
+        date:
+          type: string
+          description: A date in the form YYYYMMDD, for example date=20180520. The occupancy JSON example also uses
+            date=all.
+        res: {type: string, enum: [1m, 15m, 1h, 24h]}
+    result: {x-xml: true}
+
+sources:
+- url: https://developer.axis.com/vapix/applications/people-counter-api/
+  sha256_md: e28fd7c182788d17911148e22db26159844514dcb66987a15e9597485bc0690f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'Occupancy endpoints use inconsistent paths: occupancy-export-json example uses /tvpc/.apioperator, export templates
+    use /local/tvpc/.api, live-occupancy and occupancy-reset use /tvpc/.api. https://developer.axis.com/vapix/applications/people-counter-api/#occupancy-data'
+  - occupancy-reset 'occ' parameter is undocumented beyond the '[value]' placeholder.
+  - Occupancy export date parameter documented only as YYYYMMDD but the example uses date=all; required-ness of
+    date/res for occupancy exports not stated.
+  - live-occupancy.json, export-json and occupancy-reset response formats are not documented.
+  - Template for list-cnt.json is malformed (extra closing brace); 'days' description is truncated ('an array of
+    days where there exists').
+  - cntpos radius description ends '... on both axes, or if the area is not curved' — the value for non-curved (presumably
+    0) is missing.
+  - Occupancy types table says 'Average time' while the JSON uses 'Average Time'; the meaning of the integer values
+    under counter.types (64, 66, 67) is not explained.
+  - Error responses, access levels and ACAP version requirements are not documented.
+  - 'migration: json-untyped: export_json: JSON reply without schema; result is untyped'
+  - 'migration: xml-unmapped: export_xml: no response schema in v1; result is the raw XML element'
+  - 'migration: object-param: set_params.<Parameter.Name>: object-valued query parameter kept as a free-form map'
+  - 'migration: object-param: set_params.p<n>/v<n>: object-valued query parameter kept as a free-form map'
+  - 'migration: json-untyped: get_live_occupancy: JSON reply without schema; result is untyped'
+  - 'migration: xml-unmapped: occupancy_export_xml: no response schema in v1; result is the raw XML element'
+  migrated_from: v1
+  curated: false

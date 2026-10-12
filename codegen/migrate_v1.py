@@ -3,8 +3,9 @@
 
 Usage: uv run python codegen/migrate_v1.py [--src DIR] [--out DIR] [--only ID ...]
 
-Scope: JSON-RPC CGI (styles[0] == json_rpc_cgi) and Device Configuration REST
-(device_config_rest in styles). Other families are skipped. The v1 corpus is
+Scope: JSON-RPC CGI (styles[0] == json_rpc_cgi), Device Configuration REST
+(device_config_rest in styles) and classic CGI (styles[0] in cgi_query, cgi_xml,
+cgi_form_post). Other families are skipped. The v1 corpus is
 treated as data only (yaml.safe_load). Hand-curated v2 specs are never
 overwritten.
 """
@@ -17,6 +18,8 @@ import json
 import keyword
 import re
 import sys
+import urllib.parse
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import yaml
@@ -1747,6 +1750,646 @@ def dca_examples(op, root_path):
 # --------------------------------------------------------------------------- driver
 
 
+# --------------------------------------------------------------------------- classic CGI
+
+CGI_STYLES = ("cgi_query", "cgi_xml", "cgi_form_post")
+RAW_BODY_TYPES = ("application/xml", "text/xml", "application/json", "multipart/form-data")
+READ_VERBS = READ + ("download", "capture", "show", "view", "snapshot", "status", "retrieve", "poll", "find", "search")
+ACTION_VERBS = ACTION + ("format", "repair", "check_disk", "pause", "resume", "cancel", "abort", "call", "play", "save")
+WRITE_PATCH_VERBS = ("enable", "disable", "apply", "set", "update", "modify", "change", "configure", "select")
+ERROR_ATTR_VALUES = ("error", "failed", "fail", "failure")
+ERROR_MESSAGE_ATTRS = ("errormsg", "errormessage", "description", "message", "error", "reason")
+ERROR_CODE_ATTRS = ("errorcode", "code")
+
+
+def _xlocal(tag):
+    return tag.rsplit("}", 1)[-1]
+
+
+def cgi_effect(op_id, method):
+    """(effect, write) for a CGI operation id, or (None, None)."""
+    words = snake(op_id).split("_")
+    first = words[0]
+    if first in READ_VERBS:
+        return "read", None
+    if first in ("add", "create", "register", "upload", "import"):
+        return "write", "create"
+    if first in ("remove", "delete", "clear", "unregister"):
+        return "write", "delete"
+    if first in WRITE_PATCH_VERBS:
+        return "write", "patch"
+    if first in ("reset", "restore"):
+        return "write", "replace"
+    if first in ACTION_VERBS or "_".join(words[:2]) in ACTION_VERBS:
+        return "action", None
+    if first == "export" or any(w in ("progress", "info", "whoami", "query", "until", "status", "log", "logs", "report", "csv", "json", "xml") for w in words):
+        return "read", None
+    if "add" in words:
+        return "write", "create"
+    if first in ("mount", "unmount", "lock", "unlock", "bind", "unbind", "goto", "factory", "hard", "ping", "tcp",
+                 "port", "oneshot", "record", "manual", "serial", "control", "ptz", "speed", "on"):
+        return "action", None
+    return None, None
+
+
+def split_http_raw(raw):
+    """(status, body) from a raw HTTP response or a bare body."""
+    status = None
+    if not isinstance(raw, str):
+        return None, None
+    text = raw.replace("\r\n", "\n")
+    m = re.match(r"^HTTP/\d(?:\.\d)?\s+(\d{3})", text)
+    if m:
+        status = int(m.group(1))
+        _, sep, body = text.partition("\n\n")
+        text = body if sep else ""
+    return status, text.strip("\n")
+
+
+def parse_request_raw(raw):
+    """(method, path, query) from the first line of a raw request, or None."""
+    if not isinstance(raw, str):
+        return None
+    m = re.match(r"^\s*(GET|POST)\s+(\S+)", raw)
+    if not m:
+        return None
+    path, _, query = m.group(2).partition("?")
+    return m.group(1), path, query
+
+
+def parse_xml_body(text):
+    if not isinstance(text, str):
+        return None
+    i = text.find("<")
+    if i < 0:
+        return None
+    try:
+        return ET.fromstring(text[i:])
+    except ET.ParseError:
+        return None
+
+
+def example_pairs(op):
+    """Yield (example, request-part, response status, response body) for an operation's examples."""
+    for e in op.get("examples") or []:
+        resp = e.get("response") or {}
+        status, body = split_http_raw(resp.get("raw")) if resp.get("raw") is not None else (None, None)
+        if body is None and isinstance(resp.get("body"), str):
+            body = resp["body"]
+        status = resp.get("http_status") or status
+        yield e, e.get("request") or {}, status, body
+
+
+def derive_xml_errors(op):
+    """Error rules visible in the example XML: (error_elements, status_error) or (None, None)."""
+    elements, status = [], None
+    for _e, _req, _st, body in example_pairs(op):
+        root = parse_xml_body(body)
+        if root is None:
+            continue
+        for el in root.iter():
+            name = _xlocal(el.tag)
+            if (el is not root or name == "Error") and name.endswith("Error") and name not in elements:
+                elements.append(name)
+            attrs = {_xlocal(k): v for k, v in el.attrib.items()}
+            for key in ("result", "status"):
+                if key in attrs and attrs[key].lower() in ERROR_ATTR_VALUES and status is None:
+                    rule = {"attribute": key, "value": attrs[key]}
+                    msg = next((a for a in attrs if a.lower() in ERROR_MESSAGE_ATTRS), None)
+                    code = next((a for a in attrs if a.lower() in ERROR_CODE_ATTRS), None)
+                    if msg:
+                        rule["message"] = msg
+                    if code:
+                        rule["code"] = code
+                    status = rule
+    return elements, status
+
+
+# ---- XML alignment: where does each schema property live in the sample reply?
+
+def _resolve(s, types):
+    for _ in range(10):
+        if isinstance(s, dict) and "$ref" in s:
+            s = types.get(s["$ref"].rsplit("/", 1)[-1], {})
+        else:
+            break
+    return s if isinstance(s, dict) else {}
+
+
+def _kind(s, types):
+    r = _resolve(s, types)
+    if "properties" in r:
+        return "object"
+    if r.get("type") == "array" or "items" in r:
+        return "array"
+    if r.get("type") == "object":
+        return "map"
+    return "scalar"
+
+
+def _find_path(el, name, ci=False, depth=3):
+    """Path (list of tags) from el to the first descendant named name (BFS), or None."""
+    want = name.lower() if ci else name
+    level = [(el, [])]
+    for _ in range(depth):
+        nxt = []
+        for node, path in level:
+            for child in node:
+                tag = _xlocal(child.tag)
+                if (tag.lower() if ci else tag) == want:
+                    return path + [tag], child
+                nxt.append((child, path + [tag]))
+        level = nxt
+    return None
+
+
+def align_props(obj, types, el, memo):
+    """Annotate obj's properties with x-xml where they live in el. Returns (matched, unmatched names)."""
+    if id(obj) in memo:
+        return memo[id(obj)]
+    memo[id(obj)] = (0, [], 0.0)  # recursion guard
+    attrs = {_xlocal(k): v for k, v in el.attrib.items()}
+    matched, unmatched, weight = 0, [], 0.0
+    for name, ps in (obj.get("properties") or {}).items():
+        kind = _kind(ps, types)
+        hint = None
+        found = False
+        depth_w = 1.0
+        if kind in ("scalar", "map"):
+            if name in attrs:
+                found = True
+            else:
+                ci = next((a for a in attrs if a.lower() == name.lower()), None)
+                if ci is not None:
+                    hint, found = {"attribute": ci}, True
+                else:
+                    hit = _find_path(el, name) or _find_path(el, name, ci=True)
+                    if hit is not None:
+                        hint, found = {"child": "/".join(hit[0])}, True
+                        depth_w = 1.0 / len(hit[0])
+        else:
+            hit = _find_path(el, name) or _find_path(el, name, ci=True)
+            if hit is not None:
+                path, child = hit
+                if kind == "array":
+                    items = _resolve(ps.get("items") if isinstance(ps, dict) else None, types)
+                    if "properties" in items:
+                        align_props(items, types, child, memo)
+                else:
+                    align_props(_resolve(ps, types), types, child, memo)
+                if "/".join(path) != name:
+                    hint = {"path": "/".join(path)}
+                found = True
+                depth_w = 1.0 / len(path)
+        if found:
+            matched += 1
+            weight += depth_w
+            if hint:
+                ps["x-xml"] = hint
+        else:
+            unmatched.append(name)
+    memo[id(obj)] = (matched, unmatched, weight)
+    return memo[id(obj)]
+
+
+def xml_candidates(root, bonus_names):
+    out = [(root, [], 0)]
+    level = [(root, [])]
+    for depth in range(1, 5):
+        nxt = []
+        for node, path in level:
+            for child in node:
+                p = path + [_xlocal(child.tag)]
+                out.append((child, p, depth))
+                nxt.append((child, p))
+        level = nxt
+    return out
+
+
+def align_result(schema, types, root, bonus_names=()):
+    """Align an object schema to the best element of the sample reply.
+
+    Returns (root_path or None, matched, unmatched) on success, or None."""
+    props = schema.get("properties") or {}
+    if not props:
+        return None
+    best = None
+    for el, path, depth in xml_candidates(root, bonus_names):
+        trial_schema = copy.deepcopy(schema)
+        trial_types = copy.deepcopy(types)
+        m, un, w = align_props(trial_schema, trial_types, el, {})
+        score = w + (0.5 if _xlocal(el.tag) in bonus_names else 0) - depth * 0.001
+        if m and (best is None or score > best[0]):
+            best = (score, el, path, m, un)
+    if best is None or best[3] * 2 < len(props):
+        return None
+    _score, el, path, _m, _un = best
+    m, un, _w = align_props(schema, types, el, {})
+    return ("/".join(path) or None), m, un
+
+
+# ---- parameters
+
+def cgi_param(p, ctx, notes, op_id):
+    s = leaf_schema(p, ctx)
+    s.pop("_nullable", None)
+    if isinstance(s.get("enum"), list) and any(isinstance(v, bool) for v in s["enum"]):
+        notes.add("enum-bool", f"{op_id}.{p['name']}: enum values were parsed as booleans by YAML; mapped to 'true'/'false' strings")
+        s["enum"] = ["true" if v else "false" for v in s["enum"]]
+        s["type"] = "string"
+    if isinstance(s.get("default"), bool) and s.get("type") == "string":
+        s["default"] = "true" if s["default"] else "false"
+    if s.get("type") == "boolean":
+        text = " ".join(str(x) for x in (p.get("description"), p.get("constraints")) if x)
+        if re.search(r"\byes\b", text, re.IGNORECASE) and re.search(r"\bno\b", text, re.IGNORECASE):
+            s["x-style"] = "axis_bool"
+        elif re.search(r"(?<![\w.])0(?![\w.])", text) and re.search(r"(?<![\w.])1(?![\w.])", text):
+            notes.add("bool-encoding", f"{op_id}.{p['name']}: documented as 0/1; sent as true/false (check)")
+    if s.get("type") == "object":
+        notes.add("object-param", f"{op_id}.{p['name']}: object-valued query parameter kept as a free-form map")
+    pn = p.get("python_name")
+    if pn and pn != p["name"]:
+        try:
+            derived = _field_name(p["name"]) if _field_name else snake(p["name"])
+        except Exception:  # noqa: BLE001
+            derived = None
+        if derived != pn and keyword.iskeyword(pn) is False and pn.isidentifier():
+            s["x-python-name"] = pn
+    return order_schema(s)
+
+
+def cgi_unsupported(op):
+    """Reason why the runtime cannot express this operation, or None."""
+    http = op.get("http") or {}
+    rct = (http.get("request_content_type") or "").split(";")[0].strip()
+    if rct in RAW_BODY_TYPES:
+        return f"request body of type {rct} is not supported by the cgi binding"
+    for p in op.get("params") or []:
+        if p.get("in") in ("json_body", "multipart", "path"):
+            return f"parameter {p['name']!r} is sent in {p['in']}, which the cgi binding cannot express"
+    if (op.get("response") or {}).get("format") == "multipart":
+        return "multipart streaming reply is not supported"
+    return None
+
+
+def parse_query_args(q):
+    """dict from a query string, or None for placeholders / repeated keys."""
+    if q is None:
+        return {}
+    if re.search(r"[<>\[\]{}]", q):
+        return None
+    pairs = urllib.parse.parse_qsl(q, keep_blank_values=True)
+    keys = [k for k, _ in pairs]
+    if len(set(keys)) != len(keys):
+        return None
+    return dict(pairs)
+
+
+def cgi_examples(op, binding_query, param_names, form, path, default_path, notes, op_id, required_names):
+    out = []
+    for e, req, status, body in example_pairs(op):
+        if body is None:
+            continue
+        method_raw = parse_request_raw(req.get("raw"))
+        q = req.get("query")
+        if q is None and method_raw:
+            q = method_raw[2]
+        if method_raw and method_raw[1] != path:
+            continue
+        if q is None and not method_raw and req:
+            if req.get("path") and req["path"].split("?")[0] != path:
+                continue
+        if not req:
+            continue
+        args = parse_query_args(q if isinstance(q, str) else None if q else "")
+        if args is None:
+            continue
+        args = {k: v for k, v in args.items() if not (k in binding_query and str(binding_query[k]) == v)}
+        if any(k not in param_names for k in args):
+            continue
+        if any(n not in args for n in required_names):
+            continue
+        if "�" in body or len(body) > 1500:
+            continue
+        ex = {"title": trim(e.get("title") or op_id, 120)}
+        ex["request"] = {("form" if form else "query"): args}
+        ex["response"] = {"status": status or 200, "text": body}
+        if e.get("source_url"):
+            ex["source"] = e["source_url"]
+        out.append(ex)
+        if len(out) >= 3:
+            break
+    return out
+
+
+def convert_cgi(v1, section, ctxinfo):
+    notes = Notes()
+    v1types = v1.get("types") or {}
+    cls = class_name(v1)
+    typemap = make_typemap(list(v1types))
+    ctx = Ctx(notes, typemap, v1types)
+    types = {}
+    for name, schema in v1types.items():
+        types[typemap[name]] = conv(strip_xml_hints(schema), ctx)
+
+    ops_in = v1["operations"]
+    skipped_ops = []
+    candidates = []
+    for op in ops_in:
+        kind = op.get("kind")
+        if kind != "http_endpoint":
+            skipped_ops.append((op["id"], f"kind {kind} is not a classic CGI call"))
+            continue
+        why = cgi_unsupported(op)
+        if why:
+            skipped_ops.append((op["id"], why))
+            continue
+        candidates.append(op)
+    for oid, why in skipped_ops:
+        notes.add("op-skipped", f"{oid}: {why}")
+    if not candidates:
+        return None, notes
+
+    paths = collections.Counter((op["http"].get("path") or "").split("?")[0] for op in candidates)
+    api_path = paths.most_common(1)[0][0]
+    lvl = (v1.get("auth") or {}).get("default_access_level")
+    api_access = lvl if lvl in ACCESS_LEVELS else "admin"
+
+    api_errors = convert_errors(v1.get("errors"), notes, scope="api")
+    ops_out = {}
+    used_ids = set()
+    unknown_effect = []
+    extra_types = {}
+    used_names = set(types) | set(_RESERVED_TYPES)
+    for op in candidates:
+        oid = snake(op["id"]) or "call"
+        if oid[0].isdigit() or keyword.iskeyword(oid):
+            oid = "op_" + oid
+        base, i = oid, 2
+        while oid in used_ids:
+            oid = f"{base}_{i}"
+            i += 1
+        used_ids.add(oid)
+        http = op["http"]
+        resp = op.get("response") or {}
+        path = (http.get("path") or "").split("?")[0]
+        method = http.get("method", "GET").upper()
+        fixed = {k: str(v) for k, v in (http.get("fixed_query") or {}).items()}
+        if "?" in (http.get("path") or ""):
+            extra = urllib.parse.parse_qsl(http["path"].split("?", 1)[1], keep_blank_values=True)
+            fixed.update(extra)
+        params = op.get("params") or []
+        has_form = any(p.get("in") == "form" for p in params)
+        form = has_form and method == "POST"
+        if has_form and method != "POST":
+            notes.add("form-on-get", f"{oid}: form parameters on a {method} call sent as query arguments")
+        if form and any(p.get("in") == "query" for p in params):
+            notes.add("mixed-encoding", f"{oid}: query and form parameters are all sent in the POST body (check)")
+        binding = {}
+        if path != api_path:
+            binding["path"] = path
+        binding["method"] = method
+        if fixed:
+            binding["query"] = fixed
+        if form:
+            binding["encoding"] = "form"
+
+        # parameters
+        props, req = {}, []
+        for p in params:
+            if p["name"] in props:
+                continue
+            props[p["name"]] = cgi_param(p, ctx, notes, oid)
+            if p.get("required") is True:
+                req.append(p["name"])
+        o = {}
+        o["summary"] = short_summary(op.get("summary") or oid)
+        desc = op.get("description")
+        extras = []
+        if op.get("deprecated"):
+            extras.append("Deprecated.")
+        if op.get("since"):
+            extras.append(f"Since {op['since']}.")
+        if desc or extras:
+            o["description"] = trim(" ".join([desc or ""] + extras).strip(), 600)
+        acc = op.get("access_level")
+        if acc in ACCESS_LEVELS and acc != api_access:
+            o["access"] = acc
+        effect, write = cgi_effect(op["id"], method)
+        if effect is None:
+            effect, write = "unknown", None
+            unknown_effect.append(oid)
+        o["effect"] = effect
+        if write:
+            o["write"] = write
+
+        # reply
+        fmt = resp.get("format")
+        ct = (resp.get("content_type") or http.get("response_content_type") or "").split(";")[0].strip()
+        bodies = [b for _e, _r, _s, b in example_pairs(op) if b]
+        reply = "text"
+        result = None
+        rschema = resp.get("schema") if isinstance(resp.get("schema"), dict) else None
+        bonus = set()
+        if rschema:
+            if rschema.get("x-xml-success-element"):
+                bonus.add(rschema["x-xml-success-element"])
+        if fmt == "xml" or (fmt is None and ct.endswith("xml")):
+            reply = "xml"
+            elems, status_err = derive_xml_errors(op)
+            opts = {}
+            if elems:
+                opts["error_elements"] = sorted(set(elems) | {"GeneralError"})
+            if status_err:
+                opts["status_error"] = status_err
+            if opts:
+                reply = {"xml": opts}
+            result = xml_result(op, oid, rschema, resp, ctx, types, extra_types, used_names, notes, bonus)
+        elif fmt == "json" or ct == "application/json":
+            reply = "json"
+            if rschema:
+                r = conv(strip_xml_hints(rschema), ctx)
+                if r.get("type") == "object" and not r.get("properties") and "$ref" not in r and "additionalProperties" not in r:
+                    r = None
+                if r:
+                    result = r
+            else:
+                notes.add("json-untyped", f"{oid}: JSON reply without schema; result is untyped")
+        elif fmt == "binary" or (ct and not ct.startswith(("text/", "application/xml")) and fmt != "text_kv"):
+            reply = {"binary": {"media_types": [ct]}} if ct and ct != "application/octet-stream" else "binary"
+            result = {"type": "string", "format": "binary"}
+        elif fmt == "text_kv":
+            strip = "root." if any(re.search(r"^root\.", b, re.MULTILINE) for b in bodies) else None
+            reply = {"text_kv": {"strip_prefix": strip}} if strip else "text_kv"
+            result = {"type": "object", "additionalProperties": {"type": "string"}}
+        elif fmt in ("text", "none", None):
+            if bodies and all(b.strip() == "OK" for b in bodies):
+                reply = "text_ok"
+            elif fmt == "none" or (fmt is None and not resp.get("notes")):
+                reply = "text"
+            else:
+                reply = "text"
+                if effect not in ("write", "action"):
+                    result = {"type": "string"}
+                elif "OK" in (resp.get("notes") or ""):
+                    notes.add("reply-ok", f"{oid}: notes mention OK; reply read as plain text (check)")
+        else:
+            notes.add("reply-format", f"{oid}: response format {fmt!r} read as text")
+        if result == {"x-xml": True} and effect in ("write", "action"):
+            result = None  # nothing useful to return
+        binding["reply"] = reply
+        o["binding"] = binding
+        if props:
+            pschema = {"type": "object"}
+            if req:
+                pschema["required"] = req
+            pschema["properties"] = props
+            o["params"] = pschema
+        if result is not None:
+            o["result"] = result
+        errs = convert_errors(op.get("errors"), notes, skip=api_errors)
+        if errs:
+            o["errors"] = errs
+        exs = cgi_examples(op, fixed, set(props), form, path, api_path, notes, oid, req)
+        if exs:
+            o["examples"] = exs
+        ops_out[oid] = o
+    if unknown_effect:
+        notes.add("effect-unknown", "effect could not be inferred from the name: " + ", ".join(unknown_effect))
+    types.update(extra_types)
+
+    modname = (v1.get("python") or {}).get("module") or snake(v1["id"])
+    doc = common_header(v1, section, "cgi", notes, {"module": modname, "class": cls})
+    doc["access"] = api_access
+    disc = convert_discovery(v1, notes, "cgi")
+    if disc:
+        doc["discovery"] = disc
+    req_ = convert_requires(v1)
+    if req_:
+        doc["requires"] = req_
+    doc["binding"] = {"path": api_path}
+    if api_errors:
+        doc["errors"] = api_errors
+    used_types = reachable_types(types, ops_out)
+    dropped = sorted(set(types) - used_types)
+    if dropped:
+        notes.add("types-dropped", "types not referenced by any migrated operation: " + ", ".join(dropped))
+    types = {k: v for k, v in types.items() if k in used_types}
+    if types:
+        doc["types"] = types
+    doc["operations"] = ops_out
+    doc["sources"] = convert_sources(v1)
+    for key in ("param_cgi_groups", "events", "versioning", "envelope", "notes"):
+        if v1.get(key):
+            notes.add("dropped-section", f"v1 section {key} not carried over")
+    check_refs(doc, notes)
+    finalize(doc, notes)
+    prov = {"completeness": (v1.get("provenance") or {}).get("completeness", "partial")}
+    oq = list((v1.get("provenance") or {}).get("open_questions") or []) + notes.render()
+    if oq:
+        prov["open_questions"] = oq
+    prov["migrated_from"] = "v1"
+    prov["curated"] = False
+    doc["provenance"] = prov
+    return doc, notes
+
+
+def strip_xml_hints(schema):
+    if isinstance(schema, dict):
+        return {k: strip_xml_hints(v) for k, v in schema.items() if not k.startswith(("x-xml", "x-xsd"))}
+    if isinstance(schema, list):
+        return [strip_xml_hints(v) for v in schema]
+    return schema
+
+
+def reachable_types(types, ops_out):
+    seen = set()
+
+    def walk(o):
+        if isinstance(o, dict):
+            r = o.get("$ref")
+            if isinstance(r, str) and r.startswith("#/types/"):
+                n = r[8:]
+                if n not in seen and n in types:
+                    seen.add(n)
+                    walk(types[n])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    for o in ops_out.values():
+        walk(o.get("params"))
+        walk(o.get("result"))
+    return seen
+
+
+def xml_result(op, oid, rschema, resp, ctx, types, extra_types, used_names, notes, bonus):
+    """Result schema for an XML reply: a mapped model where the sample reply allows, else the raw element."""
+    raw_el = {"x-xml": True}
+    schema = None
+    if rschema and (rschema.get("properties") or rschema.get("$ref")):
+        schema = conv(strip_xml_hints(rschema), ctx)
+    elif resp.get("fields"):
+        props = {}
+        for f in resp["fields"]:
+            if not isinstance(f, dict) or not f.get("name"):
+                continue
+            t = f.get("type") if f.get("type") in ("string", "integer", "number", "boolean") else "string"
+            ps = {"type": t}
+            if f.get("description"):
+                ps["description"] = trim(f["description"])
+            props[f["name"]] = ps
+        if props:
+            schema = {"type": "object", "properties": props}
+    if schema is None:
+        if (resp.get("format") == "xml"):
+            hint = sorted(set(re.findall(r"types\.(\w+)", resp.get("notes") or "")))
+            more = f" (the v1 notes point at type(s) {', '.join(hint)})" if hint else ""
+            notes.add("xml-unmapped", f"{oid}: no response schema in v1; result is the raw XML element{more}")
+        return raw_el
+    sample = None
+    for _e, _r, _s, body in example_pairs(op):
+        root = parse_xml_body(body)
+        if root is not None and not any(_xlocal(x.tag).endswith("Error") for x in root.iter() if x is not root):
+            sample = root
+            break
+    if sample is None:
+        notes.add("xml-unmapped", f"{oid}: no parseable sample reply to derive the x-xml mapping from; result is the raw XML element")
+        return raw_el
+    work_types = copy.deepcopy(types)
+    top = _resolve(schema, work_types) if "$ref" in schema else schema
+    if "properties" not in top:
+        notes.add("xml-unmapped", f"{oid}: response schema is not an object; result is the raw XML element")
+        return raw_el
+    hit = align_result(top, work_types, sample, bonus)
+    if hit is None:
+        notes.add("xml-unmapped", f"{oid}: schema properties not found in the sample reply; result is the raw XML element")
+        return raw_el
+    root_path, matched, unmatched = hit
+    if unmatched:
+        notes.add("xml-partial", f"{oid}: not found in the sample reply (left as attributes of the mapped element): " + ", ".join(unmatched))
+    for k in types:  # keep annotations made on shared types
+        types[k] = work_types[k]
+    if "$ref" in schema:
+        name = schema["$ref"].rsplit("/", 1)[-1]
+        if root_path:
+            # a shared type with a root only for this call: wrap by copying
+            new = _uniq(pascal(oid) + "Result", used_names)
+            copy_t = copy.deepcopy(work_types[name])
+            copy_t["x-xml"] = {"root": root_path}
+            extra_types[new] = copy_t
+            return {"$ref": "#/types/" + new}
+        return {"$ref": "#/types/" + name}
+    new = _uniq(pascal(oid) + "Result", used_names)
+    top = dict(top)
+    if root_path:
+        top["x-xml"] = {"root": root_path}
+    extra_types[new] = order_schema(top) if "x-xml" not in top else top
+    return {"$ref": "#/types/" + new}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", type=Path, default=DEFAULT_SRC)
@@ -1776,10 +2419,13 @@ def main(argv=None):
             continue
         if styles and styles[0] == "json_rpc_cgi":
             fam = "jsonrpc"
+        elif styles and styles[0] in CGI_STYLES:
+            fam = "cgi"
         elif "device_config_rest" in styles:
             fam = "dca"
         else:
             skipped[f"out-of-scope:{styles[0] if styles else None}"] += 1
+            print(f"out-of-scope {sid} ({styles[0] if styles else None})", file=sys.stderr)
             continue
         if (section, sid) in CURATED:
             skipped["hand-curated"] += 1
@@ -1789,7 +2435,12 @@ def main(argv=None):
             print(f"skip {sid}: no rest_model", file=sys.stderr)
             continue
         try:
-            doc, notes = (convert_jsonrpc if fam == "jsonrpc" else convert_dca)(copy.deepcopy(v1), section, ctxinfo)
+            conv_fn = {"jsonrpc": convert_jsonrpc, "dca": convert_dca, "cgi": convert_cgi}[fam]
+            doc, notes = conv_fn(copy.deepcopy(v1), section, ctxinfo)
+            if doc is None:
+                skipped["cgi-no-expressible-operations"] += 1
+                print(f"skip {sid}: " + "; ".join(d for _, d in notes.items), file=sys.stderr)
+                continue
         except Exception as exc:  # noqa: BLE001
             import traceback
             traceback.print_exc()
@@ -1806,6 +2457,9 @@ def main(argv=None):
         text = "# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.\n" + dump_yaml(flowify_doc(doc))
         out = args.out / section / f"{sid}.yaml"
         if args.dry_run:
+            continue
+        if out.exists() and "curated: true" in out.read_text():
+            print(f"keep curated {out}", file=sys.stderr)
             continue
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text)

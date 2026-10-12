@@ -1,0 +1,228 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: media-clip-api
+name: Media clip API
+summary: Play, stop, upload, remove, rename and download audio media clips stored on the device.
+section: audio-systems
+family: cgi
+status: released
+python:
+  module: media_clip
+  class: MediaClip
+docs:
+- https://developer.axis.com/vapix/audio-systems/media-clip-api/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.Audio.Audio, value: 'yes'}
+- param: {name: Properties.AudioClip.StopClip, value: 'yes'}
+requires:
+  firmware: '5.40'
+
+binding: {path: /axis-cgi/mediaclip.cgi}
+
+operations:
+  play_clip:
+    summary: Play a clip.
+    effect: action
+    binding:
+      method: GET
+      query: {action: play}
+      reply: text
+    params:
+      type: object
+      properties:
+        clip:
+          type: integer
+          minimum: 0
+          description: The media clip the action applies to. Not necessary when location is used.
+        audiooutput:
+          type: integer
+          minimum: 1
+          description: Deprecated as of AXIS OS 11.7; use audiodeviceid and audiooutputid instead. Determines what
+            audio output should play media clips. Cannot be combined with audiodeviceid.
+        repeat:
+          type: integer
+          minimum: -1
+          default: 0
+          description: Number of times to repeat the clip; -1 = repeat forever, 0 (default) = play once. Supported
+            only if Properties.AudioClip.PlayOptions include repeat.
+        volume:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          default: 100
+          description: The clip volume in percentage and linear volume scale. 0 means mute. Only supported if PlayOptions
+            include volume. (unit=percent)
+        location:
+          type: string
+          description: Location of the clip; clip parameter not necessary when used. Accepts * as wildcard to play
+            a random matching clip. Supported only if PlayOptions include location.
+        audiodeviceid:
+          type: integer
+          minimum: 0
+          description: Audio device that should play the clip. Alternative to audiooutput (cannot be used together).
+            Must be paired with audiooutputid.
+        audiooutputid:
+          type: integer
+          minimum: 0
+          description: Output on the audio device that should play the clip. Required when audiodeviceid is specified.
+  stop_clip_mediaclip:
+    summary: Stops the current clip (any currently playing audio clips).
+    effect: action
+    binding:
+      method: GET
+      query: {action: stop}
+      reply: text
+  remove_clip:
+    summary: Remove a clip.
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {action: remove}
+      reply: text
+    params:
+      type: object
+      required: [clip]
+      properties:
+        clip:
+          type: integer
+          minimum: 0
+          description: The media clip to remove (required-ness inferred).
+  update_clip:
+    summary: Change the name of a clip.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [clip, name]
+      properties:
+        clip: {type: integer, minimum: 0}
+        name: {type: string, description: New name of the media clip.}
+  download_clip:
+    summary: Send a clip to the client.
+    effect: read
+    binding:
+      method: GET
+      query: {action: download}
+      reply:
+        binary: {media_types: [audio/basic]}
+    params:
+      type: object
+      required: [clip]
+      properties:
+        clip: {type: integer, minimum: 0}
+    result: {type: string, format: binary}
+  play_clip_viewer:
+    summary: Viewers can play media clips.
+    access: viewer
+    effect: action
+    binding: {path: /axis-cgi/playclip.cgi, method: GET, reply: text}
+    params:
+      type: object
+      properties:
+        clip:
+          type: integer
+          minimum: 0
+          description: The media clip the action applies to. Not necessary when location is used.
+        audiooutput:
+          type: integer
+          minimum: 1
+          description: Deprecated as of AXIS OS 11.7; use audiodeviceid and audiooutputid instead. Determines what
+            audio output should play media clips. Cannot be combined with audiodeviceid.
+        repeat:
+          type: integer
+          minimum: -1
+          default: 0
+          description: Number of times to repeat the clip; -1 = repeat forever, 0 (default) = play once. Supported
+            only if Properties.AudioClip.PlayOptions include repeat.
+        volume:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          default: 100
+          description: The clip volume in percentage and linear volume scale. 0 means mute. Only supported if PlayOptions
+            include volume. (unit=percent)
+        location:
+          type: string
+          description: Location of the clip; clip parameter not necessary when used. Accepts * as wildcard to play
+            a random matching clip. Supported only if PlayOptions include location.
+        audiodeviceid:
+          type: integer
+          minimum: 0
+          description: Audio device that should play the clip. Alternative to audiooutput (cannot be used together).
+            Must be paired with audiooutputid.
+        audiooutputid:
+          type: integer
+          minimum: 0
+          description: Output on the audio device that should play the clip. Required when audiodeviceid is specified.
+  stop_clip:
+    summary: Stop any currently playing media clip.
+    access: viewer
+    effect: action
+    binding: {path: /axis-cgi/stopclip.cgi, method: GET, reply: text}
+  list_clips:
+    summary: List the current media clips on the Axis product (via parameter management).
+    access: viewer
+    effect: read
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: list, group: MediaClip}
+      reply:
+        text_kv: {strip_prefix: root.}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: list_clips
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          root.MediaClip.M0.Name=My new clip
+          root.MediaClip.M0.Location=/etc/audioclips/MediaClip.M0.au
+          root.MediaClip.M0.Type=audio
+          root.MediaClip.M1.Name=My new clip1
+          root.MediaClip.M1.Location=/etc/audioclips/MediaClip.M1.au
+          root.MediaClip.M1.Type=audio
+          root.MediaClip.M2.Name=My new clip2
+          root.MediaClip.M2.Location=/etc/audioclips/MediaClip.M2.au
+          root.MediaClip.M2.Type=audio
+      source: https://developer.axis.com/vapix/audio-systems/media-clip-api/#common-examples
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/media-clip-api/
+  sha256_md: 830740930eea369b097f3fd76e5374382dec4a04ce277517d92da025c1ef3168
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Required-ness of clip for remove/update/download and name for update is not explicitly stated (marked inferred).
+  - Upload curl example omits media=audio although 'Required for action=upload'.
+  - stopclip.cgi success response body is not explicitly documented; 'API responses' section says all actions except
+    download return OK + description.
+  - Download content type is documented as audio/basic (.au) even though clips can be wav/mp3/opus/vorbis.
+  - Security level for mediaclip.cgi is 'Administrator, Operator'; access for param.cgi listing taken as viewer
+    from the MediaClip.M# parameter read access.
+  - Doc typo 'medicalips' in audiooutput description.
+  - 'migration: op-skipped: upload_clip: request body of type multipart/form-data is not supported by the cgi binding'
+  - 'migration: reply-ok: play_clip: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: stop_clip_mediaclip: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: remove_clip: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: update_clip: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: play_clip_viewer: notes mention OK; reply read as plain text (check)'
+  - 'migration: discovery: param_property ''Properties.Audio.Source.A#.Output=yes'' is not a Name=value pair: dropped'
+  - 'migration: discovery: param_property ''Properties.AudioClip.PlayOptions'' is not a Name=value pair: dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: ActionResult'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  migrated_from: v1
+  curated: false

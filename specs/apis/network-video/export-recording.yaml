@@ -1,0 +1,401 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: export-recording
+name: Export recording API (Edge storage)
+summary: Export an edge storage recording (complete or clip) to a single Matroska (.mkv) file, optionally in an
+  AES-256 encrypted ZIP, or to a USB disk, via...
+section: network-video
+family: cgi
+status: released
+python:
+  module: export_recording
+  class: ExportRecording
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: viewer
+discovery:
+- param: {name: Properties.LocalStorage.ExportRecording, value: 'yes'}
+requires:
+  firmware: '5.60'
+
+binding: {path: /axis-cgi/record/export/schemaversions.cgi}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve supported XML schema versions.
+    effect: read
+    binding: {method: GET, reply: xml}
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Get supported XML schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <ExportRecordingResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.2" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/exportrecording1.xsd">
+            <SchemaVersionsSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+              <SchemaVersion>
+                <VersionNumber>1.1</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+              <SchemaVersion>
+                <VersionNumber>1.2</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+            </SchemaVersionsSuccess>
+          </ExportRecordingResponse>
+  get_capabilities:
+    summary: Retrieve export capabilities (supported export formats).
+    effect: read
+    binding: {path: /axis-cgi/record/export/capabilities.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. Major version of the XML schema to use for the response.
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Get export capabilities
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <ExportRecordingResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.2" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/exportrecording1.xsd">
+            <CapabilitiesSuccess>
+              <ExportCapabilities ExportFormat="matroska">
+                <ExportEncryption EncryptionFormat="zip-aes256"/>
+              </ExportCapabilities>
+            </CapabilitiesSuccess>
+          </ExportRecordingResponse>
+  get_properties:
+    summary: Retrieve recording export properties (proper start time at preceding key frame, stop time, estimated
+      size).
+    effect: read
+    binding: {path: /axis-cgi/record/export/properties.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, recordingid, diskid]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. Major version of the XML schema to use for the response.
+        recordingid: {type: string, description: Required. Recording ID.}
+        diskid: {type: string, description: Required. Disk ID where the recording is stored.}
+        starttime:
+          type: string
+          description: Optional start time; default recording beginning. UTC ISO 8601 combined date and time.
+        stoptime:
+          type: string
+          description: 'Optional stop time; ongoing: request time; finished: recording end. UTC ISO 8601 combined
+            date and time.'
+        exportformat: {type: string, description: Optional media format to export to.}
+        encryptionformat: {type: string, description: 'Optional encryption format of the recording, e.g. zip-aes256.'}
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      110: {description: Recording not found., kind: not_found}
+      120: {description: Invalid start time., kind: invalid_argument}
+      130: {description: Invalid stop time., kind: invalid_argument}
+      140:
+        description: Invalid start time. The requested start time is after the stop time.
+        kind: invalid_argument
+      150:
+        description: Invalid start time. The requested start time is after the recording's stop time.
+        kind: invalid_argument
+      160:
+        description: Invalid stop time. The requested stop time is before the recording's start time.
+        kind: invalid_argument
+      170: {description: Invalid export format., kind: invalid_argument}
+      180:
+        description: Requested export format is not compatible with the media type.
+        kind: invalid_argument
+      250: {description: Invalid encryption format., kind: invalid_argument}
+      280:
+        description: Requested encryption format is not compatible with requested export format.
+        kind: invalid_argument
+    examples:
+    - title: Complete recording
+      request:
+        query: {schemaversion: '1', recordingid: 20141211_091153_025B_00408CCAD5D78, diskid: SD_DISK}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <ExportRecordingResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/exportrecording1.xsd">
+            <PropertiesSuccess>
+              <ExportProperties RecordingId="20141211_091153_025B_00408CCAD5D78" ExportFormat="matroska" EstimatedFileSize="1234" Starttime="2014-12-11T09:11:52Z" Stoptime="2014-12-11T11:00:46Z"/>
+            </PropertiesSuccess>
+          </ExportRecordingResponse>
+    - title: Time interval
+      request:
+        query:
+          schemaversion: '1'
+          recordingid: 20141211_091153_025B_00408CCAD5D78
+          diskid: SD_DISK
+          starttime: '2014-12-11T09:45:11Z'
+          stoptime: '2014-12-11T10:10:00Z'
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <ExportRecordingResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/exportrecording1.xsd">
+            <PropertiesSuccess>
+              <ExportProperties RecordingId="20141211_091153_025B_00408CCAD5D78" ExportFormat="matroska" EstimatedFileSize="1234" Starttime="2014-12-11T09:45:09Z" Stoptime="2014-12-11T10:10:00Z"/>
+            </PropertiesSuccess>
+          </ExportRecordingResponse>
+    - title: AES-256 encrypted
+      request:
+        query:
+          schemaversion: '1'
+          recordingid: 20121211_091153_025B_00408CCAD5D78
+          diskid: SD_DISK
+          encryptionformat: zip-aes256
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <ExportRecordingResponse
+              SchemaVersion="1.2"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/exportrecording1.xsd">
+              <PropertiesSuccess>
+                  <ExportProperties
+                      RecordingId="20121211_091153_025B_00408CCAD5D78"
+                      ExportFormat="matroska"
+                      EncryptionFormat="zip-aes256"
+                      EstimatedFileSize="1234"
+                      Starttime="2012-12-11T09:11:52Z"
+                      Stoptime="2012-12-11T10:10:00Z" />
+              </PropertiesSuccess>
+          </ExportRecordingResponse>
+  export_recording:
+    summary: Export a recording (or part) as a single playable file (e.g.
+    effect: read
+    binding:
+      path: /axis-cgi/record/export/exportrecording.cgi
+      method: GET
+      reply:
+        binary: {media_types: [video/x-matroska]}
+    params:
+      type: object
+      required: [schemaversion, recordingid, diskid, exportformat]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. Major version of the XML schema to use for the response.
+        recordingid: {type: string, description: Required. Recording ID.}
+        diskid: {type: string, description: Required. Disk ID where the recording is stored.}
+        exportformat:
+          type: string
+          description: Required. Media format, e.g. matroska (see properties.cgi / capabilities.cgi).
+        starttime:
+          type: string
+          description: Optional start time for a part of a recording; should match a key frame (use the start time
+            from properties.cgi); otherwise closest preceding key frame.
+        stoptime:
+          type: string
+          description: 'Optional stop time. Omitted: ongoing recordings -> time of request; finished -> recording
+            end. Outside recording -> best effort. UTC ISO 8601 combined date and time.'
+        filename:
+          type: string
+          description: Optional UTF-8 file name without extension (added automatically). Default from start/stop
+            times; encrypted ZIP without name gets random XXXXXX.zip.
+        password:
+          type: string
+          maxLength: 512
+          description: Optional password protection (recommended <= 99 characters; max 512 bytes).
+        encryptionformat:
+          type: string
+          description: Required if password is set; encryption format (zip-aes256 in examples).
+    result: {type: string, format: binary}
+    examples:
+    - title: Complete recording
+      request:
+        query:
+          schemaversion: '1'
+          recordingid: 20141211_091153_025B_00408CCAD5D78
+          diskid: SD_DISK
+          exportformat: matroska
+      response: {status: 200, text: <file data>}
+    - title: Part of a recording
+      request:
+        query:
+          schemaversion: '1'
+          recordingid: 20141211_091153_025B_00408CCAD5D78
+          diskid: SD_DISK
+          exportformat: matroska
+          starttime: '2014-12-11T09:45:09Z'
+          stoptime: '2014-12-11T10:10:00Z'
+      response: {status: 200, text: <file data>}
+    - title: Recording with start and stop
+      request:
+        query:
+          schemaversion: '1'
+          recordingid: 20121211_091153_025B_00408CCAD5D78
+          diskid: SD_DISK
+          exportformat: matroska
+          starttime: '2012-12-11T09:45:09Z'
+          stoptime: '2012-12-11T10:10:00Z'
+      response: {status: 200, text: <file data>}
+  export_to_external:
+    summary: Export a recording to an external disk (USB); returns a job ID.
+    description: Since 1.1.
+    effect: read
+    binding:
+      path: /axis-cgi/record/export/exporttoexternal.cgi
+      method: GET
+      reply:
+        xml: {error_elements: [GeneralError]}
+    params:
+      type: object
+      required: [schemaversion, recordingid, diskid, externaldiskid, exportformat]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. Major version of the XML schema to use for the response.
+        recordingid: {type: string, description: Required. Recording ID.}
+        diskid: {type: string, description: Required. Disk ID where the recording is stored.}
+        externaldiskid:
+          type: string
+          enum: [USB_DISK]
+          description: Required. Target disk; allowed value USB_DISK.
+        exportformat: {type: string, description: Required. Media format.}
+        starttime:
+          type: string
+          description: Optional start time for a part of a recording; should match a key frame (use the start time
+            from properties.cgi); otherwise closest preceding key frame.
+        stoptime:
+          type: string
+          description: 'Optional stop time. Omitted: ongoing recordings -> time of request; finished -> recording
+            end. Outside recording -> best effort. UTC ISO 8601 combined date and time.'
+        filepath:
+          type: string
+          description: 'Optional path and file name on the external disk; missing directories created; no.. allowed.
+            Default: default name at disk root.'
+        password:
+          type: string
+          maxLength: 512
+          description: Optional password protection (recommended <= 99 characters; max 512 bytes).
+        encryptionformat:
+          type: string
+          description: Required if password is set; encryption format (zip-aes256 in examples).
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      200: {description: Invalid external disk., kind: invalid_argument}
+      210: {description: Unusable external disk.}
+      220: {description: Maximum number of jobs reached.}
+      230: {description: Invalid file path., kind: invalid_argument}
+      240: {description: Invalid password., kind: invalid_argument}
+      250: {description: Invalid encryption format., kind: invalid_argument}
+      260: {description: Password not set.}
+      270: {description: Encryption format not set., kind: invalid_argument}
+      280:
+        description: Requested encryption format is not compatible with requested export format.
+        kind: invalid_argument
+    examples:
+    - title: Export part of a recording to USB
+      request:
+        query:
+          schemaversion: '1'
+          recordingid: 20121211_091153_025B_00408CCAD5D78
+          diskid: SD_DISK
+          exportformat: matroska
+          starttime: '2012-12-11T09:45:09Z'
+          stoptime: '2012-12-11T10:10:00Z'
+          externaldiskid: USB_DISK
+          filepath: video.mkv
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <ExportRecordingResponse
+              SchemaVersion="1.2"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/exportrecording1.xsd">
+              <ExportToExternalSuccess>
+                  <ExportToExternal JobId="1" FilePath="video.mkv" />
+              </ExportToExternalSuccess>
+          </ExportRecordingResponse>
+  get_job_status:
+    summary: Query status of an export job (ongoing jobs and last five completed).
+    description: Since 1.1.
+    effect: read
+    binding:
+      path: /axis-cgi/record/export/getjobstatus.cgi
+      method: GET
+      reply:
+        xml: {error_elements: [GeneralError]}
+    params:
+      type: object
+      required: [schemaversion, jobid]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. Major version of the XML schema to use for the response.
+        jobid: {type: integer, description: Required. Job ID.}
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      190: {description: Job not found., kind: not_found}
+    examples:
+    - title: Check the progress
+      request:
+        query: {schemaversion: '1', jobid: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <ExportRecordingResponse
+              SchemaVersion="1.2"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/exportrecording1.xsd">
+              <GetJobStatusSuccess>
+                  <JobStatus Status="In Progress" Progress="45" />
+              </GetJobStatusSuccess>
+          </ExportRecordingResponse>
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Error table assigns codes 250/280 to properties.cgi and exporttoexternal.cgi but no codes to exportrecording.cgi;
+    exportrecording.cgi error format not specified (assumed GeneralError XML).
+  - exporttoexternal/getjobstatus security level stated as Viewer only.
+  - 'API version 1.2 encryption: only zip-aes256 appears in examples; accepted encryptionformat values not enumerated.'
+  - 'migration: xml-unmapped: get_schema_versions: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_capabilities: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_properties: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: export_to_external: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_job_status: no response schema in v1; result is the raw XML element'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,54 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: system-settings-time
+name: System date and time (param.cgi Time groups)
+summary: Get or set the system date and time via the Time, Time.DST and Time.NTP parameter groups (legacy; no longer
+  updated).
+section: network-video
+family: cgi
+status: deprecated
+python:
+  module: system_settings_time
+  class: SystemSettingsTime
+docs:
+- https://developer.axis.com/vapix/network-video/system-settings/
+access: admin
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  set_posix_time_zone:
+    summary: Set the time zone (POSIX TZ string) through param.cgi.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [Time.POSIXTimeZone]
+      properties:
+        Time.POSIXTimeZone:
+          type: string
+          x-python-name: posix_time_zone
+          description: POSIX TZ rule string (see param_cgi_groups Time.POSIXTimeZone).
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/system-settings/
+  sha256_md: d28df24ddffb90aed4af428b4f38527a37c97844f0cdfc2d16594a87a0cd9ca3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - POSIXTimeZone syntax in the doc is mangled by Markdown (`dst offset`> etc.); reconstructed from HTML-equivalent
+    prose.
+  - Status 'deprecated' derived from 'This API will no longer receive updates'.
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

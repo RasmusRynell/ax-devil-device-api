@@ -1,0 +1,426 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: application-api
+name: Application API
+summary: Upload, control (start/stop/restart/remove), configure and list ACAP applications and manage their license
+  keys.
+section: applications
+family: cgi
+status: released
+python:
+  module: application_api
+  class: Application
+docs:
+- https://developer.axis.com/vapix/applications/application-api/
+access: admin
+
+binding: {path: /axis-cgi/applications/control.cgi}
+
+types:
+  ConfigReply:
+    type: object
+    description: XML <reply result="ok|error"> with <param name value/> or <error type message/>.
+    properties:
+      result: {type: string, enum: [ok, error]}
+      param:
+        type: object
+        x-name: ConfigReplyParam
+        properties:
+          name: {type: string}
+          value: {type: string}
+      error:
+        type: object
+        x-name: ConfigReplyError
+        properties:
+          type: {type: string}
+          message: {type: string}
+  GetInfoResult:
+    type: object
+    properties:
+      result: {type: string}
+      supportedSdks:
+        type: array
+        items: {type: string}
+        description: SDKs whose applications are able to run on the device (<sdk> elements), e.g. acap3, acap4-cv,
+          acap4-native.
+
+operations:
+  start_application:
+    summary: Start the application.
+    effect: action
+    binding:
+      method: POST
+      query: {action: start}
+      reply: text
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          description: The application package to perform the action on (<package name>).
+        returnpage:
+          type: string
+          description: The web page to return to after performing the action (<path to return page>).
+    errors:
+      1:
+        description: Invalid application package. The package is not an Embedded Axis Package or it contains an
+          invalid manifest.
+        kind: invalid_argument
+      4:
+        description: Application not found. The specified application package could not be found.
+        kind: not_found
+      6: {description: The application is already running.}
+      7: {description: Application not running. The application must be running to perform the action.}
+      8:
+        description: Application is in a failure state. The application must be stopped before it can start again.
+      9:
+        description: Too many applications are running. The application cannot be started. This limitation was removed
+          in AXIS OS 12.6.
+      10:
+        description: Unspecified error. See the system log for more information.
+        kind: invalid_argument
+      15:
+        description: Operation timed out. The outcome of the operation could not be determined. Check logs for more
+          information.
+        kind: invalid_argument
+  stop_application:
+    summary: Stop the application.
+    effect: action
+    binding:
+      method: POST
+      query: {action: stop}
+      reply: text
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          description: The application package to perform the action on (<package name>).
+        returnpage:
+          type: string
+          description: The web page to return to after performing the action (<path to return page>).
+    errors:
+      1:
+        description: Invalid application package. The package is not an Embedded Axis Package or it contains an
+          invalid manifest.
+        kind: invalid_argument
+      4:
+        description: Application not found. The specified application package could not be found.
+        kind: not_found
+      6: {description: The application is already running.}
+      7: {description: Application not running. The application must be running to perform the action.}
+      8:
+        description: Application is in a failure state. The application must be stopped before it can start again.
+      9:
+        description: Too many applications are running. The application cannot be started. This limitation was removed
+          in AXIS OS 12.6.
+      10:
+        description: Unspecified error. See the system log for more information.
+        kind: invalid_argument
+      15:
+        description: Operation timed out. The outcome of the operation could not be determined. Check logs for more
+          information.
+        kind: invalid_argument
+  restart_application:
+    summary: Restart the application.
+    effect: action
+    binding:
+      method: POST
+      query: {action: restart}
+      reply: text
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          description: The application package to perform the action on (<package name>).
+        returnpage:
+          type: string
+          description: The web page to return to after performing the action (<path to return page>).
+    errors:
+      1:
+        description: Invalid application package. The package is not an Embedded Axis Package or it contains an
+          invalid manifest.
+        kind: invalid_argument
+      4:
+        description: Application not found. The specified application package could not be found.
+        kind: not_found
+      6: {description: The application is already running.}
+      7: {description: Application not running. The application must be running to perform the action.}
+      8:
+        description: Application is in a failure state. The application must be stopped before it can start again.
+      9:
+        description: Too many applications are running. The application cannot be started. This limitation was removed
+          in AXIS OS 12.6.
+      10:
+        description: Unspecified error. See the system log for more information.
+        kind: invalid_argument
+      15:
+        description: Operation timed out. The outcome of the operation could not be determined. Check logs for more
+          information.
+        kind: invalid_argument
+  remove_application:
+    summary: Remove the application and its data.
+    effect: write
+    write: delete
+    binding:
+      method: POST
+      query: {action: remove}
+      reply: text
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          description: The application package to perform the action on (<package name>).
+        returnpage:
+          type: string
+          description: The web page to return to after performing the action (<path to return page>).
+    errors:
+      1:
+        description: Invalid application package. The package is not an Embedded Axis Package or it contains an
+          invalid manifest.
+        kind: invalid_argument
+      4:
+        description: Application not found. The specified application package could not be found.
+        kind: not_found
+      6: {description: The application is already running.}
+      7: {description: Application not running. The application must be running to perform the action.}
+      8:
+        description: Application is in a failure state. The application must be stopped before it can start again.
+      9:
+        description: Too many applications are running. The application cannot be started. This limitation was removed
+          in AXIS OS 12.6.
+      10:
+        description: Unspecified error. See the system log for more information.
+        kind: invalid_argument
+      15:
+        description: Operation timed out. The outcome of the operation could not be determined. Check logs for more
+          information.
+        kind: invalid_argument
+  get_application_config:
+    summary: Retrieve the value of a config parameter that applies to all ACAP applications.
+    description: Since AXIS OS 11.2.
+    effect: read
+    binding:
+      path: /axis-cgi/applications/config.cgi
+      method: POST
+      query: {action: get}
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    params:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          enum: [AllowUnsigned, AllowRoot]
+          description: 'The name of the config parameter that should be operated on. Values: AllowUnsigned: From
+            AXIS OS 11.2; AllowRoot: AXIS OS 11.5-11.11 (not supported from AXIS OS 12.0)'
+    result: {$ref: '#/types/ConfigReply'}
+    errors:
+      1:
+        description: Malformed request. value must be either true or false. (From AXIS OS 12.2, this has been replaced
+          with HTTP 400 Bad Request)
+  set_application_config:
+    summary: Set the value of a config parameter that applies to all ACAP applications.
+    description: Since AXIS OS 11.2.
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/applications/config.cgi
+      method: POST
+      query: {action: set}
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    params:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+          enum: [AllowUnsigned, AllowRoot]
+          description: 'The name of the config parameter that should be operated on. Values: AllowUnsigned: From
+            AXIS OS 11.2; AllowRoot: AXIS OS 11.5-11.11 (not supported from AXIS OS 12.0)'
+        value:
+          type: string
+          enum: ['true', 'false']
+          description: Should be used when the action is set to specify the required value for the config parameter.
+            Documented as Optional in the parameter table; marked required here because set needs a value (inferred).
+    result: {$ref: '#/types/ConfigReply'}
+    errors:
+      1:
+        description: Malformed request. value must be either true or false. (From AXIS OS 12.2, this has been replaced
+          with HTTP 400 Bad Request)
+  upload_license_key:
+    summary: Upload a license key.
+    effect: write
+    write: create
+    binding:
+      path: /axis-cgi/applications/license.cgi
+      method: POST
+      query: {action: uploadlicensekey}
+      reply: text
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          description: The name of the application package to which the license key belongs.
+    errors:
+      21: {description: Invalid license key file., kind: invalid_argument}
+      22:
+        description: File upload failed. See the system log for more information.
+        kind: invalid_argument
+      23:
+        description: Failed to remove the license key file. See the system log for more information.
+        kind: invalid_argument
+      24: {description: The application is not installed.}
+      25: {description: The key's application ID does not match the installed application.}
+      26:
+        description: The license key cannot be used with this version of the application.
+        kind: unsupported
+      30: {description: Wrong serial number.}
+      31: {description: The license key has expired.}
+  remove_license_key:
+    summary: Remove a license key.
+    effect: write
+    write: delete
+    binding:
+      path: /axis-cgi/applications/license.cgi
+      method: POST
+      query: {action: removelicensekey}
+      reply: text
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          description: The name of the application package to which the license key belongs.
+    errors:
+      21: {description: Invalid license key file., kind: invalid_argument}
+      22:
+        description: File upload failed. See the system log for more information.
+        kind: invalid_argument
+      23:
+        description: Failed to remove the license key file. See the system log for more information.
+        kind: invalid_argument
+      24: {description: The application is not installed.}
+      25: {description: The key's application ID does not match the installed application.}
+      26:
+        description: The license key cannot be used with this version of the application.
+        kind: unsupported
+      30: {description: Wrong serial number.}
+      31: {description: The license key has expired.}
+  list_applications:
+    summary: List information about installed ACAP applications.
+    effect: read
+    binding: {path: /axis-cgi/applications/list.cgi, method: POST, reply: xml}
+    result: {x-xml: true}
+    examples:
+    - title: List installed applications
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: text/xml
+
+          <reply result="ok">
+              <application
+                  Name="<Application Name>"
+                  NiceName="<Nice name>"
+                  Vendor="<Vendor name>"
+                  Version="<Version>"
+                  Bundled="<Bundled>"
+                  ApplicationID="<ID>"
+                  License="<License status>"
+                  LicenseExpirationDate="<Expiration date>"
+                  Status="<Application status>"
+                  ConfigurationPage="<Configuration link>"
+                  ValidationResult="<Validation URL>">
+                  SignatureStatus="<Signed status>"
+                  <Resources>
+                      <Resource name="<Resource name>" used="<Usage status>"/>
+                  </Resources>
+                  <CompatibleOsVersions>
+                      <VersionRange>
+                          <Min><Minimum version></Min>
+                          <Max><Maximum version></Max>
+                      </VersionRange>
+                  </CompatibleOsVersions>
+              </application>
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-api/#list-installed-applications
+  get_info:
+    summary: Retrieve general information related to ACAP support on the device (supported SDKs).
+    effect: read
+    binding: {path: /axis-cgi/applications/info.cgi, method: POST, reply: xml}
+    result: {$ref: '#/types/GetInfoResult'}
+    examples:
+    - title: Read general information
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: text/xml
+
+          <reply result="ok">
+              <supportedSdks>
+                  <sdk>acap3</sdk>
+                  <sdk>acap4-cv</sdk>
+                  <sdk>acap4-native</sdk>
+              </supportedSdks>
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-api/#read-general-information
+
+sources:
+- url: https://developer.axis.com/vapix/applications/application-api/
+  sha256_md: 051ada2f8412c794bfde243a0cd387783104b8a99c1f57d83f74bee7300ec671
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'license.cgi uploadlicensekey: the page shows only query params (action, package); how the license key file
+    is sent (multipart field name) is not documented. https://developer.axis.com/vapix/applications/application-api/#manage-license-keys'
+  - config.cgi value param is marked Optional in the table though required for action=set. https://developer.axis.com/vapix/applications/application-api/#configure-applications
+  - list.cgi example XML has a stray '>' after ValidationResult, putting SignatureStatus outside the tag; attribute
+    table says SignatureStatus while XSD defines SignedStatus (plus VendorHomePage, LicenseName not in table). https://developer.axis.com/vapix/applications/application-api/#list-installed-applications
+  - Attribute table lists 'CompatibleOsVersions/@VersionRange' and 'VersionRange/@Min' as attributes, but example/XSD
+    use child elements.
+  - info.cgi has no XSD and no error documentation; Upload-application 'Version history' (2024-05-03) mentions new
+    error codes without saying which.
+  - The intro's 'Identification' gives no AXIS OS minimum for the API as a whole.
+  - 'migration: op-skipped: upload_application: request body of type multipart/form-data is not supported by the
+    cgi binding'
+  - 'migration: reply-ok: start_application: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: stop_application: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: restart_application: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: remove_application: notes mention OK; reply read as plain text (check)'
+  - 'migration: xml-partial: get_application_config: not found in the sample reply (left as attributes of the mapped
+    element): error'
+  - 'migration: xml-partial: set_application_config: not found in the sample reply (left as attributes of the mapped
+    element): error'
+  - 'migration: reply-ok: upload_license_key: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: remove_license_key: notes mention OK; reply read as plain text (check)'
+  - 'migration: xml-unmapped: list_applications: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version'' is not a Name=value pair: dropped'
+  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=1.20'' is not a Name=value pair:
+    dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: Application'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

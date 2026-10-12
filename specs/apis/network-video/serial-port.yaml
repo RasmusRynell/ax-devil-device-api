@@ -1,0 +1,100 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: serial-port
+name: Serial port API
+summary: Configure serial ports, port managers, remote ports and generic TCP servers (param.cgi), and read/write
+  raw serial data via /axis-cgi/com/serial.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: serial_port
+  class: SerialPort
+docs:
+- https://developer.axis.com/vapix/network-video/serial-port-api/
+access: viewer
+discovery:
+- {api_discovery: serial-port}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.Serial.Serial, value: 'yes'}
+requires:
+  firmware: '5.20'
+
+binding: {path: /axis-cgi/com/serial.cgi}
+
+operations:
+  serial_control:
+    summary: Write and read raw data on the serial port, and connect video channels to ports.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      properties:
+        camera:
+          type: integer
+          minimum: 1
+          description: Select the video channel. If omitted, the default video source is used.
+        port:
+          type: integer
+          description: 'Not in the parameter table; used in examples: port=2&camera=2 opens port 2 (PortManager.P0)
+            and connects video source 2; port=-1&camera=2 disconnects video source 2 from any port.'
+        write:
+          type: string
+          pattern: ^[0-9A-Fa-f]*$
+          description: Write the specified data string (hexadecimal coded bytes) to the selected port.
+        writestring: {type: string, description: Write the percent-encoded string to the selected port.}
+        read:
+          type: integer
+          minimum: 1
+          description: 'Reads n bytes from the selected port. Returned data is hexadecimal coded and placed between
+            #s (e.g. #3A#).'
+        wait:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: Used with read. Read terminated when n bytes read or wait period ended. (unit=s)
+        timeout:
+          type: integer
+          minimum: 0
+          maximum: 9000
+          description: Used with read. Read terminated when n bytes read or timeout expired. (unit=ms)
+  update_serial_parameters:
+    summary: Configure serial port, port manager, remote port and generic TCP parameters.
+    access: admin
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [<group.name>]
+      properties:
+        <group.name>:
+          type: object
+          additionalProperties: {type: string}
+          x-python-name: parameters
+          description: Parameter=value pairs from param_cgi_groups.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/serial-port-api/
+  sha256_md: b26111cf3cab3eac2a57365224bc20b1ee7e1d455b90328552fd41f9dd92c8e4
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - serial.cgi 'port' argument is used in examples but not documented in the parameter table; port numbering vs
+    PortManager index ('port 2 (PortManager.P0)') is unclear.
+  - Example 'Serial.Ser1.BaudRate=9600&DataBits=8' omits the group prefix for DataBits — likely should be Serial.Ser1.DataBits.
+  - Remote port groups (RemotePort.R#, RemotePortServer, Listener, PTZServer) are documented twice on the page with
+    identical content.
+  - 'serial.cgi response format other than the read #XX# encoding (e.g. write success body, errors) is not documented.'
+  - 'Default for Listener/ConnectTo Port is the expression ''1024 + #'', stored as a string default.'
+  - 'migration: object-param: update_serial_parameters.<group.name>: object-valued query parameter kept as a free-form
+    map'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,78 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: image-api
+name: Parameter management for video channels
+summary: param.cgi parameters (Image, Image.I#.*, ImageSource.I#, Properties.Image.*) holding per-video-channel
+  stream defaults, and the stream URL options that...
+section: network-video
+family: cgi
+status: released
+python:
+  module: image_parameters
+  class: ImageParameters
+docs:
+- https://developer.axis.com/vapix/network-video/parameter-management/image-api/
+access: viewer
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  list_image_parameters:
+    summary: List video channel / image source / Properties.Image parameters.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply: text_kv
+    params:
+      type: object
+      properties:
+        group:
+          type: string
+          description: e.g. Image, Image.I0.Appearance, ImageSource.I0, Properties.Image (see parameter-management
+            list).
+    result:
+      type: object
+      additionalProperties: {type: string}
+  update_image_parameters:
+    summary: Update writable video channel parameters.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [<group.name>]
+      properties:
+        <group.name>:
+          type: object
+          additionalProperties: {type: string}
+          x-python-name: parameters
+          description: Parameter=value pairs from param_cgi_groups.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/parameter-management/image-api/
+  sha256_md: b8917e63199f7d45975008a6ac8609455c0017527935c276d4f21560c7605e0f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The URL options list links "Video streaming over HTTP /axis-cgi/mjpg/video.cgi" twice.
+  - Image.I#.MPEG.PCount is "number of delta frames between key frames" while videokeyframeinterval default is PCount
+    + 1.
+  - Exact value set for rotation and resolution is product dependent (see Properties.Image.Rotation / Properties.Image.I#.Resolution).
+  - The id image-api follows the URL slug; the page title is "Parameter management for video channels". Another
+    batch may own a different "image" spec; check for id clashes.
+  - Whether videocodec av1/h265 availability can be detected beyond Properties.Image.Format is not stated.
+  - 'migration: op-skipped: video_url_options: kind stream is not a classic CGI call'
+  - 'migration: object-param: update_image_parameters.<group.name>: object-valued query parameter kept as a free-form
+    map'
+  - 'migration: reply-ok: update_image_parameters: notes mention OK; reply read as plain text (check)'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

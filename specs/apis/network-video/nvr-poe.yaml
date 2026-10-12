@@ -1,0 +1,332 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: nvr-poe
+name: NVR PoE switch configuration
+summary: 'Recorder PoE PSE control: port statuses, enable/disable port power, total power limit, keep-power-during-reboot
+  (/axis-cgi/nvr/poe/*.cgi, XML responses).'
+section: network-video
+family: cgi
+status: released
+python:
+  module: nvr_poe
+  class: NvrPoe
+docs:
+- https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/
+access: operator
+discovery:
+- {api_discovery: nvr-poe}
+
+binding: {path: /axis-cgi/nvr/poe/schemaversions.cgi}
+
+types:
+  GetSchemaVersionsResult:
+    type: object
+    properties:
+      VersionNumber:
+        type: number
+        description: The supported XML-schema version.
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: 'The deprecation status. Valid values are: `true` `false` (default value)'
+        x-xml: {child: Deprecated}
+    x-xml: {root: SchemaVersionsSuccess/SchemaVersion}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve a listing of all supported XML schema versions.
+    effect: read
+    binding:
+      method: GET
+      reply:
+        xml: {error_elements: [GeneralError]}
+    result: {$ref: '#/types/GetSchemaVersionsResult'}
+    examples:
+    - title: Retrieve supported versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <PoeResponse
+              SchemaVersion="1.2"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/nvr/Poe1.xsd">
+              <SchemaVersionsSuccess>
+                  <SchemaVersion>
+                      <VersionNumber>[major1].[minor1]</VersionNumber>
+                      <Deprecated>[deprecated1]</Deprecated>
+                  </SchemaVersion>
+                  ...
+                  <SchemaVersion>
+                      <VersionNumber>[majorN].[minorN]</VersionNumber>
+                      <Deprecated>[deprecatedN]</Deprecated>
+                  </SchemaVersion>
+              </SchemaVersionsSuccess>
+          </PoeResponse>
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#retrieve-supported-versions
+    - title: Retrieve supported versions (error)
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8" ?>
+          <PoeResponse
+              SchemaVersion="1.2"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/nvr/Poe1.xsd">
+              <GeneralError>
+                  <ErrorCode>[code]</ErrorCode>
+                  <Description>[description]</Description>
+              </GeneralError>
+          </PoeResponse>
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#retrieve-supported-versions
+  get_port_mode:
+    summary: Check the status of the PoE port mode.
+    effect: read
+    binding: {path: /axis-cgi/nvr/poe/getportmode.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, port]
+      properties:
+        schemaversion:
+          type: integer
+          description: The major XML version that should be used along with its highest minor version.
+        port: {type: integer, description: The port number.}
+    result: {x-xml: true}
+    examples:
+    - title: Check the port mode
+      request:
+        query: {schemaversion: '1', port: '2'}
+      response:
+        status: 200
+        text: |-
+          ...
+          <GetPortModeSuccess>
+              <Enabled>yes</Enabled>
+          </GetPortModeSuccess>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#create-a-port-power-cycle
+  set_port_mode:
+    summary: Enable or disable the specified PoE port.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/nvr/poe/setportmode.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, port, enabled]
+      properties:
+        schemaversion:
+          type: integer
+          description: The major XML version that should be used along with its highest minor version.
+        port: {type: integer, description: The port number.}
+        enabled:
+          type: boolean
+          enum: ['yes', 'no']
+          x-style: axis_bool
+          description: 'Enables/disables the specified port. yes: Enable; no: Disable.'
+    examples:
+    - title: Disable the port (power off)
+      request:
+        query: {schemaversion: '1', port: '2', enabled: 'no'}
+      response:
+        status: 200
+        text: |-
+          ...
+              <GeneralSuccess/>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#create-a-port-power-cycle
+    - title: Enable the port (power on)
+      request:
+        query: {schemaversion: '1', port: '2', enabled: 'yes'}
+      response:
+        status: 200
+        text: |-
+          ...
+              <GeneralSuccess/>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#create-a-port-power-cycle
+  get_port_statuses:
+    summary: Retrieve status information for all available PoE ports.
+    effect: read
+    binding: {path: /axis-cgi/nvr/poe/getportstatuses.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: integer
+          description: The major XML version that should be used along with its highest minor version.
+    result: {x-xml: true}
+    examples:
+    - title: Retrieve PoE port status
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          ...
+          <GetPortStatusesSuccess>
+              <PortStatus>
+                  <Port>1</Port>
+                  <StatusCode>1</StatusCode>
+                  <Description>Connected - PoE</Description>
+                  <Extra>0x01: 802.3af-compliant device detected</Extra>
+                  <ClassPowerLimit>7.0</ClassPowerLimit>
+                  <PoeClass>2</PoeClass>
+                  <AllocatedPower>7.0</AllocatedPower>
+                  <PowerConsumption>3.4</PowerConsumption>
+                  <PseClassLimit>4</PseClassLimit>
+                  <RequestedPower>6.1</RequestedPower>
+              </PortStatus>
+          ...
+          </GetPortStatusesSuccess>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#retrieve-poe-port-status
+    - title: Port statuses for power-limit check
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          ...
+          <GetPortStatusesSuccess>
+              <PortStatus>
+                  <Port>1</Port>
+                  <StatusCode>1<StatusCode>
+                  <Description>Connected - PoE</Description>
+                  <Extra>0x01: 802.3af-compliant device detected</Extra>
+                  <ClassPowerLimit>7.0</ClassPowerLimit>
+                  <PoeClass>2</PoeClass>
+                  <AllocatedPower>7.0</AllocatedPower>
+                  <PowerConsumption>3.4</PowerConsumption>
+                  <PseClassLimit>4</PseClassLimit>
+                  <RequestedPower>6.1</RequestedPower>
+              </PortStatus>
+              <PortStatus>
+                  <Port>2</Port>
+                  <StatusCode>1<StatusCode>
+                  <Description>Connected - PoE</Description>
+                  <Extra>0x01: 802.3af-compliant device detected</Extra>
+                  <ClassPowerLimit>7.0</ClassPowerLimit>
+                  <PoeClass>3</PoeClass>
+                  <AllocatedPower>13.0</AllocatedPower>
+                  <PowerConsumption>5.4</PowerConsumption>
+                  <PseClassLimit>4</PseClassLimit>
+                  <RequestedPower>11.0</RequestedPower>
+              </PortStatus>
+          ...
+          </GetPortStatusesSuccess>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#check-power-limit
+  get_total_power_limit:
+    summary: Get the total power limit of the PSE (watts).
+    effect: read
+    binding: {path: /axis-cgi/nvr/poe/gettotalpowerlimit.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: integer
+          description: The major XML version that should be used along with its highest minor version.
+    result: {x-xml: true}
+    examples:
+    - title: Check the total power limit
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          ...
+              <GetTotalPowerLimitSuccess>
+                  <Limit>65</Limit>
+              </GetTotalPowerLimitSuccess>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#check-power-limit
+  get_keep_power:
+    summary: Check whether the keep power function (keep PoE power during recorder reboot) is active.
+    effect: read
+    binding: {path: /axis-cgi/nvr/poe/getkeeppower.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: integer
+          description: The major XML version that should be used along with its highest minor version.
+    result: {x-xml: true}
+    examples:
+    - title: Check keep power
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          ...
+          <GetKeepPowerSuccess>
+              <Enabled>no</Enabled>
+          </GetKeepPowerSuccess>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#enable-keep-power
+  set_keep_power:
+    summary: Control whether PoE power should be kept active when the recorder is rebooting.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/nvr/poe/setkeeppower.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, enabled]
+      properties:
+        schemaversion:
+          type: integer
+          description: The major XML version that should be used along with its highest minor version.
+        enabled:
+          type: boolean
+          enum: ['yes', 'no']
+          x-style: axis_bool
+          description: 'yes: power is kept when the recorder is rebooting; no: power is cut.'
+    examples:
+    - title: Enable keep power
+      request:
+        query: {schemaversion: '1', enabled: 'yes'}
+      response:
+        status: 200
+        text: |-
+          ...
+              <GeneralSuccess/>
+          ...
+      source: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/#enable-keep-power
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/nvr-poe-switch-configuration/
+  sha256_md: d2bbad4084ed642dcc578380c5077cbb3b311b05fad58616be5ae829ea1cf8a7
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Poe1.xsd (http://www.axis.com/vapix/http_cgi/nvr/Poe1.xsd) referenced but download failed (connect timeout)
+    — not mirrored.
+  - Success element named SchemaVersionsSuccess in the example but SchemaVersionSuccess in the syntax block; closing
+    tags malformed (<Deprecated>, <StatusCode>) in doc.
+  - StatusCode type documented as "Code".
+  - PowerConsumption unit not stated (presumably watts).
+  - AXIS OS minimum not stated.
+  - getkeeppower description says it also specifies whether keep power should be turned on/off (that is setkeeppower).
+  - 'migration: xml-unmapped: get_port_mode: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: set_port_mode: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_port_statuses: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: get_total_power_limit: no parseable sample reply to derive the x-xml mapping from;
+    result is the raw XML element'
+  - 'migration: xml-unmapped: get_keep_power: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: set_keep_power: no response schema in v1; result is the raw XML element'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  migrated_from: v1
+  curated: false

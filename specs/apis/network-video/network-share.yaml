@@ -1,0 +1,291 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: network-share
+name: Network share API (Edge storage)
+summary: Add, list, modify, remove, bind/unbind and test CIFS/SMB network shares for edge storage via /axis-cgi/disks/networkshare/*.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: network_share
+  class: NetworkShare
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: admin
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.NetworkShare.NetworkShare, value: 'yes'}
+- param: {name: Properties.NetworkShare.CIFS, value: 'yes'}
+requires:
+  firmware: '5.40'
+
+binding: {path: /axis-cgi/disks/networkshare/list.cgi}
+
+operations:
+  list_shares:
+    summary: List network shares added to the product and their parameters.
+    access: operator
+    effect: read
+    binding: {method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        shareid: {type: string, description: 'Required. all, or comma-separated Share IDs.'}
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: List all network shares
+      request:
+        query: {schemaversion: '1', shareid: all}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <NetworkShareResponse SchemaVersion="1.0"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/networkshare1.xsd">
+            <ListSuccess>
+              <NetworkShares NumberOfShares="1">
+                <NetworkShare NiceName="My Share"
+                  ShareId="35419"
+                  Address="mynas.mycompany.com"
+                  Share="myshare"
+                  User="nasuser" />
+              </NetworkShares>
+            </ListSuccess>
+          </NetworkShareResponse>
+  add_share:
+    summary: Add a network share (NAS / CIFS/SMB server).
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/disks/networkshare/add.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [nicename, address, share]
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        nicename: {type: string, description: Required. User-friendly name.}
+        address: {type: string, description: Required. IPv4 address or host name of the storage device.}
+        share: {type: string, description: Required. Name of the share on the storage device.}
+        shareid:
+          type: string
+          pattern: ^[A-Za-z0-9-]+$
+          description: Unique Share ID, regex [A-Za-z0-9-]+. Assigned by the product if omitted.
+        user: {type: string, description: User name on the share.}
+        pass: {type: string, description: Password for user.}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      200: {description: Invalid ShareId., kind: invalid_argument}
+      210: {description: The ShareId is not unique.}
+      220: {description: The NiceName is not unique.}
+      230: {description: Maximum number of network shares is already reached. No more shares can be added.}
+  remove_share:
+    summary: Remove network share(s).
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/disks/networkshare/remove.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        shareid: {type: string, description: 'Required. Share ID(s) to remove, comma separated.'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      500: {description: The network share is bound and can't be removed. Use unbind.cgi.}
+  modify_share:
+    summary: Modify a network share.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/networkshare/modify.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        shareid: {type: string, description: Required. Share ID of the share to modify.}
+        nicename: {type: string, description: User-friendly name.}
+        address: {type: string, description: IPv4 address or host name.}
+        share: {type: string, description: Share name on the storage device.}
+        user: {type: string, description: User name.}
+        pass: {type: string, description: Password.}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      600: {description: The network share is bound and can't be modified. Use unbind.cgi.}
+      610: {description: The new ShareID parameter is not unique., kind: invalid_argument}
+      620: {description: The NiceName parameter is not unique., kind: invalid_argument}
+  bind_share:
+    summary: Bind a network share to a disk; returns the Disk ID used by Disk management and Recording APIs.
+    access: operator
+    effect: action
+    binding: {path: /axis-cgi/disks/networkshare/bind.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        shareid: {type: string, description: Required. Share ID to bind.}
+        automaticmount:
+          type: string
+          enum: ['yes', 'no']
+          default: 'yes'
+          description: yes = mount the disk automatically after binding (default); no = do not mount.
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      300: {description: No available disk. Check if another network share is already bound.}
+      310: {description: The network share is already bound to a disk.}
+  unbind_share:
+    summary: Unbind a network share so it can be modified or removed.
+    access: operator
+    effect: action
+    binding: {path: /axis-cgi/disks/networkshare/unbind.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        shareid: {type: string, description: Required. Share ID to unbind.}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      400:
+        description: The network share is mounted and can't be unbound. Unmount the share using Disk Management
+          API.
+  test_share:
+    summary: Test that a network share can be used as storage (starts a job; parameters are not stored).
+    access: operator
+    effect: action
+    binding: {path: /axis-cgi/disks/networkshare/test.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        address: {type: string, description: IPv4 address or host name.}
+        share: {type: string, description: Share name.}
+        user: {type: string, description: User name.}
+        pass: {type: string, description: Password.}
+        shareid:
+          type: string
+          description: Share ID to use instead of (or overridden by) address/share/user/pass.
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      700: {description: No such hostname.}
+      710: {description: Error while mounting network share.}
+      720: {description: Internal error while mounting network share., kind: internal}
+      730: {description: 'Too many tests or jobs started, wait for some to finish.'}
+      740: {description: Problem writing to the share.}
+      750: {description: Problem reading data written to the share.}
+      760: {description: Problem connecting to the share.}
+  job_progress:
+    summary: Check the progress of a network share test job; poll until finished.
+    access: operator
+    effect: read
+    binding:
+      path: /axis-cgi/disks/networkshare/job.cgi
+      method: GET
+      reply:
+        xml: {error_elements: [GeneralError]}
+    params:
+      type: object
+      required: [schemaversion, jobid]
+      properties:
+        schemaversion:
+          type: string
+          description: Major version of the XML schema to use for the response (<integer>[.<integer>]).
+        jobid: {type: string, description: Required. Job ID.}
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      700: {description: No such hostname.}
+      710: {description: Error while mounting network share.}
+      720: {description: Internal error while mounting network share., kind: internal}
+      730: {description: 'Too many tests or jobs started, wait for some to finish.'}
+      740: {description: Problem writing to the share.}
+      750: {description: Problem reading data written to the share.}
+      760: {description: Problem connecting to the share.}
+    examples:
+    - title: Check progress of job 1
+      request:
+        query: {schemaversion: '1', jobid: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <NetworkShareResponse SchemaVersion="1.0"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/networkshare1.xsd">
+            <JobSuccess>
+              <Progress>15</Progress>
+            </JobSuccess>
+          </NetworkShareResponse>
+  get_schema_versions:
+    summary: List supported XML schema versions for the Network share API and whether deprecated.
+    access: operator
+    effect: read
+    binding:
+      path: /axis-cgi/disks/networkshare/schemaversions.cgi
+      method: GET
+      reply:
+        xml: {error_elements: [GeneralError]}
+    result: {x-xml: true}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - CGI overview table lists /axis-cgi/disks/list.cgi for listing shares, while the specification section and examples
+    use /axis-cgi/disks/networkshare/list.cgi.
+  - Common examples show Share ID 485279c5-... in text but use shareid=35419 in requests.
+  - Success text for remove/modify/unbind says 'disk encryption is disabled' (copy-paste).
+  - schemaversion required-ness inconsistent (only job.cgi marks it Required; test.cgi marks it Optional).
+  - 'migration: xml-unmapped: list_shares: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: add_share: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: remove_share: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: modify_share: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: bind_share: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: unbind_share: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: test_share: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: job_progress: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_schema_versions: no response schema in v1; result is the raw XML element'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

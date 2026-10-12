@@ -1,0 +1,189 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: recording-storage-limit
+name: Recording storage limit API (Edge storage)
+summary: Get and set how much disk space (kB) the product may use for recordings on each disk (quota on shared storage)
+  via /axis-cgi/record/storage/*.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: recording_storage_limit
+  class: RecordingStorageLimit
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: operator
+discovery:
+- param: {name: Properties.LocalStorage.StorageLimit, value: 'yes'}
+requires:
+  firmware: '5.70'
+
+binding: {path: /axis-cgi/record/storage/schemaversions.cgi}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve supported XML schema versions.
+    effect: read
+    binding: {method: GET, reply: xml}
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Get supported XML schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <SchemaVersionsSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+            </SchemaVersionsSuccess>
+          </StorageLimitsResponse>
+  get_limit:
+    summary: Retrieve the current recording storage limit and used space per disk.
+    effect: read
+    binding:
+      path: /axis-cgi/record/storage/getlimit.cgi
+      method: GET
+      reply:
+        xml: {error_elements: [GeneralError]}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. Major version of the XML schema to use for the response.
+        diskid:
+          type: string
+          description: Optional. Disk ID; if omitted, limits for all disks are returned.
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      110: {description: Disk not found., kind: not_found}
+    examples:
+    - title: Get limits for all disks
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GetStorageLimitsResponse>
+              <StorageLimit diskid="NetworkShare" size="2796202667" usedspace="553324" />
+              <StorageLimit diskid="SD_DISK" size="0" usedspace="661324" />
+            </GetStorageLimitsResponse>
+          </StorageLimitsResponse>
+    - title: Get limit for the network share
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GetStorageLimitsResponse>
+              <StorageLimit diskid="NetworkShare" size="2796202667" usedspace="553324" />
+            </GetStorageLimitsResponse>
+          </StorageLimitsResponse>
+    - title: Non-existing disk
+      request:
+        query: {schemaversion: '1', diskid: DUMMY}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralError>
+              <ErrorCode>110</ErrorCode>
+              <ErrorDescription>Disk not found</ErrorDescription>
+            </GeneralError>
+          </StorageLimitsResponse>
+  set_limit:
+    summary: Set the recording storage limit (disk space this product may use) for a disk.
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/record/storage/setlimit.cgi
+      method: GET
+      reply:
+        xml: {error_elements: [GeneralError]}
+    params:
+      type: object
+      required: [schemaversion, diskid, size]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. Major version of the XML schema to use for the response.
+        diskid: {type: string, description: Required. Disk ID.}
+        size:
+          type: integer
+          description: Required. Limit in kB; 0 disables the limit; minimum 1048576 kB (1 GB). (unit=kB)
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      110: {description: Disk not found., kind: not_found}
+      120: {description: Invalid size value., kind: invalid_argument}
+      130: {description: Supplied size is less than the minimum allowed limit.}
+    examples:
+    - title: Set 1/3 for camera 2
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare, size: '1398101333'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralSuccess />
+          </StorageLimitsResponse>
+    - title: Disable limit
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare, size: '0'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralSuccess />
+          </StorageLimitsResponse>
+    - title: Incorrect limit
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare, size: textstring}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralError>
+              <ErrorCode>120</ErrorCode>
+              <ErrorDescription>Invalid size value</ErrorDescription>
+            </GeneralError>
+          </StorageLimitsResponse>
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Response attribute documented as usedsize in the table but referred to as usedspace in the example text.
+  - setlimit table types size as <string> with valid values Integer.
+  - 'migration: xml-unmapped: get_schema_versions: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_limit: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: set_limit: no response schema in v1; result is the raw XML element'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  migrated_from: v1
+  curated: false

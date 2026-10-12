@@ -1,0 +1,154 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: guard-tour
+name: Guard tour API (preset tours)
+summary: Preset guard tours for PTZ cameras, defined in the dynamic GuardTour.G# / GuardTour.G#.Tour.T# parameter
+  groups via /axis-cgi/param.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: guard_tour
+  class: GuardTour
+docs:
+- https://developer.axis.com/vapix/network-video/guard-tour-api/
+access: operator
+discovery:
+- {api_discovery: guard-tour}
+- param: {name: root.Properties.GuardTour.GuardTour, value: 'yes'}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  get_properties:
+    summary: Check guard tour support and limits (Properties.GuardTour.*).
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list, group: Properties.GuardTour}
+      reply:
+        text_kv: {strip_prefix: root.}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Check that the Axis product supports guard tours
+      request:
+        query: {}
+      response: {status: 200, text: root.Properties.GuardTour.GuardTour=yes}
+  add_guard_tour:
+    summary: Add a guard tour group GuardTour.G#; optionally set parameters in the same request (group number omitted,
+      e.g.
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {action: add, group: GuardTour, template: guardtour}
+      reply: text
+    params:
+      type: object
+      properties:
+        GuardTour.G.<Parameter>:
+          type: string
+          description: Optional initial values for GuardTour.G# parameters (Name, CamNbr, RandomEnabled, TimeBetweenSequences,
+            Running), with the group number omitted.
+    examples:
+    - title: Add a guard tour
+      request:
+        query: {}
+      response: {status: 200, text: G0 OK}
+  add_tour_preset:
+    summary: Add a preset position to guard tour G# as dynamic subgroup GuardTour.G#.Tour.T#.
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {action: add, template: tour}
+      reply: text
+    params:
+      type: object
+      required: [group, GuardTour.G<n>.Tour.T.PresetNbr]
+      properties:
+        group: {type: string, description: GuardTour.G<n>.Tour}
+        GuardTour.G<n>.Tour.T.PresetNbr: {type: integer, minimum: 1, maximum: 3600}
+        GuardTour.G<n>.Tour.T.<Parameter>:
+          type: string
+          description: Other Tour parameters (Position, MoveSpeed, WaitTime, WaitTimeViewType) with the subgroup
+            number omitted.
+  list_guard_tour:
+    summary: List guard tour parameters, e.g.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply:
+        text_kv: {strip_prefix: root.}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: string
+          description: Group/parameter path, wildcards allowed (e.g. GuardTour.G0.Tour.*.PresetNbr).
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: List the presets included in the tour
+      request:
+        query: {group: GuardTour.G0.Tour.*.PresetNbr}
+      response:
+        status: 200
+        text: |-
+          root.GuardTour.G0.Tour.T0.PresetNbr=1
+          root.GuardTour.G0.Tour.T1.PresetNbr=2
+          root.GuardTour.G0.Tour.T2.PresetNbr=5
+  remove_tour_preset:
+    summary: Remove a preset position (or a whole guard tour with group=GuardTour.G#) from the guard tour configuration.
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {action: remove}
+      reply: text
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string}
+  set_running:
+    summary: Start (yes) or stop (no) a guard tour; also used for updating other GuardTour parameters.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [GuardTour.G<n>.Running]
+      properties:
+        GuardTour.G<n>.Running: {type: string, enum: ['yes', 'no']}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/guard-tour-api/
+  sha256_md: eb05ace3319d3adb2b7fab7edc740d2ae772b0f353c548ee86a1b3d3a91ea123
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - param.cgi responses/errors are defined in the Parameter management API, not on this page.
+  - Access level for running guard tours by 'operator without PTZ control' vs viewer is ambiguous in the Running
+    row.
+  - Access control of param.cgi add/list actions for Properties groups not stated here; viewer assumed for list.
+  - 'migration: reply-ok: add_guard_tour: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: add_tour_preset: notes mention OK; reply read as plain text (check)'
+  - 'migration: types-dropped: types not referenced by any migrated operation: GuardTourAction'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

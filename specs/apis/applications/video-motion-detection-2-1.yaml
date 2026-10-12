@@ -1,0 +1,70 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: video-motion-detection-2-1
+name: Video motion detection 2.1 API
+summary: Deprecated.
+section: applications
+family: cgi
+status: deprecated
+python:
+  module: video_motion_detection_2_1
+  class: VideoMotionDetection21
+docs:
+- https://developer.axis.com/vapix/applications/video-motion-detection-2.1-api/
+access: admin
+requires:
+  firmware: '5.40'
+  application: AXIS Video Motion Detection 2.1 (ACAP, package name VideoMotionDetection)
+
+binding: {path: /axis-cgi/vaconfig.cgi}
+
+operations:
+  get_configuration:
+    summary: Retrieve the application configuration XML.
+    description: Deprecated.
+    effect: read
+    binding:
+      method: GET
+      query: {action: get, name: VideoMotionDetection}
+      reply: xml
+    result: {x-xml: true}
+  modify_configuration:
+    summary: Modify the application configuration (only Detection Area / optional Exclude Area and Exclude parameter;
+      all other settings kept as is).
+    description: Deprecated.
+    effect: write
+    write: patch
+    binding: {method: POST, encoding: form, reply: xml}
+    params:
+      type: object
+      required: [action, name, config]
+      properties:
+        action: {type: string, enum: [modify], default: modify}
+        name: {type: string, enum: [VideoMotionDetection], default: VideoMotionDetection}
+        config:
+          type: string
+          x-python-name: config_xml
+          description: <config version="1.0">...</config> XML appended after 'action=modify&name=VideoMotionDetection'
+            and a newline, as in the example.
+
+sources:
+- url: https://developer.axis.com/vapix/applications/video-motion-detection-2.1-api/
+  sha256_md: 614ba097baee974f1bad82d9e2b190482fe22fe13a607f5a6074b9e0b801d85e
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Table uses attribute 'knownTypeName' while XML uses 'knownNameType'. https://developer.axis.com/vapix/applications/video-motion-detection-2.1-api/#application-configuration
+  - Start application example uses GET while Application API documents POST.
+  - RTSP eventtopic uses 'onvif:RuleEngine/axis:VideoMotionDetection//motion' while the declared topic is tns1:RuleEngine/tnsaxis:VideoMotionDetection/tnsaxis:motion.
+  - 'migration: op-skipped: get_event_stream: kind rtsp_request is not a classic CGI call'
+  - 'migration: xml-unmapped: get_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: modify_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=1.10'' is not a Name=value pair:
+    dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: UserConfiguration'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

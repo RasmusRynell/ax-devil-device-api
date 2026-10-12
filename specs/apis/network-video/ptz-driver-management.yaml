@@ -1,0 +1,196 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: ptz-driver-management
+name: PTZ driver management API
+summary: List embedded/uploaded PTZ drivers and activate/deactivate an external PTZ device driver (device type,
+  device ID) per video channel.
+section: network-video
+family: cgi
+status: released
+python:
+  module: ptz_driver_management
+  class: PtzDriverManagement
+docs:
+- https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+access: admin
+discovery:
+- {api_discovery: ptz-driver-management}
+- param: {name: Properties.PTZ.DriverManagement, value: 'yes'}
+- param: {name: Properties.PTZ.EmbeddedDrivers, value: 'yes'}
+requires:
+  firmware: '5.20'
+
+binding: {path: /axis-cgi/ptz/ptzuploader.cgi}
+
+operations:
+  list_drivers:
+    summary: List available PTZ drivers (XML), optionally with per-channel driver status.
+    effect: read
+    binding: {method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        list:
+          type: string
+          enum: ['yes']
+          default: 'yes'
+          description: 'yes: list the uploaded/available drivers in an XML listing.'
+        status:
+          type: string
+          enum: ['yes', 'no']
+          default: 'no'
+          description: 'yes: append the driver status for all channels in the response.'
+    result: {x-xml: true}
+    errors:
+      400: {description: Listing failed.}
+      409: {description: Product is not configured to use uploadable PTZ driver mode.}
+    examples:
+    - title: List drivers with status
+      request:
+        query: {list: 'yes', status: 'yes'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0"?>
+            <driverentry>
+              <id>1</id>
+              <driver>Pelco</driver>
+              <driverversion>4.17</driverversion>
+              <installed>
+                <ch>1</ch>
+              </installed>
+              <deviceTypes>
+                <deviceType>Generic</deviceType>
+                <deviceType>DD5-C</deviceType>
+                <deviceType>Esprit ES30C/ES31C</deviceType>
+                <deviceType>LRD41C21</deviceType>
+                <deviceType>LRD41C22</deviceType>
+                <deviceType>Spectra III</deviceType>
+                <deviceType>Spectra IV</deviceType>
+                <deviceType>Spectra Mini</deviceType>
+                <deviceType>Videotec DTRX3/PTH310P</deviceType>
+                <deviceType>Videotec ULISSE</deviceType>
+                <deviceType>PTK AMB</deviceType>
+                <deviceType>YP3040</deviceType>
+                <deviceType>XP40</deviceType>
+              </deviceTypes>
+              <deviceIdRange>
+                <min>1</min>
+                <max>255</max>
+              </deviceIdRange>
+            </driverentry>
+            ...
+            <status>
+              <channel id="1">
+                <activeDriver>
+                  <driverStatus>2</driverStatus>
+                  <driverId>1</driverId>
+                  <driverDeviceType>Generic</driverDeviceType>
+                  <driverDeviceId>1</driverDeviceId>
+                </activeDriver>
+              </channel>
+              <channel id="2"></channel>
+              <channel id="3"></channel>
+              <channel id="4"></channel>
+            <status>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#list-all-ptz-drivers
+    - title: Check if a PTZ driver is active
+      request:
+        query: {status: 'yes'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root>
+              <status>
+                  <channel id="1">
+                      <activeDriver>
+                          <driverStatus>2</driverStatus>
+                          <driverId>1</driverId>
+                          <driverDeviceType>Generic</driverDeviceType>
+                          <driverDeviceId>1</driverDeviceId>
+                      </activeDriver>
+                  </channel>
+                  <channel id="2" />
+                  <channel id="3" />
+                  <channel id="4" />
+              </status>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#check-if-a-ptz-driver-is-active
+  activate_driver:
+    summary: Activate (install) or deactivate (driverid=0) a driver on a video channel; change device type / device
+      ID.
+    effect: action
+    binding: {path: /axis-cgi/ptz/ptzupgrader.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        driverid:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Driver ID from ptzuploader.cgi?list=yes. 0 deactivates the currently active driver without
+            installing another. (Examples also use driverId.)
+        channel:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Video channel. An external driver active on the channel is deactivated when a new driver
+            is activated.
+        deviceType:
+          type: string
+          description: Device type for drivers supporting hardware variants (from <deviceTypes>). Defaults to the
+            first listed device type, without guarantee of successful communication.
+        deviceId:
+          type: integer
+          description: Device address for daisy-chained devices; defaults to the channel number. Range from <deviceIdRange>.
+        status:
+          type: string
+          enum: ['yes', 'no']
+          default: 'no'
+          description: 'yes: append the driver status for all channels in the response.'
+        port:
+          type: string
+          description: Deprecated since API 1.1; the port is always set to the one required by the driver.
+    errors:
+      400: {description: Invalid request., kind: invalid_argument}
+      409: {description: Product is not configured to use uploadable PTZ driver mode.}
+      500: {description: Misconfiguration or hardware errors.}
+      501: {description: A driver is already installed on the channel.}
+  upload_driver:
+    summary: Upload a driver file as HTTP POST data (deprecated in 1.1, removed in 2.0).
+    description: Deprecated.
+    effect: write
+    write: create
+    binding: {method: POST, encoding: form, reply: xml}
+    params:
+      type: object
+      required: [body]
+      properties:
+        body: {type: string, description: Driver file contents as HTTP POST data.}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+  sha256_md: b1dc685e0bec7a017399a605bfd9687f3d7fa81ef8e929c4a119a65719e79416
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - driverid vs driverId spelling differs between table and examples.
+  - Upload request format for the deprecated upload (multipart vs raw POST) is not specified; common example shows
+    GET.
+  - Driver status values differ between XML driverStatus (0-2) and parameter Driver#Status (0-3).
+  - XML list syntax shows <deviceId> but table/example use <deviceIdRange>; example XML lacks <root>.
+  - Version 2.0/2.1 identification not listed; only 1.0, 1.1, 2.2.
+  - 'migration: xml-unmapped: list_drivers: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: activate_driver: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: upload_driver: no response schema in v1; result is the raw XML element'
+  - 'migration: discovery: param_property ''Properties.PTZ.DriverManagementChannels'' is not a Name=value pair:
+    dropped'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

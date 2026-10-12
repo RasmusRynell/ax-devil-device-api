@@ -1,0 +1,207 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: pt-remote-calibration
+name: Remote PT Coordinate Calibration API
+summary: 'Calibrate pan/tilt coordinates of a remote PTZ camera against a local camera (AXIS Q6000-E): start/abort,
+  select target, on target, save, status.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: pt_remote_calibration
+  class: PtRemoteCalibration
+docs:
+- https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/
+access: admin
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.PTRemoteCalibration.PTRemoteCalibration, value: 'yes'}
+
+binding: {path: /axis-cgi/ptremotecalibration/start.cgi}
+
+types:
+  SelectTargetResult:
+    type: object
+    properties:
+      Pan:
+        type: number
+        description: Approximate remote PTZ pan coordinate (degrees).
+        x-xml: {child: Pan}
+      Tilt:
+        type: number
+        description: Approximate remote PTZ tilt coordinate (degrees).
+        x-xml: {child: Tilt}
+    x-xml: {root: SelectTargetSuccess}
+
+operations:
+  start:
+    summary: Start calibration.
+    effect: action
+    binding: {method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]+)?$
+          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
+            is required; if minor is not specified the latest minor version is used.
+        camera:
+          type: integer
+          minimum: 1
+          default: 1
+          description: The camera (camera head) to use for calibration.
+    errors:
+      50: {description: Calibration is already ongoing. It is not possible to start a new calibration.}
+  abort:
+    summary: Abort an ongoing calibration; all unsaved data will be lost.
+    effect: action
+    binding: {path: /axis-cgi/ptremotecalibration/abort.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]+)?$
+          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
+            is required; if minor is not specified the latest minor version is used.
+    errors:
+      54: {description: No calibration is ongoing.}
+  select_target:
+    summary: Select a calibration target (normalized x,y) in the image from the local product.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/ptremotecalibration/selecttarget.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, x, y]
+      properties:
+        schemaversion:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]+)?$
+          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
+            is required; if minor is not specified the latest minor version is used.
+        x:
+          type: number
+          minimum: -1.0
+          maximum: 1.0
+          description: Normalized x coordinate in the local product coordinate system; (-1,-1) bottom left, (0,0)
+            center, (1,1) upper right.
+        y:
+          type: number
+          minimum: -1.0
+          maximum: 1.0
+          description: Normalized y coordinate in the local product coordinate system.
+    result: {$ref: '#/types/SelectTargetResult'}
+    errors:
+      54: {description: No calibration is ongoing.}
+  on_target:
+    summary: Inform the local product that the remote PTZ camera is positioned at the selected calibration target.
+    effect: action
+    binding: {path: /axis-cgi/ptremotecalibration/ontarget.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]+)?$
+          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
+            is required; if minor is not specified the latest minor version is used.
+        pan:
+          type: number
+          description: Pan coordinate (degrees) of the remote PTZ camera. If not specified, read from local status.
+            (unit=degrees)
+        tilt:
+          type: number
+          description: Tilt coordinate (degrees) of the remote PTZ camera. If not specified, read from local status.
+            (unit=degrees)
+    errors:
+      52:
+        description: The pan/tilt coordinates and the selected pixel coordinates (`x` and `y`) could not be matched.
+      53: {description: No pixel coordinates are selected.}
+  save:
+    summary: 'Save calibration data: creates the coordinate transformation curve and stops the calibration process.'
+    effect: action
+    binding: {path: /axis-cgi/ptremotecalibration/save.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]+)?$
+          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
+            is required; if minor is not specified the latest minor version is used.
+    errors:
+      51: {description: A satisfying coordinate matching could not be found.}
+      54: {description: No calibration is ongoing.}
+  get_information:
+    summary: Retrieve information about an ongoing calibration.
+    effect: read
+    binding: {path: /axis-cgi/ptremotecalibration/getinformation.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]+)?$
+          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
+            is required; if minor is not specified the latest minor version is used.
+    result: {x-xml: true}
+    errors:
+      54: {description: No calibration is ongoing.}
+  is_calibrated:
+    summary: List all cameras and whether they are calibrated.
+    effect: read
+    binding: {path: /axis-cgi/ptremotecalibration/iscalibrated.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]+)?$
+          description: The version of the XML Schema to use for the response, form major[.minor]. The major version
+            is required; if minor is not specified the latest minor version is used.
+    result: {x-xml: true}
+    errors:
+      54: {description: No calibration is ongoing.}
+  get_schema_versions:
+    summary: List supported XML schema versions.
+    effect: read
+    binding: {path: /axis-cgi/ptremotecalibration/schemaversions.cgi, method: GET, reply: xml}
+    result: {x-xml: true}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/
+  sha256_md: 68dbbe3559e7a44b1b3d64fd2a8365ceff11b81dfdfd24fb963a01dd6fe960d7
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Example requests omit the required schemaversion argument.
+  - Error table lists ErrorDescription while body/XSD use Description.
+  - Doc shows SchemaVersionSuccess; XSD has SchemaVersionsSuccess.
+  - x/y range -1..1 taken from the coordinate description.
+  - AXIS OS minimum not stated.
+  - 'migration: xml-unmapped: start: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: abort: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: on_target: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: save: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_information: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: is_calibrated: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: get_schema_versions: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: types-dropped: types not referenced by any migrated operation: GeneralError, GetInformationSuccess,
+    IsCalibratedSuccess, SchemaVersion, SelectTargetSuccess'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

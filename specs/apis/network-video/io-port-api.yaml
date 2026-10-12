@@ -1,0 +1,184 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: io-port-api
+name: I/O port API
+summary: 'Digital input/output ports: query/activate/monitor via /axis-cgi/io/port.cgi and configure via param.cgi
+  IOPort.I#; I/O events and output port action.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: io_port
+  class: IoPort
+docs:
+- https://developer.axis.com/vapix/network-video/input-and-outputs/
+access: viewer
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/io/port.cgi}
+
+operations:
+  port_check:
+    summary: Return the circuit status (1 closed / 0 open) of ports.
+    effect: action
+    binding: {method: GET, reply: text_kv}
+    params:
+      type: object
+      required: [check]
+      properties:
+        check:
+          type: array
+          items: {type: integer}
+          description: Return the status (1 or 0) of one or more ports. 1 = Closed circuit. 0 = Open circuit.
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Check status of port 1 and 2
+      request:
+        query: {check: '1,2'}
+      response:
+        status: 200
+        text: |-
+          port1=0
+          port2=0
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  port_check_active:
+    summary: Return active/inactive status of ports.
+    effect: action
+    binding: {method: GET, reply: text_kv}
+    params:
+      type: object
+      required: [checkactive]
+      properties:
+        checkactive:
+          type: array
+          items: {type: integer}
+          description: Return the status (active or inactive) of one or more ports; depends on Output.Active for
+            outputs and Input.Trig for inputs.
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Check if port 3 is active
+      request:
+        query: {checkactive: '3'}
+      response: {status: 200, text: port3=inactive}
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  port_check_direction:
+    summary: Return the direction (input/output) of ports.
+    effect: action
+    binding: {method: GET, reply: text_kv}
+    params:
+      type: object
+      required: [checkdirection]
+      properties:
+        checkdirection:
+          type: array
+          items: {type: integer}
+          description: Return the port direction (input or output) of one or more ports.
+    result:
+      type: object
+      additionalProperties: {type: string}
+  port_action:
+    summary: Activate/deactivate an output port, optionally as timed pulses.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          pattern: ^([0-9]+)?:[/\\]([0-9]+[/\\])*$
+          description: Activate or deactivate an output (valid for output ports only). Port ID omitted = output
+            1. Example 1:/ -> action=1%3A%2F.
+  list_io_port_parameters:
+    summary: List the IOPort.I# parameters (generic Parameter management API).
+    access: operator
+    effect: read
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: list}
+      reply:
+        text_kv: {strip_prefix: root.}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: 'Parameter group to list, e.g. root.IOPort.I0.'}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Retrieve information about port 1
+      request:
+        query: {group: IOPort.I0}
+      response:
+        status: 200
+        text: |-
+          root.IOPort.I0.Configurable=yes
+          root.IOPort.I0.Direction=output
+          root.IOPort.I0.Input.Name=Input 1
+          root.IOPort.I0.Input.Trig=closed
+          root.IOPort.I0.Output.Name=Output 1
+          root.IOPort.I0.Output.Active=open
+          root.IOPort.I0.Output.Button=actinact
+          root.IOPort.I0.Output.PulseTime=0
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#http-api
+    - title: Check number of configured inputs
+      request:
+        query: {group: Input.NbrOfInputs}
+      response: {status: 200, text: Input.NbrOfInputs=3}
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+    - title: Check number of configured outputs
+      request:
+        query: {group: Output.NbrOfOutputs}
+      response: {status: 200, text: Output.NbrOfOutputs=1}
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  update_io_port_parameters:
+    summary: Update one or more IOPort.I# parameters (generic Parameter management API).
+    access: admin
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [IOPort.I#.<param>]
+      properties:
+        IOPort.I#.<param>:
+          type: string
+          description: One or more <full parameter name>=<value> pairs; see param_cgi_groups for parameters and
+            valid values.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/input-and-outputs/
+  sha256_md: f2d3a405216420a7ca76179dacbfc2693bd78edc1c5cde37ff851c32da4c12ab
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Identification says IOPort.In.Configurable=yes (likely IOPort.I#.Configurable).
+  - '"Properties parameters" table (ManualTriggerNbr) does not give the full parameter group path.'
+  - checkactive/checkdirection/monitor valid-value cells have unbalanced brackets (doc typos).
+  - Digital input event source values 0..n vs port.cgi numbering from 1 — zero-based in events.
+  - Virtual input event lists ports 1..32 while Virtual input API says default 64 ports.
+  - 'migration: op-skipped: port_monitor: kind stream is not a classic CGI call'
+  - 'migration: reply-ok: update_io_port_parameters: notes mention OK; reply read as plain text (check)'
+  - 'migration: discovery: param_property ''IOPort.I#.Configurable=yes'' is not a Name=value pair: dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: OutputPortAction'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'migration: dropped-keywords: x-action-ids x1'
+  migrated_from: v1
+  curated: false

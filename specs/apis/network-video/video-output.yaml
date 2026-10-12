@@ -1,0 +1,389 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: video-output
+name: Video output API
+summary: 'Display video sources on a video output (HDMI): source, sequence, quad view and PiP modes, mirroring,
+  rotation, overlays.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: video_output
+  class: VideoOutput
+docs:
+- https://developer.axis.com/vapix/network-video/video-output-api/
+access: operator
+discovery:
+- param: {name: Properties.VideoOutputControl.VideoOutputControl, value: 'yes'}
+- param: {name: Properties.VideoOutputControl.OutputType, value: '[Output type]'}
+requires:
+  firmware: '6.10'
+
+binding: {path: /axis-cgi/videooutput/getschemaversions.cgi}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve the supported XML schema versions.
+    effect: read
+    binding: {method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  get_video_sources:
+    summary: Retrieve available video sources; sources used as video output are marked active.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getvideosources.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_video_source:
+    summary: Set the video source to display as video output.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setvideosource.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, id]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        id:
+          type: integer
+          description: 'The video source identifier: content of the <Id> tag returned by getvideosources.cgi. (Requiredness
+            not stated.)'
+  get_mirroring:
+    summary: Check if the video output is mirrored.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getmirroring.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_mirroring:
+    summary: Mirror the video output (only affects the video output; recordings and other streams are not affected).
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setmirroring.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, mirroringenabled]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        mirroringenabled:
+          type: string
+          enum: ['true', 'false']
+          description: true = the video output is mirrored. false = not mirrored.
+  add_sequence_element:
+    summary: Add an element to the video/image sequence on the video output; returns a SequenceElementId.
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/videooutput/addsequenceelement.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, source, duration]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        source:
+          type: string
+          description: 'Video source/image to add: the Id from getvideosources.cgi, or the path to a bitmap (uploaded
+            with the Overlay API).'
+        duration:
+          type: integer
+          description: Duration (in seconds) of the video source/image in the sequence. (unit=seconds)
+        mirror: {type: boolean, description: Whether the video source/image should be mirrored.}
+  remove_sequence_element:
+    summary: Remove an element from the video or image sequence.
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/videooutput/removesequenceelement.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, sequenceelementid]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        sequenceelementid:
+          type: integer
+          description: Element to remove; SequenceElementId returned from addsequenceelement.cgi and getsequence.cgi.
+  update_sequence_element:
+    summary: Update an element in the video or image sequence.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/updatesequenceelement.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, sequenceelementid]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        sequenceelementid: {type: integer, description: Element to update.}
+        sourceid: {type: string, description: Id from getvideosources.cgi or a path to a bitmap.}
+        duration: {type: integer, description: Duration in seconds. (unit=seconds)}
+        mirror: {type: boolean, description: Whether the source/image should be mirrored.}
+  get_sequence:
+    summary: Get the current video sources configured in a sequence (in sequence order).
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getsequence.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  clear_sequence:
+    summary: Remove the sequence.
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/videooutput/clearsequence.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+  get_quad_view:
+    summary: Get the video sources configured in a quad view (top left, top right, bottom left, bottom right).
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getquadview.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_quad_view:
+    summary: Configure and enable a quad view of video sources for the video output.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setquadview.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, id]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        id:
+          type: string
+          description: Four comma separated video source ids (from getvideosources.cgi), ordered top left, top right,
+            bottom left, bottom right. (minItems=4, maxItems=4)
+  get_rotation:
+    summary: Get the current rotation and available rotations on the video output.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getrotation.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_rotation:
+    summary: Select a rotation on video output (supported rotations from getrotation.cgi).
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setrotation.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, rotation]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        rotation:
+          type: integer
+          description: Clockwise rotation of the video output in degrees. (unit=degrees)
+  get_source_settings_enabled:
+    summary: Get whether Image-parameter settings are used (enabled/disabled) on the available video sources.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getsourcesettingsenabled.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_source_settings_enabled:
+    summary: Enable/disable mirroring, rotation and overlays (Image-parameter settings) on the selected video source.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setsourcesettingsenabled.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, id, enabled]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        id: {type: string, description: Video source Id from getvideosources.cgi.}
+        enabled:
+          type: string
+          enum: ['true', 'false']
+          description: Enable/disable Image-parameter settings on the source.
+  get_supported:
+    summary: Get the supported CGI-APIs for the product.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getsupported.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  get_active_mode:
+    summary: Get all supported modes (none, source, quad, sequence) and whether each is active.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getactivemode.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_active_mode:
+    summary: Set the mode (source, sequence, quad or PiP).
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setactivemode.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, mode]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        mode:
+          type: string
+          enum: [source, sequence, quad, PiP]
+          description: The desired mode.
+  get_pip:
+    summary: Return the current available PiP (picture-in-picture) settings of the video output.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getpip.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_pip:
+    summary: Configure the PiP (picture-in-picture) parameters.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setpip.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        bordercolor:
+          type: string
+          description: 'Border color as R,G,B each 0 <= x <= 1.0. Example for red: 1.0,0,0'
+        borderenabled:
+          type: string
+          enum: ['true', 'false']
+          description: Show/hide the border for the picture-in-picture.
+        borderweight:
+          type: string
+          description: 'Border weight in fractions of the PiP size: left, top, right, bottom. Example: 0.01, 0.01,
+            0.01, 0.01 for 1 percent.'
+        height:
+          type: string
+          description: Height of the PiP as a fraction of the output resolution height (0.0 < height < 1.0).
+        mainviewmirroring:
+          type: string
+          enum: ['true', 'false']
+          description: Whether the main view should be mirrored.
+        mainviewrotation: {type: string, enum: ['0', '180'], description: Main view rotation. Valid values 0/180.}
+        mainviewsource:
+          type: string
+          description: 'Camera source shown in the main view. Valid values: 1 - number of ports on the camera.'
+        position:
+          type: string
+          enum: [top_left, top_right, bottom_left, bottom_right]
+          description: Position of the picture-in-picture.
+        pipmirroring: {type: string, enum: ['true', 'false'], description: Whether the PiP should be mirrored.}
+        piprotation: {type: string, enum: ['0', '180'], description: PiP rotation. Valid values 0/180.}
+        pipsource:
+          type: string
+          description: 'Camera source shown in the PiP. Valid values: 1 - number of ports on the camera.'
+        width:
+          type: string
+          description: Width of the PiP as a fraction of the output resolution width (0.0 < width < 1.0).
+  get_dynamic_overlays:
+    summary: Return the current dynamic overlay setting.
+    effect: read
+    binding: {path: /axis-cgi/videooutput/getdynamicoverlays.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+    result: {x-xml: true}
+  set_dynamic_overlays:
+    summary: Enable/disable dynamic overlays; mirrors dynamic overlays to HDMI outputs.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/videooutput/setdynamicoverlays.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, dynamicoverlays]
+      properties:
+        schemaversion: {type: integer, description: The major version of the XML schema to use for the response.}
+        dynamicoverlays: {type: boolean, description: Enable/disable dynamic overlays.}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-output-api/
+  sha256_md: 33e5061c7144c771f386256272e6afabacc1ea62cc9d66bd2a2a1cda40328640
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Requiredness of id (setvideosource), mirroringenabled, rotation, mode, setquadview id and setsourcesettingsenabled
+    id/enabled is not stated; marked required (inferred).
+  - 'getvideosources: <Id> shown as [int] in syntax but described as string in the table.'
+  - getsequence response syntax is missing the closing </GetSequenceSuccess>; the note says sources show up as <VideoSource>
+    tags while the syntax uses <VideoSequenceElement>; <Mirror> is [int] while mirror request param is boolean.
+  - getpip lists BorderWidth while setpip uses borderweight; getpip uses SubView* while setpip uses pip* parameter
+    names.
+  - setpip description says 'configure the parameters and search for the PiP' (unclear).
+  - getactivemode description lists modes none/source/quad/sequence while setactivemode accepts source/sequence/quad/PiP.
+  - Error code to CGI mapping column is mostly empty; 'etc.' in per-CGI error lists.
+  - XML schema videooutput1 not available in raw/specs.
+  - 'migration: xml-unmapped: get_schema_versions: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: get_video_sources: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: set_video_source: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_mirroring: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: set_mirroring: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: add_sequence_element: no parseable sample reply to derive the x-xml mapping from;
+    result is the raw XML element'
+  - 'migration: xml-unmapped: remove_sequence_element: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: update_sequence_element: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_sequence: no parseable sample reply to derive the x-xml mapping from; result is
+    the raw XML element'
+  - 'migration: xml-unmapped: clear_sequence: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_quad_view: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: set_quad_view: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_rotation: no parseable sample reply to derive the x-xml mapping from; result is
+    the raw XML element'
+  - 'migration: xml-unmapped: set_rotation: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_source_settings_enabled: no parseable sample reply to derive the x-xml mapping
+    from; result is the raw XML element'
+  - 'migration: xml-unmapped: set_source_settings_enabled: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_supported: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: get_active_mode: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: xml-unmapped: set_active_mode: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_pip: no parseable sample reply to derive the x-xml mapping from; result is the
+    raw XML element'
+  - 'migration: xml-unmapped: set_pip: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_dynamic_overlays: no parseable sample reply to derive the x-xml mapping from;
+    result is the raw XML element'
+  - 'migration: xml-unmapped: set_dynamic_overlays: no response schema in v1; result is the raw XML element'
+  - 'migration: discovery: discovery method http_probe dropped'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section envelope not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

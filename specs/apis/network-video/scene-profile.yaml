@@ -1,0 +1,81 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: scene-profile
+name: Scene profile API
+summary: Switch between predefined sets of image settings (scene profiles) via the ImageSource.I#.SceneProfile parameter.
+section: network-video
+family: cgi
+status: released
+python:
+  module: scene_profile
+  class: SceneProfile
+docs:
+- https://developer.axis.com/vapix/network-video/video-streaming/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '6.25'
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  list_scene_profiles:
+    summary: List the supported scene profile values and names.
+    effect: read
+    binding:
+      method: GET
+      query: {action: listdefinitions, listformat: xmlschema}
+      reply: xml
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: ImageSource.I<n>.SceneProfile}
+        responseformat: {type: string, description: Example uses rfc.}
+        responsecharset: {type: string, description: Example uses 'utrf' (sic).}
+    result: {x-xml: true}
+    examples:
+    - title: list_scene_profiles
+      request:
+        query: {responseformat: rfc, responsecharset: utrf, group: ImageSource.I0.SceneProfile}
+      response:
+        status: 200
+        text: |-
+          <entry value="forensic" niceValue="Forensic" />
+          <entry value="vivid" niceValue="Vivid" />
+          <entry value="traffic_overview" niceValue="Traffic Overview" />
+          <entry value="license_plate" niceValue="License Plate" />
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#list-supported-scene-profiles
+  set_scene_profile:
+    summary: Change scene profile.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [ImageSource.I#.SceneProfile]
+      properties:
+        ImageSource.I#.SceneProfile:
+          type: string
+          enum: [forensic, vivid, traffic_overview, indoor, outdoor, license_plate]
+          description: Scene profile (valid values product dependent).
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-streaming/
+  sha256_md: c5a6a629959b129e10f70c9855786d7282b383fadd6c44254103acc40c4a5a30
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - responsecharset=utrf in the example is likely a typo for utf8.
+  - Response body for update not shown (only HTTP 200).
+  - 'migration: xml-unmapped: list_scene_profiles: no response schema in v1; result is the raw XML element'
+  - 'migration: discovery: param_property ''ImageSource.I#.SceneProfile'' is not a Name=value pair: dropped'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

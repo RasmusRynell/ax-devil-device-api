@@ -1,0 +1,66 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: speed-dry
+name: Speed dry API
+summary: Shake a PTZ dome so water runs off and dries faster (one-shot speed dry); get speed dry capabilities.
+section: network-video
+family: cgi
+status: released
+python:
+  module: speed_dry
+  class: SpeedDry
+docs:
+- https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+access: viewer
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.SpeedDry.SpeedDry, value: 'yes'}
+requires:
+  firmware: '5.65'
+
+binding: {path: /axis-cgi/com/ptz.cgi}
+
+operations:
+  speed_dry:
+    summary: Execute a one-shot speed dry operation.
+    effect: action
+    binding:
+      method: GET
+      query: {auxiliary: speeddry}
+      reply: text
+  get_capabilities:
+    summary: Get speed dry capabilities.
+    effect: read
+    binding: {path: /axis-cgi/speeddry/getcapabilities.cgi, method: GET, reply: text}
+    result: {type: string}
+    examples:
+    - title: Get speed dry capabilities
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          operations/oneshot/@method xs:enum
+          operations/oneshot/@runtime xs:integer
+          operations/oneshot/@idletime sx:integer
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#common-examples-2
+  oneshot:
+    summary: Initiate a speed dry operation.
+    effect: action
+    binding: {path: /axis-cgi/speeddry/oneshot.cgi, method: GET, reply: text}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+  sha256_md: b1dc685e0bec7a017399a605bfd9687f3d7fa81ef8e929c4a119a65719e79416
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - getcapabilities/oneshot.cgi appear only in common examples; parameters (method, runtime, idletime) of oneshot.cgi
+    not documented.
+  - General success/error responses list both 200 application/json and 204 No content.
+  - Capabilities response type "sx:integer" (typo for xs:integer).
+  - No API Discovery id stated.
+  migrated_from: v1
+  curated: false

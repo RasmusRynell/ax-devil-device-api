@@ -1,0 +1,381 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: license-plate-verifier
+name: License plate verifier API
+summary: AXIS License Plate Verifier (ALPV, /local/fflprapp/) — VAPIX ALPV events, push event (HTTP/TCP/FTP) and
+  heartbeat configuration, 2N/Genetec integration...
+section: applications
+family: cgi
+status: released
+python:
+  module: license_plate_verifier
+  class: LicensePlateVerifier
+docs:
+- https://developer.axis.com/vapix/applications/license-plate-verifier-api/
+access: admin
+requires:
+  application: AXIS License Plate Verifier (ALPV, package fflprapp)
+
+binding: {path: /local/fflprapp/api.cgi}
+
+types:
+  TwoNConfig:
+    type: object
+    description: <tn_config> XML (2N integration).
+    properties:
+      url:
+        type: string
+        description: The 2N device URL.
+        x-xml: {child: url}
+      user:
+        type: string
+        x-xml: {child: user}
+      password:
+        type: string
+        description: Base64 in sample.
+        x-xml: {child: password}
+      enable:
+        type: boolean
+        description: Enable or disable ALPV integration.
+        x-xml: {child: enable}
+      https:
+        type: boolean
+        description: Secure integration connection via HTTPS.
+        x-xml: {child: https}
+      accessPoint:
+        type: integer
+        enum: [0, 1]
+        description: Entry = 0, Exit = 1
+        x-xml: {child: accessPoint}
+      event_on_direction:
+        type: integer
+        enum: [0, 2, 3]
+        description: Any = 0, In = 2, Out = 3
+        x-xml: {child: event_on_direction}
+  GenetecConfig:
+    type: object
+    description: <gsc_config> XML (Genetec integration).
+    properties:
+      url:
+        type: string
+        x-xml: {child: url}
+      user:
+        type: string
+        x-xml: {child: user}
+      password:
+        type: string
+        x-xml: {child: password}
+      enable:
+        type: boolean
+        x-xml: {child: enable}
+      https:
+        type: boolean
+        description: Present in get response only.
+        x-xml: {child: https}
+      cameraID:
+        type: string
+        x-xml: {child: cameraID}
+  ListSettings:
+    type: object
+    properties:
+      lists:
+        type: array
+        items:
+          type: object
+          x-name: ListSettingsListsItem
+          properties:
+            id: {type: string, description: The list ID string.}
+            name: {type: string, description: The list name; change it to rename the list.}
+            schedule:
+              type: array
+              items:
+                type: object
+                x-name: ListSettingsListsItemScheduleItem
+                properties:
+                  enabled: {type: boolean}
+                  start_time: {type: string, description: Start time in seconds.}
+                  end_time: {type: string, description: End time in seconds.}
+                  Mon: {type: boolean}
+                  Tue: {type: boolean}
+                  Wed: {type: boolean}
+                  Thu: {type: boolean}
+                  Fri: {type: boolean}
+                  Sat: {type: boolean}
+                  Sun: {type: boolean}
+            mode: {type: string, enum: [allow, block, none]}
+
+operations:
+  get_2n_config:
+    summary: Get 2N integration settings.
+    effect: read
+    binding: {path: /local/fflprapp/config_2n.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/TwoNConfig'}
+    examples:
+    - title: Get 2N integration settings
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: application/xml
+
+          <?xml version="1.0" encoding="utf-8" ?>
+          <tn_config>
+              <url>127.0.0.11</url>
+              <enable>true</enable>
+              <user>operator</user>
+              <password>YWQ=</password>
+              <https>false</https>
+              <accessPoint>1</accessPoint>
+              <event_on_direction>2</event_on_direction>
+          </tn_config>
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#get-2n-integration-settings
+  get_genetec_config:
+    summary: Get Genetec integration settings.
+    effect: read
+    binding: {path: /local/fflprapp/config_gsc.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/GenetecConfig'}
+    examples:
+    - title: Get Genetec integration settings
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: application/xml
+
+          <?xml version="1.0" encoding="utf-8" ?>
+          <gsc_config>
+              <url>http://10.0.5.223:8077</url>
+              <enable>true</enable>
+              <user />
+              <password />
+              <https>false</https>
+              <cameraID>AXIS P1447-LE</cameraID>
+          </gsc_config>
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#get-genetic-integration-settings
+  get_settings:
+    summary: Get ALPV settings (complete <configuration> XML).
+    effect: read
+    binding: {path: /local/fflprapp/config.cgi, method: GET, reply: xml}
+    result: {x-xml: true}
+  get_roi:
+    summary: Get Area of Interest configuration (text in <pre>).
+    effect: read
+    binding:
+      method: GET
+      query: {api: getrroi}
+      reply: text
+    result: {type: string}
+    examples:
+    - title: Get Area of Interest configuration
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: application/xml
+
+          <pre>
+              ROI1 is active
+          X0,Y0 = [96, 54]
+          X1,Y1 = [1824, 54]
+          X2,Y2 = [1824, 1026]
+          X3,Y3 = [96, 1026]
+          X4,Y4 = [0, 0]
+          X5,Y5 = [0, 0]
+          X6,Y6 = [0, 0]
+          X7,Y7 = [0, 0]
+          </pre>
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#get-area-of-interest-configuration
+  get_list_settings:
+    summary: Get list settings (allow/block/custom lists with schedules and modes).
+    effect: read
+    binding: {path: /local/fflprapp/list_mgmt.cgi, method: GET, reply: json}
+    result: {$ref: '#/types/ListSettings'}
+  add_plate:
+    summary: Add a single plate to the Allow/Block/Custom list.
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {api: addplate}
+      reply: text
+    params:
+      type: object
+      required: [plate, list]
+      properties:
+        plate:
+          type: string
+          description: 'Plate text with date and description: <plate text>,<plate date>,<description>, e.g. AA12DD,12-12-2023,Plate_description'
+        list: {type: string, enum: [allow, block, custom]}
+  delete_plate:
+    summary: Remove a single plate from the Allow/Block/Custom list.
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {api: delplate}
+      reply: text
+    params:
+      type: object
+      required: [plate, list]
+      properties:
+        plate: {type: string, description: The plate text that should be deleted.}
+        list: {type: string, enum: [allow, block, custom]}
+  export_list:
+    summary: Export an Allow/Block/Custom list (lines 'PLATE,MM-DD-YYYY,description').
+    effect: read
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [api]
+      properties:
+        api:
+          type: string
+          enum: [exportallow, exportblock, exportcustom]
+          description: '''export'' + list name (allow, block, custom).'
+    result: {type: string}
+  upload_list:
+    summary: 'Import a list as a .csv file: command=new (create), command=upload (data, repeated in chunks), command=save
+      (save and apply).'
+    effect: write
+    write: create
+    binding: {path: /local/fflprapp/upload.cgi, method: POST, encoding: form, reply: text}
+    params:
+      type: object
+      required: [command, list]
+      properties:
+        command: {type: string, enum: [new, upload, save]}
+        list:
+          type: string
+          description: Documented as '<file name>.csv'; the shell script example uses the list name (block/allow).
+        data:
+          type: string
+          description: 'command=upload: CSV chunk (shell example: --data-urlencode data@<chunk>, 500 lines per chunk).'
+  search_events:
+    summary: Search recognition events (XML <events> with <event> records).
+    effect: read
+    binding: {path: /local/fflprapp/events.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        timestampfrom:
+          type: integer
+          x-python-name: timestamp_from
+          description: '''from'': timestamp filter (documented as ms; example 1702386728835000 looks like µs). Can
+            be used without ''to''.'
+        timestampto:
+          type: integer
+          x-python-name: timestamp_to
+          description: '''to'': timestamp filter. Can be used without ''from''.'
+        text: {type: string, description: The plate text.}
+        place desc:
+          type: string
+          description: Plate description from List management. Exact query key unclear.
+        country: {type: string, description: 'ISO 3166 alpha-3, e.g. CZE'}
+        car_type: {type: integer, enum: [1, 2, 32]}
+        car_color: {type: integer, enum: [65536, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+        roi_id: {type: integer, description: Example -1; undocumented.}
+        car_direction: {type: integer, description: -1 for any.}
+        car_view: {type: integer, enum: [0, 1]}
+        action: {type: integer, enum: [0, 1]}
+        offset: {type: integer, description: Number of records to skip (like SQL OFFSET).}
+        limit: {type: integer, description: Limit the result records (example 18).}
+    result: {x-xml: true}
+  get_statistics:
+    summary: Statistics — counts by direction, list and ROI.
+    effect: read
+    binding: {path: /local/fflprapp/search.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        limit: {type: integer, default: 0, description: Example uses limit=0 to get statistics only.}
+    result: {x-xml: true}
+    examples:
+    - title: Statistics
+      request:
+        query: {limit: '0'}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: application/xml
+
+          <events>
+              <currentTimestampUs>1702306482677809</currentTimestampUs>
+              <vcount>
+                  <direction>
+                      <in>978</in>
+                      <out>0</out>
+                      <unk>22</unk>
+                  </direction>
+                  <list>
+                      <blocklist>0</blocklist>
+                      <allowlist>0</allowlist>
+                      <customlist>0</customlist>
+                      <nonelist>1000</nonelist>
+                  </list>
+                  <roi>
+                      <roi1>1000</roi1>
+                      <roi2>0</roi2>
+                  </roi>
+                  <total>1000</total>
+              </vcount>
+          </events>
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#statistics
+
+sources:
+- url: https://developer.axis.com/vapix/applications/license-plate-verifier-api/
+  sha256_md: e32ea8e2030be85ae8e336452a37ec32da858c8c11495dea50e7089aa7503728
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - Access levels, error responses and ALPV/AXIS OS version requirements (other than 2.9.19 fields) are not documented.
+    https://developer.axis.com/vapix/applications/license-plate-verifier-api/
+  - Event names differ between the table and the topics (ALPV.ALLPlates vs ALPV.AllPlates; PlateIN/PlateOUT vs PlateIn/PlateOut).
+  - 'Event search: table keys ''from''/''to'' vs query timestampfrom/timestampto; ''place desc'' key unclear; timestamps
+    documented as ms but examples are µs.'
+  - 'List names inconsistent: ''allow list | block list | custom list'', allow_list/block_list/custom_list, and
+    allow/block/custom for api.cgi.'
+  - upload.cgi 'list' is documented as '<file name>.csv' but the shell script passes the list name; HTTP method/body
+    for upload not shown in the step examples.
+  - http_auth_type and second_image_type values are undocumented; Genetec table describes URL as 'The 2N device
+    URL'.
+  - Set Area of Interest posts to config.cgi; whether partial configuration posts merge with existing settings is
+    not stated.
+  - direction 'angle' range '<0-360000>' unit not stated.
+  - 'XML request bodies are modeled as in: json_body with a schema; clients must serialize to the documented XML
+    element names.'
+  - 'migration: op-skipped: get_push_config: parameter ''profile'' is sent in path, which the cgi binding cannot
+    express'
+  - 'migration: op-skipped: set_push_config: request body of type application/xml is not supported by the cgi binding'
+  - 'migration: op-skipped: set_heartbeat_config: request body of type application/xml is not supported by the cgi
+    binding'
+  - 'migration: op-skipped: set_heartbeat_data: request body of type application/json is not supported by the cgi
+    binding'
+  - 'migration: op-skipped: set_2n_config: request body of type application/xml is not supported by the cgi binding'
+  - 'migration: op-skipped: set_genetec_config: request body of type application/xml is not supported by the cgi
+    binding'
+  - 'migration: op-skipped: set_settings: request body of type application/xml is not supported by the cgi binding'
+  - 'migration: op-skipped: set_direction: request body of type application/json is not supported by the cgi binding'
+  - 'migration: op-skipped: set_list_settings: request body of type application/json is not supported by the cgi
+    binding'
+  - 'migration: op-skipped: get_list: parameter ''list_name'' is sent in path, which the cgi binding cannot express'
+  - 'migration: op-skipped: add_plates: request body of type application/xml is not supported by the cgi binding'
+  - 'migration: xml-unmapped: get_settings: no response schema in v1; result is the raw XML element'
+  - 'migration: mixed-encoding: upload_list: query and form parameters are all sent in the POST body (check)'
+  - 'migration: xml-unmapped: search_events: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: get_statistics: no response schema in v1; result is the raw XML element'
+  - 'migration: types-dropped: types not referenced by any migrated operation: CloudConfig, HeartbeatConfig, HeartbeatDataSelection,
+    PushEvent, RoiConfiguration, RoiJson'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  - 'migration: dropped-keywords: ms UTC timestamp of the event. x1'
+  migrated_from: v1
+  curated: false

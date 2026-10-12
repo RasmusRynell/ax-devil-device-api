@@ -1,0 +1,179 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: virtual-input
+name: Virtual input API
+summary: Activate/deactivate virtual input ports (/axis-cgi/virtualinput/*.cgi, XML) and the legacy manual trigger
+  (/axis-cgi/io/virtualinput.cgi).
+section: network-video
+family: cgi
+status: released
+python:
+  module: virtual_input
+  class: VirtualInput
+docs:
+- https://developer.axis.com/vapix/network-video/input-and-outputs/
+access: operator
+discovery:
+- param: {name: Properties.VirtualInput.VirtualInput, value: 'yes'}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.50'
+
+binding: {path: /axis-cgi/virtualinput/activate.cgi}
+
+types:
+  ActivateResult:
+    type: object
+    properties:
+      StateChanged:
+        type: boolean
+        description: true = the port state was changed; false = not changed.
+        x-xml: {child: StateChanged}
+    x-xml: {root: Success/ActivateSuccess}
+  DeactivateResult:
+    type: object
+    properties:
+      StateChanged:
+        type: boolean
+        description: true = the port state was changed; false = not changed.
+        x-xml: {child: StateChanged}
+    x-xml: {root: Success/DeactivateSuccess}
+
+operations:
+  activate:
+    summary: Activate a virtual input port (state high).
+    effect: action
+    binding: {method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, port]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. The major version of the XML Schema to use for the response.
+        port:
+          type: integer
+          description: Required. The virtual input to activate. The value may vary for different devices. Default
+            value is 64.
+        duration:
+          type: integer
+          minimum: 0
+          description: Optional. Seconds until the port is automatically deactivated. If already active it stays
+            active and is deactivated after the time. 0 = activated then deactivated directly. Not specified = not
+            automatically deactivated. (unit=seconds)
+    result: {$ref: '#/types/ActivateResult'}
+    examples:
+    - title: Activate virtual input 10
+      request:
+        query: {schemaversion: '1', port: '10'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1"
+            xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1
+            http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
+            <Success>
+              <ActivateSuccess>
+                <StateChanged>
+                  true
+                </StateChanged>
+              </ActivateSuccess>
+            </Success>
+          </VirtualInputResponse>
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+    - title: Activate port 3 for 5 seconds
+      request:
+        query: {schemaversion: '1', port: '3', duration: '5'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1"
+            xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1
+            http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
+            <Success>
+              <ActivateSuccess>
+                <StateChanged>
+                  true
+                </StateChanged>
+              </ActivateSuccess>
+            </Success>
+          </VirtualInputResponse>
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  deactivate:
+    summary: Deactivate a virtual input port (state low).
+    effect: action
+    binding: {path: /axis-cgi/virtualinput/deactivate.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, port]
+      properties:
+        schemaversion:
+          type: integer
+          description: Required. The major version of the XML Schema to use for the response.
+        port:
+          type: integer
+          description: Required. The virtual input to deactivate. The value may vary for different devices. Default
+            value is 64.
+    result: {$ref: '#/types/DeactivateResult'}
+    examples:
+    - title: Deactivate virtual input 10
+      request:
+        query: {schemaversion: '1', port: '10'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <VirtualInputResponse xmlns="http://www.axis.com/vapix/http_cgi/virtualinput1"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.1"
+            xsi:schemaLocation="http://www.axis.com/vapix/http_cgi/virtualinput1
+            http://www.axis.com/vapix/http_cgi/virtualinput1_0.xsd">
+            <Success>
+              <DeactivateSuccess>
+                <StateChanged>
+                  true
+                </StateChanged>
+              </DeactivateSuccess>
+            </Success>
+          </VirtualInputResponse>
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+  get_schema_versions:
+    summary: List supported XML schema versions and whether deprecated.
+    effect: read
+    binding: {path: /axis-cgi/virtualinput/getschemaversions.cgi, method: GET, reply: xml}
+    result: {x-xml: true}
+  manual_trigger:
+    summary: Activate/deactivate the manual trigger or simulate physical input ports, optionally for a time.
+    access: viewer
+    effect: action
+    binding: {path: /axis-cgi/io/virtualinput.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          description: Set port <Port ID> active/inactive, optionally waiting <wait> ms before the next action.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/input-and-outputs/
+  sha256_md: f2d3a405216420a7ca76179dacbfc2693bd78edc1c5cde37ff851c32da4c12ab
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - virtualinput1_0.xsd referenced but not mirrored.
+  - port parameter says "Default value is 64" for a required parameter (likely the number of ports).
+  - Syntax lines like "?<schemaversion>=<value>&=<value>" are malformed in the doc.
+  - Virtual Input event lists ports 1..32 while the API says 64 ports by default.
+  - 'migration: xml-unmapped: get_schema_versions: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

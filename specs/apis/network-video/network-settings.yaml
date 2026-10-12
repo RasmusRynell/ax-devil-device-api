@@ -1,0 +1,136 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: network-settings
+name: Network settings
+summary: 'param.cgi network parameters: IPv4/IPv6, DNS, DNS update, Bonjour, UPnP/NAT traversal, IP filter, 802.1X,
+  QoS, RTP/RTSP, ZeroConf, SNMP.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: network_settings_params
+  class: NetworkSettingsParams
+docs:
+- https://developer.axis.com/vapix/network-video/network-settings/
+access: admin
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  list_network_parameters:
+    summary: List the Network parameters (generic Parameter management API).
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply: text_kv
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: 'Parameter group to list, e.g. root.Network.'}
+    result:
+      type: object
+      additionalProperties: {type: string}
+  update_network_parameters:
+    summary: Update one or more Network parameters (generic Parameter management API).
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [Network.<param>]
+      properties:
+        Network.<param>:
+          type: string
+          description: One or more <full parameter name>=<value> pairs; see param_cgi_groups for parameters and
+            valid values.
+  list_snmp_parameters:
+    summary: List the SNMP parameters (generic Parameter management API).
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply: text_kv
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: 'Parameter group to list, e.g. root.SNMP.'}
+    result:
+      type: object
+      additionalProperties: {type: string}
+  update_snmp_parameters:
+    summary: Update one or more SNMP parameters (generic Parameter management API).
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [SNMP.<param>]
+      properties:
+        SNMP.<param>:
+          type: string
+          description: One or more <full parameter name>=<value> pairs; see param_cgi_groups for parameters and
+            valid values.
+  update_dns_name:
+    summary: 'Step 1 of a DNS name update: set Network.DNSUpdate.DNSName.'
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [Network.DNSUpdate.DNSName]
+      properties:
+        Network.DNSUpdate.DNSName:
+          type: string
+          x-python-name: dns_name
+          description: Fully Qualified Domain Name or host name.
+  dnsupdate_add:
+    summary: 'Step 2 of a DNS name update: trigger a new DNS update request to the DNS server.'
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/dnsupdate.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [add]
+      properties:
+        add: {type: string, description: DNS name to add (same as Network.DNSUpdate.DNSName).}
+        hdgen:
+          type: string
+          enum: ['yes']
+          description: Shown as hdgen=yes in the example; meaning not documented.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/network-settings/
+  sha256_md: 6409c0ed807d116032ecc587fd1ee610811ea6a5693eb1e7acc47f1d995867b8
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - UPnP FriendlyName default "<product name - <serial number>" has unbalanced brackets (doc typo).
+  - hdgen=yes for dnsupdate.cgi is not explained; dnsupdate.cgi response format not documented.
+  - Network.HTTP.AuthenticationPolicy section refers to Network.RTSP.AuthenticateRTSPOverHTTP while the RTSP table
+    lists AuthenticateOverHTTP.
+  - Network.Interface.I0.dot1x Status is listed as admin read, write although it is a status value.
+  - Valid values like "An IP address" and "Auto generated" are free text; mapped to string with format/constraint
+    text.
+  - 'migration: reply-ok: update_network_parameters: notes mention OK; reply read as plain text (check)'
+  - 'migration: reply-ok: update_snmp_parameters: notes mention OK; reply read as plain text (check)'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

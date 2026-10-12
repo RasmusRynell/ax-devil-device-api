@@ -1,0 +1,114 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: stream-profile-parameters
+name: Stream profiles (StreamProfile parameter group)
+summary: Management of stream profiles through param.cgi (StreamProfile.S# dynamic parameter group, template streamprofile).
+section: network-video
+family: cgi
+status: released
+python:
+  module: stream_profile_parameters
+  class: StreamProfileParameters
+docs:
+- https://developer.axis.com/vapix/network-video/video-streaming/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  add_stream_profile:
+    summary: Add a new stream profile (optionally with values).
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {action: add, template: streamprofile, group: StreamProfile}
+      reply: text
+    params:
+      type: object
+      properties:
+        StreamProfile.S.Name: {type: string}
+        StreamProfile.S.Description: {type: string}
+        StreamProfile.S.Parameters:
+          type: string
+          description: Percent-encoded argument list (space %20, = %3d, & %26, % %25; so a space inside becomes
+            %2520).
+    examples:
+    - title: add_stream_profile
+      request:
+        query: {}
+      response: {status: 200, text: S4 OK}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#stream-profiles
+    - title: add_stream_profile
+      request:
+        query:
+          StreamProfile.S.Name: myprofile2StreamProfile.S.Description=My 4CIF profile
+          StreamProfile.S.Parameters: videocodec=h264&resolution=4CIF&text=1&textstring=4CIF%20profile
+      response: {status: 200, text: S5 OK}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#stream-profiles
+  update_stream_profile:
+    summary: Configure a stream profile.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      properties:
+        StreamProfile.S#.Name: {type: string}
+        StreamProfile.S#.Description: {type: string}
+        StreamProfile.S#.Parameters: {type: string}
+  list_stream_profile:
+    summary: List the parameters of a stream profile.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply:
+        text_kv: {strip_prefix: root.}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: e.g. StreamProfile.S5}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: list_stream_profile
+      request:
+        query: {group: StreamProfile.S5}
+      response:
+        status: 200
+        text: |-
+          root.StreamProfile.S5.Name=myprofile2
+          root.StreamProfile.S5.Description=My%204CIF%20profile
+          root.StreamProfile.S5.Parameters=videocodec%3dh264
+          %26resolution%3d4CIF%26text%3d1
+          %26textstring%3d4CIF%2520profile
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#stream-profiles
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-streaming/
+  sha256_md: c5a6a629959b129e10f70c9855786d7282b383fadd6c44254103acc40c4a5a30
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Combined add example is missing '&' between StreamProfile.S.Name=myprofile2 and StreamProfile.S.Description
+    (doc typo).
+  - Update example contains a literal space ('%2520 profile').
+  - Name valid characters listed as 'A-Z a-z 0-9 -, _' - unclear whether comma is allowed.
+  - Removal of a user-created profile is mentioned but no example (presumably param.cgi action=remove).
+  - 'migration: reply-ok: add_stream_profile: notes mention OK; reply read as plain text (check)'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

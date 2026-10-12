@@ -1,0 +1,81 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: video-motion-detection-3
+name: Video motion detection 3 API
+summary: Deprecated.
+section: applications
+family: cgi
+status: deprecated
+python:
+  module: video_motion_detection_3
+  class: VideoMotionDetection3
+docs:
+- https://developer.axis.com/vapix/applications/video-motion-detection-3-api/
+access: admin
+discovery:
+- param: {name: Properties.EmbeddedDevelopment.RuleEngine.MultiConfiguration, value: 'yes'}
+requires:
+  firmware: '5.80'
+  application: AXIS Video Motion Detection 3 (ACAP; vaconfig name VideoMotionDetection3, application name VMD3,
+    package VideoMotionDetection3)
+
+binding: {path: /axis-cgi/vaconfig.cgi}
+
+operations:
+  get_configuration:
+    summary: Retrieve the application configuration XML.
+    description: Deprecated.
+    effect: read
+    binding:
+      method: GET
+      query: {action: get, name: VideoMotionDetection3}
+      reply: xml
+    result: {x-xml: true}
+  modify_configuration:
+    summary: Modify the application configuration (include area size, exclude areas, filter values; all other settings
+      kept as is).
+    description: If changing the name of a named object, the corresponding rule parameter value must also be changed
+      to match. Deprecated.
+    effect: write
+    write: patch
+    binding: {method: POST, encoding: form, reply: xml}
+    params:
+      type: object
+      required: [action, name, config]
+      properties:
+        action: {type: string, enum: [modify], default: modify}
+        name: {type: string, enum: [VideoMotionDetection3], default: VideoMotionDetection3}
+        config:
+          type: string
+          x-python-name: config_xml
+          description: <config version="2.0">...</config> XML appended after 'action=modify&name=VideoMotionDetection3'
+            and a newline.
+
+sources:
+- url: https://developer.axis.com/vapix/applications/video-motion-detection-3-api/
+  sha256_md: 434d49de8431dad15a83f526302a5bb2c4401eb72e5d4b820eeda789ff7d7089
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Name inconsistency: vaconfig.cgi name=VideoMotionDetection3 but application name in XML and list.cgi is VMD3.
+    https://developer.axis.com/vapix/applications/video-motion-detection-3-api/#common-examples'
+  - Table uses attribute 'knownTypeName' / 'knownType' while XML uses 'knownNameType'.
+  - 'Swaying filter: ''10 and 100'' range but 0/negative disables; values 1-9 behaviour unspecified.'
+  - Small object filter text ('smaller than the set width and by the set height') ambiguous on AND/OR; example blocks
+    use Width=20/Height=10 vs default config Width=10/Height=20.
+  - 'Event topic in RTSP uses onvif:RuleEngine/axis:VMD3/vmd3_video_1//. while declaration is tns1:RuleEngine/tnsaxis:VMD3/vmd3_video_1;
+    event nicename varies (''VMD 3'' vs ''VMD 3: Video 1'').'
+  - Start application example uses GET while Application API documents POST.
+  - 'migration: op-skipped: get_event_stream: kind rtsp_request is not a classic CGI call'
+  - 'migration: xml-unmapped: get_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: modify_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: discovery: discovery method http_probe dropped'
+  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=1.40'' is not a Name=value pair:
+    dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: Point, RuleEngineConfig'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

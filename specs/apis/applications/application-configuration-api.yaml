@@ -1,0 +1,269 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: application-configuration-api
+name: Application configuration API
+summary: Obsolete vaconfig.cgi API to get/modify the XML configuration of Axis-developed applications (e.g.
+section: applications
+family: cgi
+status: deprecated
+python:
+  module: application_configuration
+  class: ApplicationConfiguration
+docs:
+- https://developer.axis.com/vapix/applications/application-configuration-api/
+access: admin
+requires:
+  firmware: '5.11'
+
+binding: {path: /axis-cgi/vaconfig.cgi}
+
+types:
+  ApplicationConfig:
+    type: object
+    description: XML <config version="1.0"><application name=...><ruleEngine>...</ruleEngine></application></config>.
+      See XML Application Setup Data Description.
+    properties:
+      version: {type: string}
+      application:
+        type: object
+        x-name: ApplicationConfigApplication
+        properties:
+          name: {type: string}
+          ruleEngine:
+            type: object
+            x-name: ApplicationConfigApplicationRuleEngine
+            properties:
+              namedObjects:
+                type: array
+                items: {type: object}
+                description: Section with all named objects used by the application (<namedObject name><data knownNameType=geometry.segment|geometry.polygon>
+                  with <segment>/<polygon> of <point x y/>).
+              rules:
+                type: array
+                items:
+                  type: object
+                  x-name: ApplicationConfigApplicationRuleEngineRulesItem
+                  properties:
+                    name: {type: string, description: Name of the rule.}
+                    function:
+                      type: string
+                      description: Name of the rule function used to execute the rule (defined in a script file).
+                    parameter:
+                      type: array
+                      items:
+                        type: object
+                        x-name: ApplicationConfigApplicationRuleEngineRulesItemParameterItem
+                        properties:
+                          name: {type: string, description: Name of a parameter used by the rule function.}
+                          value: {type: string, description: Value of a parameter used by the rule function.}
+                      x-xml: {path: rule/parameter}
+                description: Section with all rules used by the application.
+              scripts:
+                type: array
+                items:
+                  type: object
+                  x-name: ApplicationConfigApplicationRuleEngineScriptsItem
+                  properties:
+                    name: {type: string}
+                    encryption:
+                      type: string
+                      enum: ['0', '1']
+                      description: 1 = The script is encrypted. 0 = not encrypted.
+                description: Section with scripts used by the application. Element text = script file name.
+              events:
+                type: array
+                items:
+                  type: object
+                  x-name: ApplicationConfigApplicationRuleEngineEventsItem
+                  properties:
+                    name: {type: string, description: Name of an event emitted by the application.}
+                    attr:
+                      type: array
+                      items:
+                        type: object
+                        x-name: ApplicationConfigApplicationRuleEngineEventsItemAttrItem
+                        properties:
+                          key: {type: string}
+                          nicename: {type: string}
+                          tag:
+                            type: string
+                            enum: [source, data, property-state]
+                            description: source = source info in event metadata; data = data info; property-state
+                              = stateful event, current state 0 or 1.
+                      x-xml: {path: event/attr}
+                description: Section with all events used by the application.
+              moteConfig:
+                type: array
+                items:
+                  type: object
+                  x-name: ApplicationConfigApplicationRuleEngineMoteConfigItem
+                  properties:
+                    name: {type: string, enum: [boundingBox, polygon, velocity]}
+                    value: {type: string, enum: ['true', 'false']}
+                description: Section with all MOTE configuration options. Different applications may have different
+                  MOTE configuration.
+  GetConfigurationResult:
+    type: object
+    properties:
+      result: {const: ok}
+      config: {$ref: '#/types/ApplicationConfig'}
+
+operations:
+  get_configuration:
+    summary: Retrieve the application configuration (obsolete).
+    description: Deprecated.
+    effect: read
+    binding:
+      method: GET
+      query: {action: get}
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    params:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, description: Application name}
+    result: {$ref: '#/types/GetConfigurationResult'}
+    errors:
+      bad_request:
+        description: Bad request. The request URL was not formatted correctly.
+        kind: invalid_argument
+      no_such_application: {description: There is no application with the given name.}
+      internal:
+        description: The action could not be performed. This is for example returned if the application fails to
+          restart after a configuration modification.
+  modify_configuration:
+    summary: Modify (replace) the application configuration (obsolete).
+    description: Deprecated.
+    effect: write
+    write: patch
+    binding:
+      method: POST
+      query: {action: modify}
+      encoding: form
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    params:
+      type: object
+      required: [name, config]
+      properties:
+        name:
+          type: string
+          description: Application name. Sent in the form body (examples) or the query string (syntax block).
+        config:
+          type: string
+          x-python-name: config_xml
+          description: The <config version="1.0">...</config> XML document, appended after 'action=modify&name=<name>'
+            followed by a newline in the request body (as in the examples), not as a key=value pair.
+    errors:
+      bad_request:
+        description: Bad request. The request URL was not formatted correctly.
+        kind: invalid_argument
+      no_such_application: {description: There is no application with the given name.}
+      internal:
+        description: The action could not be performed. This is for example returned if the application fails to
+          restart after a configuration modification.
+  list_applications:
+    summary: List the installed applications (obsolete; replaced by /axis-cgi/applications/list.cgi; removed in
+      AXIS OS 12.0).
+    description: Deprecated.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply: xml
+    result: {x-xml: true}
+    errors:
+      bad_request:
+        description: Bad request. The request URL was not formatted correctly.
+        kind: invalid_argument
+      no_such_application: {description: There is no application with the given name.}
+      internal:
+        description: The action could not be performed. This is for example returned if the application fails to
+          restart after a configuration modification.
+    examples:
+    - title: List installed applications
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: text/xml
+
+          <reply result="ok">
+              <application name="<name>"/>
+              <application name="<name>"/>
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-configuration-api/#list-installed-applications
+  io_port:
+    summary: Retrieve port status and directions, activate/deactivate output ports, and monitor ports (documented
+      on this page under "Manage I/O ports").
+    description: Port numbering (Port ID) starts from one (one = physical port labeled 1) in requests and all responses.
+      Arguments are combined as <argument>=<value>[&...].
+    access: viewer
+    effect: unknown
+    binding:
+      path: /axis-cgi/io/port.cgi
+      method: GET
+      reply:
+        text_kv: {strip_prefix: root.}
+    params:
+      type: object
+      properties:
+        check:
+          type: array
+          items: {type: integer}
+          description: Return the status (1 or 0) of one or more ports. 1 = Closed circuit. 0 = Open circuit.
+        checkactive:
+          type: array
+          items: {type: integer}
+          description: Return the status (active or inactive) of one or more ports. Depends on Output.Active for
+            an output and Input.Trig for an input (e.g. output with Output.Active=closed returns active if the port
+            state is closed).
+        checkdirection:
+          type: array
+          items: {type: integer}
+          description: Return the port direction (input or output) of one or more ports.
+        monitor:
+          type: array
+          items: {type: integer}
+          description: Return a multipart stream of 'check' ports. Input and output ports must be monitored separately.
+        action: {type: string, description: Valid for output ports only.}
+    result:
+      type: object
+      additionalProperties: {type: string}
+
+sources:
+- url: https://developer.axis.com/vapix/applications/application-configuration-api/
+  sha256_md: f4d00857089b9b103301934cd7507e66c6cb80e28e1c745f8fcb38272ea16d52
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Event example topic is spelled 'tns1:RuleEnginge/...' (typo for RuleEngine?). https://developer.axis.com/vapix/applications/application-configuration-api/#events
+  - 'Modify request: the syntax block puts action/name in the query string, while the examples put them in a form
+    body followed by raw XML; the example curl body also ends with a stray ''</reply>''. The exact encoding (raw
+    XML vs urlencoded) is not specified.'
+  - Event attr tag value is 'property-state' in the table but 'property_state' in the XML examples.
+  - Success response bodies for modify are not shown; XSDs modify_response1.xsd/list1.xsd are referenced at www.axis.com
+    but not mirrored.
+  - The 'Manage I/O ports' (port.cgi) section appears unrelated to application configuration and its examples 1-2
+    use param.cgi.
+  - Table says moteConfig option 'velocity' value true/false without description.
+  - 'migration: op-skipped: get_rtsp_stream_with_event_topic_filter: kind rtsp_request is not a classic CGI call'
+  - 'migration: xml-unmapped: modify_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: list_applications: no parseable sample reply to derive the x-xml mapping from; result
+    is the raw XML element'
+  - 'migration: effect-unknown: effect could not be inferred from the name: io_port'
+  - 'migration: discovery: param_property ''Properties.EmbeddedDevelopment.Version>=1.00'' is not a Name=value pair:
+    dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: ErrorReply'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

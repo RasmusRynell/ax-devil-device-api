@@ -1,0 +1,109 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: system-settings
+name: System settings
+summary: Legacy system maintenance CGIs - factory default, hard factory default, AXIS OS upgrade, restart, server
+  report, system/access logs and log parameters.
+section: network-video
+family: cgi
+status: released
+python:
+  module: system_settings
+  class: SystemSettings
+docs:
+- https://developer.axis.com/vapix/network-video/system-settings/
+access: admin
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/factorydefault.cgi}
+
+operations:
+  factory_default:
+    summary: Reset to factory default except network/IP settings, system time and IEEE 802.1X; the product restarts.
+    description: All settings are set to their factory default values except the boot protocol (Network.BootProto),
+      the static IP address (Network.IPAddress), the default router (Network.DefaultRouter), the subnet mask (Network.SubnetMask),
+      the broadcast IP address (Network.Broadcast), the system time and the IEEE 802.1X settings. Since these are
+      not reset the product can be accessed on the same address (important with NAT routers). The product is restarted.
+    effect: action
+    binding: {method: GET, reply: text}
+  hard_factory_default:
+    summary: Reset all settings, including the IP addresses, to factory default; the product restarts.
+    effect: action
+    binding: {path: /axis-cgi/hardfactorydefault.cgi, method: GET, reply: text}
+  restart:
+    summary: Restart the Axis product.
+    effect: action
+    binding: {path: /axis-cgi/restart.cgi, method: GET, reply: text}
+  server_report:
+    summary: Generate and return a server report (product information, parameter settings and system logs).
+    effect: read
+    binding: {path: /axis-cgi/serverreport.cgi, method: GET, reply: binary}
+    params:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [tar_all, text, zip, zip_with_image]
+          default: text
+          description: 'The server report presentation mode. If mode is not specified, the value defaults to text.
+            Values: tar_all: Return all log files (including system log, access log, audit log, etc) as a.tar file;
+            text: Return the server report as text; zip: Return the server report as a.zip-file; zip_with_image:
+            Return report together with a snapshot image taken using the Image Appearance settings as a single.zip-file'
+    result: {type: string, format: binary}
+    examples:
+    - title: Server report as text
+      request:
+        query: {mode: text}
+      response: {status: 200, text: <server report>}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#server-report
+    - title: Server report as.zip
+      request:
+        query: {mode: zip}
+      response: {status: 200, text: <.zip-file>}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#server-report
+    - title: Server report and snapshot image as.zip
+      request:
+        query: {mode: zip_with_image}
+      response: {status: 200, text: <message>}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#server-report
+  system_log:
+    summary: Retrieve system log information (level set by Log.System group).
+    effect: read
+    binding: {path: /axis-cgi/systemlog.cgi, method: GET, reply: text}
+    params:
+      type: object
+      properties:
+        text:
+          type: string
+          pattern: ^[A-Za-z0-9]+$
+          description: Any string that contains only letters and digits. The log entries are filtered on this text.
+            Available on AXIS OS 11.11.45 and later.
+    result: {type: string}
+  access_log:
+    summary: Retrieve client access log information (level set by Log.Access group).
+    effect: read
+    binding: {path: /axis-cgi/accesslog.cgi, method: GET, reply: text}
+    result: {type: string}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/system-settings/
+  sha256_md: d28df24ddffb90aed4af428b4f38527a37c97844f0cdfc2d16594a87a0cd9ca3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Factory default text says 'All settings are set to their factory default values except.' (sentence fragment)
+    then lists exceptions.
+  - firmwareupgrade.cgi success/failure response is not documented on this page.
+  - Content type of serverreport.cgi?mode=tar_all is not stated; zip_with_image example body is '<message>'.
+  - Log.Access/Log.System are 'not available in AXIS OS 5.60 and later' while the page minimum is 5.00; MailLogd
+    availability not stated.
+  - 'migration: op-skipped: firmware_upgrade: request body of type multipart/form-data is not supported by the cgi
+    binding'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

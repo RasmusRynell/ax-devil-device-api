@@ -1,0 +1,359 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: temperature-alarm
+name: Temperature alarm API
+summary: Configure temperature alarm zones on thermal cameras, read zone status and spot temperatures, set the temperature
+  scale.
+section: network-video
+family: cgi
+status: released
+python:
+  module: temperature_alarm
+  class: TemperatureAlarm
+docs:
+- https://developer.axis.com/vapix/network-video/thermal-imaging/
+access: operator
+discovery:
+- param: {name: Properties.TemperatureAlarm.TemperatureDetection, value: 'yes'}
+requires:
+  firmware: '5.55'
+
+binding: {path: /axis-cgi/temperature_alarm/schemaversions.cgi}
+
+types:
+  AlarmZone:
+    type: object
+    properties:
+      ZoneId:
+        type: integer
+        x-xml: {child: ZoneId}
+      Name:
+        type: string
+        x-xml: {child: Name}
+      Xleft:
+        type: integer
+        x-xml: {child: Xleft}
+      Xright:
+        type: integer
+        x-xml: {child: Xright}
+      Ytop:
+        type: integer
+        x-xml: {child: Ytop}
+      Ybottom:
+        type: integer
+        x-xml: {child: Ybottom}
+      Emissivity:
+        type: number
+        x-xml: {child: Emissivity}
+      DetectionType:
+        type: string
+        enum: [above, below, increase]
+        x-xml: {child: DetectionType}
+      Temperature:
+        type: integer
+        description: 'Threshold temperature. Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.'
+        x-xml: {child: Temperature}
+      TemperatureType:
+        type: string
+        enum: [maximum, minimum]
+        x-xml: {child: TemperatureType}
+      DelayTime:
+        type: integer
+        description: seconds
+        x-xml: {child: DelayTime}
+  AlarmZoneStatus:
+    type: object
+    properties:
+      ZoneId:
+        type: integer
+        x-xml: {child: ZoneId}
+      AverageTemperature:
+        type: number
+        description: 'Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.'
+        x-xml: {child: AverageTemperature}
+      MinimumTemperature:
+        type: number
+        description: 'Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.'
+        x-xml: {child: MinimumTemperature}
+      MaximumTemperature:
+        type: number
+        description: 'Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.'
+        x-xml: {child: MaximumTemperature}
+      Triggered:
+        type: string
+        enum: ['Yes', 'No']
+        description: Yes while the stateful TemperatureDetection event is active.
+        x-xml: {child: Triggered}
+  GetSchemaVersionsResult:
+    type: object
+    properties:
+      SchemaVersion:
+        type: array
+        items:
+          type: object
+          x-name: GetSchemaVersionsResultSchemaVersionItem
+          properties:
+            VersionNumber:
+              type: string
+              description: major.minor
+              x-xml: {child: VersionNumber}
+            Deprecated:
+              type: boolean
+              x-xml: {child: Deprecated}
+    x-xml: {root: SchemaVersionsSuccess}
+  GetZonesResult:
+    type: object
+    properties:
+      AlarmZone:
+        type: array
+        items: {$ref: '#/types/AlarmZone'}
+    x-xml: {root: Success/GetSuccess}
+  GetZoneStatusResult:
+    type: object
+    properties:
+      AlarmZone:
+        type: array
+        items: {$ref: '#/types/AlarmZoneStatus'}
+    x-xml: {root: Success/GetZoneStatusSuccess}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve the supported XML schema versions.
+    access: viewer
+    effect: read
+    binding: {method: GET, reply: xml}
+    result: {$ref: '#/types/GetSchemaVersionsResult'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <SchemaVersionsSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+              [...]
+            </SchemaVersionsSuccess>
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  set_temperature_scale:
+    summary: Set the temperature scale to Celsius or Fahrenheit (also used by the Isotherm API).
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/temperature_alarm/settemperaturescale.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [unit]
+      properties:
+        unit: {type: string, enum: [Celsius, Fahrenheit]}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+  set_zone:
+    summary: Create or update a temperature alarm zone.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/temperature_alarm/set.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, minimum: 0, description: The zone ID.}
+        name: {type: string, description: User-friendly zone name.}
+        left:
+          type: integer
+          minimum: 0
+          maximum: 9999
+          description: Left X coordinate (0,0 = upper left of the unrotated, unmirrored image).
+        right:
+          type: integer
+          minimum: 0
+          maximum: 9999
+          description: Right X coordinate (0,0 = upper left of the unrotated, unmirrored image).
+        top:
+          type: integer
+          minimum: 0
+          maximum: 9999
+          description: Top Y coordinate (0,0 = upper left of the unrotated, unmirrored image).
+        bottom:
+          type: integer
+          minimum: 0
+          maximum: 9999
+          description: Bottom Y coordinate (0,0 = upper left of the unrotated, unmirrored image).
+        emissivity:
+          type: number
+          minimum: 0.5
+          maximum: 1
+          default: 0.95
+          description: Emissivity of the object(s); used to improve temperature measurement. Doc type <string>.
+        detectiontype: {type: string, enum: [above, below, increase]}
+        temperature:
+          type: integer
+          description: 'Threshold temperature; for detectiontype=increase the max allowed increase during delaytime.
+            Unit: the unit set by /axis-cgi/temperature_alarm/settemperaturescale.cgi.'
+        temperaturetype:
+          type: string
+          enum: [maximum, minimum]
+          description: Whether the zone's maximum or minimum temperature determines when alarms trigger.
+        delaytime:
+          type: integer
+          minimum: 0
+          maximum: 60
+          description: Time between successive temperature measurements (above/below) or the time window (increase).
+            (unit=seconds)
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+  get_zones:
+    summary: Retrieve all temperature alarm zones.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/temperature_alarm/get.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/GetZonesResult'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: All zones
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <Success>
+              <GetSuccess>
+                <AlarmZone>
+                  <ZoneId>0</ZoneId>
+                  <Name>zone0</Name>
+                  <Xleft>100</Xleft>
+                  <Xright>2000</Xright>
+                  <Ytop>200</Ytop>
+                  <Ybottom>2500</Ybottom>
+                  <Emissivity>0.87</Emissivity>
+                  <DetectionType>above</DetectionType>
+                  <Temperature>85</Temperature>
+                  <TemperatureType>maximum</TemperatureType>
+                  <DelayTime>5</DelayTime>
+                </AlarmZone>
+              </GetSuccess>
+            </Success>
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  get_zone_status:
+    summary: Retrieve each zone's average/min/max temperature and whether an alarm is triggered.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/temperature_alarm/getzonestatus.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Used in the example (id=2) but the reference says 'This CGI has no arguments'.
+    result: {$ref: '#/types/GetZoneStatusResult'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Zone status
+      request:
+        query: {id: '2'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <Success>
+              <GetZoneStatusSuccess>
+                <AlarmZone>
+                  <ZoneId>0</ZoneId>
+                  <AverageTemperature>25</AverageTemperature>
+                  <MinimumTemperature>22</MinimumTemperature>
+                  <MaximumTemperature>27</MaximumTemperature>
+                  <Triggered>No</Triggered>
+                </AlarmZone>
+              </GetZoneStatusSuccess>
+            </Success>
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  remove_zone:
+    summary: Remove a temperature alarm zone.
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/temperature_alarm/remove.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, minimum: 0, description: Zone ID of the zone to remove.}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+  get_spot_temperature:
+    summary: Retrieve the temperature at a point in the image.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/temperature_alarm/getspottemperature.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [coordinates]
+      properties:
+        coordinates:
+          type: string
+          description: x,y (each 0..9999, 0,0 = upper left); the comma is percent-encoded (%2C).
+        emissivity:
+          type: number
+          minimum: 0.5
+          maximum: 1
+          default: 0.95
+          description: Emissivity of the object(s); used to improve temperature measurement. Doc type <string>.
+    result: {x-xml: true}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/thermal-imaging/
+  sha256_md: 73f1394bae1b30679e93cf7bcd42a09115d0d19b6ba75396499fdff51312fa51
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'getzonestatus.cgi: reference says no arguments but the example passes id=2 (and the response shows ZoneId 0).'
+  - Several curl examples in the Markdown are mangled (HTTP block embedded in --data); request URLs taken from the
+    HTTP tab.
+  - Optional/required status of set.cgi arguments other than id is not stated; defaults only for emissivity (0.95).
+  - No error codes for invalid coordinates/emissivity documented beyond 10/20/40.
+  - Temperature1.xsd not in raw/specs; temperature value types (integer vs decimal) not stated for status/spot temperature.
+  - 'migration: xml-unmapped: set_temperature_scale: no parseable sample reply to derive the x-xml mapping from;
+    result is the raw XML element'
+  - 'migration: xml-unmapped: set_zone: no parseable sample reply to derive the x-xml mapping from; result is the
+    raw XML element'
+  - 'migration: xml-unmapped: remove_zone: no parseable sample reply to derive the x-xml mapping from; result is
+    the raw XML element'
+  - 'migration: xml-unmapped: get_spot_temperature: no parseable sample reply to derive the x-xml mapping from;
+    result is the raw XML element'
+  - 'migration: types-dropped: types not referenced by any migrated operation: GeneralError, GeneralSuccess'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section versioning not carried over'
+  - 'migration: dropped-section: v1 section envelope not carried over'
+  migrated_from: v1
+  curated: false

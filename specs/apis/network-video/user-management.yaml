@@ -1,0 +1,203 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: user-management
+name: Add, modify and delete user accounts (pwdgrp.cgi)
+summary: Add, update, remove and list user accounts with password and group membership via /axis-cgi/pwdgrp.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: user_management
+  class: UserManagement
+docs:
+- https://developer.axis.com/vapix/network-video/system-settings/
+access: admin
+discovery:
+- {api_discovery: user-management}
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/pwdgrp.cgi}
+
+operations:
+  add_user:
+    summary: Create a new user account.
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {action: add}
+      reply: text
+    params:
+      type: object
+      required: [user, pwd, grp, sgrp]
+      properties:
+        user:
+          type: string
+          minLength: 1
+          maxLength: 14
+          pattern: ^[a-zA-Z0-9]+$
+          description: The user account name (1-14 characters), a non-existing user account name. Valid characters
+            are a-z, A-Z and 0-9.
+        pwd:
+          type: string
+          minLength: 1
+          description: The password for the account. It must contain one or more characters. Must comply with any
+            configured passphrase policy.
+        grp:
+          type: string
+          description: An existing primary group account name. The recommended value for this argument is users.
+            VAPIX also supports the value root, but it should only be used when creating the initial user account.
+        sgrp:
+          type: string
+          enum:
+          - viewer
+          - viewer:ptz
+          - operator:viewer
+          - operator:viewer:ptz
+          - admin:operator:viewer
+          - admin:operator:viewer:ptz
+          description: 'Colon separated existing secondary group account names; sets the user access rights. Values:
+            viewer: Viewer role; viewer:ptz: Viewer role, with PTZ control; operator:viewer: Operator role; operator:viewer:ptz:
+            Operator role, with PTZ control; admin:operator:viewer: Admin role; admin:operator:viewer:ptz: Admin
+            role, with PTZ control'
+        comment:
+          type: string
+          description: Description of the user account. This value can be empty. Optional in device software and
+            service releases since autumn 2019 (previously required for action=add).
+        strict_pwd:
+          type: integer
+          enum: [1]
+          description: Set to 1 to enforce VAPIX password standard. Valid characters for passwords are ASCII characters
+            with byte codes in the range of 0x20 - 0x7E. The password must be within 64 characters.
+    errors:
+      'Error: consult the system log file.': {description: Generic error.}
+      'Error: action operation type.': {description: 'The action is omitted or is not one of add, update, remove
+          or get.'}
+      'Error: account user name.':
+        description: No user name was supplied, or the user name contains characters other than A-Z, a-z or 0-9.
+      'Error: malformed action operation, <action>.': {description: The user name is not appropriate for the action.}
+      'Error: not a valid initial admin user.':
+        description: No admin user has been created and the user that attempted to be added is not a valid initial
+          admin user.
+      'Error: initial admin user must be created first.':
+        description: No admin user has been created. Start by creating one and use it to login and perform the requested
+          operation.
+      'Error:  invalid password.':
+        description: The supplied password is less than 1 character or more than 64 characters or does not comply
+          with the configured passphrase policy.
+    examples:
+    - title: Create the initial admin account
+      request:
+        query: {user: root, pwd: foo, grp: root, sgrp: 'admin:operator:viewer:ptz'}
+      response: {status: 200, text: Created account root.}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+    - title: Create a new user account with administrator and PTZ control privileges
+      request:
+        query: {user: joe, pwd: foo, grp: users, sgrp: 'admin:operator:viewer:ptz', comment: Joe}
+      response: {status: 200, text: Created account joe.}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+    - title: Create an account with enforced VAPIX password standards
+      request:
+        query:
+          user: joe
+          pwd: foo
+          grp: users
+          sgrp: admin:operator:viewer:ptz
+          comment: Joe
+          strict_pwd: '1'
+      response: {status: 200, text: Modified the account joe.}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+  update_user:
+    summary: Change user account information of specified parameters if the user account exists.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [user]
+      properties:
+        user:
+          type: string
+          description: The user account name to modify (requiredness for update inferred from examples).
+        pwd:
+          type: string
+          description: New password. Must comply with any configured passphrase policy.
+        grp: {type: string, description: Primary group.}
+        sgrp: {type: string, description: Colon separated secondary groups (see add_user).}
+        comment: {type: string, description: Description of the user account.}
+        strict_pwd: {type: integer, enum: [1], description: Set to 1 to enforce VAPIX password standard.}
+    examples:
+    - title: Change the password of an existing account
+      request:
+        query: {user: joe, pwd: bar}
+      response: {status: 200, text: Modified account joe.}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+  remove_user:
+    summary: Remove an existing user account.
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {action: remove}
+      reply: text
+    params:
+      type: object
+      required: [user]
+      properties:
+        user: {type: string, description: The user account name to remove.}
+    examples:
+    - title: remove_user
+      request:
+        query: {user: joe}
+      response: {status: 200, text: Removed account joe.}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+  get_users:
+    summary: Get a list of the user accounts which belong to each group defined.
+    description: digusers lists all created users; admin, operator, viewer and ptz are access group rights (a user
+      is listed in every group it has rights to).
+    effect: read
+    binding:
+      method: GET
+      query: {action: get}
+      reply: text_kv
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: get_users
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          admin="root,joe"
+          operator="root,joe,ellen"
+          viewer="root,joe,ellen,frank"
+          ptz="root,joe,ellen"
+          digusers="root,joe,ellen,frank"
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/system-settings/
+  sha256_md: d28df24ddffb90aed4af428b4f38527a37c97844f0cdfc2d16594a87a0cd9ca3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Parameter table marks user/pwd/grp/sgrp/comment all as 'Required if action=add. Adding a value to comment is
+    optional.' - a copy/paste artefact; comment is optional since autumn 2019. Which parameters update/remove require
+    is not stated.
+  - Example 6 (add with strict_pwd=1) shows response 'Modified the account joe.' although it is an add; probably
+    doc error.
+  - Response content type for POST requests (body-encoded arguments) and the expected request Content-Type for POST
+    are not documented.
+  - 'Example 13 error text has a double space (''Error:  invalid password.''), kept verbatim.'
+  - 'migration: types-dropped: types not referenced by any migrated operation: SecondaryGroups'
+  migrated_from: v1
+  curated: false

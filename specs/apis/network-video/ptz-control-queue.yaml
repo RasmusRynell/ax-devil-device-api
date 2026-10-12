@@ -1,0 +1,64 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: ptz-control-queue
+name: PTZ control queue (Queuing API)
+summary: Request, drop and query PTZ control in a priority-based control queue (ptzqueue.cgi) and configure queue/user-group
+  parameters.
+section: network-video
+family: cgi
+status: released
+python:
+  module: ptz_queue
+  class: PtzControlQueue
+docs:
+- https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+access: viewer
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.PTZ.PTZ, value: 'yes'}
+- param: {name: Properties.PTZ.DigitalPTZ, value: 'yes'}
+requires:
+  firmware: '5.20'
+
+binding: {path: /axis-cgi/com/ptzqueue.cgi}
+
+operations:
+  control_queue:
+    summary: Request PTZ control, drop it / leave the queue, or query the client status.
+    effect: action
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      required: [control]
+      properties:
+        control:
+          type: string
+          enum: [request, drop, query]
+          description: 'Queue action. Values: request: Request PTZ control; drop: Drop control or leave the queue;
+            query: Report the current status for the client'
+        camera: {type: integer, minimum: 1, description: Video channel; default channel if omitted.}
+    errors:
+      Error: {description: 'Plain text "Error:" followed by error information.', kind: invalid_argument}
+    examples:
+    - title: Request PTZ control for video channel 2
+      request:
+        query: {control: request, camera: '2'}
+      response: {status: 200, text: <a name="3"></a><a name="410"></a><a name="5"></a>}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#ptz-control-queue
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+  sha256_md: b1dc685e0bec7a017399a605bfd9687f3d7fa81ef8e929c4a119a65719e79416
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Parameter is spelled CtlQueueing in the table but CtlQueuing in the UserCtlQueue note.
+  - Success syntax <a name="<pos>"</a> is malformed in the docs (missing >).
+  - Queue capacity said to be configurable "in AXIS Device Manager" (1-100, default 20) vs CtlQueueLimit parameter.
+  - Part of the Queuing API intro (ADA priority mapping) was read only partially; table transcribed in notes.
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

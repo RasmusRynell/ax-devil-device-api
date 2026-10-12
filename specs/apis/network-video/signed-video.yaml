@@ -1,0 +1,76 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: signed-video
+name: Signed Video
+summary: Enable/disable video signing per video channel (param.cgi Image.I#.MPEG.SignedVideo.Enabled) or per RTSP
+  stream (videosigned URL option).
+section: network-video
+family: cgi
+status: released
+python:
+  module: signed_video
+  class: SignedVideo
+docs:
+- https://developer.axis.com/vapix/network-video/signed-video/
+access: admin
+discovery:
+- {api_discovery: signed-video}
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  list_signed_video_enabled:
+    summary: Read whether signed video is enabled by default for a channel.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply: text_kv
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: string
+          description: 'Image.I#.MPEG.SignedVideo.Enabled where # is the channel index (0.. number of channels -
+            1).'
+    result:
+      type: object
+      additionalProperties: {type: string}
+  set_signed_video_enabled:
+    summary: Enable/disable signed video by default for a video channel.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text
+    params:
+      type: object
+      required: [Image.I#.MPEG.SignedVideo.Enabled]
+      properties:
+        Image.I#.MPEG.SignedVideo.Enabled:
+          type: boolean
+          enum: ['yes', 'no']
+          default: 'no'
+          x-python-name: enabled
+          description: 'Enables and disables signed video for a channel. The default value is no. Valid values for
+            # range from 0 up to the maximum number of channels specified by the product -1.'
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/signed-video/
+  sha256_md: 0244b469c00df21acb8689763f58eb9c0e2e7a6bc65578a17ca90bfc7985956b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - AXIS OS minimum version not stated.
+  - Access level for the RTSP videosigned option not stated; list security level given as 'Operator, Viewer' (ambiguous
+    whether viewer suffices).
+  - Validation/verification of signed video (tools, formats) not documented on this page.
+  - 'migration: op-skipped: stream_signed_video: kind rtsp_request is not a classic CGI call'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  migrated_from: v1
+  curated: false

@@ -1,0 +1,289 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: recording
+name: Recording API (Edge storage)
+summary: Manage edge recordings - continuous recording profiles, list/search, start/stop (deprecated), remove, play
+  (MJPEG over HTTP or any format over RTSP).
+section: network-video
+family: cgi
+status: released
+python:
+  module: recording
+  class: Recording
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+- param: {name: Properties.LocalStorage.LocalStorage, value: 'yes'}
+- param: {name: Properties.LocalStorage.ContinuousRecording, value: 'yes'}
+- param: {name: Properties.API.RTSP.Version, value: '2.01'}
+requires:
+  firmware: '5.40'
+
+binding: {path: /axis-cgi/record/continuous/addconfiguration.cgi}
+
+operations:
+  add_continuous_configuration:
+    summary: Add a continuous recording profile; recording starts when possible.
+    description: Available if Properties.LocalStorage.ContinuousRecording=yes and Properties.LocalStorage.NbrOfContinuousRecordingProfiles
+      > 0.
+    effect: write
+    write: create
+    binding:
+      method: GET
+      reply:
+        xml:
+          status_error: {attribute: result, value: ERROR, message: errormsg}
+    params:
+      type: object
+      required: [diskid, options]
+      properties:
+        diskid: {type: string, description: Required. Disk ID to record to.}
+        options:
+          type: string
+          description: Required. Percent-encoded stream options, e.g. streamprofile%3DMyProfile or other image URL
+            settings.
+        eventid:
+          type: string
+          default: continuous
+          description: Optional Event ID classifying the recording (used with list.cgi).
+  list_continuous_configurations:
+    summary: List continuous recording profiles.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/record/continuous/listconfiguration.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        profile: {type: integer, description: Optional profile number; all profiles if omitted.}
+    result: {x-xml: true}
+  remove_continuous_configuration:
+    summary: Stop and remove a continuous recording profile.
+    effect: write
+    write: delete
+    binding:
+      path: /axis-cgi/record/continuous/removeconfiguration.cgi
+      method: GET
+      reply:
+        xml:
+          status_error: {attribute: result, value: ERROR, message: errormsg}
+    params:
+      type: object
+      required: [profile]
+      properties:
+        profile: {type: integer, description: Required. Profile number to remove.}
+  list_recordings:
+    summary: Search for recordings and list information, event IDs or sources.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/record/list.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        listentity:
+          type: string
+          enum: [recording, eventid, source]
+          default: recording
+          description: recording (default) = list recordings; eventid = list event IDs used in recordings; source
+            = list sources. eventid/source can be combined with diskid. (Response section uses listentity=recordingid.)
+        recordingid:
+          type: string
+          description: all or a Recording ID. Required if listentity=recording and none of recordinggroupid, eventid,
+            source, starttime or stoptime is given.
+        maxnumberofresults: {type: integer, description: Maximum number of recordings returned.}
+        startatresultnumber: {type: integer, description: 'Start the returned result on the n:th recording.'}
+        recordinggroupid: {type: string, description: Include recordings belonging to this recording group.}
+        eventid: {type: string, description: Name of the event that triggered the recording.}
+        diskid: {type: string, description: Disk ID to search.}
+        starttime:
+          type: string
+          description: Include recordings with any part on or after this time. UTC ISO 8601 combined date and time
+            (<yyyy>-<mm>-<dd>T<HH>:<MM>:<SS>[.<mmmm>]Z or with ±hh:mm offset).
+        stoptime:
+          type: string
+          description: Include recordings with any part on or before this time. UTC ISO 8601 combined date and time
+            (<yyyy>-<mm>-<dd>T<HH>:<MM>:<SS>[.<mmmm>]Z or with ±hh:mm offset).
+        sortorder:
+          type: string
+          enum: [ascending, descending]
+          default: descending
+          description: Sort by recording start time; descending is default.
+        source:
+          type: string
+          description: 'Multichannel encoders: Quad or channel number (product dependent).'
+    result: {x-xml: true}
+    examples:
+    - title: List all recordings
+      request:
+        query: {recordingid: all}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/list1.xsd">
+            <recordings totalnumberofrecordings="3" numberofrecordings="3" >
+              <recording diskid="NetworkShare"
+                recordingid="20110812_081211_016F_00408C1834FD" ... >
+                <video ... />
+                <audio ... />
+              </recording>
+              <recording diskid="NetworkShare"
+                recordingid="20110813_093530_025B_00408C1834FD" ... >
+                <video ... />
+                <audio ... />
+              </recording>
+              <recording diskid="NetworkShare"
+                recordingid="20110813_103530_037C_00408C1834FD" ... >
+                <video ... />
+                <audio ... />
+              </recording>
+            </recordings>
+          </root>
+    - title: Event IDs on SD card
+      request:
+        query: {listentity: eventid, diskid: SD_DISK}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/list1.xsd">
+            <eventids >
+              <eventid> motion </eventid>
+              <eventid> audio detection </eventid>
+            </eventids>
+          </root>
+    - title: Continuous recordings in a period
+      request:
+        query:
+          listentity: recordingid
+          eventid: continuous_nas
+          starttime: '2011-08-12T08:12:11Z'
+          stoptime: '2011-08-14T10:10:00Z'
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/list1.xsd">
+            <recordings totalnumberofrecordings="6" numberofrecordings="3" >
+              <recording diskid="NetworkShare"
+                recordingid="20110812_081211_016F_00408C1834FD"
+                starttime="2011-08-12T08:12:11Z"
+                stoptime="2011-08-13T09:30:30Z" ... >
+                <video ... />
+                <audio ... />
+              </recording>
+              <recording diskid="NetworkShare"
+                recordingid="20110813_093530_025B_00408C1834FD"
+                starttime="2011-08-13T09:35:30Z"
+                stoptime="2011-08-13T010:30:30Z" ... >
+                <video ... />
+                <audio ... />
+              </recording>
+              <recording diskid="NetworkShare"
+                recordingid="20110813_103530_037C_00408C1834FD"
+                starttime="2011-08-13T010:35:30Z"
+                stoptime="2011-08-14T10:10:00Z" ... >
+                <video ... />
+                <audio ... />
+              </recording>
+            </recordings>
+          </root>
+  start_recording:
+    summary: Start a recording at once; returns Recording ID.
+    description: Deprecated.
+    effect: action
+    binding:
+      path: /axis-cgi/record/record.cgi
+      method: GET
+      reply:
+        xml:
+          status_error: {attribute: result, value: ERROR, message: errormsg}
+    params:
+      type: object
+      required: [diskid]
+      properties:
+        diskid: {type: string, description: 'Required. Disk ID, e.g. SD_DISK.'}
+        options:
+          type: string
+          description: Optional stream options, e.g. streamprofile%3DMyProfile; system default if omitted.
+  stop_recording:
+    summary: Stop an active recording.
+    description: Deprecated.
+    effect: action
+    binding:
+      path: /axis-cgi/record/stop.cgi
+      method: GET
+      reply:
+        xml:
+          status_error: {attribute: result, value: ERROR, message: errormsg}
+    params:
+      type: object
+      required: [recordingid]
+      properties:
+        recordingid: {type: string, description: Required. Recording ID.}
+  remove_recordings:
+    summary: Remove one or more recordings.
+    effect: write
+    write: delete
+    binding:
+      path: /axis-cgi/record/remove.cgi
+      method: GET
+      reply:
+        xml:
+          status_error: {attribute: result, value: ERROR, message: errormsg}
+    params:
+      type: object
+      properties:
+        recordingid:
+          type: string
+          description: all or comma-separated Recording IDs. Required if none of recordinggroupid, beforetime, eventid,
+            source is present.
+        recordinggroupid:
+          type: string
+          description: Remove all non-ongoing recordings in a recording group. Not combinable with recordingid,
+            beforetime, eventid, source.
+        diskid: {type: string, description: Disk ID to remove recordings from.}
+        beforetime:
+          type: string
+          description: Remove all recordings with any part on or before this time (whole recording removed; active
+            ones stopped first). UTC ISO 8601 combined date and time (<yyyy>-<mm>-<dd>T<HH>:<MM>:<SS>[.<mmmm>]Z
+            or with ±hh:mm offset).
+        eventid: {type: string, description: Remove recordings triggered by this event.}
+        source: {type: string, description: Remove recordings from this video source.}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'list.cgi: listentity valid values are recording/eventid/source, but the response section and an example use
+    listentity=recordingid.'
+  - 'list.cgi: recordinggroupid typed <string> but valid values Integer; source typed <integer> but valid values
+    Quad/channel number.'
+  - play.cgi response content type not stated (described as same format as live view MJPEG).
+  - Prerequisites mention removeconfigration.cgi (typo for removeconfiguration.cgi).
+  - 'migration: op-skipped: play_recording: multipart streaming reply is not supported'
+  - 'migration: op-skipped: play_recording_rtsp: kind rtsp_request is not a classic CGI call'
+  - 'migration: xml-unmapped: add_continuous_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: list_continuous_configurations: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: remove_continuous_configuration: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: list_recordings: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: start_recording: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: stop_recording: no response schema in v1; result is the raw XML element'
+  - 'migration: xml-unmapped: remove_recordings: no response schema in v1; result is the raw XML element'
+  - 'migration: types-dropped: types not referenced by any migrated operation: RecordVideoActionTemplate, RecordingGroupVideoActionTemplate'
+  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
+  - 'migration: dropped-section: v1 section events not carried over'
+  - 'migration: dropped-section: v1 section notes not carried over'
+  migrated_from: v1
+  curated: false

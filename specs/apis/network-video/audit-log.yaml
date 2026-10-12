@@ -1,0 +1,99 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: audit-log
+name: Audit log
+summary: Retrieve the audit log (entire or tail) and the version of /axis-cgi/auditlog.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: audit_log
+  class: AuditLog
+docs:
+- https://developer.axis.com/vapix/network-video/audit-log/
+access: admin
+discovery:
+- {api_discovery: audit-log}
+
+binding: {path: /axis-cgi/auditlog.cgi}
+
+operations:
+  get_audit_log:
+    summary: Request a list of the entire audit log, or the tail end of it.
+    effect: read
+    binding: {method: GET, reply: text}
+    params:
+      type: object
+      properties:
+        tail:
+          type: integer
+          description: The number of recent entries that should be retrieved (from the tail end of the log). All
+            entries will be retrieved if this parameter is not specified.
+    result: {type: string}
+    errors:
+      400: {description: An invalid request method was provided., kind: invalid_argument}
+      401: {description: The user was unauthorized., kind: access_denied}
+      500: {description: Some unexpected error occurred., kind: internal}
+    examples:
+    - title: Retrieve entire audit log
+      request:
+        query: {}
+      response: {status: 200, text: audit log entries}
+      source: https://developer.axis.com/vapix/network-video/audit-log/#retrieve-entire-audit-log
+    - title: Retrieve tail of audit log (last nine entries)
+      request:
+        query: {tail: '9'}
+      response:
+        status: 200
+        text: |-
+          2025-07-22T15:38:25.307+00:00 axis-abcdef123456 [ INFO    ] fwmgr[4518]: Entity Management: Upgrade completed (12.6+snapshot-20250722).
+          2025-07-22T15:39:57.364+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7445]: Authentication: judy@192.168.0.87 Authentication failed (SSH).
+          2025-07-22T15:39:58.917+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7445]: Authentication: judy@192.168.0.87 Authentication successful (SSH).
+          2025-07-22T15:40:08.825+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7457]: Authentication: chris@192.168.0.87 Authentication failed (SSH).
+          2025-07-22T15:40:13.561+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7457]: Authentication: chris@192.168.0.87 Authentication successful (SSH).
+          2025-07-22T15:40:42.707+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7457]: Authentication: chris Logged out (SSH).
+          2025-07-22T15:40:46.612+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7499]: Authentication: judy@192.168.0.87 Authentication failed (SSH).
+          2025-07-22T15:40:48.365+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7499]: Authentication: judy@192.168.0.87 Authentication successful (SSH).
+          2025-07-22T16:09:59.358+00:00 axis-abcdef123456 [ INFO    ] sshd-session[7445]: Authentication: judy Logged out (SSH).
+      source: https://developer.axis.com/vapix/network-video/audit-log/#retrieve-tail-of-audit-log
+  get_cgi_version:
+    summary: Check the current CGI version.
+    effect: read
+    binding:
+      method: GET
+      query: {version: 'true'}
+      reply: text
+    params:
+      type: object
+      properties:
+        version:
+          type: boolean
+          enum: ['true', 'false']
+          default: false
+          description: Specifies whether to retrieve the CGI version. Defaults to false. If set to true, it takes
+            precedence over other parameters and only the version number is retrieved.
+    result: {type: string}
+    errors:
+      400: {description: An invalid request method was provided., kind: invalid_argument}
+      401: {description: The user was unauthorized., kind: access_denied}
+    examples:
+    - title: Retrieve CGI version
+      request:
+        query: {}
+      response: {status: 200, text: 1.0.0}
+      source: https://developer.axis.com/vapix/network-video/audit-log/#retrieve-cgi-version
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/audit-log/
+  sha256_md: d1000e98310cca127cb4ce49c91d134f0b3ad4c611db53d2cf6a1d4156bb0c5d
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - AXIS OS minimum version not stated; only API discovery id=audit-log.
+  - Valid range of tail (e.g. 0 or negative) not documented.
+  - Doc says 'tail end of the audio log' — typo for audit log.
+  - Error 500 is listed for the log retrieval but not for the version request.
+  migrated_from: v1
+  curated: false

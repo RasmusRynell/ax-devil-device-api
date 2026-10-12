@@ -1,0 +1,188 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: demographic-identifier
+name: Demographic identifier API
+summary: Read live and ended face tracks (estimated gender/age/box size), FPS and historical statistics from the
+  Demographic Identifier ACAP; restart the service or...
+section: applications
+family: cgi
+status: released
+python:
+  module: demographic_identifier
+  class: DemographicIdentifier
+docs:
+- https://developer.axis.com/vapix/applications/demographic-identifier-api/
+access: admin
+requires:
+  application: Demographic Identifier (Demographics ACAP)
+
+binding: {path: /local/demographics/.api}
+
+types:
+  LiveTrack:
+    type: object
+    properties:
+      time_start: {type: number, description: Time of the first face observation in seconds in form of UTC.}
+      time_end: {type: number, description: Time of the last face observation in seconds.}
+      gender_average:
+        type: integer
+        description: -1 for female estimate and 1 for male estimate on average since time_start.
+      age_average: {type: integer, description: Estimated age over the track since time_start.}
+      boxsize_average: {type: integer, description: Average box size over the track since time_start.}
+      gender_last: {type: integer, description: -1 for female guess and 1 for male guess on last observation.}
+      age_last: {type: integer, description: Estimated age on last observation.}
+      boxsize_last: {type: integer, description: Boxsize on last observation.}
+  EndedTrack:
+    type: object
+    properties:
+      time_start: {type: number}
+      time_end: {type: number}
+      gender_average: {type: integer}
+      age_average: {type: integer}
+      boxsize_average: {type: integer}
+  Live:
+    type: object
+    properties:
+      tracks:
+        type: array
+        items: {$ref: '#/types/LiveTrack'}
+  Ended:
+    type: object
+    properties:
+      time_start: {type: number}
+      time_end: {type: number}
+      tracks:
+        type: array
+        items: {$ref: '#/types/EndedTrack'}
+
+operations:
+  get_live_tracks:
+    summary: Return live face tracks (boxes) currently active in the video stream.
+    effect: read
+    binding:
+      method: GET
+      query: {tracks-live.json: ''}
+      reply: json
+    result:
+      type: object
+      properties:
+        live: {$ref: '#/types/Live'}
+  get_ended_tracks:
+    summary: Return previously detected (ended) tracks.
+    effect: read
+    binding:
+      method: GET
+      query: {tracks-ended.json: ''}
+      reply: json
+    params:
+      type: object
+      properties:
+        time:
+          type: integer
+          default: 900
+          description: Adjust the amount of time (in seconds) to include in the return. The default value is 15
+            minutes (900 s, converted). (unit=s)
+    result:
+      type: object
+      properties:
+        ended: {$ref: '#/types/Ended'}
+  get_live_and_ended_tracks:
+    summary: Return both live tracks and ended tracks.
+    effect: read
+    binding:
+      method: GET
+      query: {tracks-live-and-ended.json: ''}
+      reply: json
+    params:
+      type: object
+      properties:
+        time:
+          type: integer
+          default: 900
+          description: Adjust the amount of time (in seconds) to include in the return. The default value is 15
+            minutes (900 s, converted). (unit=s)
+    result:
+      type: object
+      properties:
+        live: {$ref: '#/types/Live'}
+        ended: {$ref: '#/types/Ended'}
+  get_fps:
+    summary: Check the FPS used by the Demographics algorithm.
+    effect: read
+    binding:
+      path: /demographics/.api
+      method: GET
+      query: {fps.json: ''}
+      reply: json
+    result:
+      type: object
+      properties:
+        fps: {type: number}
+    examples:
+    - title: Get FPS
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          200 OK
+          Content-Type: application/json
+
+          {
+            "fps": <fps>
+          }
+      source: https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-fps
+  restart_service:
+    summary: Restart the Demographics service.
+    access: operator
+    effect: action
+    binding:
+      path: /demographics/.apioperator
+      method: GET
+      query: {restart: ''}
+      reply: text
+  reboot_camera:
+    summary: Reboot the camera.
+    access: operator
+    effect: action
+    binding:
+      path: /demographics/.apioperator
+      method: GET
+      query: {reboot: ''}
+      reply: text
+  get_statistics:
+    summary: Return historical data in JSON format.
+    effect: read
+    binding:
+      method: GET
+      query: {export-json: ''}
+      reply: json
+    params:
+      type: object
+      properties:
+        date:
+          type: string
+          pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+          default: all
+          description: YYYYMMDD; a date interval YYYYMMDD-YYYYMMDD; comma separated dates YYYYMMDD,[..],YYYYMMDD;
+            or all (default) for all available data.
+        res: {type: string, enum: [15m, 1h, 24h], default: 15m}
+
+sources:
+- url: https://developer.axis.com/vapix/applications/demographic-identifier-api/
+  sha256_md: 0b789b8ed7ce3eaf2d7e2a3bb4a96ea7eec8762e74c455bde0855a759b9fac16
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - get FPS / restart / reboot use /demographics/... while track endpoints use /local/demographics/...; unclear
+    whether the /local prefix is required. https://developer.axis.com/vapix/applications/demographic-identifier-api/#get-fps
+  - Statistics (export-json) response structure, restart/reboot responses, error handling, access levels for read
+    endpoints, identification and AXIS OS requirements are not documented.
+  - 'Example ''Two Live and one Ended track'' has gender_last: 260, outside the documented -1/1 values.'
+  - Return value table uses '<time-end>' vs field name time_end.
+  - Ended-tracks 'No active track found' example title likely meant 'No ended track found'.
+  - 'migration: json-untyped: get_statistics: JSON reply without schema; result is untyped'
+  migrated_from: v1
+  curated: false

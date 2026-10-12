@@ -1,0 +1,321 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: video-streaming
+name: Video streaming over HTTP
+summary: 'HTTP image and video requests: JPEG/AVIF/bitmap snapshots, Motion JPEG streams, image size and video status.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: video_streaming
+  class: VideoStreaming
+docs:
+- https://developer.axis.com/vapix/network-video/video-streaming/
+access: viewer
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/imagesize.cgi}
+
+operations:
+  get_image_size:
+    summary: Retrieve the real image resolution (e.g.
+    effect: read
+    binding: {method: GET, reply: text_kv}
+    params:
+      type: object
+      properties:
+        resolution:
+          type: string
+          description: Resolution of the returned image. Product/release-dependent; for supported resolutions check
+            Properties.Image.Resolution.
+        camera:
+          type: string
+          default: '1'
+          description: 'Selects the video source: 1... or quad. If omitted camera=1 is used. Only valid for products
+            with more than one video source (multiple view areas / video channels).'
+        compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Compression level; higher = higher compression (lower quality, smaller size).
+        color:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable color. Values: 0: Black and white; 1: Color'
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotate the image clockwise. Alternatives defined by Properties.Image.Rotation (90/180/270
+            product/release-dependent). Not applicable to AVIF.
+        mirror:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable horizontal mirroring. Values: 0: Disabled; 1: Enabled'
+        palette:
+          type: string
+          description: 'Thermal cameras: the color palette to use (product dependent). Applicable if Properties.Image.Palette.StreamPalette=yes
+            or does not exist. See thermal imaging Color palettes.'
+        squarepixel:
+          type: integer
+          enum: [0, 1]
+          description: Enable/disable square pixel (aspect ratio) correction; 1 = adjust aspect ratio to appear
+            as intended. Not applicable to AVIF.
+        overlays:
+          type: string
+          enum: [all, text, image, application, 'off', all-sync, application-sync]
+          description: 'Show specific overlays. Values: all: All configured overlays are visible; text: Only text
+            overlays are visible; image: Only image overlays are visible; application: Only overlays created by
+            an application are visible; off: No overlays are visible; all-sync: All configured overlays visible
+            and synchronized with the video stream (may add latency); application-sync: Application-generated overlays
+            visible and synchronized with the video stream (may add latency)'
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Default resolution for video source 1
+      request:
+        query: {camera: '1'}
+      response:
+        status: 200
+        text: |-
+          image width = 720
+          image height = 576
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#image-resolution
+    - title: Specific resolution
+      request:
+        query: {resolution: QCIF, rotation: '180', squarepixel: '1', camera: '1'}
+      response:
+        status: 200
+        text: |-
+          image width = 192
+          image height = 144
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#image-resolution
+  get_video_status:
+    summary: Retrieve whether there is an analog video signal on a video encoder's video sources.
+    effect: read
+    binding: {path: /axis-cgi/videostatus.cgi, method: GET, reply: text_kv}
+    params:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: array
+          items: {type: integer}
+          description: Comma separated list of video sources 1... (product-dependent; number of sources in ImageSource.NbrOfSources).
+            Required-ness inferred (only argument).
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: get_video_status
+      request:
+        query: {status: '1,2,3,4'}
+      response:
+        status: 200
+        text: |-
+          Video 1 = video
+          Video 2 = no video
+          Video 3 = no video
+          Video 4 = video
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#video-status
+  get_bitmap:
+    summary: Request a bitmap image (deprecated; not supported on AXIS OS 11.0 and beyond).
+    description: Deprecated.
+    effect: read
+    binding:
+      path: /axis-cgi/bitmap/image.bmp
+      method: GET
+      reply:
+        binary: {media_types: [image/bitmap]}
+    params:
+      type: object
+      properties:
+        resolution:
+          type: string
+          description: Resolution of the returned image. Product/release-dependent; for supported resolutions check
+            Properties.Image.Resolution.
+        camera:
+          type: string
+          default: '1'
+          description: 'Selects the video source: 1... or quad. If omitted camera=1 is used. Only valid for products
+            with more than one video source (multiple view areas / video channels).'
+        compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Compression level; higher = higher compression (lower quality, smaller size).
+        color:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable color. Values: 0: Black and white; 1: Color'
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotate the image clockwise. Alternatives defined by Properties.Image.Rotation (90/180/270
+            product/release-dependent). Not applicable to AVIF.
+        mirror:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable horizontal mirroring. Values: 0: Disabled; 1: Enabled'
+        palette:
+          type: string
+          description: 'Thermal cameras: the color palette to use (product dependent). Applicable if Properties.Image.Palette.StreamPalette=yes
+            or does not exist. See thermal imaging Color palettes.'
+        squarepixel:
+          type: integer
+          enum: [0, 1]
+          description: Enable/disable square pixel (aspect ratio) correction; 1 = adjust aspect ratio to appear
+            as intended. Not applicable to AVIF.
+        overlays:
+          type: string
+          enum: [all, text, image, application, 'off', all-sync, application-sync]
+          description: 'Show specific overlays. Values: all: All configured overlays are visible; text: Only text
+            overlays are visible; image: Only image overlays are visible; application: Only overlays created by
+            an application are visible; off: No overlays are visible; all-sync: All configured overlays visible
+            and synchronized with the video stream (may add latency); application-sync: Application-generated overlays
+            visible and synchronized with the video stream (may add latency)'
+    result: {type: string, format: binary}
+  get_avif:
+    summary: Retrieve an AVIF image (snapshot).
+    effect: read
+    binding:
+      path: /axis-cgi/avif/image.cgi
+      method: GET
+      reply:
+        binary: {media_types: [image/avif]}
+    params:
+      type: object
+      properties:
+        resolution:
+          type: string
+          description: Resolution of the returned image. Product/release-dependent; for supported resolutions check
+            Properties.Image.Resolution.
+        camera:
+          type: string
+          default: '1'
+          description: 'Selects the video source: 1... or quad. If omitted camera=1 is used. Only valid for products
+            with more than one video source (multiple view areas / video channels).'
+        compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Compression level; higher = higher compression (lower quality, smaller size).
+        color:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable color. Values: 0: Black and white; 1: Color'
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotate the image clockwise. Alternatives defined by Properties.Image.Rotation (90/180/270
+            product/release-dependent). Not applicable to AVIF.
+        mirror:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable horizontal mirroring. Values: 0: Disabled; 1: Enabled'
+        palette:
+          type: string
+          description: 'Thermal cameras: the color palette to use (product dependent). Applicable if Properties.Image.Palette.StreamPalette=yes
+            or does not exist. See thermal imaging Color palettes.'
+        squarepixel:
+          type: integer
+          enum: [0, 1]
+          description: Enable/disable square pixel (aspect ratio) correction; 1 = adjust aspect ratio to appear
+            as intended. Not applicable to AVIF.
+        overlays:
+          type: string
+          enum: [all, text, image, application, 'off', all-sync, application-sync]
+          description: 'Show specific overlays. Values: all: All configured overlays are visible; text: Only text
+            overlays are visible; image: Only image overlays are visible; application: Only overlays created by
+            an application are visible; off: No overlays are visible; all-sync: All configured overlays visible
+            and synchronized with the video stream (may add latency); application-sync: Application-generated overlays
+            visible and synchronized with the video stream (may add latency)'
+    result: {type: string, format: binary}
+  get_jpeg:
+    summary: Retrieve a JPEG image (snapshot).
+    effect: read
+    binding:
+      path: /axis-cgi/jpg/image.cgi
+      method: GET
+      reply:
+        binary: {media_types: [image/jpeg]}
+    params:
+      type: object
+      properties:
+        resolution:
+          type: string
+          description: Resolution of the returned image. Product/release-dependent; for supported resolutions check
+            Properties.Image.Resolution.
+        camera:
+          type: string
+          default: '1'
+          description: 'Selects the video source: 1... or quad. If omitted camera=1 is used. Only valid for products
+            with more than one video source (multiple view areas / video channels).'
+        compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Compression level; higher = higher compression (lower quality, smaller size).
+        color:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable color. Values: 0: Black and white; 1: Color'
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotate the image clockwise. Alternatives defined by Properties.Image.Rotation (90/180/270
+            product/release-dependent). Not applicable to AVIF.
+        mirror:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable horizontal mirroring. Values: 0: Disabled; 1: Enabled'
+        palette:
+          type: string
+          description: 'Thermal cameras: the color palette to use (product dependent). Applicable if Properties.Image.Palette.StreamPalette=yes
+            or does not exist. See thermal imaging Color palettes.'
+        squarepixel:
+          type: integer
+          enum: [0, 1]
+          description: Enable/disable square pixel (aspect ratio) correction; 1 = adjust aspect ratio to appear
+            as intended. Not applicable to AVIF.
+        overlays:
+          type: string
+          enum: [all, text, image, application, 'off', all-sync, application-sync]
+          description: 'Show specific overlays. Values: all: All configured overlays are visible; text: Only text
+            overlays are visible; image: Only image overlays are visible; application: Only overlays created by
+            an application are visible; off: No overlays are visible; all-sync: All configured overlays visible
+            and synchronized with the video stream (may add latency); application-sync: Application-generated overlays
+            visible and synchronized with the video stream (may add latency)'
+        text:
+          type: integer
+          description: Used in an example (text=1) to display text; defined in the Image API URL options, not in
+            this page's argument table.
+        textstring:
+          type: string
+          description: Used in an example (textstring=My%20Camera); see Image API URL options.
+    result: {type: string, format: binary}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-streaming/
+  sha256_md: c5a6a629959b129e10f70c9855786d7282b383fadd6c44254103acc40c4a5a30
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - imagesize.cgi response shown both as 'image width = 720' and 'image width=<value>' (spacing differs).
+  - text/textstring used in a JPEG example are not in this page's Image request arguments table (see Image API URL
+    options).
+  - 'Bitmap section: ''To check if the Axis product supports bitmap images, use'' sentence is truncated in the doc.'
+  - Error behaviour for image/video CGIs other than imagesize.cgi is not documented.
+  - imagesize.cgi allows GET/POST; POST body format not documented.
+  - 'migration: op-skipped: get_mjpeg_stream: kind stream is not a classic CGI call'
+  - 'migration: discovery: param_property ''Properties.Image.Resolution'' is not a Name=value pair: dropped'
+  - 'migration: discovery: param_property ''Properties.Image.Format'' is not a Name=value pair: dropped'
+  - 'migration: discovery: param_property ''Properties.Image.Rotation'' is not a Name=value pair: dropped'
+  - 'migration: types-dropped: types not referenced by any migrated operation: ImageRequestArguments'
+  migrated_from: v1
+  curated: false
