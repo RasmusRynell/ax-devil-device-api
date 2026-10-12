@@ -1,68 +1,65 @@
 ---
 name: ax-devil-device-api
-description: 'Use the ax-devil-device-api package (CLI and Python API) to interact with Axis cameras over HTTPS. Use when asked to "get device info", "take snapshot", "restart device", "configure MQTT", "manage SSH users", "list analytics sources", "create publisher", "set feature flags", "check device health", "discover APIs", "set geocoordinates", "data transformation", "systemready", or write Python code using Client/DeviceConfig to control an Axis device.'
+description: 'Use the ax-devil-device-api Python package (1.0 rewrite, httpx and pydantic) to talk to Axis cameras over VAPIX. Use when asked to write or review Python code with Device or AsyncDevice, configure the MQTT client or analytics MQTT publishers, read or update param.cgi parameters, check what an Axis device supports (identity, capabilities, API versions), handle device errors, retry or time out calls, or unit-test camera code with MockCamera. There is no CLI yet.'
 ---
 
 # ax-devil-device-api
 
-Python package and CLI for configuring Axis devices via their HTTPS APIs.
+Python client for Axis devices (VAPIX). Sync (`Device`) and async (`AsyncDevice`) share one code base.
 
-**Package**: `ax-devil-device-api` (PyPI)
-**Depends on**: `requests`, `click`, `rich`
+**Package**: `ax-devil-device-api`. Python 3.11+. Runtime dependencies: `httpx`, `pydantic`.
+**CLI**: none yet (planned). Do not suggest `ax-devil-device-api <command>`; write Python instead.
+**Status**: the runtime and three APIs exist: `mqtt_client`, `analytics_mqtt`, `parameter_management`. Other VAPIX APIs, WebSocket event sessions and the CLI are planned. For anything else, say it is not covered yet rather than inventing a method; `dev.invoke(...)` only runs operations that exist as descriptors.
 
-## Prerequisites — MUST do before any command
+## Before writing code that talks to a device
 
-1. **Ensure the CLI is installed.** Run `which ax-devil-device-api`. If not found, install it:
-   ```bash
-   uv tool install ax-devil-device-api
-   ```
-2. **Resolve credentials.** Before running any command or writing code that talks to a device, you MUST have concrete values for the required parameters. Follow this procedure:
-   - Check env vars: `echo $AX_DEVIL_TARGET_ADDR $AX_DEVIL_TARGET_USER $AX_DEVIL_TARGET_PASS`
-   - If any required value is missing or empty, **ASK the user** — do NOT guess or use placeholder IPs.
-   - The only exception is `systemready check` which needs only the device IP (no auth).
+Get concrete values for host, username and password. Check the environment the examples use (`CAM_USER`, `CAM_PASS`), and ask the user for what is missing. Do not guess IP addresses or credentials.
+
+HTTPS is the default. A plain-HTTP device needs `Device(host, scheme="http", allow_http=True, ...)`; only do that when the user says the device is on a trusted bench network. A device with a private CA needs `verify="/path/ca.pem"`.
 
 ## References
 
-Load only the reference you need:
+- [Python API reference](./references/python-api.md): construction, calling APIs, request objects, errors, retries, capabilities, testing.
 
-- **[CLI Reference](./references/cli.md)** — All subcommands grouped by feature area, with examples
-- **[Python API Reference](./references/python-api.md)** — `Client`, `DeviceConfig`, feature clients, and Python workflows
+In the repository: `docs/design.md` (architecture and decisions), `examples/README.md` (nine scenarios; says which run today), `src/ax_devil_device_api/apis/` (the available APIs).
 
-## Environment Variables
+## Quick start
 
-The CLI reads these when the corresponding flag is not supplied:
+```python
+from ax_devil_device_api import Device
 
-| Variable | CLI flag fallback |
-|----------|-------------------|
-| `AX_DEVIL_TARGET_ADDR` | `--device-ip` / `-a` |
-| `AX_DEVIL_TARGET_USER` | `--device-username` / `-u` |
-| `AX_DEVIL_TARGET_PASS` | `--device-password` / `-p` |
-| `AX_DEVIL_MQTT_BROKER_ADDR` | `--broker-address` / `-b` (mqtt configure) |
-| `AX_DEVIL_MQTT_BROKER_PASS` | `--broker-password` / `-W` (mqtt configure) |
+with Device("192.0.2.10", credentials=("root", "pass")) as dev:
+    print(dev.identity().model, dev.identity().firmware_version)
+    status = dev.apis.mqtt_client.get_client_status()
+    print(status.status.state, status.status.connection_status)
+```
 
-## Quick Decision Guide
+Async is the same with `AsyncDevice`, `async with`, and `await` on every call (`await dev.apis.mqtt_client.get_client_status()`).
 
-| Task | CLI command | Python property |
-|------|-------------|-----------------|
-| Get device info / readiness / restart | `device` | `client.device` |
-| Take a snapshot | `media snapshot` | `client.media` |
-| Network info | `network info` | `client.network` |
-| Configure/activate MQTT on device | `mqtt` | `client.mqtt_client` |
-| List analytics sources / publishers | `analytics` | `client.analytics_mqtt` |
-| Manage metadata producers | `analytics-metadata` | `client.analytics_metadata` |
-| Get/set feature flags | `features` | `client.feature_flags` |
-| Manage SSH users | `ssh` | `client.ssh` |
-| Set geocoordinates / orientation | `geocoordinates` | `client.geocoordinates` |
-| Discover Device Configuration APIs | `discovery` | `client.discovery` |
-| Discover classic VAPIX APIs anonymously | — | `client.classic_discovery` |
-| Data transforms (jq expressions) | `data-transformation` | `client.data_transformation` |
-| Check device readiness (no auth) | `systemready check` | `client.systemready` |
-| Debug: reports, traces, ping | `debug` | `client.device_debug` |
+## Key concepts
 
-**Tip**: Run `ax-devil-device-api <command> --help` for full details on any command.
+- **One long-lived device per camera.** Creating a `Device` does no I/O. It owns the connection pool, the verified credential and cached device facts. Do not create one per call. Fleets are plain application code with one device per camera (`examples/01_fleet_mqtt_rollout.py`).
+- **`dev.apis.<name>`** gives an API object: `mqtt_client`, `analytics_mqtt`, `parameter_management`. Methods take keyword arguments or one typed request object, and always accept `request_options=`.
+- **Models** are pydantic classes. Unset fields are not sent; unknown fields in device responses are ignored; typos in your own arguments raise `pydantic.ValidationError` before anything is sent.
+- **Writes can replace whole configurations.** Read the docstring: `configure_client` replaces the entire MQTT configuration. Use `ConfigureClientRequest.from_current(...)` to edit and write back safely (it never writes the masked password back).
+- **Errors** all derive from `ax_devil_device_api.errors.DeviceError`. Catch `AccessDenied` / `Unavailable` for the common categories.
+- **No automatic support checks.** Call `dev.supports(ApiClass)` yourself; a call to an API the device lacks raises `NotSupported` from version negotiation or an `HttpError`/`ApiError`.
 
-## Key Concepts
+## Quick decision guide
 
-- **DeviceConfig**: Connection config. Use `DeviceConfig.https(...)` (default, certificate verification enabled) or `DeviceConfig.http(...)` (insecure, explicit opt-in). Pass a PEM CA bundle path through `verify_ssl` when needed.
-- **Client**: Main entry point. Lazy-loads feature clients via properties. Use as context manager for proper cleanup.
-- **CLI global options**: `-a/--device-ip`, `-u/--device-username`, `-p/--device-password`, `--protocol`, `--port`, `--ca-bundle`, `--no-verify-ssl`, `--debug`. HTTP prompts for confirmation unless `AX_DEVIL_USAGE_CLI=unsafe` exactly.
+| Task | Use |
+|---|---|
+| Model, serial number, firmware; health check | `dev.identity()` / `dev.identity(refresh=True)` |
+| Does this camera offer an API? | `dev.supports(MqttClientApi)` returns a `SupportResult` (truthy only for YES) |
+| What does the camera advertise? | `dev.capabilities()` |
+| MQTT client config, status, activate | `dev.apis.mqtt_client` |
+| Publish analytics data over MQTT | `dev.apis.analytics_mqtt` |
+| Read or change `param.cgi` parameters | `dev.apis.parameter_management` |
+| Per-call timeout or retry policy | `request_options=RequestOptions(timeout=..., retry=...)` |
+| Forget cached facts after a reboot or firmware upgrade | `dev.refresh()` |
+| Test your own code without a camera | `ax_devil_device_api.testing.MockCamera` |
+| Run an operation by descriptor | `dev.invoke(mqtt_client.OPS.get_client_status)` |
+
+## Examples
+
+`examples/` has runnable scenarios: `01` fleet MQTT rollout (async), `02` parameter drift, `06` debugging and lab setups, `07` long-running service, `08` clone configuration, `09` testing with `MockCamera`. Examples `03`, `04` and `05` use APIs that are not generated yet and do not run.

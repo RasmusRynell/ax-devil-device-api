@@ -1,304 +1,166 @@
-# ax-devil-device-api Python API Reference
+# ax-devil-device-api Python API reference
 
-**Install**: `pip install ax-devil-device-api` (or `uv pip install ax-devil-device-api`)
+Everything here exists in `src/ax_devil_device_api/`. Anything not listed is not implemented yet (other VAPIX APIs, WebSocket sessions, CLI).
 
-Public exports from `ax_devil_device_api`:
+Public exports from `ax_devil_device_api`: `Device`, `AsyncDevice`, `Credentials`, `BearerToken`, `RequestOptions`, `RetryPolicy`, `NO_RETRY`, `Capabilities`, `DeviceIdentity`, `Support`, `SupportResult`, `MISSING`. Errors live in `ax_devil_device_api.errors`; test helpers in `ax_devil_device_api.testing`; API modules in `ax_devil_device_api.apis.<name>`.
 
-- `Client` — Main entry point, provides access to all feature clients
-- `DeviceConfig` — Connection configuration
-
-## DeviceConfig
+## Device and AsyncDevice
 
 ```python
-from ax_devil_device_api import DeviceConfig
+from ax_devil_device_api import AsyncDevice, BearerToken, Device
 
-# HTTPS (default — certificate verification enabled)
-config = DeviceConfig.https(host="<device-ip>", username="<user>", password="<pass>")
+dev = Device("192.0.2.10", credentials=("root", "pass"))      # no I/O at construction
+dev.close()                                                   # or: with Device(...) as dev:
 
-# HTTP (explicit insecure opt-in)
-config = DeviceConfig.http(host="<device-ip>", username="<user>", password="<pass>")
+async with AsyncDevice("10.0.0.1", credentials=BearerToken(get_token), base_path="/vms/cam7") as dev: ...
 ```
 
-- `verify_ssl` defaults to `True`; pass a PEM CA bundle path to verify a private device CA, or `False` only when verification is intentionally disabled.
-- `config.get_base_url()` returns `"https://<host>"` or `"http://<host>"`.
+Keyword arguments: `credentials` (`Credentials`, a `(user, password)` tuple, or `BearerToken`), `scheme="https"`, `port`, `base_path` (starts with `/`, no trailing `/`), `verify` (`True`, `False`, a CA bundle path, or an `ssl.SSLContext`), `proxy`, `timeout=10.0`, `allow_http=False`, `max_concurrency=4`, `max_streams=2`, `retry` (`RetryPolicy`), `on_request`, `on_response`, `transport` (an httpx transport; used by `MockCamera`). Invalid values raise `ConfigurationError` at construction. `scheme="http"` requires `allow_http=True`; a `BearerToken` is rejected over HTTP. `Device.from_config(ConnectionConfig)` takes a ready config.
 
-## Client
+Authentication: Digest is preferred and Basic is used only after the device challenges. A `BearerToken` takes a string or a callable that returns the current token (called per request and once more after a 401).
 
-Use as a context manager for proper session cleanup. Feature clients are lazy-loaded via properties.
+Methods:
+
+| Method | Returns |
+|---|---|
+| `dev.apis.<name>` | API object (sync or async, matching the device) |
+| `dev.api(ApiClass)` | the cached API object for a class, e.g. `dev.api(MqttClientApi)` |
+| `dev.invoke(op, request=None, /, *, request_options=None, **kwargs)` | result of any operation descriptor, e.g. `mqtt_client.OPS.get_client_status` |
+| `dev.identity(refresh=False)` | `DeviceIdentity` (cached; `refresh=True` re-asks and works as a health check; new firmware drops all cached facts) |
+| `dev.capabilities()` | `Capabilities` from three discovery probes; failed probes are reported in `.errors`, not raised |
+| `dev.supports(api)` | `SupportResult` for an API class or object |
+| `dev.refresh()` | forget all cached device facts (after a reboot or firmware upgrade) |
+
+For `AsyncDevice` the methods that do I/O (`invoke`, `identity`, `capabilities`, `supports`, every API method) are coroutines, and closing is `await dev.aclose()` or `async with`.
+
+A sync `Device` may be shared between threads; an `AsyncDevice` between tasks of one event loop. Do not close or reconfigure while calls are running. `max_concurrency` limits requests in flight and `max_streams` open streams, separately.
+
+## Identity, capabilities, support
 
 ```python
-from ax_devil_device_api import Client, DeviceConfig
+from ax_devil_device_api import Support
+from ax_devil_device_api.apis.mqtt_client import MqttClientApi
 
-config = DeviceConfig.https(host="<device-ip>", username="<user>", password="<pass>")
-
-with Client(config) as client:
-    info = client.device.get_info()
-    snapshot = client.media.get_snapshot()
+ident = dev.identity()            # .model, .product_number, .full_name, .serial_number,
+                                  # .firmware_version, .hardware_id, .architecture, .properties
+result = dev.supports(MqttClientApi)
+if result:                        # truthy only for Support.YES
+    ...
+elif result.status is Support.UNKNOWN:
+    print(result.reason, result.errors)   # probes failed; do not conclude "not supported"
 ```
 
-### Available feature clients
+`SupportResult` fields: `status` (`Support.YES`/`NO`/`UNKNOWN`), `reason`, `errors`, `observed_at`. `NO` is returned only when a probe that would list the API succeeded and did not list it (or listed another major version). `Capabilities` fields: `classic_apis`, `dca_apis`, `properties` (each `None` when its probe failed), `errors`, `observed_at`. Calls do not check support automatically.
 
-| Property | Feature area |
-|----------|-------------|
-| `client.device` | Device info, health, restart |
-| `client.network` | Network interface details |
-| `client.media` | Video channels, stream profiles, and snapshots |
-| `client.mqtt_client` | MQTT client configure/activate/deactivate |
-| `client.analytics_mqtt` | Analytics MQTT publishers and data sources |
-| `client.analytics_metadata` | Metadata producer management |
-| `client.discovery` | API discovery |
-| `client.feature_flags` | Feature flag get/set |
-| `client.geocoordinates` | Location and orientation |
-| `client.ssh` | SSH user management |
-| `client.device_debug` | Debug reports, traces, ping |
-| `client.data_transformation` | jq expression-based data transforms |
-| `client.systemready` | Device readiness check (no auth needed) |
+## Available APIs
 
-### Client methods
+| Attribute | Module | Family | Operations |
+|---|---|---|---|
+| `dev.apis.mqtt_client` | `apis.mqtt_client` | JSON-RPC | `configure_client`, `activate_client`, `deactivate_client`, `get_client_status` |
+| `dev.apis.analytics_mqtt` | `apis.analytics_mqtt` | Device Configuration REST | `get_all`, `list_data_sources`, `get_data_source(key)`, `list_publishers`, `get_publisher(id)`, `add_publisher`, `remove_publisher(id)` |
+| `dev.apis.parameter_management` | `apis.parameter_management` | classic `param.cgi` | `list`, `list_definitions`, `update`, `add`, `remove` |
 
-- `client.close()` — Close session (called automatically by context manager).
-- `client.clear_session()` — Reset cookies/connection state.
-- `client.new_session()` — Context manager for a temporary fresh session.
+Each module also holds the models, `INFO` (static API description) and `OPS` (operation descriptors with `effect`, `access`, `write`). The class names are `MqttClientApi`/`AsyncMqttClientApi`, `AnalyticsMqttApi`/`AsyncAnalyticsMqttApi`, `ParameterManagementApi`/`AsyncParameterManagementApi`. Method docstrings state the access level, whether a write replaces the whole configuration, and the version requirements. Operation `support` is `docs-only` for all three: none has been verified on hardware.
 
-## Feature Clients — Quick Reference
+## Calling methods: keywords or a request object
 
-Each feature client has methods matching the CLI subcommands. Use your IDE autocomplete or `help()` to explore.
-
-### DeviceInfoClient (`client.device`)
+Every method takes `request_options=`. Methods with arguments accept either flattened keyword arguments or one positional request object, never both (`TypeError`).
 
 ```python
-client.device.get_info() -> dict             # Model, firmware, serial
-client.device.get_info_detailed() -> dict     # Extended raw parameters
-client.device.get_info_no_auth() -> dict      # Basic info without credentials (basicdeviceinfo.cgi)
-client.device.get_info_auth() -> dict         # Full info with credentials (basicdeviceinfo.cgi)
-client.device.check_health() -> bool          # True only when systemready == "yes"
-client.device.restart() -> bool               # Restart device
-```
+from ax_devil_device_api.apis.mqtt_client import ConfigureClientRequest, Server
 
-### NetworkClient (`client.network`)
-
-```python
-client.network.get_network_info() -> dict   # Network interface parameters
-```
-
-### MediaClient (`client.media`)
-
-```python
-client.media.list_video_channels() -> list[VideoChannel]
-client.media.list_stream_profiles(names=None) -> list[StreamProfile]
-client.media.get_snapshot(
-    resolution="1920x1080",   # Optional
-    compression=50,           # Optional (0-100)
-    camera_head=1,            # Optional (multi-sensor devices)
-) -> bytes                    # JPEG image data
-```
-
-### MqttClient (`client.mqtt_client`)
-
-```python
-client.mqtt_client.configure(
-    host="<broker-ip>",
-    port=1883,                        # Default
-    username=None,                    # Optional broker auth
-    password=None,                    # Optional broker auth
-    protocol="tcp",                   # "tcp", "ssl", "ws", or "wss"
-    keep_alive_interval=60,           # Seconds
-    client_id="client1",
-    clean_session=True,
-    auto_reconnect=True,
-    device_topic_prefix=None,         # Optional topic prefix
+dev.apis.mqtt_client.configure_client(
+    server=Server(host="broker.example.com", protocol="ssl"), client_id="cam-7", username="u", password="p",
 )
-client.mqtt_client.activate() -> dict       # Start MQTT client
-client.mqtt_client.deactivate() -> dict     # Stop MQTT client
-client.mqtt_client.get_state() -> dict      # {"status": {...}, "config": {...}}
-client.mqtt_client.set_state("active" | "inactive") -> dict # Activate or deactivate the client
+req = ConfigureClientRequest(server=Server(host="broker.example.com"), client_id="cam-7")
+dev.apis.mqtt_client.configure_client(req)
 ```
 
-### AnalyticsMqttClient (`client.analytics_mqtt`)
+- Unset fields are not sent. `pydantic.MISSING` (also `ax_devil_device_api.MISSING`) is the "not given" default in method signatures; do not use it in models.
+- Arguments are validated locally: a typo or invalid value raises `pydantic.ValidationError` before any request.
+- Responses ignore unknown fields and keep enum values newer than the `Literal`.
+- Version-gated fields: setting a field newer than the negotiated API version raises `NotSupported` before sending (`.required` names the version).
 
-Uses the device REST analytics MQTT API (`v1`). Availability depends on firmware support; unsupported devices return an HTTP/API error.
+Safe read-modify-write (replace semantics, masked secrets):
 
 ```python
-client.analytics_mqtt.get_data_sources() -> list[dict]
-client.analytics_mqtt.list_publishers() -> list[dict]
-client.analytics_mqtt.create_publisher(
-    id, data_source_key, mqtt_topic,
-    qos=0, retain=False, use_topic_prefix=False,
-)
-client.analytics_mqtt.remove_publisher(publisher_id)
+status = dev.apis.mqtt_client.get_client_status()
+if status.config is not None:
+    req = ConfigureClientRequest.from_current(status.config)   # drops the masked password, sets keep_existing_password
+    req = req.model_copy(update={"keep_alive_interval": 60})
+    dev.apis.mqtt_client.configure_client(req)
 ```
 
-### AnalyticsMetadataClient (`client.analytics_metadata`)
+`AddPublisherRequest.from_current(publisher)` (in `apis.analytics_mqtt`) recreates a publisher, for example on another camera. See `examples/08_clone_configuration.py` for the full flow.
 
-Controls analytics metadata producer availability per video channel. `list_producers()` reports current enabled states; selective CLI changes preserve unrelated states.
+Parameters:
 
 ```python
-client.analytics_metadata.list_producers() -> list
-client.analytics_metadata.set_enabled_producers(producers)
-client.analytics_metadata.get_supported_metadata(producer_names=None) -> list
-client.analytics_metadata.get_supported_versions() -> list[str]
+values = dev.apis.parameter_management.list(group=["Image.I0.Appearance.*"])   # dict[str, str], "root." removed
+dev.apis.parameter_management.update({"Image.I0.Appearance.Resolution": "1920x1080"})
 ```
 
-Omit `producer_names` to request samples for all metadata producers.
-
-### FeatureFlagClient (`client.feature_flags`)
+## Request options and retries
 
 ```python
-client.feature_flags.list_all() -> list[dict]
-client.feature_flags.get_flags(["flag1", "flag2"]) -> dict
-client.feature_flags.set_flags({"flag1": True, "flag2": False}) -> dict
+from ax_devil_device_api import NO_RETRY, RequestOptions, RetryPolicy
+
+dev.apis.parameter_management.list(request_options=RequestOptions(timeout=60))
+dev.apis.mqtt_client.get_client_status(request_options=RequestOptions(retry=RetryPolicy(attempts=3, retry_reads=True)))
 ```
 
-### GeoCoordinatesClient (`client.geocoordinates`)
+`RequestOptions(timeout, retry)` applies to one call. `RetryPolicy(attempts=2, retry_unsent=True, retry_reads=False, backoff=0.2, max_backoff=5.0)`: requests that never reached the device are retried for every operation; with `retry_reads=True` read operations are also retried after timeouts or dropped connections; writes and actions are never resent once they may have arrived; HTTP and API errors are never retried. `NO_RETRY` disables retries.
+
+## Errors
+
+All derive from `DeviceError` (`ax_devil_device_api.errors`).
+
+```
+DeviceError
+ ConfigurationError
+ TransportError (.request_sent)
+   RequestTimeout: ConnectTimeout, ReadTimeout, WriteTimeout, PoolTimeout
+   TlsError, ConnectionFailed
+ AuthError
+ HttpError (.status, .body_excerpt)  -> HttpAccessDenied (403), HttpUnavailable (503)
+ ApiError (.api, .operation, .code, .message, .description, .kind, .http_status, .details)
+   -> ApiAccessDenied, ApiUnavailable
+ ResponseFormatError (.api, .operation, .reason)
+ NotSupported (.api, .operation, .reason, .required)
+ AccessDenied, Unavailable   categories; HttpAccessDenied/ApiAccessDenied and HttpUnavailable/ApiUnavailable also inherit these
+```
 
 ```python
-client.geocoordinates.get_location() -> dict
-client.geocoordinates.set_location(latitude=57.7, longitude=12.0) -> bool
-client.geocoordinates.get_orientation() -> dict    # heading, tilt, roll, installation_height
-client.geocoordinates.set_orientation({"heading": 45, "tilt": 5, "roll": 0, "installation_height": 3.0}) -> bool
-client.geocoordinates.apply_settings() -> bool
+from ax_devil_device_api.errors import AccessDenied, DeviceError, NotSupported, Unavailable
+
+try:
+    dev.apis.mqtt_client.activate_client()
+except AccessDenied: ...      # 403 or a documented authorization-failure code
+except Unavailable: ...       # 503 or a documented busy code
+except NotSupported as e: print(e.reason, e.required)
+except DeviceError as e: print(e)
 ```
 
-### SSHClient (`client.ssh`)
+## Observability
 
-SSH management requires HTTPS. The client resolves the released SSH
-Management API through authenticated Device Configuration discovery, caches
-its discovered REST API path, and does not fall back to beta or hardcoded
-paths. Successful mutations return `None`; reads validate strict DCA success
-envelopes and typed data.
+`on_request(record)` receives a redacted description of each outgoing request; `on_response(record)` receives one dict per attempt with `api`, `operation`, `method`, `path`, `status`, `error`, `duration_ms`, `attempt`. The `ax_devil_device_api` logger logs one DEBUG line per request attempt. Secrets are redacted. See `examples/06_debugging_and_lab_setups.py`.
+
+## Testing your code with MockCamera
 
 ```python
-client.ssh.get_users() -> list[dict]
-client.ssh.add_user("myuser", "mypass", comment="Service account")
-client.ssh.get_user("myuser") -> dict
-client.ssh.modify_user("myuser", password="newpass")
-client.ssh.remove_user("myuser")
+from ax_devil_device_api.testing import MockCamera
+
+camera = MockCamera()
+camera.identity(model="AXIS Q1656", firmware="11.9.0", serial="ACCC8E")
+camera.jsonrpc("/axis-cgi/mqtt/client.cgi", "getClientStatus",
+               data={"status": {"state": "active", "connectionStatus": "connected"}})
+with camera.device() as dev:           # or camera.async_device()
+    assert dev.apis.mqtt_client.get_client_status().status.state == "active"
+assert camera.calls("getClientStatus")
 ```
 
-### Device Configuration discovery (`client.discovery`)
+Registration: `identity(...)`, `api_list({id: version})`, `dca_apis({name: [versions]})`, `jsonrpc(path, method, data=..., error=(code, message), status=200, versions=None)` (`getSupportedVersions` is answered automatically), `rest(method, path, data=..., error=...)`, `cgi(path, text=..., match=..., content_type=..., status=..., method=...)`, `route(method, path, handler)` for a raw httpx handler, `fail(path, httpx_error_class, times=None)` to inject transport failures. A later registration for the same route overrides earlier ones; unmatched requests get 404. Paths are matched as the device sees them, so include `base_path` if you set one. Inspect `camera.requests` (`RecordedRequest`: `method`, `path`, `query`, `json`, `form`). `camera.device(host="camera.test", **kwargs)` defaults to credentials `("root", "pass")`. See `examples/09_testing_your_code.py`.
 
-```python
-collection = client.discovery.discover()
+## Not available yet
 
-# DiscoveredAPICollection methods
-apis = collection.get_all_apis()              # All discovered APIs (flat list)
-api = collection.get_api("api-name")          # Highest released SemVer
-api = collection.get_api("api-name", "v1")    # Specific version
-versions = collection.get_apis_by_name("api-name")  # All versions of an API
-
-# Without a released version, get_api("api-name") raises FeatureError.
-
-# DiscoveredAPI properties and methods
-api.rest_api_url                              # REST API endpoint URL
-api.rest_ui_url                               # Swagger UI URL
-api.get_documentation() -> str                # Markdown documentation
-api.get_documentation_html() -> str           # HTML documentation
-api.get_model() -> dict                       # JSON model
-api.get_openapi_spec() -> dict                # OpenAPI specification
-```
-
-### Classic VAPIX API Discovery (`client.classic_discovery`)
-
-Uses anonymous `POST /axis-cgi/apidiscovery.cgi` JSON requests. On the
-documented AXIS OS 9.80 and 10.12 exception, a `401` response advertising
-Basic or Digest triggers one authenticated retry. Other responses are never
-retried with credentials.
-
-```python
-client.classic_discovery.get_api_list(api_id="basic-device-info")
-client.classic_discovery.get_supported_versions()
-```
-
-### DataTransformationClient (`client.data_transformation`, v1beta)
-
-Configures jq-based transforms. This is a beta API and may be unavailable on older firmware.
-See the [official Data transformation API](https://developer.axis.com/vapix/device-configuration/data-transformation/).
-
-```python
-client.data_transformation.get_available_topics() -> list[dict]
-client.data_transformation.list_transforms() -> list[dict]
-client.data_transformation.create_transform(input_topic, output_topic, jq_expression)
-client.data_transformation.remove_transform(output_topic)
-```
-
-### DeviceDebugClient (`client.device_debug`)
-
-```python
-client.device_debug.download_server_report(mode="zip_with_image") -> bytes
-client.device_debug.download_crash_report() -> bytes
-client.device_debug.download_network_trace(duration=30, interface=None) -> bytes
-client.device_debug.collect_core_dump() -> bytes
-client.device_debug.ping_test("example.com") -> str
-client.device_debug.port_open_test("10.0.0.1", 8080) -> str
-```
-
-These are legacy CGI diagnostics. Server report `mode` is limited to `zip` and
-`zip_with_image`. The Python API keeps `zip_with_image` as its compatibility
-default; use `mode="zip"` for broad product support. Both return
-`application/zip`. The ZIP content-type and leading signature are
-representation guards, not full archive validation. Crash reports are
-nonempty gzip data, and network traces are nonempty classic PCAP or PCAPNG
-data. Network trace duration must be a positive integer. If supplied,
-`interface` must be a nonempty string. Its timeout is Requests' inactivity
-timeout plus grace for capture duration, not a hard deadline. Ping and TCP
-tests return raw text; TCP ports must be integers from 1 through 65535.
-
-`collect_core_dump()` is a legacy CGI operation that uses buffered,
-non-streaming I/O. It may remain active for a long time and buffers the full
-artifact before returning.
-
-### SystemReadyClient (`client.systemready`)
-
-```python
-client.systemready.systemready(timeout=20) -> dict
-client.systemready.get_supported_versions() -> list[str]
-```
-
-## Typical Python Workflows
-
-### Get device info
-
-```python
-from ax_devil_device_api import Client, DeviceConfig
-
-config = DeviceConfig.https(host="<device-ip>", username="<user>", password="<pass>")
-with Client(config) as client:
-    print(client.device.get_info())
-```
-
-### Take a snapshot and save to file
-
-```python
-with Client(config) as client:
-    jpeg = client.media.get_snapshot(resolution="1280x720")
-    with open("snapshot.jpg", "wb") as f:
-        f.write(jpeg)
-```
-
-### Set up analytics MQTT publishing
-
-```python
-with Client(config) as client:
-    # Configure broker and activate
-    client.mqtt_client.configure(host="<broker-ip>", port=1883)
-    client.mqtt_client.activate()
-
-    # Find available sources
-    sources = client.analytics_mqtt.get_data_sources()
-
-    # Create a publisher
-    client.analytics_mqtt.create_publisher(
-        id="my-pub",
-        data_source_key=sources[0]["key"],
-        mqtt_topic="my/analytics/topic",
-    )
-```
-
-### Check if device is ready (no auth)
-
-```python
-config = DeviceConfig.https(host="<device-ip>", username="", password="")
-with Client(config) as client:
-    result = client.systemready.systemready(timeout=30)
-    print(result)
-```
+Other VAPIX APIs (media, network, SSH, PTZ, events, ...), streaming downloads, WebSocket event sessions and the command-line interface are planned. The old 0.x `Client`, `DeviceConfig` and feature clients no longer exist.
