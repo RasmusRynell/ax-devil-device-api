@@ -16,7 +16,7 @@ _REDACTED = "<redacted>"
 _SECRET_KEY_RE = re.compile(
     r"(?:pass(?:word)?|passwd|pwd|secret|token|api[-_]?key|access[-_]?key|private[-_]?key|authorization|credential"
     r"|client[-_]?secret|cookie|shared[-_]?key|account[-_]?key|session[-_]?token|storage[-_]?key|sas[-_]?token"
-    r"|secret[-_]?access)",
+    r"|secret[-_]?access|authentication[-_]?key)",
     re.IGNORECASE,
 )
 _SECRET_EXACT = {

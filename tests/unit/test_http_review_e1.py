@@ -207,7 +207,7 @@ def test_known_charset_still_decodes() -> None:
     "name",
     ["pin", "puk", "oldPin", "newPin", "oldpin", "newpuk", "SimPIN", "sim_pin", "pin-code", "verifySimPin", "PUK",
      "passphrase", "wpaPassphrase", "psk", "preSharedKey", "community", "snmp_community", "apiKey", "api_key",
-     "apikey", "secret", "clientSecret", "token", "refreshToken"],
+     "apikey", "AuthenticationKey", "Port.I0.AuthenticationKey", "authentication_key", "secret", "clientSecret", "token", "refreshToken"],
 )
 def test_secret_names(name: str) -> None:
     assert is_secret_name(name)
