@@ -6,9 +6,11 @@ values and parse ``Response`` values without doing I/O.
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
+from urllib.parse import unquote
 
 from ..errors import ResponseFormatError
 
@@ -21,6 +23,26 @@ AuthPolicy = Literal["required", "anonymous", "if_challenged"]
 - ``if_challenged``: like ``required`` but never sends a pre-emptive credential,
   so devices that allow anonymous access are used anonymously.
 """
+
+
+_PATH_SEPARATORS = re.compile(r"[/\\]")
+
+
+def has_dot_segment(path: str) -> bool:
+    """Whether ``path`` has a ``.`` or ``..`` segment in any form a client, proxy or device may normalise.
+
+    Backslashes count as separators and percent-encoding is decoded layer by layer (``%2e%2e``, ``%252e%252e``);
+    a path that still changes after four layers is treated as hostile.
+    """
+    current = path
+    for _ in range(5):
+        if any(segment in (".", "..") for segment in _PATH_SEPARATORS.split(current)):
+            return True
+        decoded = unquote(current)
+        if decoded == current:
+            return False
+        current = decoded
+    return True
 
 
 class DeferredContent:
@@ -152,6 +174,8 @@ class Request:
             raise ValueError(f"Request path must be absolute: {self.path!r}")
         if "?" in self.path:
             raise ValueError(f"Request path must not contain a query; use query=: {self.path!r}")
+        if has_dot_segment(self.path):
+            raise ValueError(f"Request path must not contain '.' or '..' segments: {self.path!r}")
 
     @property
     def replayable(self) -> bool:

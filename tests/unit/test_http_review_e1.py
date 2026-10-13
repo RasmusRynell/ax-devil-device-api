@@ -221,3 +221,36 @@ def test_secret_names(name: str) -> None:
 )
 def test_names_that_merely_contain_pin_are_not_secrets(name: str) -> None:
     assert not is_secret_name(name)
+
+
+# --- dot segments in user-supplied URL paths -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "base_path",
+    ["/vms/camera/../admin", "/a/./b", "/..", "/a/%2e%2e/b", "/a/%2E%2e", "/a/%252e%252e/b", "/a//b", "/a\\..\\b", "/a/..%2f"],
+)
+def test_base_path_rejects_dot_and_empty_segments(base_path: str) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError):
+        ConnectionConfig("cam", base_path=base_path)
+
+
+@pytest.mark.parametrize("base_path", ["", "/vms/camera-1", "/a.b/c..d", "/v1.2/x"])
+def test_ordinary_base_paths_are_kept(base_path: str) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+
+    assert ConnectionConfig("cam", base_path=base_path).base_path == base_path
+
+
+@pytest.mark.parametrize("path", ["/a/../b", "/a/%2e%2e/b", "/a/./b"])
+def test_request_and_rtsp_paths_reject_dot_segments(path: str) -> None:
+    from ax_devil_device_api.errors import ConfigurationError
+    from ax_devil_device_api.rtsp import build_rtsp_url
+
+    with pytest.raises(ValueError):
+        Request("GET", path)
+    with pytest.raises(ConfigurationError):
+        build_rtsp_url("cam", path=path)

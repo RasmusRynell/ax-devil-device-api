@@ -10,6 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from ..errors import ConfigurationError
 from .options import RetryPolicy
+from .types import has_dot_segment
 
 
 def _redact_userinfo(url: str) -> str:
@@ -98,6 +99,8 @@ class ConnectionConfig:
             raise ConfigurationError(f"Invalid port: {self.port}")
         if self.base_path and (not self.base_path.startswith("/") or self.base_path.endswith("/") or "?" in self.base_path or "#" in self.base_path):
             raise ConfigurationError("base_path must start with '/', not end with '/', and contain no query or fragment")
+        if self.base_path and (has_dot_segment(self.base_path) or "//" in self.base_path or "\\" in self.base_path):
+            raise ConfigurationError("base_path must not contain '.', '..' or empty segments (also percent-encoded)")
         if self.timeout <= 0:
             raise ConfigurationError("timeout must be positive")
         if self.max_concurrency < 1 or self.max_streams < 1:
