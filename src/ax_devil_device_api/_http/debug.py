@@ -16,14 +16,37 @@ _SECRET_KEY_RE = re.compile(
     r"(?:pass(?:word)?|passwd|pwd|secret|token|api[-_]?key|access[-_]?key|private[-_]?key|authorization|credential|client[-_]?secret|cookie)",
     re.IGNORECASE,
 )
+_SECRET_EXACT = {"sas", "sig", "psk", "signature", "sastoken", "sas_token"}
+_SECRET_KEY_RE_EXTRA = re.compile(
+    r"(?:shared[-_]?key|account[-_]?key|session[-_]?token|storage[-_]?key|sas[-_]?token|secret[-_]?access)", re.IGNORECASE
+)
+_URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>]+")
+_extra_secret_names: set[str] = set()
 _SECRET_TEXT_RE = re.compile(
     r"(?i)(\b(?:password|passwd|pwd|secret|token|api[-_]?key|access[-_]?key|private[-_]?key|authorization|credential|client[-_]?secret)\b\s*[:=]\s*)([^,\s}]+)|\b(Bearer)\s+([^,\s}]+)"
 )
 
 
+def register_secret_names(names: Any) -> None:
+    """Treat these wire names (from ``x-masked`` in the specs) as secrets everywhere in request records."""
+    _extra_secret_names.update(str(n).lower() for n in names)
+
+
 def _is_secret_key(key: Any) -> bool:
     """Return whether a mapping key commonly identifies a secret."""
-    return bool(_SECRET_KEY_RE.search(str(key)))
+    text = str(key)
+    return bool(
+        _SECRET_KEY_RE.search(text)
+        or _SECRET_KEY_RE_EXTRA.search(text)
+        or text.lower() in _SECRET_EXACT
+        or text.lower() in _extra_secret_names
+    )
+
+
+def _redact_text(text: str) -> str:
+    """Redact credentials in URLs embedded in free text, then ``key=value`` secrets."""
+    text = _URL_RE.sub(lambda m: redact_url(m.group(0)), text)
+    return _SECRET_TEXT_RE.sub(lambda m: f"{m.group(1) or m.group(3)}{_REDACTED}", text)
 
 
 def redact_url(url: str) -> str:
@@ -58,7 +81,7 @@ def serialize(value: Any, key: Any = None) -> Any:
         try:
             decoded = json.loads(value)
         except (TypeError, ValueError):
-            return _SECRET_TEXT_RE.sub(lambda m: f"{m.group(1) or m.group(3)}{_REDACTED}", value)
+            return _redact_text(value)
         if isinstance(decoded, (dict, list)):
             return json.dumps(serialize(decoded, key))
         return value
