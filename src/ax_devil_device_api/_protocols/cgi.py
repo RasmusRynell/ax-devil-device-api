@@ -22,7 +22,7 @@ from urllib.parse import quote
 from pydantic_core import to_json
 
 from .._http.types import AuthPolicy, FormBody, MultipartBody, RawBody, Request, Response
-from .._http.upload import UploadSpec, file_part, resolve_upload
+from .._http.upload import UploadSpec, deferred_upload, file_part
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
@@ -517,7 +517,8 @@ def _build(op: Operation[CgiBinding], params: Model | None, values: Mapping[str,
         if value is not None:
             spec = next((u for u in binding.uploads if u.field == binding.body_field), None)
             if spec is not None:
-                content, size, _, ctype = resolve_upload(value, filename=None, content_type=spec.content_type)
+                content, _, ctype = deferred_upload(value, filename=None, content_type=spec.content_type)
+                size = len(content) if isinstance(content, bytes) else None
                 body = RawBody(content, given or ctype or binding.content_type or "application/octet-stream", size=size)
             else:
                 body = RawBody(_body_bytes(value), given or binding.content_type or "application/octet-stream")

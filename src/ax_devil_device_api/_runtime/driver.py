@@ -17,7 +17,7 @@ from typing import Any, Generic, Protocol, TypeVar
 
 from .._http.config import ResponseHook
 from .._http.options import RetryPolicy
-from .._http.types import Request, Response
+from .._http.types import Request, Response, has_deferred, resolve_deferred
 from .._protocols.base import CallFlow, Operation, StreamDecoder
 from ..errors import ConnectionFailed, ReadTimeout, TransportError
 
@@ -126,6 +126,15 @@ class Call:
     on_response: ResponseHook | None = None
 
     def prepare(self, request: Request) -> Request:
+        """Apply the call timeout and read deferred upload content (blocking)."""
+        return resolve_deferred(self._timed(request))
+
+    async def aprepare(self, request: Request) -> Request:
+        """``prepare`` for async calls: deferred upload content is read in a worker thread."""
+        request = self._timed(request)
+        return await asyncio.to_thread(resolve_deferred, request) if has_deferred(request) else request
+
+    def _timed(self, request: Request) -> Request:
         return replace(request, timeout=self.timeout) if self.timeout is not None else request
 
     def should_retry(self, request: Request, error: TransportError, attempt: int) -> bool:
@@ -187,6 +196,11 @@ def _send_sync(transport: SyncTransportLike, request: Request, call: Call) -> Re
             time.sleep(call.retry.delay(attempt))
             attempt += 1
             continue
+        except Exception as error:
+            # Not a transport failure (e.g. AuthError from the credentials check): never retried,
+            # but the attempt still gets its record.
+            call.observe(request, None, error, started, attempt)
+            raise
         call.observe(request, response, None, started, attempt)
         return response
 
@@ -204,6 +218,9 @@ async def _send_async(transport: AsyncTransportLike, request: Request, call: Cal
             await asyncio.sleep(call.retry.delay(attempt))
             attempt += 1
             continue
+        except Exception as error:
+            call.observe(request, None, error, started, attempt)
+            raise
         call.observe(request, response, None, started, attempt)
         return response
 
@@ -241,6 +258,9 @@ def _finish_stream_sync(transport: SyncTransportLike, flow: CallFlow[Any], reque
                 time.sleep(call.retry.delay(attempt))
                 attempt += 1
                 continue
+            except Exception as error:
+                call.observe(request, None, error, started, attempt)
+                raise
             break
         call.observe(request, response, None, started, attempt)
         try:
@@ -265,7 +285,7 @@ async def run_async(transport: AsyncTransportLike, flow: CallFlow[Any], call: Ca
     except StopIteration as done:
         return done.value
     while True:
-        request = call.prepare(request)
+        request = await call.aprepare(request)
         if request.stream:
             return await _finish_stream_async(transport, flow, request, call)
         response = await _send_async(transport, request, call)
@@ -290,6 +310,9 @@ async def _finish_stream_async(transport: AsyncTransportLike, flow: CallFlow[Any
                 await asyncio.sleep(call.retry.delay(attempt))
                 attempt += 1
                 continue
+            except Exception as error:
+                call.observe(request, None, error, started, attempt)
+                raise
             break
         call.observe(request, response, None, started, attempt)
         try:

@@ -498,6 +498,9 @@ def connect_session(
             time.sleep(call.retry.delay(attempt))
             attempt += 1
             continue
+        except Exception as error:
+            call.observe(request, None, error, started, attempt)  # e.g. AuthError: still one record
+            raise
         call.observe(request, response, None, started, attempt)
         break
     core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
@@ -667,6 +670,9 @@ async def connect_session_async(
             await asyncio.sleep(call.retry.delay(attempt))
             attempt += 1
             continue
+        except Exception as error:
+            call.observe(request, None, error, started, attempt)  # e.g. AuthError: still one record
+            raise
         call.observe(request, response, None, started, attempt)
         break
     core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
