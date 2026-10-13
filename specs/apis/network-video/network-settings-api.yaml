@@ -2090,7 +2090,7 @@ operations:
       type: object
       required:
       - deviceName
-      x-masked: [password]
+      x-masked: [mkaCak, password]
       properties:
         deviceName:
           type: string

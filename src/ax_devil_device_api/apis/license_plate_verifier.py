@@ -371,11 +371,13 @@ class GetStatisticsRequest(Model):
 
 
 class Set2nConfigRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"config"})
     config: str
     """The <tn_config> XML document (url, user, password, enable, https, accessPoint, event_on_direction)."""
 
 
 class SetGenetecConfigRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"config"})
     config: str
     """The <gsc_config> XML document (url, user, password, enable, cameraID)."""
 
@@ -390,12 +392,14 @@ class GetPushConfigRequest(Model):
 
 
 class SetPushConfigRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"config"})
     profile: PushProfile
     config: str
     """The <cloud_config> XML document."""
 
 
 class SetHeartbeatConfigRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"config"})
     config: str
     """The <hb_config> XML document: url (base64), user, password (base64), period (5, 10, 30, 60 or 1440 minutes), enable, x_auth_key, http_auth_type."""
 

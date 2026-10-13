@@ -94,7 +94,7 @@ types:
     description: Arguments of ``install_from_pkcs12``.
     required: [alias, pkcs12]
     x-nullable: [keystore]
-    x-masked: [passphrase]
+    x-masked: [passphrase, pkcs12]
     properties:
       alias: {$ref: '#/types/Alias', description: New identifier for this certificate.}
       pkcs12: {type: string, description: 'The raw data for the PKCS12 archive, base64-encoded.'}

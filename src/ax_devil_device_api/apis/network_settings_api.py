@@ -672,7 +672,7 @@ class SetIpv6AddressConfigurationRequest(Model):
 
 
 class SetWired8021xConfigurationRequest(Model):
-    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
+    __masked__: ClassVar[frozenset[str]] = frozenset({"mka_cak", "password"})
     device_name: str = Field(validation_alias="deviceName", serialization_alias="deviceName")
     """The name of the network interface device; see get_network_info."""
     enabled: bool | None = None

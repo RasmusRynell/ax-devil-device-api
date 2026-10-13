@@ -7,6 +7,8 @@ Docs: https://developer.axis.com/vapix/network-video/oak-api/
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
@@ -17,6 +19,7 @@ from ._base import AsyncApi, SyncApi
 
 
 class OakResult(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"oak"})
     oak: str
     """The owner authentication key."""
 

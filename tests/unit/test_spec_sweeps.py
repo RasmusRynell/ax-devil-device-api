@@ -47,8 +47,11 @@ def test_json_rpc_version_negotiation_of_anonymous_apis_is_challenge_only(api: s
 
 
 _SECRET_NAME = re.compile(
-    r"(?i)^(.*pass(word|phrase|wd)|pwd|pass|(old|new)?pin|puk|psk|.*secret|.*community|.*private_?key|.*srtp_?key)$"
+    r"(?i)^(.*pass(word|phrase|wd)|pwd|pass|(old|new)?pin|puk|psk|.*secret|.*community|.*private_?key|.*srtp_?key|.*pkcs12|.*pfx|oak|license_?key|.*mka_?cak)$"
 )
+# Payload fields that carry key material or secrets are recognised by their description as well.
+_SECRET_TEXT = re.compile(r"(?i)pkcs ?#?12|\bpfx\b|private key|\bpassword\b|owner authentication key|\bsecret\b|\bCAK\b")
+_NOT_SECRET_TEXT = re.compile(r"(?i)\b(public|whether|identifies?|ids?|name|token|chain)\b|^$")
 # Not secret values despite the name: counters, flags, policies, lengths.
 _NOT_A_VALUE = re.compile(r"(?i)(retries|length|timeout|set|policy|complexity|enabled|keep_existing|required)$")
 
@@ -60,7 +63,9 @@ def test_credential_fields_are_masked() -> None:
         for model in _models(module):
             for name, field in model.model_fields.items():
                 alias = field.alias or name
-                if not (_SECRET_NAME.match(name) or _SECRET_NAME.match(alias)):
+                text = field.description or ""
+                by_text = bool(_SECRET_TEXT.search(text)) and not _NOT_SECRET_TEXT.search(text)
+                if not (_SECRET_NAME.match(name) or _SECRET_NAME.match(alias) or by_text):
                     continue
                 if _NOT_A_VALUE.search(name) or "str" not in repr(field.annotation):
                     continue

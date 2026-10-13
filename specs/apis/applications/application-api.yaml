@@ -373,6 +373,7 @@ operations:
     params:
       type: object
       required: [package, license_key]
+      x-masked: [license_key]
       properties:
         package: {type: string, x-in: query, description: The name of the application package to which the license key belongs.}
         license_key:

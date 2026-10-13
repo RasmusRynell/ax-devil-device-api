@@ -1172,6 +1172,7 @@ operations:
     params:
       type: object
       required: [config]
+      x-masked: [config]
       properties:
         config:
           type: string
@@ -1208,6 +1209,7 @@ operations:
     params:
       type: object
       required: [config]
+      x-masked: [config]
       properties:
         config:
           type: string
@@ -1339,6 +1341,7 @@ operations:
     params:
       type: object
       required: [profile, config]
+      x-masked: [config]
       properties:
         profile: {$ref: '#/types/PushProfile'}
         config:
@@ -1392,6 +1395,7 @@ operations:
     params:
       type: object
       required: [config]
+      x-masked: [config]
       properties:
         config:
           type: string

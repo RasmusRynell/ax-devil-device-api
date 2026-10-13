@@ -102,7 +102,7 @@ class InstallFromPkcs12Request(Model):
     """Arguments of ``install_from_pkcs12``."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"keystore"})
-    __masked__: ClassVar[frozenset[str]] = frozenset({"passphrase"})
+    __masked__: ClassVar[frozenset[str]] = frozenset({"passphrase", "pkcs12"})
     alias: Alias
     """New identifier for this certificate."""
     pkcs12: str

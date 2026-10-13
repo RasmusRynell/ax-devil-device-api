@@ -35,6 +35,7 @@ types:
   OakResult:
     type: object
     required: [oak]
+    x-masked: [oak]
     properties:
       oak: {type: string, description: The owner authentication key.}
 

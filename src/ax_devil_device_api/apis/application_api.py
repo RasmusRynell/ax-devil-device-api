@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/applications/application-api/
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import MISSING, Field
 
@@ -133,6 +133,7 @@ class UploadApplicationRequest(Model):
 
 
 class UploadLicenseKeyRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"license_key"})
     package: str
     """The name of the application package to which the license key belongs."""
     license_key: UploadSource = Field(exclude=True, repr=False)
