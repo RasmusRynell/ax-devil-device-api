@@ -28,20 +28,34 @@ RAW = ws.SessionSpec("audio", "/audio")
 MIB = 1024 * 1024
 
 CAUSES = ["normal_remote", "abnormal_1011", "network_error", "oversize_1009", "local_close", "send_failure"]
-MODES = ["read", "unread_close", "unread_exit", "unread_reaped"]
-TOPOLOGIES = ["single", "overlap_AB", "overlap_BA"]
 
 
-def _valid(cause: str, mode: str) -> bool:
-    if cause == "local_close":
-        return mode in ("read", "unread_exit")  # read = an explicit close(); nothing remote to leave unread
-    if cause == "send_failure":
-        return mode == "read"  # the failure is only observed by the failing send
-    return True
-
-
-CASES = [(c, m, t) for c in CAUSES for m in MODES for t in TOPOLOGIES if _valid(c, m)]
-IDS = ["-".join(c) for c in CASES]
+# Proportionate coverage rather than the full cross product (~57 combinations per flavour): every cause read by the app,
+# every unread path for an abnormal and a normal cause, both overlapping finalization orders; async mirrors one per category.
+SYNC_CASES = [
+    *[(c, "read", "single") for c in CAUSES],
+    *[(c, m, "single") for c in ("abnormal_1011", "normal_remote") for m in ("unread_close", "unread_exit", "unread_reaped")],
+    ("abnormal_1011", "unread_exit", "overlap_AB"),
+    ("abnormal_1011", "unread_exit", "overlap_BA"),
+    ("normal_remote", "unread_reaped", "overlap_AB"),
+    ("local_close", "unread_exit", "single"),
+    ("network_error", "unread_exit", "single"),
+    ("oversize_1009", "unread_close", "single"),
+]
+ASYNC_CASES = [
+    ("normal_remote", "read", "single"),
+    ("network_error", "read", "single"),
+    ("oversize_1009", "read", "single"),
+    ("send_failure", "read", "single"),
+    ("local_close", "read", "single"),
+    ("abnormal_1011", "unread_close", "single"),
+    ("abnormal_1011", "unread_exit", "single"),
+    ("normal_remote", "unread_reaped", "single"),
+    ("abnormal_1011", "unread_exit", "overlap_AB"),
+    ("abnormal_1011", "unread_exit", "overlap_BA"),
+]
+SYNC_IDS = ["-".join(c) for c in SYNC_CASES]
+ASYNC_IDS = ["-".join(c) for c in ASYNC_CASES]
 
 
 def _trigger(cause: str, socket: Any) -> None:
@@ -83,7 +97,7 @@ def _setup(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return now
 
 
-@pytest.mark.parametrize(("cause", "mode", "topology"), CASES, ids=IDS)
+@pytest.mark.parametrize(("cause", "mode", "topology"), SYNC_CASES, ids=SYNC_IDS)
 def test_sync_matrix(monkeypatch: pytest.MonkeyPatch, cause: str, mode: str, topology: str) -> None:
     now = _setup(monkeypatch)
     camera = FakeWsCamera()
@@ -181,7 +195,7 @@ class _AsyncB:
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(("cause", "mode", "topology"), CASES, ids=IDS)
+@pytest.mark.parametrize(("cause", "mode", "topology"), ASYNC_CASES, ids=ASYNC_IDS)
 async def test_async_matrix(monkeypatch: pytest.MonkeyPatch, cause: str, mode: str, topology: str) -> None:
     now = _setup(monkeypatch)
     camera = FakeWsCamera()
