@@ -131,10 +131,12 @@ async def test_async_timed_out_or_cancelled_request_releases_the_lock() -> None:
 
 
 @pytest.mark.anyio
-async def test_async_waiting_for_the_turn_counts_against_the_timeout() -> None:
+async def test_async_an_outstanding_request_does_not_block_another() -> None:
+    # Replaces the earlier "waiting for the turn" test: requests are multiplexed now (see test_thread_fixes_round23).
     camera = FakeWsCamera(handler=_async_handler)
     async with AsyncDevice("cam.test", credentials=("root", "pass"), transport=camera.async_transport()) as dev:
         async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+
             async def hold() -> None:
                 with pytest.raises(ReadTimeout):
                     await session.request("silent", {}, timeout=1)
@@ -143,9 +145,8 @@ async def test_async_waiting_for_the_turn_counts_against_the_timeout() -> None:
                 tg.start_soon(hold)
                 await anyio.sleep(0.05)
                 started = time.monotonic()
-                with pytest.raises(ReadTimeout):
-                    await session.request("fast", {}, timeout=0.2)
-                assert time.monotonic() - started < 0.6
+                assert await session.request("fast", {}, timeout=0.5) == {"m": "fast"}
+                assert time.monotonic() - started < 0.4
 
 
 def test_sync_timed_out_request_releases_the_lock() -> None:

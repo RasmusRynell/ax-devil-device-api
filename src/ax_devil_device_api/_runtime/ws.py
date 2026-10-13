@@ -111,8 +111,8 @@ class SessionSpec:
     def bind(self, values: Mapping[str, Any]) -> SessionSpec:
         """A copy with the ``{name}`` placeholders of ``path`` filled in (percent-encoded, one path segment each)."""
         for name, value in values.items():
-            if str(value) in (".", ".."):
-                raise ValueError(f"{self.api_id}: path parameter {name!r} must not be {str(value)!r} (dot segments change the endpoint)")
+            if str(value) in ("", ".", ".."):
+                raise ValueError(f"{self.api_id}: {name}={str(value)!r} is not a valid path segment")
         try:
             path = self.path.format(**{name: quote(str(value), safe="") for name, value in values.items()})
         except KeyError as missing:
@@ -254,6 +254,23 @@ class SessionLedger:
 
 NO_MESSAGE: Any = object()
 """Private marker for "no complete message yet" (control frame, unfinished fragment); never a real message, ``None`` included."""
+
+
+class _Slot:
+    """The outcome of one outstanding request, filled in by whoever reads its reply."""
+
+    def __init__(self, method: str) -> None:
+        self.method = method
+        self.done = False
+        self.value: Any = None
+        self.error: Exception | None = None
+
+    def poll(self) -> Any:
+        if not self.done:
+            return NO_MESSAGE
+        if self.error is not None:
+            raise self.error
+        return self.value
 
 
 class _Core:
@@ -424,16 +441,20 @@ class _Core:
         self.failure = error  # the terminal event is queued once: later reads raise this again
         return error
 
-    def reply_for(self, message: Any, request_id: str, method: str) -> tuple[bool, Any]:
-        """Whether ``message`` answers ``request_id``; raises the API error if it carries one."""
+    def dispatch(self, message: Any, waiters: dict[str, _Slot]) -> None:
+        """Route one decoded frame: the reply to a registered request goes to that request, everything else
+        (notifications, unmatched replies, other frames) is queued for ``receive()`` / ``notifications()``."""
         codec = self.spec.codec
-        assert codec is not None
-        kind = codec.classify(message)
-        if isinstance(kind, Reply) and kind.request_id == request_id:
-            if kind.error is not None:
-                raise api_error(codec, method, kind.error)
-            return True, kind.result
-        return False, None
+        kind = codec.classify(message) if codec is not None else None
+        if isinstance(kind, Reply) and kind.request_id in waiters:
+            slot = waiters[kind.request_id]
+            if kind.error is not None and codec is not None:
+                slot.error = api_error(codec, slot.method, kind.error)
+            else:
+                slot.value = kind.result
+            slot.done = True
+            return
+        self.pending.append(message)
 
     def notification(self, message: Any) -> Notification | None:
         codec = self.spec.codec
@@ -494,9 +515,11 @@ def _setup_requests(spec: SessionSpec, options: Mapping[str, Any]) -> Sequence[t
 
 def _token_flow(spec: SessionSpec) -> CallFlow[str]:
     response = yield Request("GET", spec.token_path, accept="text/plain")
+    if response.status != 200:
+        raise refusal_error(spec, response)  # judged by status first: an error page is never decoded as a token
     token = response.text.strip()
-    if response.status != 200 or not token:
-        raise refusal_error(spec, response) if response.status != 200 else ResponseFormatError(
+    if not token:
+        raise ResponseFormatError(
             spec.api_id, "wssession", "the device returned an empty session token"
         )
     return token
@@ -518,7 +541,9 @@ class Session:
     def __init__(self, raw: httpx_ws.WebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
-        self._request_lock = threading.Lock()
+        self._cond = threading.Condition()
+        self._reading = False
+        self._waiters: dict[str, _Slot] = {}
         core.watch_reader(raw)
 
     @property
@@ -550,9 +575,38 @@ class Session:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
         core = self._core
         _check_receive_timeout(timeout)
-        if core.pending:
-            return core.pending.popleft()
-        return self._read(timeout)
+        return self._await(lambda: core.pending.popleft() if core.pending else NO_MESSAGE, timeout)
+
+    def _await(self, poll: Callable[[], Any], timeout: float | None) -> Any:
+        """Wait until ``poll()`` yields something other than ``NO_MESSAGE``.
+
+        Reads go through one reader at a time (``_reading``): whoever finds nobody reading reads the next frame and
+        dispatches it (a reply to its request, a notification to the queue, ...); the others wait to be woken.
+        An error that ends the session is raised by whichever reader meets it, and wakes the rest, which meet it too.
+        """
+        core = self._core
+        deadline = None if timeout is None else time.monotonic() + timeout
+        with self._cond:
+            while True:
+                found = poll()
+                if found is not NO_MESSAGE:
+                    return found
+                remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+                if self._reading:
+                    if remaining == 0:
+                        raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s")
+                    self._cond.wait(remaining)
+                    continue
+                self._reading = True
+                self._cond.release()
+                try:
+                    frame = self._read(remaining)
+                finally:
+                    self._cond.acquire()
+                    self._reading = False
+                    self._cond.notify_all()
+                core.dispatch(frame, self._waiters)
+                self._cond.notify_all()
 
     def _read(self, timeout: float | None) -> Any:
         core = self._core
@@ -598,26 +652,16 @@ class Session:
         if timeout is not None:
             RequestOptions(timeout=timeout)  # positive and finite, like every other timeout; nothing is sent otherwise
         limit = core.default_timeout if timeout is None else timeout
-        deadline = time.monotonic() + limit
-        # One request at a time: with several outstanding, each could consume the other's reply. Waiting for
-        # the turn counts against the caller's timeout; the lock is released however the request ends.
-        if not self._request_lock.acquire(timeout=limit):
-            raise ReadTimeout(f"{core.spec.api_id}: another request was still waiting for its reply for {limit} s")
-        try:
+        slot = _Slot(method)
+        with self._cond:
             request_id, message = core.request_message(method, params)
+            self._waiters[request_id] = slot  # registered before the request is sent, so its reply cannot be missed
+        try:
             self.send(message)
-            skipped: list[Any] = []
-            try:
-                while True:
-                    incoming = self._read(max(0.0, deadline - time.monotonic()))
-                    matched, result = core.reply_for(incoming, request_id, method)
-                    if matched:
-                        return result
-                    skipped.append(incoming)
-            finally:
-                core.pending.extend(skipped)
+            return self._await(slot.poll, limit)
         finally:
-            self._request_lock.release()
+            with self._cond:
+                self._waiters.pop(request_id, None)
 
     def __iter__(self) -> Iterator[Any]:
         while True:
@@ -715,7 +759,9 @@ class AsyncSession:
     def __init__(self, raw: httpx_ws.AsyncWebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
-        self._request_lock = asyncio.Lock()
+        self._reading = False
+        self._changed = asyncio.Event()
+        self._waiters: dict[str, _Slot] = {}
         core.watch_reader(raw)
 
     @property
@@ -747,9 +793,40 @@ class AsyncSession:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
         core = self._core
         _check_receive_timeout(timeout)
-        if core.pending:
-            return core.pending.popleft()
-        return await self._read(timeout)
+        return await self._await(lambda: core.pending.popleft() if core.pending else NO_MESSAGE, timeout)
+
+    def _wake(self) -> None:
+        changed, self._changed = self._changed, asyncio.Event()
+        changed.set()
+
+    async def _await(self, poll: Callable[[], Any], timeout: float | None) -> Any:
+        """Async counterpart of ``Session._await`` (one reader at a time; the loop is single-threaded, so the
+        checks and the hand-over need no lock)."""
+        core = self._core
+        loop = asyncio.get_running_loop()
+        deadline = None if timeout is None else loop.time() + timeout
+        while True:
+            found = poll()
+            if found is not NO_MESSAGE:
+                return found
+            remaining = None if deadline is None else max(0.0, deadline - loop.time())
+            if self._reading:
+                if remaining == 0:
+                    raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s")
+                changed = self._changed
+                try:
+                    await asyncio.wait_for(changed.wait(), remaining)
+                except TimeoutError:
+                    pass  # re-poll once; the deadline check above raises
+                continue
+            self._reading = True
+            try:
+                frame = await self._read(remaining)
+            finally:
+                self._reading = False
+                self._wake()
+            core.dispatch(frame, self._waiters)
+            self._wake()
 
     async def _next_event(self, remaining: float | None) -> wsproto.events.Event:
         """The next wsproto event. With nothing left to wait (0) the buffer is only looked at, never awaited:
@@ -812,27 +889,14 @@ class AsyncSession:
         if timeout is not None:
             RequestOptions(timeout=timeout)
         limit = core.default_timeout if timeout is None else timeout
-        loop = asyncio.get_running_loop()
-        deadline = loop.time() + limit
-        try:  # one request at a time (see Session.request); the wait for the turn counts against the timeout
-            await asyncio.wait_for(self._request_lock.acquire(), limit)
-        except TimeoutError:
-            raise ReadTimeout(f"{core.spec.api_id}: another request was still waiting for its reply for {limit} s") from None
+        request_id, message = core.request_message(method, params)
+        slot = _Slot(method)
+        self._waiters[request_id] = slot  # registered before the request is sent, so its reply cannot be missed
         try:
-            request_id, message = core.request_message(method, params)
             await self.send(message)
-            skipped: list[Any] = []
-            try:
-                while True:
-                    incoming = await self._read(max(0.0, deadline - loop.time()))
-                    matched, result = core.reply_for(incoming, request_id, method)
-                    if matched:
-                        return result
-                    skipped.append(incoming)
-            finally:
-                core.pending.extend(skipped)
+            return await self._await(slot.poll, limit)
         finally:
-            self._request_lock.release()
+            self._waiters.pop(request_id, None)
 
     async def __aiter__(self) -> AsyncIterator[Any]:
         while True:
