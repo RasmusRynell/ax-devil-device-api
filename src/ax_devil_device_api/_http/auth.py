@@ -282,6 +282,11 @@ class AxisAuth:
         return self._verified is not None
 
     @property
+    def uses_password(self) -> bool:
+        """Whether requests are signed with a password (Digest/Basic), as opposed to a token or nothing."""
+        return isinstance(self._credentials, Credentials)
+
+    @property
     def needs_verification(self) -> bool:
         """Whether a one-shot body would fail now: password credentials with no verified state."""
         return isinstance(self._credentials, Credentials) and self._verified is None
@@ -308,6 +313,11 @@ class _Flow(httpx.Auth):
     def _bearer_flow(
         self, token: BearerToken, request: httpx.Request
     ) -> Generator[httpx.Request, httpx.Response, None]:
+        if self._policy == "if_challenged" and self._replayable:
+            # Never pre-emptive: probe anonymously and send the token only if the device asks for credentials.
+            response = yield request
+            if response.status_code != 401 or not response.headers.get_list("www-authenticate"):
+                return
         request.headers["Authorization"] = f"Bearer {token.current()}"
         response = yield request
         if response.status_code != 401:

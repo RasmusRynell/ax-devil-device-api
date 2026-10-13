@@ -30,6 +30,10 @@ class RetryPolicy:
     def __post_init__(self) -> None:
         if self.attempts < 1:
             raise ValueError("attempts must be at least 1")
+        if not self.backoff >= 0:
+            raise ValueError("backoff must not be negative")
+        if not self.max_backoff >= 0:
+            raise ValueError("max_backoff must not be negative")
 
     def delay(self, retry_number: int) -> float:
         """Delay before retry ``retry_number`` (1 = first retry)."""

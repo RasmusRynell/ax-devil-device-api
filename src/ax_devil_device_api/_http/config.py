@@ -4,11 +4,23 @@ from __future__ import annotations
 
 import ssl
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from ..errors import ConfigurationError
 from .options import RetryPolicy
+
+
+def _redact_userinfo(url: str) -> str:
+    """``url`` with any ``user:password@`` part replaced by ``<redacted>@``."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "<redacted>"
+    if "@" not in parts.netloc:
+        return url
+    return urlunsplit(parts._replace(netloc="<redacted>@" + parts.netloc.rpartition("@")[2]))
 
 
 @dataclass(frozen=True)
@@ -84,8 +96,8 @@ class ConnectionConfig:
             raise ConfigurationError("HTTP sends credentials and data unencrypted; pass allow_http=True to use it")
         if self.port is not None and not (0 < self.port < 65536):
             raise ConfigurationError(f"Invalid port: {self.port}")
-        if self.base_path and (not self.base_path.startswith("/") or self.base_path.endswith("/") or "?" in self.base_path):
-            raise ConfigurationError("base_path must start with '/', not end with '/', and contain no query")
+        if self.base_path and (not self.base_path.startswith("/") or self.base_path.endswith("/") or "?" in self.base_path or "#" in self.base_path):
+            raise ConfigurationError("base_path must start with '/', not end with '/', and contain no query or fragment")
         if self.timeout <= 0:
             raise ConfigurationError("timeout must be positive")
         if self.max_concurrency < 1 or self.max_streams < 1:
@@ -94,6 +106,15 @@ class ConnectionConfig:
             raise ConfigurationError("verify must be a bool, a CA bundle path, or an ssl.SSLContext")
         if isinstance(self.credentials, BearerToken) and self.scheme == "http":
             raise ConfigurationError("Bearer tokens are sent in clear text over HTTP; use HTTPS")
+
+    def __repr__(self) -> str:
+        parts = []
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if f.name == "proxy" and value is not None:
+                value = _redact_userinfo(value)
+            parts.append(f"{f.name}={value!r}")
+        return f"ConnectionConfig({', '.join(parts)})"
 
     @property
     def base_url(self) -> str:

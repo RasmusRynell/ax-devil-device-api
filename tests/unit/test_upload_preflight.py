@@ -23,6 +23,7 @@ class Camera:
         self.password = password
         self.preflight_status = preflight_status
         self.seen: list[tuple[str, str, bool, bytes]] = []  # method, path, authorized, body
+        self.stale = False  # the next authorized request is answered 401 once (expired nonce)
 
     def _valid(self, request: httpx.Request, auth: str) -> bool:
         f = {m[0]: m[1] or m[2] for m in re.findall(r'(\w+)=(?:"([^"]*)"|([^,\s]+))', auth)}
@@ -34,6 +35,9 @@ class Camera:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         auth = request.headers.get("authorization")
         ok = auth is not None and self._valid(request, auth)
+        if ok and self.stale and request.url.path == PREFLIGHT_PATH:
+            self.stale = False
+            ok = False
         self.seen.append((request.method, request.url.path, auth is not None, request.content))
         if not ok:
             return httpx.Response(401, headers={"WWW-Authenticate": CHALLENGE})
@@ -64,22 +68,34 @@ def test_streamed_upload_verifies_first_then_streams_once() -> None:
     assert post[2] and post[3] == b"abcd"  # sent once, signed, with the whole body
 
 
-def test_verified_credentials_skip_the_preflight() -> None:
+def test_verified_credentials_are_reverified_before_every_one_shot_body() -> None:
     cam = Camera()
     with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
         t.send(Request("GET", "/other"))
         cam.seen.clear()
         t.send(upload())
         t.send(upload([b"x"]))
-    assert cam.paths == [("POST", "/up"), ("POST", "/up")]
+    assert cam.paths == [("GET", PREFLIGHT_PATH), ("POST", "/up")] * 2
 
 
-def test_preflight_runs_once_for_consecutive_uploads() -> None:
+def test_stale_nonce_is_renewed_by_the_preflight_not_the_body() -> None:
+    cam = Camera()
+    with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        t.send(Request("GET", "/other"))
+        cam.password = "pw"
+        cam.stale = True
+        cam.seen.clear()
+        assert t.send(upload()).status == 200
+    post = cam.seen[-1]
+    assert post[:2] == ("POST", "/up") and post[3] == b"abcd"
+    assert [m for m, _, _, _ in cam.seen].count("POST") == 1
+
+
+def test_preflight_challenge_round_trip_happens_once_per_upload_when_stale() -> None:
     cam = Camera()
     with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
         t.send(upload())
         t.send(upload())
-    assert [p for _, p in cam.paths].count(PREFLIGHT_PATH) == 2  # challenge + authenticated, only the first time
     assert cam.paths.count(("POST", "/up")) == 2
 
 

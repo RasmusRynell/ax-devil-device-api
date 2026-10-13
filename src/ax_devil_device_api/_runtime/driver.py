@@ -227,10 +227,22 @@ def run_sync(transport: SyncTransportLike, flow: CallFlow[Any], call: Call = DEF
 
 def _finish_stream_sync(transport: SyncTransportLike, flow: CallFlow[Any], request: Request, call: Call) -> Any:
     stack = ExitStack()
-    started = time.monotonic()
     try:
-        response, chunks = stack.enter_context(transport.open_stream(request))
-        call.observe(request, response, None, started, 1)
+        attempt = 1
+        while True:
+            started = time.monotonic()
+            try:
+                response, chunks = stack.enter_context(transport.open_stream(request))
+            except TransportError as error:
+                # Opening failed before a response: same retry rules as any request.
+                call.observe(request, None, error, started, attempt)
+                if not call.should_retry(request, error, attempt):
+                    raise
+                time.sleep(call.retry.delay(attempt))
+                attempt += 1
+                continue
+            break
+        call.observe(request, response, None, started, attempt)
         try:
             flow.send(response)
         except StopIteration as done:
@@ -265,10 +277,21 @@ async def run_async(transport: AsyncTransportLike, flow: CallFlow[Any], call: Ca
 
 async def _finish_stream_async(transport: AsyncTransportLike, flow: CallFlow[Any], request: Request, call: Call) -> Any:
     stack = AsyncExitStack()
-    started = time.monotonic()
     try:
-        response, chunks = await stack.enter_async_context(transport.open_stream(request))
-        call.observe(request, response, None, started, 1)
+        attempt = 1
+        while True:
+            started = time.monotonic()
+            try:
+                response, chunks = await stack.enter_async_context(transport.open_stream(request))
+            except TransportError as error:
+                call.observe(request, None, error, started, attempt)
+                if not call.should_retry(request, error, attempt):
+                    raise
+                await asyncio.sleep(call.retry.delay(attempt))
+                attempt += 1
+                continue
+            break
+        call.observe(request, response, None, started, attempt)
         try:
             flow.send(response)
         except StopIteration as done:

@@ -295,7 +295,7 @@ def test_bearer_static_and_debug_redaction() -> None:
     t.send(Request("GET", "/a", auth="if_challenged"))
     t.send(Request("GET", "/a", auth="anonymous"))
     assert seen[0].headers["authorization"] == "Bearer TOK1"
-    assert seen[1].headers["authorization"] == "Bearer TOK1"
+    assert "authorization" not in seen[1].headers  # if_challenged is never pre-emptive
     assert "authorization" not in seen[2].headers
     assert "TOK1" not in repr(events)
     t.send(Request("GET", "/a", headers=(("Authorization", "Bearer TOK2"),), auth="anonymous"))

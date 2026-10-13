@@ -203,11 +203,12 @@ def test_non_replayable_with_verified_state_sent_once() -> None:
     dev.seen.clear()
     req = Request("POST", "/up", body=RawBody(iter([b"a"]), "application/octet-stream"))
     assert t.send(req).status == 200
-    assert len(dev.seen) == 1
+    assert [r.method for r in dev.seen] == ["GET", "POST"]  # preflight re-verifies, then the body is sent once
+    dev.seen.clear()
     dev.password = "changed"
     with pytest.raises(AuthError):
         t.send(Request("POST", "/up", body=RawBody(iter([b"a"]), "application/octet-stream")))
-    assert len(dev.seen) == 2
+    assert all(r.method == "GET" for r in dev.seen)  # the body is never sent with stale credentials
 
 
 def test_replayable_body_resent_on_challenge() -> None:

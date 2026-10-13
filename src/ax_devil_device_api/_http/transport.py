@@ -8,7 +8,7 @@ import secrets
 import ssl
 import threading
 from collections.abc import AsyncIterable, AsyncIterator, Iterator
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from dataclasses import replace
 from typing import Any
 from urllib.parse import quote_plus, urlencode
@@ -33,6 +33,37 @@ Present on every Axis device, read-only, answered for any role (it reports the c
 user and groups) and served from the same Digest realm as the other ``/axis-cgi`` CGIs, so the
 verified credential it leaves behind is the one the upload then uses.
 """
+
+
+def _slot_timeout(config: ConnectionConfig, request: Request) -> float:
+    return request.timeout if request.timeout is not None else config.timeout
+
+
+def _pool_timeout(timeout: float) -> errors.PoolTimeout:
+    return errors.PoolTimeout(f"no free request slot to the device within {timeout:g} s")
+
+
+@contextmanager
+def _slot(semaphore: threading.BoundedSemaphore, timeout: float) -> Iterator[None]:
+    """Hold a concurrency slot; waiting for it counts against the request timeout."""
+    if not semaphore.acquire(timeout=timeout):
+        raise _pool_timeout(timeout)
+    try:
+        yield
+    finally:
+        semaphore.release()
+
+
+@asynccontextmanager
+async def _aslot(semaphore: asyncio.Semaphore, timeout: float) -> AsyncIterator[None]:
+    try:
+        await asyncio.wait_for(semaphore.acquire(), timeout)
+    except TimeoutError:
+        raise _pool_timeout(timeout) from None
+    try:
+        yield
+    finally:
+        semaphore.release()
 
 
 def _preflight_request(request: Request) -> Request | None:
@@ -87,12 +118,21 @@ def _is_tls(error: BaseException) -> bool:
     return False
 
 
+_DONE = object()
+
+
 async def _aiter(chunks: Iterator[bytes]) -> AsyncIterator[bytes]:
+    """Async view of a blocking chunk iterator; every read runs in a worker thread, off the event loop."""
     try:
-        for chunk in chunks:
-            yield chunk
+        while True:
+            chunk = await asyncio.to_thread(next, chunks, _DONE)
+            if chunk is _DONE:
+                return
+            yield chunk  # type: ignore[misc]
     finally:
-        _close(chunks)
+        # A cancelled read may still be running in its thread; the generator then cannot be closed here.
+        with suppress(ValueError):
+            _close(chunks)
 
 
 def _closing(chunks: Iterator[bytes]) -> Iterator[bytes]:
@@ -233,7 +273,7 @@ class SyncTransport:
         self._client.headers.pop("Accept", None)  # Accept is set only when a request asks for it
 
     def _send(self, request: Request, *, stream: bool) -> httpx.Response:
-        probe = _preflight_request(request) if self._auth.needs_verification else None
+        probe = _preflight_request(request) if self._auth.uses_password else None
         if probe is not None:
             _emit(self.config, probe)
             status = self._send_once(probe, stream=False).status_code
@@ -258,7 +298,7 @@ class SyncTransport:
     def send(self, request: Request) -> Response:
         """Send ``request`` and return the fully read response."""
         _emit(self.config, request)
-        with self._slots:
+        with _slot(self._slots, _slot_timeout(self.config, request)):
             raw = self._send(request, stream=False)
             return _response(raw, request, raw.content)
 
@@ -269,7 +309,7 @@ class SyncTransport:
         Holds one stream slot until the context exits.
         """
         _emit(self.config, request)
-        with self._stream_slots:
+        with _slot(self._stream_slots, _slot_timeout(self.config, request)):
             raw = self._send(request, stream=True)
             try:
                 if not raw.is_success:
@@ -292,7 +332,7 @@ class SyncTransport:
         Holds one stream slot until the context exits.
         """
         _emit(self.config, request)
-        with self._stream_slots:
+        with _slot(self._stream_slots, _slot_timeout(self.config, request)):
             raw = self._send(_ws_request(request), stream=True)
             try:
                 if raw.status_code != 101:
@@ -349,7 +389,7 @@ class AsyncTransport:
         return self._slots, self._stream_slots
 
     async def _send(self, request: Request, *, stream: bool) -> httpx.Response:
-        probe = _preflight_request(request) if self._auth.needs_verification else None
+        probe = _preflight_request(request) if self._auth.uses_password else None
         if probe is not None:
             _emit(self.config, probe)
             status = (await self._send_once(probe, stream=False)).status_code
@@ -378,7 +418,7 @@ class AsyncTransport:
         """Send ``request`` and return the fully read response."""
         _emit(self.config, request)
         slots, _ = self._semaphores()
-        async with slots:
+        async with _aslot(slots, _slot_timeout(self.config, request)):
             raw = await self._send(request, stream=False)
             return _response(raw, request, raw.content)
 
@@ -390,7 +430,7 @@ class AsyncTransport:
         """
         _emit(self.config, request)
         _, stream_slots = self._semaphores()
-        async with stream_slots:
+        async with _aslot(stream_slots, _slot_timeout(self.config, request)):
             raw = await self._send(request, stream=True)
             try:
                 if not raw.is_success:
@@ -413,7 +453,7 @@ class AsyncTransport:
         """
         _emit(self.config, request)
         _, stream_slots = self._semaphores()
-        async with stream_slots:
+        async with _aslot(stream_slots, _slot_timeout(self.config, request)):
             raw = await self._send(_ws_request(request), stream=True)
             try:
                 if raw.status_code != 101:
