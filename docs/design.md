@@ -388,13 +388,13 @@ All run with `uv run pytest`; `uv run pyright` type-checks `src` and `tests`.
 
 Planned: live conformance (`pytest -m live --device …`) runs `effect: read` operations of APIs that `supports()` reports as `YES`; `unknown`-effect operations are skipped. Results are recorded per operation with model and firmware and feed the support status in section 5. Failures become correction or variant patches.
 
-CI (`.github/workflows/publish.yml`, Python 3.11 to 3.13): `uv sync --locked`, `python -m codegen check`, `pyright`, `pytest`; a tag builds and publishes. Planned: schema validation as its own step and import-linter.
+CI (`.github/workflows/publish.yml`, Python 3.11 to 3.13): `uv sync --locked`, `python -m codegen check`, `ruff check .`, `pyright`, `pytest`; a tag builds and publishes. Planned: schema validation as its own step and import-linter.
 
 ## 11. Maintenance loop
 
 1. An external monitor (not in this repository) detects changed doc pages and lists the specs citing them.
 2. The agent edits `specs/apis/**` by hand, citing source anchors, then runs `python -m codegen generate` and commits the regenerated outputs (`apis/`, `docs/api_surface.txt`) in the same PR.
-3. CI runs `codegen check` (regenerating must reproduce the committed outputs exactly, which catches hand edits to generated files), pyright and the tests, including the contract tests of the changed examples.
+3. CI runs `codegen check` (regenerating must reproduce the committed outputs exactly, which catches hand edits to generated files), ruff, pyright and the tests, including the contract tests of the changed examples.
 4. The PR shows the spec diff and the `docs/api_surface.txt` diff. Patch conflicts block merging.
 
 The agent's hand edits are limited to `specs/apis/**`; everything else it commits is generator output. A change needing a new family, binding knob, codec or envelope behaviour is escalated to a human; the agent never edits `_http`, `_protocols`, `_runtime` or `codegen`.

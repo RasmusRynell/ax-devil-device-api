@@ -16,8 +16,8 @@ from enum import Enum
 from typing import Any, Literal
 from urllib.parse import quote
 
-from ..errors import ResponseFormatError
 from .._http.types import AuthPolicy, JsonBody, Request, Response
+from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .dca import _alias, _field_for
 from .state import DeviceState

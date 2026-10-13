@@ -15,12 +15,12 @@ from typing import Any
 import httpx
 import pytest
 
+from ax_devil_device_api.device import Device
+from ax_devil_device_api.errors import ApiError, ApiUnavailable
 from codegen.build import build_api
 from codegen.loader import LoadedSpec, SpecError, validate
 from codegen.output import format_python
 from codegen.render import render_module, signatures
-from ax_devil_device_api.device import Device
-from ax_devil_device_api.errors import ApiError, ApiUnavailable
 
 
 def base_spec(family: str, binding: dict[str, Any], operations: dict[str, Any], **extra: Any) -> dict[str, Any]:

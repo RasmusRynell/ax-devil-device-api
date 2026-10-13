@@ -21,9 +21,9 @@ from urllib.parse import quote
 
 from pydantic_core import to_json
 
-from ..errors import ResponseFormatError
 from .._http.types import AuthPolicy, FormBody, MultipartBody, RawBody, Request, Response
 from .._http.upload import UploadSpec, file_part, resolve_upload
+from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
 from .xmlmap import XmlMap, XmlStatusError, extract, is_list_type, prune_empty, status_error

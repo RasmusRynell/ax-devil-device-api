@@ -16,9 +16,9 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from ..errors import ApiError, NotSupported, ResponseFormatError
 from .._http.types import AuthPolicy, FilePart, JsonBody, MultipartBody, Request, Response
 from .._http.upload import UploadSpec, file_part
+from ..errors import ApiError, NotSupported, ResponseFormatError
 from .base import (
     ApiVersion,
     CallFlow,
@@ -32,7 +32,6 @@ from .base import (
     select_version,
 )
 from .state import DeviceState
-
 
 VERSION_NOT_SUPPORTED = 2100
 """JSON-RPC error code for "API version not supported" in current Axis APIs."""

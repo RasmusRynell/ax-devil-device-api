@@ -33,8 +33,8 @@ from enum import Enum
 from typing import Any
 from xml.sax.saxutils import escape, quoteattr
 
-from ..errors import ConfigurationError, ResponseFormatError
 from .._http.types import AuthPolicy, RawBody, Request, Response
+from ..errors import ConfigurationError, ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
 from .xmlmap import XmlMap, extract, local, prune_empty

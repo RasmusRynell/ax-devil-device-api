@@ -62,7 +62,7 @@ class Sent:
     pairs: tuple[tuple[str, str], ...] = ()
     content_type: str = ""
     rawquery: str = ""
-    parts: tuple["Part", ...] = ()
+    parts: tuple[Part, ...] = ()
 
 
 @dataclass

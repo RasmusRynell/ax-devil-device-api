@@ -72,7 +72,7 @@ Async is the same with `AsyncDevice`, `async with`, and `await` on every call (`
 - A wrong or missing API method is a **spec** problem: edit `specs/apis/<section>/<id>.yaml` (format: `docs/spec-format.md`), then `uv run python -m codegen validate`, `uv run python -m codegen generate`, and commit the regenerated `src/ax_devil_device_api/apis/` and `docs/api_surface.txt` in the same change. Never edit generated files by hand: `uv run python -m codegen check` (also run in CI) fails on any difference.
 - Device-verified corrections go in `specs/patches/<id>.yaml`, not in the doc-derived spec.
 - Behaviour that a spec binding cannot express (a new codec, envelope or family behaviour) is a change to `_protocols/`, `_runtime/` or `codegen/` and needs a human decision; do not work around it in a spec.
-- Checks before finishing: `uv run python -m codegen check`, `uv run pyright`, `uv run pytest` (unit, contract tests that run every spec example, codegen tests, and `tests/examples/` which runs each `examples/` script against a fake camera). Keep `examples/` working: they are tests.
+- Checks before finishing: `uv run python -m codegen check`, `uv run ruff check .`, `uv run pyright`, `uv run pytest` (unit, contract tests that run every spec example, codegen tests, and `tests/examples/` which runs each `examples/` script against a fake camera). Keep `examples/` working: they are tests.
 
 ## Examples
 

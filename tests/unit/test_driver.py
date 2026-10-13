@@ -12,9 +12,9 @@ from typing import Any
 
 import pytest
 
+from ax_devil_device_api._http.options import RetryPolicy
 from ax_devil_device_api._http.types import Headers, Request, Response
 from ax_devil_device_api._protocols.base import BytesDecoder, CallFlow
-from ax_devil_device_api._http.options import RetryPolicy
 from ax_devil_device_api._runtime.driver import AsyncStreamResult, Call, StreamResult, run_async, run_sync
 from ax_devil_device_api.errors import ConnectionFailed, HttpError
 

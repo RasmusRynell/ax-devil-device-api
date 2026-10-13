@@ -9,15 +9,14 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-import httpx
 import pytest
 
 from ax_devil_device_api._http.auth import AxisAuth, _BasicState
 from ax_devil_device_api._http.options import RetryPolicy
 from ax_devil_device_api._http.types import Headers, RawBody, Request, Response
-from ax_devil_device_api._protocols.base import ApiVersion, parse_result
+from ax_devil_device_api._protocols.base import parse_result
 from ax_devil_device_api._protocols.state import DeviceState
-from ax_devil_device_api._runtime.driver import Call, run_async, run_sync
+from ax_devil_device_api._runtime.driver import Call, run_sync
 from ax_devil_device_api.apis import mqtt_client
 from ax_devil_device_api.apis.mqtt_client import ClientConfig, ClientStatus, ConfigureClientRequest
 from ax_devil_device_api.errors import ConnectionFailed, ResponseFormatError

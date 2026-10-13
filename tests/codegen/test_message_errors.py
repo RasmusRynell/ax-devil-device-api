@@ -8,8 +8,8 @@ import httpx
 import pytest
 from test_bindings import base_spec, build, device, generate, load_module
 
-from codegen.loader import SpecError, validate
 from ax_devil_device_api.errors import ApiAccessDenied, ApiError
+from codegen.loader import SpecError, validate
 
 ERRORS = {
     "bad_name": {"description": "Bad name", "kind": "invalid_argument", "message": "account user name."},

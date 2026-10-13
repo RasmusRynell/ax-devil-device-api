@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 import time
-from datetime import timezone
+from datetime import UTC
 from typing import Any
 
 import pytest
+from ws_fake import FakeSocket, FakeWsCamera, events_handler, notify
 
 from ax_devil_device_api import AsyncDevice, Device, errors
 from ax_devil_device_api._http.options import Heartbeat
 from ax_devil_device_api._runtime import ws
 from ax_devil_device_api._runtime.ws import DATA_HUB, EVENTS, Gap, SessionLedger
-from ax_devil_device_api._runtime.ws_codecs import DataHubCodec, EventFilter, EventNotification, EventsCodec, TopicSample
-from ws_fake import FakeSocket, FakeWsCamera, events_handler, notify
+from ax_devil_device_api._runtime.ws_codecs import (
+    DataHubCodec,
+    EventFilter,
+    EventNotification,
+    EventsCodec,
+    TopicSample,
+)
 
 FILTERS = [
     EventFilter(topic_filter="tns1:PTZController/tnsaxis:PTZReady"),
@@ -46,7 +52,7 @@ def test_events_codec_roundtrip() -> None:
     event = note.item  # type: ignore[union-attr]
     assert isinstance(event, EventNotification)
     assert event.topic.endswith("VirtualPort") and event.source == {"port": "1"} and event.data == {"state": "0"}
-    assert event.timestamp is not None and event.timestamp.tzinfo is timezone.utc and event.timestamp.year == 2021
+    assert event.timestamp is not None and event.timestamp.tzinfo is UTC and event.timestamp.year == 2021
     assert codec.classify({"method": "something:else"}) is None
 
 

@@ -11,7 +11,7 @@ import importlib
 import inspect
 import pkgutil
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache
 from types import ModuleType
 
 from .. import apis
@@ -44,7 +44,7 @@ def _entry(name: str, module: ModuleType) -> ApiEntry:
     return ApiEntry(name, info, ops, sync, asyn)
 
 
-@lru_cache(maxsize=None)
+@cache
 def load_api(name: str) -> ApiEntry:
     """Import and describe one generated API. ``KeyError`` for an unknown name."""
     if name not in api_names():

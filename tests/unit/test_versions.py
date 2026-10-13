@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 import pytest
+
 from ax_devil_device_api._protocols.base import (
     ApiInfo,
     ApiVersion,

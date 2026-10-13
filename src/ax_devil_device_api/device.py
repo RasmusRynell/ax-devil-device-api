@@ -18,7 +18,6 @@ import asyncio
 import threading
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
-from datetime import datetime, timezone
 from typing import Any, TypeVar
 
 import httpx
@@ -36,7 +35,6 @@ from ._http.config import (
 )
 from ._http.options import DEFAULT_HEARTBEAT, Heartbeat, RequestOptions, RetryPolicy
 from ._http.transport import AsyncTransport, SyncTransport
-from .errors import ConfigurationError
 from ._protocols.base import CallFlow, Model, Operation, flow_for
 from ._protocols.state import DeviceState, Token
 from ._runtime.capabilities import (
@@ -50,7 +48,6 @@ from ._runtime.capabilities import (
     identity_flow,
     probe_error,
 )
-from .rtsp import MEDIA_PATH, MediaStream, RtspBinding, RtspUrl, build_rtsp_url, rtsp_query
 from ._runtime.driver import Call, run_async, run_sync
 from ._runtime.ws import (
     AsyncSession,
@@ -62,6 +59,8 @@ from ._runtime.ws import (
 )
 from .apis import Apis, AsyncApis
 from .apis._base import AsyncApi, SyncApi, build_params
+from .errors import ConfigurationError
+from .rtsp import MEDIA_PATH, MediaStream, RtspBinding, RtspUrl, build_rtsp_url, rtsp_query
 
 S = TypeVar("S", bound=SyncApi)
 A = TypeVar("A", bound=AsyncApi)

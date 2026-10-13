@@ -15,14 +15,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unit"))  # ws_fake
 
-from codegen.build import build_api
-from codegen.loader import LoadedSpec, SpecError, validate
-from codegen.output import render_surface
-from codegen.render import signatures
 from test_bindings import base_spec, build, generate, load_module
 from ws_fake import FakeWsCamera, events_handler, notify
 
 from ax_devil_device_api import AsyncDevice, Device, EventFilter, Heartbeat, MediaStream, Part, RtspUrl, errors
+from codegen.loader import SpecError, validate
+from codegen.output import render_surface
+from codegen.render import signatures
 
 QUICK = Heartbeat(None)
 

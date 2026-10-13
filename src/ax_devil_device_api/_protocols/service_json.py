@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from types import UnionType
 from typing import Annotated, Any, Union, get_args, get_origin
 
-from ..errors import ResponseFormatError
 from .._http.types import AuthPolicy, JsonBody, Request, Response
+from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
 

@@ -10,10 +10,9 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))  # tests/ -> the contract package
 
+from contract._runner import run_example
 from test_bindings import base_spec, load_module
 from test_contract_examples import op
-
-from contract._runner import run_example
 
 
 def run(spec: dict[str, Any], op_id: str, index: int = 0) -> None:

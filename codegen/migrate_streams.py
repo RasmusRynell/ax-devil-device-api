@@ -18,7 +18,6 @@ GET_PARAMETER, tunnelling over HTTP) and STOMP notifications are skipped with a 
 
 from __future__ import annotations
 
-import collections
 import copy
 import re
 

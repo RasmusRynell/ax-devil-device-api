@@ -9,4 +9,4 @@
 
 The decisions that shaped the public API (connection lifetime, retries, request shapes, errors, capabilities, sessions, testing) are in [section 13 of design.md](design.md#13-decisions-log).
 
-Development uses `uv`: `uv sync --locked`, `uv run python -m codegen check`, `uv run pyright`, `uv run pytest`.
+Development uses `uv`: `uv sync --locked`, `uv run python -m codegen check`, `uv run ruff check .`, `uv run pyright`, `uv run pytest`.

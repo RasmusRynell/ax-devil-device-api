@@ -13,7 +13,15 @@ from ax_devil_device_api._http.config import ConnectionConfig
 from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
 from ax_devil_device_api._http.types import Headers, Request, Response
 from ax_devil_device_api._runtime.driver import AsyncStreamResult, Call, StreamResult, run_async, run_sync
-from ax_devil_device_api._streams import LinesDecoder, MixedReplaceDecoder, Part, boundary_of, decoder_for, mjpeg_decoder, stream_flow
+from ax_devil_device_api._streams import (
+    LinesDecoder,
+    MixedReplaceDecoder,
+    Part,
+    boundary_of,
+    decoder_for,
+    mjpeg_decoder,
+    stream_flow,
+)
 
 JPEG_A = b"\xff\xd8AAAA\r\n--not-a-boundary\xff\xd9"
 JPEG_B = b"\xff\xd8" + bytes(range(256)) * 4 + b"\xff\xd9"

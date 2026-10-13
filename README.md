@@ -328,6 +328,7 @@ Scenario-driven scripts in [`examples/`](examples/README.md). All read credentia
 ```bash
 uv sync --locked
 uv run python -m codegen check   # generated modules match the specs
+uv run ruff check .              # lint (config in pyproject.toml)
 uv run pyright                   # type check src and tests
 uv run pytest                    # unit, contract, codegen and example tests
 uv build

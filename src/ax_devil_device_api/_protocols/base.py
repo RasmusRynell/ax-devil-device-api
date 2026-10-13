@@ -18,17 +18,19 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Protocol, Typ
 from pydantic import (
     BaseModel,
     ConfigDict,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
     TypeAdapter,
     ValidationError,
     ValidationInfo,
     ValidatorFunctionWrapHandler,
     field_validator,
-    SerializationInfo,
-    SerializerFunctionWrapHandler,
     model_serializer,
     model_validator,
 )
 
+from .._http.debug import register_secret_names
+from .._http.types import Request, Response
 from ..errors import (
     ApiAccessDenied,
     ApiError,
@@ -42,8 +44,6 @@ from ..errors import (
     NotSupported,
     ResponseFormatError,
 )
-from .._http.debug import register_secret_names
-from .._http.types import Request, Response
 
 if TYPE_CHECKING:
     from .state import DeviceState
@@ -333,7 +333,7 @@ def parse_result(op: Operation[Any], data: Any) -> Any:
 # API and operation descriptors
 
 
-class Family(str, Enum):
+class Family(str, Enum):  # noqa: UP042 (StrEnum would change str() and format())
     JSONRPC = "jsonrpc"
     DCA = "dca"
     CGI = "cgi"

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC
+
 import httpx
 import pytest
 
@@ -408,11 +410,11 @@ def test_base_path_prefixes_every_request() -> None:
 
 
 def _caps(**kw):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from ax_devil_device_api._runtime.capabilities import Capabilities
 
-    base = dict(classic_apis=None, dca_apis=None, properties=None, errors={}, observed_at=datetime.now(timezone.utc))
+    base = dict(classic_apis=None, dca_apis=None, properties=None, errors={}, observed_at=datetime.now(UTC))
     return Capabilities(**{**base, **kw})
 
 
@@ -448,9 +450,9 @@ def test_acap_discovery_installed_missing_and_unknown() -> None:
 
 def test_applications_probe_reads_installed_names() -> None:
     from ax_devil_device_api._http.types import Headers, Response
+    from ax_devil_device_api._protocols.base import AcapDiscovery
     from ax_devil_device_api._protocols.state import DeviceState
     from ax_devil_device_api._runtime.capabilities import applications_flow, extra_probes
-    from ax_devil_device_api._protocols.base import AcapDiscovery
 
     flow = applications_flow(DeviceState())
     request = next(flow)

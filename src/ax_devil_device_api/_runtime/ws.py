@@ -34,8 +34,8 @@ import time
 from collections import deque
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
-from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -47,6 +47,7 @@ import wsproto.utilities
 from .._http.options import DEFAULT_HEARTBEAT, Heartbeat
 from .._http.transport import AsyncTransport, SyncTransport, UpgradeRefused
 from .._http.types import Request, Response
+from .._protocols.base import CallFlow
 from ..errors import (
     AuthError,
     ConnectionFailed,
@@ -60,7 +61,6 @@ from ..errors import (
     SessionClosed,
     TransportError,
 )
-from .._protocols.base import CallFlow
 from .driver import Call, run_async, run_sync
 from .ws_codecs import (
     DataHubCodec,
@@ -133,7 +133,7 @@ class Gap:
 
 
 def _utc(stamp: float) -> datetime:
-    return datetime.fromtimestamp(stamp, tz=timezone.utc)
+    return datetime.fromtimestamp(stamp, tz=UTC)
 
 
 @dataclass

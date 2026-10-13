@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from .loader import LoadedSpec, SpecError
-from .model import Applic, ApiDef, FieldDef, OpDef, RoundTrip, TypeDef
+from .model import ApiDef, Applic, FieldDef, OpDef, RoundTrip, TypeDef
 from .naming import RESERVED_ARG_NAMES, NamingError, field_name, pascal_case, snake_case
 from .xmlreply import reply_kind
 
@@ -385,7 +385,7 @@ class Builder:
             default = None
             doc = clean(prop.get("description"))
             if "default" in prop:
-                if prop["default"] in ([], {}) and not (wire in required):
+                if prop["default"] in ([], {}) and wire not in required:
                     default = repr(prop["default"])
                 else:
                     note = f"Default: {prop['default']!r}."

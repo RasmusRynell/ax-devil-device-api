@@ -12,6 +12,7 @@ from pydantic import Field
 from ax_devil_device_api._protocols.base import Model
 from ax_devil_device_api._protocols.dca import DcaBinding
 
+
 def _load_harness():
     path = Path(__file__).resolve().parents[1] / "contract" / "_harness.py"
     spec = importlib.util.spec_from_file_location("contract_harness", path)

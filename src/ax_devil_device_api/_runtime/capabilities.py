@@ -23,11 +23,10 @@ import json
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from ..errors import ApiError, DeviceError, ResponseFormatError
 from .._http.types import RawBody, Request
 from .._protocols.base import (
     AcapDiscovery,
@@ -44,13 +43,14 @@ from .._protocols.base import (
     http_error,
 )
 from .._protocols.cgi import CgiArg, CgiBinding, TextKv
-from .._protocols.soap import SoapBinding, build_envelope
+from .._protocols.cgi import flow as cgi_flow
 from .._protocols.jsonrpc import FixedVersion
 from .._protocols.jsonrpc import flow as jsonrpc_flow
-from .._protocols.cgi import flow as cgi_flow
+from .._protocols.soap import SoapBinding, build_envelope
 from .._protocols.state import DeviceState
 from ..apis import api_discovery as _api_discovery
 from ..apis import basic_device_info as _basic_device_info
+from ..errors import ApiError, DeviceError, ResponseFormatError
 
 BASE_PROPERTY_GROUP = "Properties.API"
 PROPERTY_SCOPE_PREFIX = "properties:"
@@ -75,7 +75,7 @@ class DeviceIdentity:
     """Every property the device returned."""
 
 
-class Support(str, Enum):
+class Support(str, Enum):  # noqa: UP042 (StrEnum would change str() and format())
     YES = "yes"
     NO = "no"
     UNKNOWN = "unknown"
@@ -89,7 +89,7 @@ class SupportResult:
     reason: str
     errors: tuple[str, ...] = ()
     """Probe failures that made the answer ``UNKNOWN``."""
-    observed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    observed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __bool__(self) -> bool:
         return self.status is Support.YES
@@ -132,7 +132,7 @@ class Capabilities:
             properties=properties,
             property_groups=groups,
             errors=dict(errors),
-            observed_at=datetime.now(timezone.utc),
+            observed_at=datetime.now(UTC),
             applications=values.get("applications"),
             services=values.get("services"),
         )

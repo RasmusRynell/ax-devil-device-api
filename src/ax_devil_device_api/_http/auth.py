@@ -18,7 +18,6 @@ import re
 import threading
 from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Union
 
 import httpx
 
@@ -230,7 +229,7 @@ class _BasicState:
         return "Basic " + base64.b64encode(raw).decode("ascii")
 
 
-_State = Union[_DigestState, _BasicState]
+_State = _DigestState | _BasicState
 
 
 def _state_from_challenges(response: httpx.Response) -> _State:

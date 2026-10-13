@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from ..errors import ApiAccessDenied, ApiError, ApiUnavailable, ErrorKind
@@ -136,7 +136,7 @@ class EventsCodec:
             return None
         body = _mapping(raw.get("message"))
         millis = raw.get("timestamp")
-        stamp = datetime.fromtimestamp(millis / 1000, tz=timezone.utc) if isinstance(millis, (int, float)) else None
+        stamp = datetime.fromtimestamp(millis / 1000, tz=UTC) if isinstance(millis, (int, float)) else None
         return Notification(EventNotification(topic, stamp, _mapping(body.get("source")), _mapping(body.get("key")), _mapping(body.get("data")), raw))
 
     def error_kind(self, code: int | str | None) -> ErrorKind | None:

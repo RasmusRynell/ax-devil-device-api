@@ -51,7 +51,8 @@ KEEP_EXT = {"x-nullable", "x-masked", "x-read-only", "x-python-name", "x-name", 
 try:  # reuse the generator's own naming rules when available
     sys.path.insert(0, str(REPO))
     from codegen.build import RESERVED_MODULE_NAMES as _RESERVED_TYPES  # type: ignore
-    from codegen.naming import NamingError as _NamingError, field_name as _field_name  # type: ignore
+    from codegen.naming import NamingError as _NamingError  # type: ignore
+    from codegen.naming import field_name as _field_name
 except Exception:  # noqa: BLE001
     _RESERVED_TYPES = frozenset()
     _NamingError = None
@@ -281,8 +282,6 @@ def conv(s, ctx):
     t = s.get("type")
     if isinstance(t, list):
         non_null = [x for x in t if x != "null"]
-        if "null" in t:
-            nullable_self = True
         t = non_null[0] if non_null else None
         if len(non_null) > 1:
             ctx.notes.add("multi-type", f"type list {non_null} reduced to {t}")
@@ -1055,7 +1054,6 @@ def convert_jsonrpc(v1, section, ctxinfo):
 
     # --- types
     v1types = v1.get("types") or {}
-    reserved = {pascal(v1["id"])}
     typemap = make_typemap(v1types.keys())
     ctx = Ctx(notes, typemap, v1types)
     types = convert_types(v1types, ctx)
@@ -1256,7 +1254,7 @@ def convert_dca(v1, section, ctxinfo):
     ents, roots = build_entities(rm)
     if len(roots) != 1:
         notes.add("roots", f"{len(roots)} root entities; only the first is the tree root")
-    root = roots[0]
+    _root = roots[0]  # IndexError when the model has no root entity
     v1types = v1.get("types") or {}
 
     # generated entity types in v1 -> entity
@@ -1371,7 +1369,6 @@ def convert_dca(v1, section, ctxinfo):
     def base_name(en, level):
         e, opn, prop = en["e"], en["opn"], en["prop"]
         is_root = e.parent is None
-        item = e.kind == "collection"
         if opn == "action":
             a = snake(en["action"] or "action")
             if level == 0:
