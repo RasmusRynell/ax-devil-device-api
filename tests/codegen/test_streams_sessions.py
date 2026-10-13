@@ -197,8 +197,8 @@ def test_session_spec_errors() -> None:
         build(base_spec("ws", {}, {"go": {"summary": "x"}}))
     clash = base_spec("ws", {}, {"connect": {"summary": "x", "binding": {"session": {"path": "/x", "codec": "events"}}}},
                       types={"EventFilter": {"type": "object", "properties": {"a": {"type": "string"}}}})  # fmt: skip
-    with pytest.raises(SpecError, match="collides"):
-        build(clash)
+    api = build(clash)  # the type is renamed, not rejected (see test_reserved_type_names_are_renamed)
+    assert [t.name for t in api.types] == ["EventFilterType"]
 
 
 def test_events_connect_end_to_end_sync() -> None:

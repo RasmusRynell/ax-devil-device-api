@@ -295,12 +295,14 @@ def test_discovery_compare_and_acap_render() -> None:
         {"param": {"name": "Properties.B", "value": "3", "compare": "=="}},
         {"param": {"name": "Properties.C"}},
         {"acap": {"name": "loiteringguard"}},
+        {"service": {"namespace": "http://www.axis.com/vapix/ws/light"}},
     ]
     code = generate(spec)
     assert 'ParamDiscovery("Properties.A.Version", "1.20", ">=")' in code
     assert 'ParamDiscovery("Properties.B", "3")' in code
     assert 'ParamDiscovery("Properties.C")' in code
     assert 'AcapDiscovery("loiteringguard")' in code
+    assert 'ServiceDiscovery("http://www.axis.com/vapix/ws/light")' in code
     assert "import" in code and "AcapDiscovery," in code
 
 
@@ -358,3 +360,46 @@ def test_x_arg_optional_only_for_wrapped_params() -> None:
     )  # fmt: skip
     with pytest.raises(SpecError, match="x-arg-optional"):
         build(spec)
+
+
+# -- reserved type names and write docstrings --------------------------------------
+
+
+def test_reserved_type_names_are_renamed_deterministically() -> None:
+    obj = {"type": "object", "properties": {"a": {"type": "string"}}}
+    spec = base_spec(
+        "jsonrpc", JR,
+        {
+            "get_it": {
+                "summary": "x", "effect": "read", "binding": {"method": "getIt"},
+                "params": {"$ref": "#/types/Model"},
+                "result": {"$ref": "#/types/DemoApi"},
+                "round_trip": {"from": "DemoApi", "set": {}},
+            },
+        },
+        types={"Model": obj, "DemoApi": obj, "ModelType": obj, "Text": {"type": "string"}},
+    )
+    api = build(spec)
+    assert sorted(t.name for t in api.types) == ["DemoApiType", "ModelType", "ModelTypeType", "TextType"]
+    code = generate(spec)
+    assert code == generate(spec)  # deterministic
+    module = load_module(spec)
+    assert module.ModelTypeType.__mro__[1] is module.Model  # the runtime base class keeps its name
+    assert issubclass(module.DemoApiType, module.Model) and module.DemoApi is not module.DemoApiType
+    request = module.ModelTypeType(a="x")
+    assert request.to_wire() == {"a": "x"}
+
+
+def _patch_op(params: dict[str, Any], **extra: Any) -> dict[str, Any]:
+    return base_spec("jsonrpc", JR, {"set_it": {"summary": "Set it.", "effect": "write", "write": "patch", "binding": {"method": "setIt"}, "params": params, **extra}})
+
+
+def test_patch_docstring_names_fields_for_flat_params_and_entries_for_lists_of_models() -> None:
+    flat = generate(_patch_op({"type": "object", "properties": {"a": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}}}))
+    assert "Changes only the fields given." in flat
+    entries = generate(_patch_op({
+        "type": "object",
+        "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {"token": {"type": "string"}}}}},
+    }))
+    assert "Changes only the fields given." not in entries
+    assert "Changes only the entries given; entries that do not exist yet may be created." in entries

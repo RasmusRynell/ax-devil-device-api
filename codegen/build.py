@@ -75,7 +75,7 @@ RESERVED_MODULE_NAMES = frozenset(
         "Family", "Model", "Operation", "ParamDiscovery", "JsonRpcBinding", "GetSupportedVersions", "FixedVersion",
         "NoVersion", "DcaBinding", "CgiArg", "CgiBinding", "Text", "TextKv", "TextOk", "Xml", "Binary", "JsonReply",
         "XmlMap", "XmlField", "XmlStatusError", "AsyncApi", "SyncApi", "INFO", "OPS", "PATH", "ROOT",
-        "AcapDiscovery", "ServiceJsonBinding", "SoapBinding", "RestBinding", "TextLines", "UploadSource", "UploadSpec",
+        "AcapDiscovery", "ServiceDiscovery", "ServiceJsonBinding", "SoapBinding", "RestBinding", "TextLines", "UploadSource", "UploadSpec",
         "JsonRpcMultipart",
     }
 )  # fmt: skip
@@ -110,6 +110,70 @@ def py_literal(value: Any) -> str:
     if isinstance(value, str) and "\\" in value and '"' not in value and not value.endswith("\\") and "\n" not in value:
         return f'r"{value}"'
     return repr(value)
+
+
+def reserved_names(data: dict[str, Any]) -> frozenset[str]:
+    """Names a generated module imports or defines itself, which a spec type must not take."""
+    cls = data["python"]["class"]
+    cls = cls[:-3] if cls.endswith("Api") and len(cls) > 3 else cls
+    own = {f"{cls}Api", f"Async{cls}Api"}
+    return RESERVED_MODULE_NAMES.union(*(FEATURE_RESERVED[f] for f in detect_features(data)), BUILTIN_SHADOWS, own)
+
+
+def rename_reserved_types(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
+    """Give types whose name clashes with a name of the generated module a new Python name.
+
+    Only the Python class changes (``Text`` -> ``TextType``, ``TextTypeType`` if that is taken as well); the wire is
+    unaffected. Applies to ``types`` keys, ``x-name`` values, ``$ref`` targets and ``round_trip.from``.
+    Returns the data (a copy when anything was renamed) and the renames, spec name -> Python name.
+    """
+    reserved = reserved_names(data)
+    wanted: set[str] = set(data.get("types") or {})
+
+    def collect(node: Any) -> None:
+        if isinstance(node, dict):
+            if isinstance(node.get("x-name"), str):
+                wanted.add(node["x-name"])
+            for v in node.values():
+                collect(v)
+        elif isinstance(node, list):
+            for v in node:
+                collect(v)
+
+    collect(data)
+    renames: dict[str, str] = {}
+    taken = set(wanted)
+    for name in sorted(wanted & reserved):
+        new = name + "Type"
+        while new in reserved or new in taken:
+            new += "Type"
+        taken.add(new)
+        renames[name] = new
+    if not renames:
+        return data, {}
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            out = {}
+            for k, v in node.items():
+                if k == "$ref" and isinstance(v, str) and v.startswith("#/types/"):
+                    v = "#/types/" + renames.get(v[len("#/types/"):], v[len("#/types/"):])
+                elif k == "x-name" and isinstance(v, str):
+                    v = renames.get(v, v)
+                elif k == "round_trip" and isinstance(v, dict) and isinstance(v.get("from"), str):
+                    v = {**walk(v), "from": renames.get(v["from"], v["from"])}
+                    out[k] = v
+                    continue
+                out[k] = walk(v)
+            return out
+        if isinstance(node, list):
+            return [walk(v) for v in node]
+        return node
+
+    renamed = walk(data)
+    if "types" in renamed:
+        renamed["types"] = {renames.get(k, k): v for k, v in renamed["types"].items()}
+    return renamed, renames
 
 
 def shape_key(schema: dict[str, Any]) -> str:
@@ -260,7 +324,7 @@ class Builder:
         if not name.isidentifier():
             raise SpecError(f"type name {name!r} is not a Python identifier")
         if name in self.reserved:
-            raise SpecError(f"type name {name!r} collides with a name used by generated modules; rename it")
+            raise SpecError(f"type name {name!r} collides with a name used by generated modules; set x-name to another name")
 
     def define(self, name: str) -> TypeDef | None:
         if name in self.defs:
@@ -753,10 +817,13 @@ def check_op_binding(
 
 
 def build_api(spec: LoadedSpec) -> ApiDef:
-    data = spec.data
-    family = data["family"]
+    family = spec.data["family"]
     if family not in SUPPORTED_FAMILIES:
         raise SpecError(f"family {family!r} is not supported by the generator")
+    data, renames = rename_reserved_types(spec.data)
+    if renames:
+        spec = LoadedSpec(spec.path, data, spec.warnings)
+        spec.warnings.append("type(s) renamed because the name is used by the generated module: " + ", ".join(f"{a} -> {b}" for a, b in renames.items()))
     b = Builder(spec)
     for name in b.raw_types:
         b.define(name)
