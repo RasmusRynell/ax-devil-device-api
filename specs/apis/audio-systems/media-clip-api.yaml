@@ -201,6 +201,40 @@ operations:
           root.MediaClip.M2.Location=/etc/audioclips/MediaClip.M2.au
           root.MediaClip.M2.Type=audio
       source: https://developer.axis.com/vapix/audio-systems/media-clip-api/#common-examples
+  upload_clip:
+    summary: Upload an audio file as a new media clip.
+    description: POST with the audio file as multipart/form-data (RFC 1867). media=audio is required for the upload.
+    effect: write
+    write: create
+    binding:
+      method: POST
+      encoding: multipart
+      url_query: {action: upload, media: audio}
+      reply: text
+    positional: [clip]
+    params:
+      type: object
+      required: [clip]
+      properties:
+        clip:
+          type: string
+          format: binary
+          x-upload: {part: file, content_type: audio/basic}
+          description: The audio file, as bytes, a Path or an Upload(stream, size).
+        name: {type: string, x-in: query, description: The name of the media clip.}
+    result: {type: string}
+    examples:
+    - title: Upload a media clip
+      request:
+        query: {name: Doorbell}
+        parts:
+        - {name: file, content_type: audio/basic, content: AUDIO}
+      response:
+        status: 200
+        text: |-
+          OK
+          uploaded=2
+      source: https://developer.axis.com/vapix/audio-systems/media-clip-api/#common-examples
 sources:
 - url: https://developer.axis.com/vapix/audio-systems/media-clip-api/
   sha256_md: 830740930eea369b097f3fd76e5374382dec4a04ce277517d92da025c1ef3168
@@ -208,10 +242,9 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(multipart upload): upload_clip - POST /axis-cgi/mediaclip.cgi?action=upload&media=audio&name=<name>
-    with the audio file as multipart/form-data in the body (mixed query and multipart).'
   - The docs give no explicit required parameters; clip is required for remove, update and download, and name for
     update, by the nature of the action.
+  - 'upload_clip: the docs name the multipart part after the clip (--form ''<name>=@<file>''); a fixed part name file is used and the clip name goes in the name query argument (the table lists name for upload).'
   - The upload curl example omits media=audio although it is required for action=upload.
   - The success reply is OK followed by playing=<clip>, removed=<clip>, uploaded=<clip>, updated=<clip> or stopping;
     the examples reconstruct it from that syntax. The reply is returned as text.

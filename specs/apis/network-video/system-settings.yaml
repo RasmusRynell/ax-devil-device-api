@@ -93,6 +93,42 @@ operations:
     binding: {path: /axis-cgi/accesslog.cgi, method: GET, reply: text}
     result: {type: string}
 
+  firmware_upgrade:
+    summary: Upgrade the AXIS OS from an uploaded firmware file; the product restarts automatically.
+    description: >-
+      Superseded by ``upgrade`` in the Firmware management API. ``type=normal`` upgrades and restores the old settings,
+      ``factorydefault`` sets all parameters to their default values. The docs do not show a success reply.
+    effect: action
+    binding:
+      path: /axis-cgi/firmwareupgrade.cgi
+      method: POST
+      encoding: multipart
+      reply: text
+    params:
+      type: object
+      required: [firmware]
+      properties:
+        firmware:
+          type: string
+          format: binary
+          x-upload: {part: file, content_type: application/octet-stream}
+          description: The AXIS OS file, as bytes, a Path or an Upload(stream, size).
+        type:
+          type: string
+          enum: [normal, factorydefault]
+          default: normal
+          x-in: query
+          description: 'The upgrade type: normal (restore old settings) or factorydefault (all parameters set to defaults).'
+    positional: [firmware]
+    result: {type: string}
+    examples:
+    - title: Upgrade the AXIS OS
+      request:
+        query: {type: normal}
+        parts:
+        - {name: file, content_type: application/octet-stream, content: FIRMWARE}
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#axis-os-upgrade
 sources:
 - url: https://developer.axis.com/vapix/network-video/system-settings/
   sha256_md: d28df24ddffb90aed4af428b4f38527a37c97844f0cdfc2d16594a87a0cd9ca3
@@ -101,7 +137,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(multipart-upload): firmware_upgrade: POST /axis-cgi/firmwareupgrade.cgi?type=normal|factorydefault with a multipart/form-data body holding the AXIS OS file; the cgi binding has no multipart request body. Superseded by the Firmware management API.'
+  - firmware_upgrade: the docs name the multipart part '<name>' (any name); a fixed part name file is used, and the success reply is not documented.
   - The Log.Access, Log.System and MailLogd parameter groups (MaxSize, Critical, Warning, Informational, LogSendLevel, ToEmail) are set through param.cgi and are not modelled here. Log.Access and Log.System are not available from AXIS OS 5.60.
   - User account management (pwdgrp.cgi) on the same page is the user-management API; date and time is system-settings-time.
   - The docs show only placeholder replies (``<html response>``); success and failure of factory_default, hard_factory_default and restart cannot be told apart.

@@ -108,6 +108,12 @@ types:
         $ref: "#/types/DriverStatus"
         description: The driver status of every channel. Present when ``status`` was requested.
 
+  UploadedDriver:
+    type: object
+    required: [id]
+    properties:
+      id: {type: integer, description: The ID of the uploaded driver., x-xml: {child: id}}
+    x-xml: {root: .}
 operations:
   list_drivers:
     summary: List the available PTZ drivers, optionally with the driver status of every channel.
@@ -286,6 +292,44 @@ operations:
       response: {status: 200, text: ''}
       source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#uninstall-a-ptz-driver
 
+  upload_driver:
+    summary: Upload a PTZ driver file and return its driver ID.
+    description: >-
+      Deprecated since API version 1.1 (all compatible drivers are embedded in the device software) and removed in API version
+      2.0. The driver file is the HTTP POST body. The docs show the request line as GET but say the contents are sent as POST data.
+    effect: write
+    write: create
+    binding:
+      method: POST
+      encoding: body
+      content_type: application/octet-stream
+      reply: xml
+    params:
+      type: object
+      required: [driver]
+      properties:
+        driver:
+          type: string
+          format: binary
+          x-in: body
+          x-upload: true
+          description: The driver file, as bytes, a Path or an Upload(stream, size).
+    positional: [driver]
+    result: {$ref: '#/types/UploadedDriver'}
+    examples:
+    - title: Upload a driver
+      request:
+        body: DRIVERDATA
+        content_type: application/octet-stream
+      response:
+        status: 200
+        content_type: text/xml
+        text: |
+          <?xml version="1.0"?>
+          <root>
+            <id>7</id>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#ptz-driver-management-api
 sources:
 - url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
   sha256_md: b1dc685e0bec7a017399a605bfd9687f3d7fa81ef8e929c4a119a65719e79416
@@ -294,7 +338,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(raw-body): upload_driver: ptzuploader.cgi upload of a driver file as HTTP POST data (deprecated since API 1.1, removed in 2.0).'
   - The table spells the argument driverid while the examples use driverId; the spec follows the table.
   - The documented list examples are not well-formed XML (no root element, "..." elisions, unclosed status element); the spec examples add the root and drop the elisions.
   - The syntax block shows deviceId in the driver entry while the table and examples use deviceIdRange; the spec follows the table.

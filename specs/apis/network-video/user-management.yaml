@@ -86,7 +86,12 @@ operations:
       The arguments are sent in the request body, as the docs advise against putting credentials in the URL. The initial
       administrator account can be created without authentication, and on devices older than AXIS OS 11.5 it must be named
       ``root``; the role must be Administrator with PTZ control. The device reports failures as a text line starting with
-      ``Error:``.
+      ``Error:`` and a message, with no numeric code (HTTP 200, except HTTP 401 for the two initial-admin cases). The documented
+      messages are: ``consult the system log file.`` (generic), ``action operation type.`` (action omitted or not add, update,
+      remove or get), ``account user name.`` (no or invalid user name), ``malformed action operation, <action>.`` (user name
+      not appropriate for the action), ``not a valid initial admin user.`` and ``initial admin user must be created first.``
+      (no admin exists yet, HTTP 401) and ``invalid password.`` (password shorter than 1 or longer than 64 characters, or
+      against the passphrase policy).
     effect: write
     write: create
     binding:
@@ -97,14 +102,6 @@ operations:
       auth: if_challenged
     params: {$ref: '#/types/AddUserRequest'}
     result: {type: string}
-    errors:
-      'Error: consult the system log file.': {description: Generic error., kind: internal}
-      'Error: action operation type.': {description: 'The action is omitted or is not one of add, update, remove or get.', kind: invalid_argument}
-      'Error: account user name.': {description: 'No user name was supplied, or the user name contains characters other than A-Z, a-z or 0-9.', kind: invalid_argument}
-      'Error: malformed action operation, <action>.': {description: The user name is not appropriate for the action., kind: invalid_argument}
-      'Error: not a valid initial admin user.': {description: 'No admin user has been created and the user that attempted to be added is not a valid initial admin user (HTTP 401).', kind: access_denied}
-      'Error: initial admin user must be created first.': {description: 'No admin user has been created; create one and log in with it (HTTP 401).', kind: access_denied}
-      'Error:  invalid password.': {description: The supplied password is shorter than 1 or longer than 64 characters or does not comply with the passphrase policy., kind: invalid_argument}
     examples:
     - title: Create the initial admin account
       request: {form: {user: root, pwd: foo, grp: root, sgrp: 'admin:operator:viewer:ptz'}}
@@ -192,6 +189,7 @@ sources:
 provenance:
   completeness: complete
   open_questions:
+  - 'OPEN (needs a runtime/format change): the pwdgrp.cgi failures are documented only as message lines (``Error: account user name.``), with no numeric codes. The spec format keys ``errors`` by code, and the cgi runtime only produces a code when the text after ``Error:`` is a number, so message-keyed entries never match and were removed; the failures currently raise a generic ApiError carrying the message. Matching by message needs a new errors-by-message feature, which would give the kinds: generic and password errors internal/invalid_argument, malformed requests invalid_argument, the two initial-admin errors access_denied. The HTTP 401 cases are raised by the runtime as AuthError before the body is read.'
   - The values of get_users are double-quoted comma separated lists (``"root,joe"``); the text_kv codec now strips the quotes and returns the comma separated string, because splitting only applies to a result model that declares an array field.
   - The parameter table marks user, pwd, grp, sgrp and comment all as "Required if action=add" (copy/paste artefact). comment is optional since autumn 2019; which arguments update and remove require is not stated, so update takes only user as required and remove takes user.
   - Example 6 (add with strict_pwd=1) shows the reply "Modified the account joe." although it is an add; probably a doc error, kept verbatim.

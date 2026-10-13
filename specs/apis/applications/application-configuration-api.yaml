@@ -405,6 +405,86 @@ operations:
       source: https://developer.axis.com/vapix/applications/application-configuration-api/#list-installed-applications
       x-contract:
         template: true
+  modify_configuration:
+    summary: Modify the configuration of an application.
+    description: >-
+      Obsolete; removed in AXIS OS 12.0. Posts the application's <config version="1.0"> XML. The device answers with a failure
+      reply only if the request failed.
+    effect: write
+    write: replace
+    binding:
+      method: POST
+      encoding: body
+      content_type: text/xml
+      query: {action: modify}
+      reply:
+        xml:
+          status_error:
+            attribute: result
+            value: error
+    params:
+      type: object
+      required: [name, config]
+      properties:
+        name: {type: string, description: The application name.}
+        config:
+          type: string
+          x-in: body
+          description: The <config version="1.0"> XML document holding the <application> configuration.
+    positional: [name, config]
+    examples:
+    - title: Modify the application configuration (success reply body assumed, not shown in the docs)
+      request:
+        query: {action: modify, name: ExampleApp}
+        body: |
+          <config version="1.0">
+            <application name="ExampleApp">
+              <ruleEngine>
+                <scripts>
+                  <script encryption="1">example.lua</script>
+                </scripts>
+              </ruleEngine>
+            </application>
+          </config>
+        content_type: text/xml
+      response:
+        status: 200
+        content_type: text/xml
+        text: '<reply result="ok"/>'
+      source: https://developer.axis.com/vapix/applications/application-configuration-api/#modify-application-configuration
+    - title: Application not found
+      request:
+        query: {action: modify, name: hello_glib}
+        body: '<config version="1.0"/>'
+        content_type: text/xml
+      response:
+        status: 200
+        content_type: text/xml
+        text: |
+          <reply result="error">
+              <script />
+              <error type="no_such_application" message="No application 'hello_glib' exists" />
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-configuration-api/#modify-application-configuration
+  get_rtsp_stream_with_event_topic_filter:
+    summary: Build the RTSP URL of a stream with an event topic filter.
+    description: >-
+      Builds the URL only. Event topic filters: AXIS Video Motion Detection 3 ``onvif:RuleEngine/axis:VMD3//.``, Video Motion
+      Detection 2.1 ``onvif:RuleEngine/axis:VideoMotionDetection//motion``, Digital Autotracking
+      ``onvif:RuleEngine/axis:DigitalAutotracking/tracking//.``, Cross Line Detection 1.1 ``onvif:RuleEngine/axis:CrossLineDetection//.``.
+      For more arguments see the RTSP URL parameters of the Video streaming API.
+    effect: read
+    binding:
+      rtsp: {}
+    params:
+      type: object
+      properties:
+        video: {type: boolean, description: Whether video is available in the stream.}
+        event:
+          type: string
+          enum: ['on', 'off']
+          description: Whether event metadata is included in the stream.
+        eventtopic: {type: string, description: The event topic filter to include.}
 sources:
 - url: https://developer.axis.com/vapix/applications/application-configuration-api/
   sha256_md: f4d00857089b9b103301934cd7507e66c6cb80e28e1c745f8fcb38272ea16d52
@@ -413,28 +493,14 @@ provenance:
   completeness: partial
   open_questions:
   - Event example topic is spelled 'tns1:RuleEnginge/...' (typo for RuleEngine?). https://developer.axis.com/vapix/applications/application-configuration-api/#events
-  - 'Modify request: the syntax block puts action/name in the query string, while the examples put them in a form body followed
-    by raw XML; the example curl body also ends with a stray ''</reply>''. The exact encoding (raw XML vs urlencoded) is not
-    specified.'
+  - 'modify_configuration is sent as the syntax block says (POST ?action=modify&name=<name>, the XML as the raw body, text/xml). The examples instead put action=...&name=... and the XML into one application/x-www-form-urlencoded body (with a stray </reply> in the curl sample); which the device accepts is not verified.'
   - Event attr tag value is 'property-state' in the table but 'property_state' in the XML examples.
   - Success response bodies for modify are not shown; XSDs modify_response1.xsd/list1.xsd are referenced at www.axis.com but
     not mirrored.
   - The 'Manage I/O ports' (port.cgi) section appears unrelated to application configuration and its examples 1-2 use param.cgi.
   - Table says moteConfig option 'velocity' value true/false without description.
-  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=<name>'', a newline and
-    the raw <config version="1.0"> XML as one form-encoded body; the XML is not a key=value pair. The syntax block puts action
-    and name in the query string instead. Responses are failure replies only (XSD modify_response1.xsd is not mirrored).'
-  - 'BLOCKED(rtsp-url): get_rtsp_stream_with_event_topic_filter: rtsp://<servername>/axis-media/media.amp with video, event
-    and eventtopic arguments.'
-  - 'BLOCKED(streaming): io_port monitor argument returns a multipart stream; the port.cgi section on this page (check, checkactive,
-    checkdirection, action, monitor) is the io-port-api spec''s subject, so no io_port operation is kept here.'
   - The failure reply <reply result="error"><error type message/></reply> is detected through the result attribute only; the
     runtime cannot read the type and message attributes of the child error element, so the error message is generic.
-  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=<name>'', a newline and
-    the raw <config version="1.0"> XML as one form-encoded body; the XML is not a key=value pair. The syntax block puts action
-    and name in the query string instead. Responses are failure replies only (XSD modify_response1.xsd is not mirrored).'
-  - 'BLOCKED(rtsp-url): get_rtsp_stream_with_event_topic_filter: rtsp://<servername>/axis-media/media.amp with video, event
-    and eventtopic arguments.'
   - 'The ''Manage I/O ports'' section (/axis-cgi/io/port.cgi: check, checkactive, checkdirection, action, monitor) is unrelated
     to application configuration and is covered by the io-port-api spec, so the migrated io_port operation was removed here.'
   - The failure reply <reply result="error"><error type message/></reply> is detected through the result attribute only; the

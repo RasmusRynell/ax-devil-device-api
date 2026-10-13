@@ -457,6 +457,168 @@ types:
       vcount:
         $ref: '#/types/VehicleCounts'
         x-python-name: counts
+  PushConfig:
+    type: object
+    description: One push profile (<cloud_config> XML).
+    properties:
+      url:
+        type: string
+        description: The target URL, base64 encoded, as <servername>:port/path. No path is present when TCP is used.
+        x-xml: {child: url}
+      latitude:
+        type: number
+        description: The camera latitude.
+        x-xml: {child: latitude}
+      longitude:
+        type: number
+        description: The camera longitude.
+        x-xml: {child: longitude}
+      sensorProviderID:
+        type: string
+        description: The camera identifier sent with all requests, to tell cameras apart.
+        x-xml: {child: sensorProviderID}
+        x-python-name: sensor_provider_id
+      protocol:
+        type: integer
+        description: 'The protocol: HTTP = 1, TCP = 8, FTP = 16.'
+        enum: [1, 8, 16]
+        x-xml: {child: protocol}
+      enable:
+        type: boolean
+        x-xml: {child: enable}
+      skip_image_in_post:
+        type: boolean
+        description: True sends the JSON packet without images.
+        x-xml: {child: skip_image_in_post}
+      event_new:
+        type: boolean
+        description: Send NEW events.
+        x-xml: {child: event_new}
+      event_update:
+        type: boolean
+        description: Send UPDATE events.
+        x-xml: {child: event_update}
+      event_lost:
+        type: boolean
+        description: Send LOST events.
+        x-xml: {child: event_lost}
+      use_multipart:
+        type: boolean
+        description: True sends multipart/form-data, false sends application/json.
+        x-xml: {child: use_multipart}
+      use_event_buffer:
+        type: boolean
+        description: Re-send events from a buffer if the target URL is not accessible.
+        x-xml: {child: use_event_buffer}
+      user:
+        type: string
+        x-xml: {child: user}
+      password:
+        type: string
+        x-xml: {child: password}
+      http_auth_type:
+        type: integer
+        description: Undocumented.
+        x-xml: {child: http_auth_type}
+      send_second_image:
+        type: boolean
+        description: Send a second image of the license plate type.
+        x-xml: {child: send_second_image}
+      second_image_type:
+        type: integer
+        description: Undocumented.
+        x-xml: {child: second_image_type}
+      path_template:
+        type: string
+        description: The custom path for FTP.
+        x-xml: {child: path_template}
+      x_auth_key:
+        type: string
+        description: The Auth-Header.
+        x-xml: {child: x_auth_key}
+    x-xml:
+      root: .
+  PushProfile:
+    type: string
+    description: The push profile, served by cloud.cgi, cloud2.cgi and cloud3.cgi.
+    enum: [cloud, cloud2, cloud3]
+  ListFile:
+    type: string
+    description: The list file name in the path of the list CGI.
+    enum: [allow_list, block_list, custom_list]
+  PlateListContent:
+    type: object
+    description: A list as returned by its CGI (<bw_list mode="..."> XML).
+    properties:
+      mode:
+        type: string
+        description: The list mode (allow, block or custom).
+      plates:
+        type: array
+        description: The entries, as 'PLATE,MM-DD-YYYY,description'.
+        items: {type: string}
+        x-xml: {path: s}
+    x-xml:
+      root: .
+  HeartbeatData:
+    type: object
+    description: Which fields the heartbeat message includes. Sections are objects of booleans.
+    properties:
+      system:
+        type: object
+        properties: {timestamp: {type: boolean}}
+      identify:
+        type: object
+        properties:
+          platform: {type: boolean}
+          version: {type: boolean}
+          ipAddress: {type: boolean}
+          macAddress: {type: boolean}
+          osVersion: {type: boolean}
+          anprVersion: {type: boolean}
+      ALPV:
+        type: object
+        properties:
+          version: {type: boolean}
+          device_ID: {type: boolean}
+          numFrames: {type: boolean}
+          numFramesAvg: {type: boolean}
+          numberofReads: {type: boolean}
+      services:
+        type: object
+        properties:
+          Available Memory: {type: boolean}
+  DirectionRoi:
+    type: object
+    required: [id, name, type, active, angle, coordinates]
+    properties:
+      id: {type: integer}
+      name: {type: string, description: 'For example roi1.'}
+      type: {type: string, description: 'For example polygon.'}
+      active: {type: boolean}
+      angle:
+        type: integer
+        minimum: 0
+        maximum: 360000
+        description: The car direction angle, documented as <0-360000> (unit not stated).
+      coordinates:
+        type: array
+        description: Corner points [x, y].
+        items:
+          type: array
+          items: {type: integer}
+          minItems: 2
+          maxItems: 2
+  DirectionConfig:
+    type: object
+    description: The body of config_json.cgi for changing the ROI direction angle.
+    required: [api, config, roi]
+    properties:
+      api: {type: string, const: setconfig, default: setconfig}
+      config: {type: string, const: roi, default: roi}
+      roi:
+        type: array
+        items: {$ref: '#/types/DirectionRoi'}
 operations:
   get_2n_config:
     summary: Get 2N integration settings.
@@ -994,6 +1156,415 @@ operations:
               </vcount>
           </events>
       source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#statistics
+  set_2n_config:
+    summary: Configure the 2N integration.
+    effect: write
+    write: replace
+    binding:
+      path: /local/fflprapp/config_2n.cgi
+      method: POST
+      encoding: body
+      content_type: application/xml
+      reply: text
+    params:
+      type: object
+      required: [config]
+      properties:
+        config:
+          type: string
+          x-in: body
+          description: The <tn_config> XML document (url, user, password, enable, https, accessPoint, event_on_direction).
+    positional: [config]
+    examples:
+    - title: Configure 2N integration in ALPV
+      request:
+        body: |
+          <?xml version="1.0" encoding="utf-8" ?>
+          <tn_config>
+              <url>127.0.0.11</url>
+              <user>operator</user>
+              <password>YWQ=</password>
+              <enable>true</enable>
+              <https>false</https>
+              <accessPoint>1</accessPoint>
+              <event_on_direction>2</event_on_direction>
+          </tn_config>
+        content_type: application/xml
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#configure-2n-integration-in-alpv
+  set_genetec_config:
+    summary: Configure the Genetec integration.
+    effect: write
+    write: replace
+    binding:
+      path: /local/fflprapp/config_gsc.cgi
+      method: POST
+      encoding: body
+      content_type: application/xml
+      reply: text
+    params:
+      type: object
+      required: [config]
+      properties:
+        config:
+          type: string
+          x-in: body
+          description: The <gsc_config> XML document (url, user, password, enable, cameraID).
+    positional: [config]
+    examples:
+    - title: Configure Genetec integration
+      request:
+        body: |
+          <?xml version="1.0" encoding="utf-8" ?>
+          <gsc_config>
+              <url>http://10.0.5.223:8077</url>
+              <enable>true</enable>
+              <user />
+              <password />
+              <cameraID>AXIS P1447-LE</cameraID>
+          </gsc_config>
+        content_type: application/xml
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#configure-genetec-integration
+  set_settings:
+    summary: Set the ALPV settings, for example the Area of Interest.
+    description: Posts a <configuration> XML document. Whether elements left out keep their current values is not documented.
+    effect: write
+    write: patch
+    binding:
+      path: /local/fflprapp/config.cgi
+      method: POST
+      encoding: body
+      content_type: application/xml
+      reply: text
+    params:
+      type: object
+      required: [configuration]
+      properties:
+        configuration:
+          type: string
+          x-in: body
+          description: The <configuration> XML document.
+    positional: [configuration]
+    examples:
+    - title: Set Area of Interest configuration
+      request:
+        body: |
+          <?xml version="1.0" encoding="utf-8" ?>
+          <configuration>
+              <active_roi>2</active_roi>
+              <roi>
+                  <left>50</left>
+                  <top>50</top>
+                  <right>350</right>
+                  <bottom>350</bottom>
+                  <width>300</width>
+                  <height>300</height>
+                  <angle>0</angle>
+              </roi>
+              <roitwo>
+                  <left>500</left>
+                  <top>50</top>
+                  <right>990</right>
+                  <bottom>990</bottom>
+                  <width>425</width>
+                  <height>990</height>
+                  <angle>3000</angle>
+              </roitwo>
+          </configuration>
+        content_type: application/xml
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#set-area-of-interest-configuration
+  get_push_config:
+    summary: Get the configuration of a push event profile.
+    effect: read
+    binding:
+      path: '/local/fflprapp/{profile}.cgi'
+      method: GET
+      reply: xml
+    params:
+      type: object
+      required: [profile]
+      properties:
+        profile: {$ref: '#/types/PushProfile'}
+    positional: [profile]
+    result:
+      $ref: '#/types/PushConfig'
+    examples:
+    - title: Get the first push profile
+      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
+      request:
+        query: {}
+      response:
+        status: 200
+        content_type: application/xml
+        text: |
+          <?xml version="1.0" encoding="utf-8" ?>
+          <cloud_config>
+              <url>aHR0cDovLzEwLjAuNS4yMjM6NTAwMg==</url>
+              <latitude>55.70421</latitude>
+              <longitude>13.19366</longitude>
+              <sensorProviderID>defaultID</sensorProviderID>
+              <protocol>1</protocol>
+              <enable>false</enable>
+              <skip_image_in_post>false</skip_image_in_post>
+              <event_new>true</event_new>
+              <event_update>false</event_update>
+              <event_lost>false</event_lost>
+              <use_multipart>true</use_multipart>
+              <use_event_buffer>true</use_event_buffer>
+              <user />
+              <password />
+              <http_auth_type>0</http_auth_type>
+              <send_second_image>false</send_second_image>
+              <second_image_type>21</second_image_type>
+              <path_template />
+              <x_auth_key />
+          </cloud_config>
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#get-push-event-configurations
+  set_push_config:
+    summary: Update the configuration of a push event profile.
+    description: The device answers with the stored <cloud_config> (shown for HTTP and FTP in the docs).
+    effect: write
+    write: replace
+    binding:
+      path: '/local/fflprapp/{profile}.cgi'
+      method: POST
+      encoding: body
+      content_type: application/xml
+      reply: text
+    params:
+      type: object
+      required: [profile, config]
+      properties:
+        profile: {$ref: '#/types/PushProfile'}
+        config:
+          type: string
+          x-in: body
+          description: The <cloud_config> XML document.
+    positional: [profile, config]
+    examples:
+    - title: Update the first push profile
+      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
+      request:
+        body: |
+          <?xml version="1.0" encoding="utf-8" ?>
+          <cloud_config>
+              <url>MTAuMC41LjIyMzo3MDAx</url>
+              <latitude>50.418114</latitude>
+              <longitude>30.476213</longitude>
+              <sensorProviderID>PostmanConfigured</sensorProviderID>
+              <protocol>8</protocol>
+              <enable>true</enable>
+              <skip_image_in_post>true</skip_image_in_post>
+              <event_new>true</event_new>
+              <event_update>true</event_update>
+              <event_lost>true</event_lost>
+              <use_multipart>true</use_multipart>
+              <use_event_buffer>true</use_event_buffer>
+              <user />
+              <password />
+              <http_auth_type>0</http_auth_type>
+              <send_second_image>false</send_second_image>
+              <second_image_type>21</second_image_type>
+              <path_template />
+              <x_auth_key />
+          </cloud_config>
+        content_type: application/xml
+      response:
+        status: 200
+        content_type: application/xml
+        text: ''
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#update-push-event-configurations
+  set_heartbeat_config:
+    summary: Configure the heartbeat service.
+    effect: write
+    write: replace
+    binding:
+      path: /local/fflprapp/config_hb.cgi
+      method: POST
+      encoding: body
+      content_type: application/xml
+      reply: text
+    params:
+      type: object
+      required: [config]
+      properties:
+        config:
+          type: string
+          x-in: body
+          description: 'The <hb_config> XML document: url (base64), user, password (base64), period (5, 10, 30, 60 or 1440 minutes), enable, x_auth_key, http_auth_type.'
+    positional: [config]
+    examples:
+    - title: Configure Heartbeat service
+      request:
+        body: |
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <hb_config>
+              <url>aHR0cDovLzEwLjAuNS4yMjM6ODA3Ny9saXN0ZW5lci5waHA=</url>
+              <user>user</user>
+              <password>dXNlcg==</password>
+              <period>10</period>
+              <enable>true</enable>
+              <x_auth_key />
+              <http_auth_type>0</http_auth_type>
+          </hb_config>
+        content_type: application/xml
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#configure-heartbeat-service
+  set_heartbeat_data:
+    summary: Choose the fields of the heartbeat message.
+    effect: write
+    write: replace
+    binding:
+      path: /local/fflprapp/config_hb_data.cgi
+      method: POST
+      encoding: body
+      content_type: application/json
+      reply: text
+    params:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/types/HeartbeatData'
+          x-in: body
+    positional: [data]
+    examples:
+    - title: Configure and send Heartbeat service data
+      request:
+        body:
+          system: {timestamp: true}
+          identify: {platform: true, version: false, ipAddress: true, macAddress: false, osVersion: true, anprVersion: false}
+          ALPV: {version: true, device_ID: true, numFrames: false, numFramesAvg: true, numberofReads: true}
+          services: {Available Memory: false}
+        content_type: application/json
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#configure-and-send-heartbeat-service-data
+  set_direction:
+    summary: Change the car direction angle of the regions of interest.
+    effect: write
+    write: replace
+    binding:
+      path: /local/fflprapp/config_json.cgi
+      method: POST
+      encoding: body
+      content_type: application/json
+      reply: text
+    params:
+      type: object
+      required: [config]
+      properties:
+        config:
+          $ref: '#/types/DirectionConfig'
+          x-in: body
+    positional: [config]
+    examples:
+    - title: Change direction angle
+      request:
+        body:
+          api: setconfig
+          config: roi
+          roi:
+          - {id: 1, name: roi1, type: polygon, active: true, angle: 0, coordinates: [[50, 50], [950, 50], [950, 950], [50, 950]]}
+          - {id: 2, name: roi2, type: polygon, active: false, angle: 90000, coordinates: [[525, 50], [950, 50], [950, 950], [525, 950]]}
+        content_type: application/json
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#change-direction-angle
+  set_list_settings:
+    summary: Change the list settings, including list names (rename lists).
+    effect: write
+    write: replace
+    binding:
+      path: /local/fflprapp/list_mgmt.cgi
+      method: POST
+      encoding: body
+      content_type: application/json
+      reply: text
+    params:
+      type: object
+      required: [settings]
+      properties:
+        settings:
+          $ref: '#/types/ListSettings'
+          x-in: body
+    positional: [settings]
+    examples:
+    - title: Rename the allow list
+      request:
+        body:
+          lists:
+          - id: '1'
+            name: Gate allow list
+            mode: allow
+            schedule:
+            - {enabled: false, start_time: '0', end_time: '0', Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: true}
+        content_type: application/json
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#rename-lists
+  get_list:
+    summary: Get the entries of the allow, block or custom list.
+    effect: read
+    binding:
+      path: '/local/fflprapp/{list_file}.cgi'
+      method: GET
+      reply: xml
+    params:
+      type: object
+      required: [list_file]
+      properties:
+        list_file: {$ref: '#/types/ListFile'}
+    positional: [list_file]
+    result:
+      $ref: '#/types/PlateListContent'
+    examples:
+    - title: Get the allow list
+      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
+      request:
+        query: {}
+      response:
+        status: 200
+        content_type: application/xml
+        text: |
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <bw_list mode="allow">
+              <s>M SR1669,09-29-2023,car_test_2</s>
+              <s>M UG0104,09-29-2023,test_more_updates</s>
+          </bw_list>
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#get-allowblockcustom-list
+  add_plates:
+    summary: Add a batch of plates to the allow, block or custom list.
+    effect: write
+    write: create
+    binding:
+      path: '/local/fflprapp/{list_file}.cgi'
+      method: POST
+      encoding: body
+      content_type: application/xml
+      reply: text
+    params:
+      type: object
+      required: [list_file, plates]
+      properties:
+        list_file: {$ref: '#/types/ListFile'}
+        plates:
+          type: string
+          x-in: body
+          description: 'The <bw_list mode="allow|block|custom"> XML document with one <s> element per plate.'
+    positional: [list_file, plates]
+    examples:
+    - title: Add a batch of plates
+      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
+      request:
+        body: |
+          <?xml version="1.0" encoding="utf-8" ?>
+          <bw_list mode="block">
+              <s>AA123DD</s>
+              <s>AA124DD</s>
+          </bw_list>
+        content_type: application/xml
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/applications/license-plate-verifier-api/#add-a-batch-of-plates-to-the-allowblockcustom-list
 sources:
 - url: https://developer.axis.com/vapix/applications/license-plate-verifier-api/
   sha256_md: e32ea8e2030be85ae8e336452a37ec32da858c8c11495dea50e7089aa7503728
@@ -1012,24 +1583,8 @@ provenance:
   - http_auth_type and second_image_type values are undocumented; Genetec table describes URL as 'The 2N device URL'.
   - Set Area of Interest posts to config.cgi; whether partial configuration posts merge with existing settings is not stated.
   - direction 'angle' range '<0-360000>' unit not stated.
-  - 'XML request bodies are modeled as in: json_body with a schema; clients must serialize to the documented XML element names.'
-  - 'BLOCKED(raw-body): set_2n_config: POST /local/fflprapp/config_2n.cgi with an application/xml <tn_config> body.'
-  - 'BLOCKED(raw-body): set_genetec_config: POST /local/fflprapp/config_gsc.cgi with an application/xml <gsc_config> body.'
-  - 'BLOCKED(raw-body): set_settings: POST /local/fflprapp/config.cgi with an application/xml <configuration> body (the Set
-    Area of Interest example posts partial configuration).'
-  - 'BLOCKED(raw-body): set_push_config: POST /local/fflprapp/cloud.cgi (cloud2.cgi, cloud3.cgi) with an application/xml <cloud_config>
-    body.'
-  - 'BLOCKED(path-param): get_push_config: GET /local/fflprapp/cloud.cgi, cloud2.cgi or cloud3.cgi for the first, second and
-    third push profile; returns <cloud_config> XML.'
-  - 'BLOCKED(raw-body): set_heartbeat_config: POST with an application/xml body.'
-  - 'BLOCKED(raw-body): set_heartbeat_data: POST with an application/json body.'
-  - 'BLOCKED(raw-body): set_direction: POST with an application/json body (change direction angle).'
-  - 'BLOCKED(raw-body): set_list_settings: POST /local/fflprapp/list_mgmt.cgi with an application/json body (change list settings,
-    rename lists).'
-  - 'BLOCKED(path-param): get_list: GET /local/fflprapp/<list name>.cgi (allow list, block list, custom list) returns <bw_list
-    mode> XML.'
-  - 'BLOCKED(raw-body): add_plates: POST /local/fflprapp/<list name>.cgi (allow_list, block_list, custom_list) with an application/xml
-    <bw_list> body.'
+  - XML request bodies (set_2n_config, set_genetec_config, set_settings, set_push_config, set_heartbeat_config, add_plates) are passed as the XML document string; there is no typed XML request builder.
+  - get_list and add_plates take the file names allow_list, block_list and custom_list (as in the add-batch table); the get-list table writes 'allow list | block list | custom list', assumed to be the same files.
   - get_settings has no field table in the docs (the sample also repeats elements), so it returns the raw XML element.
   - The event record fields (TS, MOD_TS, ACTION, ...) have no description in the docs; types and names come from the sample
     reply and the search filters.

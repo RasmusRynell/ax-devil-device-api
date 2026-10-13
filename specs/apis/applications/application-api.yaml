@@ -316,6 +316,79 @@ operations:
           </reply>
       source: https://developer.axis.com/vapix/applications/application-api/#read-general-information
 
+  upload_application:
+    summary: Upload and install an ACAP application package (.eap).
+    description: >-
+      The application is installed but not started. If an application with the same name exists, the upload upgrades it: data and
+      parameters are kept, the version is not compared and a running application is restarted. A failed or interrupted upgrade
+      removes both versions. Installing a signed application needs about twice the size of the package in free RAM.
+    effect: write
+    write: create
+    binding:
+      path: /axis-cgi/applications/upload.cgi
+      method: POST
+      encoding: multipart
+      reply: text_ok
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          format: binary
+          x-upload: {part: file, content_type: application/octet-stream}
+          description: The application package (.eap), as bytes, a Path or an Upload(stream, size).
+    positional: [package]
+    errors:
+      2: {description: Verification failed. The signature of the application package is either missing or invalid., kind: invalid_argument}
+      3: {description: Application package too large. The package file is too large or the disk is full., kind: invalid_argument}
+      5: {description: Application package not compatible with the Axis device. See the system log for more information., kind: unsupported}
+      12: {description: Upload currently unavailable. An application package upload is ongoing., kind: unavailable}
+      13: {description: Installation failed. The application package requires a user or group that is not allowed., kind: invalid_argument}
+      14: {description: Application package already exists in the application store but with a different letter case., kind: invalid_argument}
+      27: {description: Upgrade not allowed. The vendor ID of the package must be the same as the vendor ID of the application it replaces., kind: invalid_argument}
+      29: {description: Invalid manifest.json or package.conf file., kind: invalid_argument}
+      51: {description: Serial number in Developer Mode does not match the device serial number., kind: invalid_argument}
+      52: {description: Developer Mode application upgrade not allowed. The vendor ID for Developer Mode has changed., kind: invalid_argument}
+      53: {description: Application vendor ID does not match the Developer Mode vendor ID., kind: invalid_argument}
+      54: {description: Developer Mode application does not allow the application's manifest contents., kind: invalid_argument}
+    examples:
+    - title: Upload an application package
+      request:
+        parts:
+        - {name: file, content_type: application/octet-stream, content: EAPDATA}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/applications/application-api/#upload-application
+  upload_license_key:
+    summary: Upload and install a license key for an application.
+    description: The docs name the action and the package parameter but not how the key file is sent; it is sent as a multipart file part named file, as for upload.cgi.
+    effect: write
+    write: create
+    binding:
+      path: /axis-cgi/applications/license.cgi
+      method: POST
+      encoding: multipart
+      url_query: {action: uploadlicensekey}
+      reply: text_ok
+    params:
+      type: object
+      required: [package, license_key]
+      properties:
+        package: {type: string, x-in: query, description: The name of the application package to which the license key belongs.}
+        license_key:
+          type: string
+          format: binary
+          x-upload: {part: file, content_type: application/octet-stream}
+          description: The license key file, as bytes, a Path or an Upload(stream, size).
+    positional: [package, license_key]
+    errors:
+      21: {description: Invalid license key file., kind: invalid_argument}
+      22: {description: File upload failed. See the system log for more information., kind: internal}
+      24: {description: The application is not installed., kind: not_found}
+      25: {description: The key's application ID does not match the installed application., kind: invalid_argument}
+      26: {description: The license key cannot be used with this version of the application., kind: unsupported}
+      30: {description: Wrong serial number., kind: invalid_argument}
+      31: {description: The license key has expired., kind: invalid_argument}
 sources:
 - url: https://developer.axis.com/vapix/applications/application-api/
   sha256_md: 051ada2f8412c794bfde243a0cd387783104b8a99c1f57d83f74bee7300ec671
@@ -324,9 +397,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(multipart-upload): upload_application: POST /axis-cgi/applications/upload.cgi with a multipart/form-data body (field "file", the .eap package); the cgi binding has no raw or multipart request body.'
-  - 'BLOCKED(multipart-upload): upload_license_key: license.cgi action=uploadlicensekey takes the key file, but the docs do not say how it is sent (assumed multipart); the cgi binding cannot send it.'
-  - Upload error codes (2, 3, 5, 12, 13, 14, 27, 29, 51-54) belong to the blocked upload_application operation.
+  - upload_license_key: the docs do not say how the key file is sent; a multipart part named file is assumed (no example).
   - The list.cgi example in the docs has a stray ">" after ValidationResult; the attribute table says SignatureStatus while the XSD defines SignedStatus (plus VendorHomePage and LicenseName). Both names are modelled.
   - The attribute table lists CompatibleOsVersions/@VersionRange and VersionRange/@Min as attributes, but the example and XSD use child elements; the XSD is followed.
   - info.cgi has no XSD and no documented errors; the AXIS OS 2024-05-03 version history mentions new upload error codes without saying which.
