@@ -44,7 +44,7 @@ import httpx_ws
 import wsproto.events
 import wsproto.utilities
 
-from .._http.options import DEFAULT_HEARTBEAT, Heartbeat
+from .._http.options import DEFAULT_HEARTBEAT, Heartbeat, RequestOptions
 from .._http.transport import (
     LIMIT_CLOSE_CODE,
     LIMIT_CLOSE_REASON,
@@ -585,6 +585,8 @@ class Session:
     def request(self, method: str, params: Mapping[str, Any] | None = None, *, timeout: float | None = None) -> Any:
         """Send a request and return its result; other messages that arrive meanwhile stay queued for ``receive()``."""
         core = self._core
+        if timeout is not None:
+            RequestOptions(timeout=timeout)  # positive and finite, like every other timeout; nothing is sent otherwise
         request_id, message = core.request_message(method, params)
         self.send(message)
         limit = core.default_timeout if timeout is None else timeout
@@ -638,12 +640,12 @@ def connect_session(
     """Open a session: optional token, handshake (retried when it provably never left), setup requests."""
     setup = _setup_requests(spec, options)
     query = spec.query
-    if use_token:
-        query = (("wssession", run_sync(transport, _token_flow(spec), call)),) + query
-    request = call.prepare(Request("GET", spec.path, query=query, auth="anonymous" if use_token else "required"))
     attempt = 1
     stack = ExitStack()
     while True:
+        # The token is valid for 15 seconds only: every handshake attempt, a retry included, gets a fresh one.
+        attempt_query = (("wssession", run_sync(transport, _token_flow(spec), call)),) + query if use_token else query
+        request = call.prepare(Request("GET", spec.path, query=attempt_query, auth="anonymous" if use_token else "required"))
         started = time.monotonic()
         try:
             response, raw = stack.enter_context(transport.open_ws(request, heartbeat))
@@ -772,6 +774,8 @@ class AsyncSession:
     async def request(self, method: str, params: Mapping[str, Any] | None = None, *, timeout: float | None = None) -> Any:
         """Send a request and return its result; other messages that arrive meanwhile stay queued for ``receive()``."""
         core = self._core
+        if timeout is not None:
+            RequestOptions(timeout=timeout)
         request_id, message = core.request_message(method, params)
         await self.send(message)
         limit = core.default_timeout if timeout is None else timeout
@@ -826,12 +830,11 @@ async def connect_session_async(
     """Async counterpart of ``connect_session``."""
     setup = _setup_requests(spec, options)
     query = spec.query
-    if use_token:
-        query = (("wssession", await run_async(transport, _token_flow(spec), call)),) + query
-    request = call.prepare(Request("GET", spec.path, query=query, auth="anonymous" if use_token else "required"))
     attempt = 1
     stack = AsyncExitStack()
     while True:
+        attempt_query = (("wssession", await run_async(transport, _token_flow(spec), call)),) + query if use_token else query
+        request = call.prepare(Request("GET", spec.path, query=attempt_query, auth="anonymous" if use_token else "required"))
         started = time.monotonic()
         try:
             response, raw = await stack.enter_async_context(transport.open_ws(request, heartbeat))
