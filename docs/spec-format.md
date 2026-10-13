@@ -80,7 +80,9 @@ binding:
                                                               # body: none | object | value (+ body_field)
   binding: {method: GET, path: '/topics/{topic}', key_styles: {topic: dots_to_slashes}}
                                                               # key_styles: per placeholder, `dots_to_slashes` writes
-                                                              # a dotted key as nested segments (a.b -> a/b); default `segment`
+                                                              # a dotted key as nested segments (a.b -> a/b); `path` keeps the
+                                                              # `/` of a nested path (a/b stays two segments); default `segment`
+                                                              # (one encoded segment). Empty, `.` and `..` segments are rejected.
 ```
 
 `cgi`:
@@ -420,7 +422,7 @@ errors:
   2105: {description: Authorization failure, kind: access_denied}
 ```
 
-`kind` is one of `access_denied`, `unavailable`, `invalid_argument`, `not_found`, `unsupported`, `internal`. It selects the error class at runtime, so set it whenever the meaning is clear. Operations may add their own `errors`.
+`kind` is one of `access_denied`, `unavailable`, `invalid_argument`, `not_found`, `unsupported`, `internal`. It selects the error class at runtime, so set it whenever the meaning is clear. Operations may add their own `errors`. A key may also be a range of codes, `"9000-9999": {description: Reserved for license errors, kind: unavailable}`; an exact code wins over a range, and an operation's entry over the API's. A JSON-RPC error with `kind: unsupported` (like 2100, or 2000 where an API documents it so) also drops the cached API versions.
 
 Some APIs report failures only as a message, with no code: classic CGIs answer `Error: account user name.` (HTTP 200). Such an error is matched by its text: give the entry `message` (the whole message) or `message_prefix` (its start, for messages that end with a variable part), and use any label as the key:
 
@@ -442,8 +444,8 @@ Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `it
 - `required` lists the fields that must be present. In request models they are required arguments. In response models a missing one raises `ResponseFormatError`, so list only what the device always returns.
 - Optional fields become `X | None = None`.
 - Extensions:
-  - `x-nullable: [field, ...]`: may be sent as explicit `null`.
-  - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips at any depth (through nested models and lists); also redacted by name in `on_request` records.
+  - `x-nullable: [field, ...]`: may be sent as explicit `null` (JSON `null`; an empty element in SOAP).
+  - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips at any depth (through nested models and lists); also redacted by name in `on_request` records, shown as `'*****'` in `repr`, and, when it is the `body_field` of a `body: value` DCA/REST operation, it marks the body `sensitive` (the same happens for a field whose name looks like a secret, such as `password`), so `on_request` records show only `<redacted>` for that body.
   - `x-read-only: [field, ...]`: present in responses, never sent: omitted from request serialization at any depth, even when supplied. When a request type is shared with the response, read-only fields stay on the model but are not method arguments. A field that is also in `required` is required in responses only: a response without it raises `ResponseFormatError`, while a request model leaves it out (the attribute is `None` on a model you built yourself; type checkers still see the field type) and never sends it.
   - `x-python-name` on a property: overrides the derived name.
   - `x-style` on a property (cgi only): `plain`, `csv`, `axis_bool`, `spread`, `flag` (a boolean sent as the bare key when true).
@@ -560,6 +562,8 @@ Signature rule:
 - Smaller operations get one plain signature. `positional` names the arguments taken positionally (DCA path keys are positional by default), and the rest are keyword-only.
 - On an overloaded operation, `positional` makes those arguments positional in the keyword overload (`set_x(value, /, *, ...)`); the request-object form is unchanged. DCA path keys are not positional by default there.
 - A `x-nullable` field accepts an explicit `None` in the signature.
+- Overloaded methods raise `TypeError` for more positional values than `positional` lists.
+- A scalar `result` keeps its constraints (`minimum`, `pattern`, ...) at run time, and tolerates enum values newer than the generated `Literal`; the method's return annotation stays the plain type. A JSON-RPC response whose `data` is `null` or missing is validated as such, so it only passes for a `result` that accepts `None`.
 - Every method takes `request_options`.
 
 ## Patches
