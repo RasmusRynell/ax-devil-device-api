@@ -752,7 +752,7 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._http.upload import UploadSource, UploadSpec
-from .._protocols.base import AcapDiscovery, ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery, ServiceDiscovery, not_sent
+from .._protocols.base import CONST, AcapDiscovery, ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery, ServiceDiscovery, not_sent
 from .._protocols.cgi import Binary, CgiArg, CgiBinding, JsonReply, Text, TextKv, TextLines, TextOk, Xml
 from .._protocols.dca import DcaBinding
 from .._protocols.rest import RestBinding

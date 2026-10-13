@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import AcapDiscovery, ApiInfo, Family, Model, Operation
+from .._protocols.base import CONST, AcapDiscovery, ApiInfo, Family, Model, Operation
 from .._protocols.cgi import CgiArg, CgiBinding, JsonReply, Text, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
 from ._base import AsyncApi, SyncApi, bind_positional
@@ -306,9 +306,9 @@ class DirectionRoi(Model):
 class DirectionConfig(Model):
     """The body of config_json.cgi for changing the ROI direction angle."""
 
-    api: Literal["setconfig"]
+    api: Annotated[Literal["setconfig"], CONST]
     """Default: 'setconfig'."""
-    config: Literal["roi"]
+    config: Annotated[Literal["roi"], CONST]
     """Default: 'roi'."""
     roi: list[DirectionRoi]
 

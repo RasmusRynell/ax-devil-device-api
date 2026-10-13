@@ -12,7 +12,17 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import AcapDiscovery, ApiInfo, ApiVersion, Applicability, ErrorCode, Family, Model, Operation
+from .._protocols.base import (
+    CONST,
+    AcapDiscovery,
+    ApiInfo,
+    ApiVersion,
+    Applicability,
+    ErrorCode,
+    Family,
+    Model,
+    Operation,
+)
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -54,7 +64,7 @@ class Filter(Model):
 
 
 class Trigger(Model):
-    type: Literal["fence"]
+    type: Annotated[Literal["fence"], CONST]
     data: list[Point]
     """Fence polyline [[x0,y0], ..., [xn,yn]]."""
     alarm_direction: Literal["leftToRight", "rightToLeft", "both"] = Field(
@@ -64,7 +74,7 @@ class Trigger(Model):
 
 
 class PerspectiveBar(Model):
-    type: Literal["bar"]
+    type: Annotated[Literal["bar"], CONST]
     """A vertical line in the rotation of the camera."""
     data: list[Point]
     """Start (touches the ground plane) and end point. (minItems=2, maxItems=2)"""
@@ -146,7 +156,7 @@ class FilterCapability(Model):
 
 
 class TriggerCapability(Model):
-    type: Literal["fence"] | None = None
+    type: Annotated[Literal["fence"], CONST] | None = None
     min: list[float] | None = None
     """[xPos, yPos] minimum allowed values for the fence."""
     max: list[float] | None = None

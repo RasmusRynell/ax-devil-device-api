@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, not_sent
+from .._protocols.base import CONST, ApiInfo, ErrorCode, Family, Model, Operation, not_sent
 from .._protocols.rest import RestBinding
 from ._base import AsyncApi, SyncApi
 
@@ -92,7 +92,7 @@ class DuplexDevice(Model):
 class HttpAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
-    type: Literal["HTTP"]
+    type: Annotated[Literal["HTTP"], CONST]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")
@@ -119,7 +119,7 @@ class HttpAudioSession(Model):
 class RtpAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
-    type: Literal["RTP"]
+    type: Annotated[Literal["RTP"], CONST]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")
@@ -149,7 +149,7 @@ class RtpAudioSession(Model):
 class SipAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
-    type: Literal["SIP"]
+    type: Annotated[Literal["SIP"], CONST]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")
@@ -177,7 +177,7 @@ class SipAudioSession(Model):
 class WsAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
-    type: Literal["WS"]
+    type: Annotated[Literal["WS"], CONST]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")

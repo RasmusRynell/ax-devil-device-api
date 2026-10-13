@@ -356,3 +356,40 @@ def test_path_style_rejects_dot_and_empty_segments(value: str) -> None:
 def test_other_styles_reject_dot_segments(style: str) -> None:
     with pytest.raises(ValueError, match="not a valid path segment"):
         _build(_nested_op(style), _Key(key=".." if style == "segment" else "a..b"))
+
+
+def test_documented_version_not_supported_codes_are_unsupported() -> None:
+    from ax_devil_device_api.apis.axis_object_analytics import OPS as OBJECT_ANALYTICS
+    from ax_devil_device_api.apis.basic_device_info import OPS as BASIC
+    from ax_devil_device_api.apis.network_settings_api import OPS as NETWORK
+
+    for code, ops in ((2003, BASIC), (4001, NETWORK), (2000, OBJECT_ANALYTICS)):
+        api = next(op for op in vars(ops).values() if hasattr(op, "api")).api
+        assert api.errors[code].kind == "unsupported"
+
+
+def test_every_jsonrpc_spec_marks_version_errors_unsupported() -> None:
+    import re
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[2] / "specs" / "apis"
+    pattern = re.compile(r"version.{0,40}(not supported|unsupported|isn.t supported)|unsupported.{0,20}version", re.I)
+    bad = []
+    for path in sorted(root.glob("*/*.yaml")):
+        spec = yaml.safe_load(path.read_text())
+        if spec.get("family") != "jsonrpc":
+            continue
+        for code, entry in (spec.get("errors") or {}).items():
+            if pattern.search(entry.get("description", "")) and entry.get("kind") != "unsupported":
+                bad.append((path.name, code))
+    assert not bad
+
+
+def test_emptied_list_is_rejected_at_send_time() -> None:
+    from ax_devil_device_api.apis.ptz import CenterRequest
+
+    request = CenterRequest(center=[1, 2])
+    request.center.clear()
+    with pytest.raises(ValidationError):
+        request.revalidated()

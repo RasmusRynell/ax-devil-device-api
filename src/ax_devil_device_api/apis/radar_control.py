@@ -12,7 +12,7 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
+from .._protocols.base import CONST, ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -32,7 +32,7 @@ class Channel(Model):
 class ObjectTypeFilter(Model):
     """Which kinds of objects generate events. For example, setting ``vehicle`` to false lets vehicles enter the alarm area without an event."""
 
-    type: Literal["objectType"]
+    type: Annotated[Literal["objectType"], CONST]
     active: bool | None = None
     """Whether the filter is active."""
     small: bool | None = None
@@ -48,7 +48,7 @@ class ObjectTypeFilter(Model):
 class TimeShortLivedLimitFilter(Model):
     """Suppresses alarms for objects that are tracked for less than the set time."""
 
-    type: Literal["timeShortLivedLimit"]
+    type: Annotated[Literal["timeShortLivedLimit"], CONST]
     active: bool | None = None
     """Whether the filter is active."""
     data: int | None = Field(default=None, ge=1)
@@ -58,7 +58,7 @@ class TimeShortLivedLimitFilter(Model):
 class ExcludeAreaFilter(Model):
     """An area where objects do not generate events."""
 
-    type: Literal["excludeArea"]
+    type: Annotated[Literal["excludeArea"], CONST]
     data: list[Point] | None = None
     """The exclude area polygon."""
     track_passing_objects: bool | None = Field(
@@ -70,7 +70,7 @@ class ExcludeAreaFilter(Model):
 class MinimumSpeedLimitFilter(Model):
     """The minimum speed an object must travel at to generate an event."""
 
-    type: Literal["minimumSpeedLimit"]
+    type: Annotated[Literal["minimumSpeedLimit"], CONST]
     active: bool | None = None
     """Whether the filter is active."""
     data: float | None = Field(default=None, ge=0)
@@ -80,7 +80,7 @@ class MinimumSpeedLimitFilter(Model):
 class MaximumSpeedLimitFilter(Model):
     """The maximum speed an object may travel at to generate an event."""
 
-    type: Literal["maximumSpeedLimit"]
+    type: Annotated[Literal["maximumSpeedLimit"], CONST]
     active: bool | None = None
     """Whether the filter is active."""
     data: float | None = Field(default=None, ge=0)
@@ -94,13 +94,13 @@ AlarmDirection = Literal["leftToRight", "rightToLeft"]
 
 
 class IncludeAreaTrigger(Model):
-    type: Literal["includeArea"]
+    type: Annotated[Literal["includeArea"], CONST]
     data: list[Point] | None = None
     """The include area polygon."""
 
 
 class CrossLineTrigger(Model):
-    type: Literal["crossLine"]
+    type: Annotated[Literal["crossLine"], CONST]
     alarm_direction: AlarmDirection | None = Field(
         default=None, validation_alias="alarmDirection", serialization_alias="alarmDirection"
     )
@@ -110,7 +110,7 @@ class CrossLineTrigger(Model):
 
 
 class MultipleLineCrossLineTrigger(Model):
-    type: Literal["multipleLineCrossLine"]
+    type: Annotated[Literal["multipleLineCrossLine"], CONST]
     alarm_direction: AlarmDirection | None = Field(
         default=None, validation_alias="alarmDirection", serialization_alias="alarmDirection"
     )

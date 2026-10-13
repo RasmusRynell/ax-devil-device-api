@@ -273,7 +273,7 @@ class Builder:
             self.define(name)
             return name
         if "const" in s:
-            return f"Literal[{py_literal(s['const'])}]"
+            return f"Annotated[Literal[{py_literal(s['const'])}], CONST]"
         if "enum" in s:
             return f"Literal[{', '.join(py_literal(v) for v in s['enum'])}]"
         members = s.get("oneOf") or s.get("anyOf")

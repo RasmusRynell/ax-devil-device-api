@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api
 
 from __future__ import annotations
 
-from typing import ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import CONST, ApiInfo, ErrorCode, Family, Model, Operation
 from .._protocols.rest import RestBinding
 from ._base import AsyncApi, SyncApi
 
@@ -34,7 +34,7 @@ class TargetRef(Model):
 
 class DeviceTarget(Model):
     __nullable__: ClassVar[frozenset[str]] = frozenset({"ip_address", "nice_name", "serial_number"})
-    type: Literal["device"]
+    type: Annotated[Literal["device"], CONST]
     id: str
     """A unique ID of the device."""
     nice_name: str | None = Field(default=None, validation_alias="niceName", serialization_alias="niceName")
@@ -46,7 +46,7 @@ class DeviceTarget(Model):
 
 class PhysicalZoneTarget(Model):
     __nullable__: ClassVar[frozenset[str]] = frozenset({"nice_name"})
-    type: Literal["physicalZone"]
+    type: Annotated[Literal["physicalZone"], CONST]
     id: str
     """A unique ID of the physical zone."""
     nice_name: str | None = Field(default=None, validation_alias="niceName", serialization_alias="niceName")
@@ -156,7 +156,7 @@ class CreateOneshotAudioSessionRequest(Model):
 
 
 class CreateOneshotAudioSessionResult(Model):
-    type: Literal["oneShot"]
+    type: Annotated[Literal["oneShot"], CONST]
     targets: list[str] | None = None
     prio: int | None = None
     nice_name: str | None = Field(default=None, validation_alias="niceName", serialization_alias="niceName")

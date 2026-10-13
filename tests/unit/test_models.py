@@ -149,3 +149,36 @@ def test_repr_hides_unset_fields() -> None:
 
 def test_repr_shows_explicit_none() -> None:
     assert "keep_alive=None" in repr(Wire(client_id="cam1", keep_alive=None))
+
+
+def test_const_discriminator_stays_strict_in_responses() -> None:
+    from pydantic import TypeAdapter
+
+    from ax_devil_device_api._protocols.base import RESPONSE_CONTEXT
+    from ax_devil_device_api.apis.axis_audio_manager_pro import (
+        AudioSession,
+        HttpAudioSession,
+        RtpAudioSession,
+        SipAudioSession,
+    )
+
+    adapter = TypeAdapter(AudioSession)
+    context = {RESPONSE_CONTEXT: True}
+    for tag, cls in (("HTTP", HttpAudioSession), ("RTP", RtpAudioSession), ("SIP", SipAudioSession)):
+        parsed = adapter.validate_python({"type": tag, "id": "s1", "targets": ["t"]}, context=context)
+        assert type(parsed) is cls
+    with pytest.raises(ValidationError):
+        HttpAudioSession.model_validate({"type": "RTP", "id": "s1", "targets": ["t"]}, context=context)
+    with pytest.raises(ValidationError):
+        adapter.validate_python({"type": "FUTURE", "id": "s1", "targets": ["t"]}, context=context)
+
+
+def test_unavailable_power_status_sentinel_parses_but_other_integers_do_not() -> None:
+    from ax_devil_device_api._protocols.base import RESPONSE_CONTEXT
+    from ax_devil_device_api.apis.power_settings import Capabilities
+
+    context = {RESPONSE_CONTEXT: True}
+    for value in (True, False, -1):
+        assert Capabilities.model_validate({"powerStatusSupport": value}, context=context).power_status_support == value
+    with pytest.raises(ValidationError):
+        Capabilities.model_validate({"powerStatusSupport": 5}, context=context)

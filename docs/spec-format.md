@@ -438,7 +438,7 @@ HTTP 401. A 401 is an authentication failure and raises `AuthError` before the b
 
 ## Types
 
-Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `minItems`, `maxItems`, `default`, `description`, `since`, `$ref: "#/types/Name"`, `oneOf`.
+Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `minItems`, `maxItems`, `default`, `description`, `since`, `$ref: "#/types/Name"`, `oneOf`. `const` generates `Annotated[Literal[...], CONST]` and stays strict in responses (unlike `enum`, which tolerates newer values); use `oneOf` with a `const` member for a documented sentinel, for example `oneOf: [{type: boolean}, {const: -1}]`.
 
 - An `object` type becomes a `Model` class. Other types become type aliases (`Annotated[str, Field(...)]`, `Literal[...]`).
 - `required` lists the fields that must be present. In request models they are required arguments. In response models a missing one raises `ResponseFormatError`, so list only what the device always returns.

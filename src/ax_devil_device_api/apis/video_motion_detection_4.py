@@ -12,7 +12,17 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import AcapDiscovery, ApiInfo, ApiVersion, Applicability, ErrorCode, Family, Model, Operation
+from .._protocols.base import (
+    CONST,
+    AcapDiscovery,
+    ApiInfo,
+    ApiVersion,
+    Applicability,
+    ErrorCode,
+    Family,
+    Model,
+    Operation,
+)
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -36,7 +46,7 @@ class Camera(Model):
 class SizePercentageFilter(Model):
     """Objects at or below this width and height (percent of the image) cannot raise an alarm."""
 
-    type: Literal["sizePercentage"]
+    type: Annotated[Literal["sizePercentage"], CONST]
     data: list[Annotated[int, Field(ge=3, le=100)]]
     """``[w, h]`` in percent of the image. Exactly two items. Default ``[5, 5]``."""
     active: bool | None = None
@@ -45,7 +55,7 @@ class SizePercentageFilter(Model):
 class TimeShortLivedLimitFilter(Model):
     """Seconds an object must have been in the camera view before it can raise an alarm. An alarm raised earlier is suppressed, and raised after the time if the object is still in view."""
 
-    type: Literal["timeShortLivedLimit"]
+    type: Annotated[Literal["timeShortLivedLimit"], CONST]
     data: int = Field(ge=1, le=5)
     """Seconds. Default 1."""
     active: bool | None = None
@@ -54,7 +64,7 @@ class TimeShortLivedLimitFilter(Model):
 class DistanceSwayingObjectFilter(Model):
     """Global setting. Maximum distance an object may sway without raising an alarm; delays all alarms."""
 
-    type: Literal["distanceSwayingObject"]
+    type: Annotated[Literal["distanceSwayingObject"], CONST]
     data: int = Field(ge=3, le=20)
     """Percent of the image. Default 5."""
     active: bool | None = None
@@ -63,7 +73,7 @@ class DistanceSwayingObjectFilter(Model):
 class ExcludeAreaFilter(Model):
     """Polygon in which objects are ignored. Up to three per profile; there is no ``active`` flag, an unused area is removed."""
 
-    type: Literal["excludeArea"]
+    type: Annotated[Literal["excludeArea"], CONST]
     data: list[Point]
 
 
@@ -73,7 +83,7 @@ Filter = SizePercentageFilter | TimeShortLivedLimitFilter | DistanceSwayingObjec
 class Trigger(Model):
     """The include area of a profile. A profile has exactly one."""
 
-    type: Literal["includeArea"]
+    type: Annotated[Literal["includeArea"], CONST]
     data: list[Point]
     """Include area polygon, normalized -1..1."""
 
@@ -161,7 +171,7 @@ class FilterCapability(Model):
 
 
 class TriggerCapability(Model):
-    type: Literal["includeArea"] | None = None
+    type: Annotated[Literal["includeArea"], CONST] | None = None
     min: list[float] | None = None
     """``[x, y]`` minimum position."""
     max: list[float] | None = None

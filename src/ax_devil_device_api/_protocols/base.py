@@ -222,7 +222,8 @@ class Model(BaseModel):
             collector = context.get(_ROUND_TRIP)
             allowed = context.get(_ALLOWED_VALUES)
             if info.field_name is not None and (response or collector is not None or allowed is not None):
-                annotation = cls.model_fields[info.field_name].annotation
+                field = cls.model_fields[info.field_name]
+                annotation = Annotated[(field.annotation, *field.metadata)] if field.metadata else field.annotation
                 if response:
                     coerced = _coerce_text(annotation, value)
                     if coerced is not value:
@@ -234,10 +235,13 @@ class Model(BaseModel):
                     new = _unknown_items(annotation, value)
                     if response:
                         return value
+                    pairs = [(info.field_name, item) for item in new]
+                    if not pairs:
+                        raise  # no unknown enum value: some other constraint failed (for example an emptied list)
                     if collector is not None:
-                        collector.update(new)
+                        collector.update(pairs)
                         return value
-                    if all(item in allowed for item in new):
+                    if allowed is not None and all(pair in allowed for pair in pairs):
                         return value
             raise
 
@@ -333,6 +337,18 @@ def not_sent() -> Any:
     return None
 
 
+class _Const:
+    """Marks a ``Literal`` generated from ``const``: a fixed value, not an extensible enum."""
+
+    def __repr__(self) -> str:
+        return "CONST"
+
+
+CONST = _Const()
+"""Annotation metadata for ``const`` fields (``Annotated[Literal["x"], CONST]``). They stay strict in responses:
+only enums tolerate values newer than the generated ``Literal``, so a union can still pick the right variant."""
+
+
 def _literal_values(annotation: Any) -> tuple[Any, ...] | None:
     """The values of a ``Literal`` (possibly inside ``X | None``), or ``None``."""
     if get_origin(annotation) is Annotated:
@@ -354,12 +370,13 @@ def _is_new_enum_value(annotation: Any, value: Any) -> bool:
     objects and values of another type are still rejected.
     """
     if get_origin(annotation) is Annotated:
-        return _is_new_enum_value(get_args(annotation)[0], value)
+        base, *metadata = get_args(annotation)
+        return not any(m is CONST for m in metadata) and _is_new_enum_value(base, value)
     if get_origin(annotation) in (Union, UnionType):
         return any(_is_new_enum_value(arg, value) for arg in get_args(annotation) if arg is not type(None))
     if get_origin(annotation) is list:
         (item,) = get_args(annotation) or (Any,)
-        return isinstance(value, list) and all(_is_new_enum_value(item, v) or _matches(item, v) for v in value)
+        return isinstance(value, list) and bool(value) and all(_is_new_enum_value(item, v) or _matches(item, v) for v in value)
     values = _literal_values(annotation)
     if not values or value is None:
         return False
