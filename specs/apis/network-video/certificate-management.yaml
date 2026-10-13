@@ -187,7 +187,7 @@ operations:
           type: object
           x-name: Pkcs12Container
           required: ['acert:Id', 'acert:Certificate', 'acert:Password']
-          x-masked: ['acert:Password']
+          x-masked: ['acert:Password', 'acert:Certificate']
           properties:
             'acert:Id': {type: string}
             'acert:Certificate': {type: string, description: The PKCS#12 payload.}

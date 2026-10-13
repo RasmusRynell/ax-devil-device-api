@@ -135,7 +135,14 @@ class Call:
         return await asyncio.to_thread(resolve_deferred, request) if has_deferred(request) else request
 
     def _timed(self, request: Request) -> Request:
-        return replace(request, timeout=self.timeout) if self.timeout is not None else request
+        if self.timeout is not None:
+            request = replace(request, timeout=self.timeout)
+        params = self.op.params if self.op is not None else None
+        if params is not None and not request.masked:
+            masked = params.masked_wire_names()
+            if masked:
+                request = replace(request, masked=masked)
+        return request
 
     def should_retry(self, request: Request, error: TransportError, attempt: int) -> bool:
         policy = self.retry

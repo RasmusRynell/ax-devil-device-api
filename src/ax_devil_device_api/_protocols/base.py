@@ -12,6 +12,7 @@ import re
 from collections.abc import Callable, Generator, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import cache
 from types import UnionType
 from typing import (
     TYPE_CHECKING,
@@ -43,7 +44,6 @@ from pydantic import (
     model_validator,
 )
 
-from .._http.debug import register_secret_names
 from .._http.types import Request, Response
 from ..errors import (
     ApiAccessDenied,
@@ -173,11 +173,13 @@ class Model(BaseModel):
     )
 
     @classmethod
-    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
-        super().__pydantic_init_subclass__(**kwargs)
-        if cls.__masked__:
-            wire = cls._wire_to_field()
-            register_secret_names(alias for alias, name in wire.items() if name in cls.__masked__)
+    def masked_wire_names(cls) -> frozenset[str]:
+        """Wire names (aliases included, nested models too) of the ``x-masked`` fields of this request model.
+
+        The debug hooks redact exactly these names in the record of an operation that uses the model; the same
+        name in another operation is not affected. A name with a ``{placeholder}`` stays a template.
+        """
+        return _masked_wire_names(cls)
 
     @classmethod
     def _wire_to_field(cls) -> dict[str, str]:
@@ -502,6 +504,33 @@ def _coerce_text(annotation: Any, value: Any) -> Any:
         if values and any(isinstance(v, int) and not isinstance(v, bool) for v in values):
             return int(value)
     return value
+
+
+@cache
+def _masked_wire_names(model: type[Model]) -> frozenset[str]:
+    names: set[str] = set()
+    seen: set[type] = set()
+
+    def walk_annotation(annotation: Any) -> None:
+        if isinstance(annotation, type) and issubclass(annotation, Model):
+            walk(annotation)
+        for arg in get_args(annotation):
+            walk_annotation(arg)
+
+    def walk(cls: type[Model]) -> None:
+        if cls in seen:
+            return
+        seen.add(cls)
+        for name, info in cls.model_fields.items():
+            if name in cls.__masked__:
+                names.add(name)
+                for alias in (info.alias, info.validation_alias, info.serialization_alias):
+                    if isinstance(alias, str):
+                        names.add(alias)
+            walk_annotation(info.annotation)
+
+    walk(model)
+    return frozenset(names)
 
 
 def is_response(info: ValidationInfo) -> bool:

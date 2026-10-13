@@ -143,6 +143,9 @@ class Request:
     auth: AuthPolicy = "required"
     timeout: float | None = None
     stream: bool = False
+    masked: frozenset[str] = frozenset()
+    """Wire names (``x-masked`` fields of this operation, nested ones too; ``{placeholder}`` templates allowed) that
+    debug hooks redact in this request's record only."""
 
     def __post_init__(self) -> None:
         if not self.path.startswith("/"):

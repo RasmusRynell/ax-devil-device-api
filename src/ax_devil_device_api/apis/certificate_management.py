@@ -102,7 +102,7 @@ class LoadCaCertificatesRequest(Model):
 
 
 class Pkcs12Container(Model):
-    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
+    __masked__: ClassVar[frozenset[str]] = frozenset({"certificate", "password"})
     id: str = Field(validation_alias="acert:Id", serialization_alias="acert:Id")
     certificate: str = Field(validation_alias="acert:Certificate", serialization_alias="acert:Certificate")
     """The PKCS#12 payload."""

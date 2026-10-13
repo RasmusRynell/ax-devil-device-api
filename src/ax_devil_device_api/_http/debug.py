@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import ssl
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
@@ -31,7 +32,6 @@ _SECRET_SEGMENTS = frozenset({"pin", "puk", "psk", "community", "passphrase", "p
 _SEGMENT_SPLIT_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
 # Headers whose whole value is dropped by name (no content parsing). Any name matching the secret set is dropped too.
 _SENSITIVE_HEADERS = frozenset({"authorization", "proxy-authorization", "cookie", "set-cookie"})
-_extra_secret_names: set[str] = set()
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_.\-]+")
 _AUTHORITY_END = re.compile(r"[/?#\s]")
 _WHITESPACE = re.compile(r"\s")
@@ -40,22 +40,42 @@ _MAX_DECODE_LAYERS = 4
 _MAX_DEPTH = 32
 
 
-def register_secret_names(names: Any) -> None:
-    """Treat these wire names (from ``x-masked`` in the specs) as secrets everywhere in request records."""
-    _extra_secret_names.update(str(n).lower() for n in names)
-    _name_is_secret.cache_clear()
+_Masks = tuple[frozenset[str], tuple["re.Pattern[str]", ...]]
+_request_masked: ContextVar[_Masks] = ContextVar("ax_request_masked", default=(frozenset(), ()))
+# Spec-masked (``x-masked``) wire names of the request being described: lower-cased exact names and templates.
+_TEMPLATE_RE = re.compile(r"\{[^}]*\}")
+
+
+def _masks(names: Any) -> _Masks:
+    exact: set[str] = set()
+    templates: list[re.Pattern[str]] = []
+    for name in names:
+        text = str(name).lower()
+        if "{" in text:
+            pattern = ".+".join(re.escape(part) for part in _TEMPLATE_RE.split(text))
+            templates.append(re.compile(pattern, re.DOTALL))
+        else:
+            exact.add(text)
+    return frozenset(exact), tuple(templates)
 
 
 def _is_secret_key(key: Any) -> bool:
     """Return whether a mapping key, header, element or attribute name identifies a secret."""
-    return _name_is_secret(str(key))
+    text = str(key)
+    if _name_is_secret(text):
+        return True
+    exact, templates = _request_masked.get()
+    if not exact and not templates:
+        return False
+    lowered = text.lower()
+    return lowered in exact or any(t.fullmatch(lowered) for t in templates)
 
 
 @lru_cache(maxsize=4096)
 def _name_is_secret(text: str) -> bool:
     """Cached name test: the same few names recur in every record and in repeated free-text tokens."""
     lowered = text.lower()
-    if _SECRET_KEY_RE.search(text) or lowered in _SECRET_EXACT or lowered in _extra_secret_names:
+    if _SECRET_KEY_RE.search(text) or lowered in _SECRET_EXACT:
         return True
     return any(segment.lower() in _SECRET_SEGMENTS for segment in _SEGMENT_SPLIT_RE.findall(text))
 
@@ -267,7 +287,16 @@ def emit_request(hook: RequestHook | None, request: Request, url: str, timeout: 
     """Call ``hook`` with a redacted description of ``request``. No-op without a hook."""
     if hook is None:
         return
-    hook(
+    token = _request_masked.set(_masks(request.masked))
+    try:
+        record = _record(request, url, timeout, verify)
+    finally:
+        _request_masked.reset(token)
+    hook(record)
+
+
+def _record(request: Request, url: str, timeout: float, verify: Verify) -> dict[str, Any]:
+    return (
         {
             "request": {
                 "method": request.method,
