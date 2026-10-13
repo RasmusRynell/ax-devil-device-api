@@ -83,7 +83,7 @@ def build_all(paths: list[Path], only: list[str] | None = None, include_uncurate
 
 def report(res: Result) -> None:
     if res.uncurated:
-        print(f"note: {len(res.uncurated)} uncurated spec(s) not generated (use --all to include them)", file=sys.stderr)
+        print(f"note: {len(res.uncurated)} uncurated spec(s) not generated (use --all to include them): {', '.join(sorted(res.uncurated))}", file=sys.stderr)
     for fam, ids in sorted(res.skipped.items()):
         print(f"warning: family {fam!r} is not implemented yet; skipped {len(ids)} spec(s): {', '.join(sorted(ids))}", file=sys.stderr)
     for w in dict.fromkeys(res.warnings):
