@@ -358,3 +358,43 @@ async def test_async_heartbeat_and_token() -> None:
                 await session.receive(timeout=3)
             await asyncio.sleep(0)
     assert camera.ws_requests[0].url.params["wssession"] == camera.token
+
+
+# -- write failures ---------------------------------------------------------
+
+
+def test_send_failure_is_a_library_error_and_fails_the_session() -> None:
+    import httpx_ws
+
+    def broken(_data: Any) -> None:
+        raise httpx_ws.WebSocketNetworkError()  # what httpx-ws raises for a failed httpcore write
+
+    camera = FakeWsCamera()
+    with device(camera) as dev:
+        with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+            session._raw.send_text = broken  # type: ignore[method-assign]
+            session._raw.send_bytes = broken  # type: ignore[method-assign]
+            with pytest.raises(errors.ConnectionFailed):
+                session.send("x")
+            with pytest.raises(errors.ConnectionFailed):
+                session.send(b"x")
+            assert session._core.failed
+        time.sleep(0.05)
+        with dev.connect_session(EVENTS, heartbeat=QUICK) as again:
+            assert again.gap is not None and again.gap.duration > 0.04  # gap starts at the last good frame, not the failed close
+
+
+@pytest.mark.anyio
+async def test_async_send_failure_is_a_library_error_and_fails_the_session() -> None:
+    import httpx_ws
+
+    async def broken(_data: Any) -> None:
+        raise httpx_ws.WebSocketNetworkError()
+
+    camera = FakeWsCamera()
+    async with adevice(camera) as dev:
+        async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+            session._raw.send_text = broken  # type: ignore[method-assign]
+            with pytest.raises(errors.ConnectionFailed):
+                await session.send("x")
+            assert session._core.failed

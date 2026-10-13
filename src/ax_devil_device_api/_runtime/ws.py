@@ -338,7 +338,7 @@ class Session:
                 self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
             raise self._core.closed or SessionClosed() from error
-        except (httpcore.WriteError, httpcore.NetworkError) as error:
+        except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
 
     def receive(self, timeout: float | None = None) -> Any:
@@ -485,7 +485,7 @@ class AsyncSession:
                 await self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
             raise self._core.closed or SessionClosed() from error
-        except (httpcore.WriteError, httpcore.NetworkError) as error:
+        except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
 
     async def receive(self, timeout: float | None = None) -> Any:
