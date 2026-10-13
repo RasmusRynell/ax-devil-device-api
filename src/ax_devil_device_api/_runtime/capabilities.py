@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import json
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from ..errors import DeviceError, ResponseFormatError
+from ..errors import ApiError, DeviceError, ResponseFormatError
 from .._http.types import RawBody, Request
 from .._protocols.base import (
     AcapDiscovery,
@@ -47,6 +47,9 @@ from .._protocols.cgi import flow as cgi_flow
 from .._protocols.state import DeviceState
 from ..apis import api_discovery as _api_discovery
 from ..apis import basic_device_info as _basic_device_info
+
+BASE_PROPERTY_GROUP = "Properties.API"
+PROPERTY_SCOPE_PREFIX = "properties:"
 
 # ---------------------------------------------------------------------------
 # Public results
@@ -105,14 +108,25 @@ class Capabilities:
     """Installed ACAP applications: ``Name`` -> ``Version``. ``None`` if the probe failed or was not run."""
     services: Mapping[str, str] | None = None
     """Web services listed by the Entry service: namespace -> ``XAddr``. ``None`` if the probe failed or was not run."""
+    property_groups: frozenset[str] = frozenset({"Properties.API"})
+    """``param.cgi`` groups that were actually listed. A property outside them was never asked for."""
 
     @classmethod
     def from_probes(cls, values: Mapping[str, Any], errors: Mapping[str, str]) -> Capabilities:
-        """Assemble from probe results keyed like ``PROBES``."""
+        """Assemble from probe results keyed like ``PROBES`` (plus ``properties:<name>`` scope probes)."""
+        properties = values.get("properties")
+        groups = frozenset({BASE_PROPERTY_GROUP})
+        extra = {k: v for k, v in values.items() if k.startswith(PROPERTY_SCOPE_PREFIX)}
+        if properties is not None and extra:
+            properties = dict(properties)
+            for found in extra.values():
+                properties.update(found)
+            groups |= {k[len(PROPERTY_SCOPE_PREFIX):] for k in extra}
         return cls(
             classic_apis=values.get("classic_apis"),
             dca_apis=values.get("dca_apis"),
-            properties=values.get("properties"),
+            properties=properties,
+            property_groups=groups,
             errors=dict(errors),
             observed_at=datetime.now(timezone.utc),
             applications=values.get("applications"),
@@ -216,9 +230,28 @@ def dca_apis_flow(state: DeviceState) -> CallFlow[dict[str, frozenset[str]]]:
 
 
 def properties_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
-    params = _ParamListRequest(group=["Properties.API"])
+    params = _ParamListRequest(group=[BASE_PROPERTY_GROUP])
     data = yield from cgi_flow(_LIST_PROPERTIES, params, state)
     return data
+
+
+def property_scope_flow(name: str) -> Callable[[DeviceState], CallFlow[dict[str, str]]]:
+    """Probe for one property (or group) outside ``Properties.API`` that an API's discovery names.
+
+    A device without the property may answer with a ``getting param in group`` error; that is a
+    definite "not there" and yields an empty result. Any other failure is raised.
+    """
+
+    def flow(state: DeviceState) -> CallFlow[dict[str, str]]:
+        try:
+            data = yield from cgi_flow(_LIST_PROPERTIES, _ParamListRequest(group=[name]), state)
+        except ApiError as error:
+            if "getting param in group" in f"{error.message} {error.details or ''}":
+                return {}
+            raise
+        return data
+
+    return flow
 
 
 def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
@@ -273,9 +306,27 @@ PROBES = {
     "properties": properties_flow,
 }
 
-OPTIONAL_PROBES = {"applications": applications_flow, "services": services_flow}
+class _OptionalProbes(dict[str, Callable[[DeviceState], CallFlow[Any]]]):
+    """``applications``, ``services``, and on demand ``properties:<name>`` (one per property outside ``Properties.API``)."""
+
+    def __missing__(self, key: str) -> Callable[[DeviceState], CallFlow[Any]]:
+        if key.startswith(PROPERTY_SCOPE_PREFIX):
+            return property_scope_flow(key[len(PROPERTY_SCOPE_PREFIX):])
+        raise KeyError(key)
+
+
+OPTIONAL_PROBES = _OptionalProbes({"applications": applications_flow, "services": services_flow})
 """Probes that cost an extra (administrator) request and are only needed by some APIs.
 ``extra_probes(info)`` says which ones an API's discovery wants."""
+
+
+def _normalized(name: str) -> str:
+    return name.removeprefix("root.")
+
+
+def _is_queried(name: str, groups: frozenset[str]) -> bool:
+    name = _normalized(name)
+    return any(name == g or name.startswith(g + ".") for g in groups)
 
 
 def extra_probes(info: ApiInfo) -> tuple[str, ...]:
@@ -285,7 +336,10 @@ def extra_probes(info: ApiInfo) -> tuple[str, ...]:
         wanted.append("applications")
     if any(isinstance(m, ServiceDiscovery) for m in info.discovery):
         wanted.append("services")
-    return tuple(wanted)
+    for m in info.discovery:
+        if isinstance(m, ParamDiscovery) and not _is_queried(m.name, frozenset({BASE_PROPERTY_GROUP})):
+            wanted.append(PROPERTY_SCOPE_PREFIX + _normalized(m.name))
+    return tuple(dict.fromkeys(wanted))
 
 
 # ---------------------------------------------------------------------------
@@ -321,9 +375,13 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
             if caps.properties is None:
                 unknown.append(f"parameter probe failed: {caps.errors.get('properties')}")
                 continue
-            value = caps.properties.get(method.name)
+            name = _normalized(method.name)
+            value = caps.properties.get(name)
             if value is not None and _param_matches(method, value):
-                return SupportResult(Support.YES, f"parameter {method.name}={value}", observed_at=caps.observed_at)
+                return SupportResult(Support.YES, f"parameter {name}={value}", observed_at=caps.observed_at)
+            if value is None and not _is_queried(name, caps.property_groups):
+                reason = caps.errors.get(PROPERTY_SCOPE_PREFIX + name, "probe not run")
+                unknown.append(f"parameter {name} was not queried: {reason}")
         elif isinstance(method, AcapDiscovery):
             if caps.applications is None:
                 unknown.append(f"installed applications probe failed: {caps.errors.get('applications', 'not run')}")

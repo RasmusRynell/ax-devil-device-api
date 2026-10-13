@@ -607,3 +607,66 @@ async def test_async_supports_service() -> None:
 
     async with camera.async_device() as dev:
         assert (await dev.supports(_service_api(_LIGHT_NS))).status is Support.YES  # type: ignore[arg-type]
+
+
+# -- parameter discovery outside Properties.API ---------------------------------
+
+EMBEDDED = "Properties.EmbeddedDevelopment.Version"
+
+
+def _embedded_camera(extra: str = "") -> MockCamera:
+    camera = MockCamera()
+    camera.cgi(PARAM, text=extra, match={"action": "list", "group": EMBEDDED})
+    camera.cgi(PARAM, text="root.Properties.API.HTTP.Version=3\n", match={"action": "list", "group": "Properties.API"})
+    return camera
+
+
+def test_param_discovery_outside_properties_api_is_queried() -> None:
+    from ax_devil_device_api.apis.application_api import ApplicationApi
+
+    camera = _embedded_camera(f"root.{EMBEDDED}=3.0\n")
+    with camera.device() as dev:
+        result = dev.supports(ApplicationApi)
+        dev.supports(ApplicationApi)
+
+    assert result.status is Support.YES and EMBEDDED in result.reason
+    groups = [r.query["group"] for r in camera.requests if r.path == PARAM]
+    assert sorted(groups) == ["Properties.API", EMBEDDED]  # cached on the second call
+
+
+def test_param_discovery_queried_group_without_property_is_no() -> None:
+    from ax_devil_device_api.apis.application_api import ApplicationApi
+
+    camera = _embedded_camera("")
+    with camera.device() as dev:
+        assert dev.supports(ApplicationApi).status is Support.NO
+
+
+def test_param_discovery_nonexistent_group_error_is_no() -> None:
+    from ax_devil_device_api.apis.application_api import ApplicationApi
+
+    camera = MockCamera()
+    camera.cgi(PARAM, text="# Error: Error -1 getting param in group 'x'\n", match={"group": EMBEDDED})
+    camera.cgi(PARAM, text="root.Properties.API.HTTP.Version=3\n", match={"group": "Properties.API"})
+    with camera.device() as dev:
+        assert dev.supports(ApplicationApi).status is Support.NO
+
+
+def test_param_discovery_probe_failure_is_unknown() -> None:
+    from ax_devil_device_api.apis.application_api import ApplicationApi
+
+    camera = MockCamera()
+    camera.cgi(PARAM, text="denied", status=500, match={"group": EMBEDDED})
+    camera.cgi(PARAM, text="root.Properties.API.HTTP.Version=3\n", match={"group": "Properties.API"})
+    with camera.device() as dev:
+        result = dev.supports(ApplicationApi)
+
+    assert result.status is Support.UNKNOWN and result.errors
+
+
+def test_param_discovery_never_queried_property_is_not_absent() -> None:
+    from ax_devil_device_api._protocols.base import ParamDiscovery
+    from ax_devil_device_api._runtime.capabilities import decide_support
+
+    info = _info(ParamDiscovery(EMBEDDED))
+    assert decide_support(info, _caps(properties={"Properties.API.X": "1"})).status is Support.UNKNOWN
