@@ -8,7 +8,7 @@ import string
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from types import UnionType
-from typing import Any, get_origin
+from typing import Annotated, Any, get_origin
 from urllib.parse import parse_qsl
 
 import httpx
@@ -648,7 +648,7 @@ def check_result(op, result: Any) -> None:
         assert result is None
         return
     cls = get_origin(expected) or expected
-    if isinstance(cls, type) and cls is not UnionType:
+    if isinstance(cls, type) and cls is not UnionType and cls is not Annotated:
         assert isinstance(result, cls), f"{op.id}: expected {expected}, got {type(result)}"
     else:
         # Literal, Annotated and union aliases: the value must validate as the result type.
