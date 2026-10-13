@@ -254,7 +254,7 @@ def test_datahub_connect_sends_subscriptions() -> None:
         socket.push({"jsonrpc": "2.0", "id": message["id"], "result": {}})
 
     camera = FakeWsCamera(handler=handler)
-    subs = [{"subscriptionId": "s1", "filters": [{"topic": "t"}]}]
+    subs = [{"subscriptionId": "s1", "filters": [{"topics": ["t"]}]}]
     with Device("cam.test", credentials=("root", "pass"), transport=camera.transport()) as dev:
         with dev.api(module.DemoApi).connect_hub(subs, heartbeat=QUICK):
             pass

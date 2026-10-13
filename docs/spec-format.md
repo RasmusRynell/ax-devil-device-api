@@ -32,7 +32,7 @@ discovery:                       # how Device.supports() recognizes the API; tri
   - param: {name: Properties.EmbeddedDevelopment.Version, value: "1.20", compare: ">="}
   - acap: {name: loiteringguard}
   - service: {namespace: "http://www.axis.com/vapix/ws/event1"}
-requires: {firmware: "11.5", application: null}   # optional
+requires: {firmware: "11.5", application: null}   # optional: minimum AXIS OS version (enforced by supports()); application is informational
 binding: {...}                   # family-specific, below
 errors: {...}                    # API-wide error codes, below
 types: {...}                     # named schemas, below
@@ -197,7 +197,7 @@ operations:
 ```
 
 - `codec` selects the message format in `_runtime/ws_codecs.py`: `events` (event streaming, `events:notify` -> `EventNotification`), `datahub` (Device Data Hub, JSON-RPC 2.0, `TopicSample`) or `raw` (frames pass through; `bytes` stay `bytes`, text stays `str`, no request/response).
-- `setup` turns the `connect` arguments into the requests sent right after the handshake and decides what `connect` accepts: `events` adds `event_filter_list: Sequence[EventFilter | Mapping[str, str]] | None` (sends `events:configure` when given), `datahub` adds `subscriptions: Sequence[Mapping[str, Any]] | None` (one `data-hub_v1:subscribe` each), `none` adds nothing. A new codec or setup needs runtime code; escalate rather than inventing one.
+- `setup` turns the `connect` arguments into the requests sent right after the handshake and decides what `connect` accepts: `events` adds `event_filter_list: Sequence[EventFilter | Mapping[str, str]] | None` (sends `events:configure` when given), `datahub` adds `subscriptions: Sequence[Mapping[str, Any]] | None` (one `data-hub_v1:subscribe` each; every entry is validated against the spec's `Subscription` type before it is sent), `none` adds nothing. A new codec or setup needs runtime code; escalate rather than inventing one.
 - Every `connect` also takes `heartbeat: Heartbeat = DEFAULT_HEARTBEAT`, `use_token: bool = False` and `request_options`.
 - A session path may contain `{placeholders}` (`/api/v1.2/audioSessions/{audioSessionId}/ws/recv`). `params` must then be exactly those fields, required scalars; they become the leading arguments of `connect` and are percent-encoded into the path. Otherwise a session operation has no `params`. It has no `result`. `EventFilter`, `Heartbeat`, `Session` and the other names the generated module imports are reserved as type names when it uses sessions. In-session requests (`events:configure`, `data-hub_v1:listTopics`) are not operations; call `session.request(method, params)`.
 
@@ -456,7 +456,7 @@ Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `it
 - `minItems`/`maxItems` on arrays become `Field(min_length=..., max_length=...)` (a point pair is an array of two numbers with both set to 2).
 - `since: "1.9"` on a property (mainly result fields): the field was added in that API version. It is always generated optional (`X | None = None`, whatever `required` says) and its attribute docstring ends with "Available from API version 1.9.". The runtime does not drop it on older devices; the field is `None` when the device does not return it.
 
-Enums are `Literal`s. Responses tolerate new values of the same type, and requests reject them.
+Enums are `Literal`s. Responses tolerate new values of the same type (also inside lists, mappings and unions), and requests reject them.
 
 ## Operations
 

@@ -225,7 +225,7 @@ class _Core:
         """Turn a wsproto message into a Python value; ``None`` for non-message events."""
         if not isinstance(event, (wsproto.events.BytesMessage, wsproto.events.TextMessage)):
             return None
-        if self._begun:
+        if self._begun and not self._ended:
             self.ledger.touch(self.spec.key)
         is_text = isinstance(event, wsproto.events.TextMessage)
         self._parts.append(event.data if is_text else bytes(event.data))
@@ -260,6 +260,7 @@ class _Core:
     def _too_large(self) -> ResponseFormatError:
         self.failed = True
         self.overflowed = True
+        self.finish(user_exit_error=None)  # the session is over: stop gap tracking now, not when the ``with`` block exits
         return ResponseFormatError(self.spec.api_id, "receive", f"message exceeds {MAX_WS_MESSAGE_BYTES} bytes; session closed")
 
     def on_disconnect(self, error: httpx_ws.WebSocketDisconnect) -> DeviceError:
@@ -267,6 +268,7 @@ class _Core:
             return self._too_large()
         if error.code in _NORMAL_CLOSE:
             self.closed = SessionClosed(error.code, error.reason)
+            self.finish(user_exit_error=None)
             return self.closed
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: device closed the session with code {error.code}: {error.reason}"))
 
@@ -275,6 +277,7 @@ class _Core:
 
     def _fail(self, error: TransportError) -> TransportError:
         self.failed = True
+        self.finish(user_exit_error=None)
         return error
 
     def reply_for(self, message: Any, request_id: str, method: str) -> tuple[bool, Any]:
@@ -463,6 +466,7 @@ class Session:
 
     def close(self) -> None:
         self._raw.close()
+        self._core.finish(user_exit_error=None)  # closed: the session no longer counts as active in the gap ledger
 
 
 @contextmanager
@@ -635,6 +639,7 @@ class AsyncSession:
 
     async def close(self) -> None:
         await self._raw.close()
+        self._core.finish(user_exit_error=None)  # closed: the session no longer counts as active in the gap ledger
 
 
 @asynccontextmanager

@@ -82,6 +82,18 @@ class EventFilter:
     def __post_init__(self) -> None:
         if self.topic_filter is None and self.content_filter is None:
             raise ValueError("EventFilter needs a topic_filter or a content_filter")
+        for name in ("topic_filter", "content_filter"):
+            value = getattr(self, name)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"EventFilter.{name} must be a string, got {type(value).__name__}")
+
+    @classmethod
+    def from_wire(cls, data: Mapping[str, Any]) -> EventFilter:
+        """Validate a plain ``{"topicFilter": ..., "contentFilter": ...}`` mapping."""
+        unknown = sorted(str(k) for k in data if k not in ("topicFilter", "contentFilter"))
+        if unknown:
+            raise ValueError(f"unexpected event filter field(s): {', '.join(unknown)}")
+        return cls(data.get("topicFilter"), data.get("contentFilter"))
 
     def to_wire(self) -> dict[str, str]:
         wire: dict[str, str] = {}
@@ -169,7 +181,10 @@ def events_setup(options: Mapping[str, Any]) -> list[tuple[str, JsonObject | Non
     filters = options.get("event_filter_list")
     if filters is None:
         return []
-    wire = [f.to_wire() if isinstance(f, EventFilter) else dict(f) for f in filters]
+    if isinstance(filters, (str, bytes, Mapping)):
+        raise TypeError("event_filter_list must be a sequence of EventFilter objects or {'topicFilter': ...} mappings")
+    # Every entry is checked here, so a malformed filter fails locally instead of being rejected by the device.
+    wire = [(f if isinstance(f, EventFilter) else EventFilter.from_wire(f)).to_wire() for f in filters]
     return [("events:configure", {"eventFilterList": wire})]
 
 
@@ -250,5 +265,16 @@ def datahub_setup(options: Mapping[str, Any]) -> list[tuple[str, JsonObject | No
     unknown = set(options) - {"subscriptions"}
     if unknown:
         raise TypeError(f"unexpected arguments for the data hub session: {sorted(unknown)}")
-    subscriptions: Sequence[JsonObject] = options.get("subscriptions") or ()
-    return [("data-hub_v1:subscribe", dict(sub)) for sub in subscriptions]
+    # The generated schema, imported late because that module imports this one.
+    from ..apis.device_data_hub_ws import Subscription
+
+    subscriptions: Sequence[JsonObject | Subscription] = options.get("subscriptions") or ()
+    if isinstance(subscriptions, (str, bytes, Mapping)):
+        raise TypeError("subscriptions must be a sequence of Subscription objects or mappings")
+    requests: list[tuple[str, JsonObject | None]] = []
+    for sub in subscriptions:
+        # Validated against the schema (strict request rules) and serialized with the wire names; a bad
+        # mapping raises a ValidationError here instead of reaching the device.
+        model = sub.revalidated() if isinstance(sub, Subscription) else Subscription.model_validate(dict(sub))
+        requests.append(("data-hub_v1:subscribe", model.to_wire()))
+    return requests
