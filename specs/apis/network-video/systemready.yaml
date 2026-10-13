@@ -21,8 +21,9 @@ binding:
   path: /axis-cgi/systemready.cgi
   major: 1
   versions: ['1.0', '1.1', '1.4']
+  auth: if_challenged
   negotiation:
-    get_supported_versions: {key: apiVersions}
+    get_supported_versions: {key: apiVersions, auth: if_challenged}
   params_placement: params
 
 errors:

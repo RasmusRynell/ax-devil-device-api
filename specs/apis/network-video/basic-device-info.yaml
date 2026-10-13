@@ -23,7 +23,7 @@ binding:
   major: 1
   versions: ['1.0', '1.2']
   negotiation:
-    get_supported_versions: {key: apiVersions}
+    get_supported_versions: {key: apiVersions, auth: if_challenged}
   params_placement: params
 
 errors:
@@ -150,7 +150,7 @@ operations:
     summary: Retrieve all unrestricted properties (usable before a root user is defined or without login).
     access: anonymous
     effect: read
-    binding: {method: getAllUnrestrictedProperties}
+    binding: {method: getAllUnrestrictedProperties, auth: if_challenged}
     result:
       type: object
       x-name: UnrestrictedProperties

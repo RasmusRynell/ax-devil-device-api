@@ -21,8 +21,9 @@ binding:
   path: /axis-cgi/apidiscovery.cgi
   major: 1
   versions: ['1.0']
+  auth: if_challenged
   negotiation:
-    get_supported_versions: {key: apiVersions}
+    get_supported_versions: {key: apiVersions, auth: if_challenged}
   params_placement: params
 
 errors:

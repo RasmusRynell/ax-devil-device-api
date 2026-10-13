@@ -534,7 +534,6 @@ operations:
           $ref: '#/types/ServiceCapabilities'
           description: The capability response message contains the requested Access Control service capabilities
             using a hierarchical XML capability structure.
-    access: anonymous
   get_access_point_info_list:
     summary: This operation requests a list of all `AccessPointInfo` items provided by the device.
     description: An ONVIF compliant device which provides the Access Control service shall implement this method.

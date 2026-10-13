@@ -13,7 +13,7 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation, ParamDiscovery
-from .._protocols.jsonrpc import JsonRpcBinding
+from .._protocols.jsonrpc import GetSupportedVersions, JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,9 @@ class OPS:
     get_api_list = Operation(
         INFO,
         "get_api_list",
-        JsonRpcBinding("getApiList", PATH),
+        JsonRpcBinding(
+            "getApiList", PATH, negotiation=GetSupportedVersions(auth="if_challenged"), auth="if_challenged"
+        ),
         params=GetApiListRequest,
         result=ApiList,
         access="anonymous",

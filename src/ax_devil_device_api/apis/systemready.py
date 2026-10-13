@@ -13,7 +13,7 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
-from .._protocols.jsonrpc import JsonRpcBinding
+from .._protocols.jsonrpc import GetSupportedVersions, JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -60,7 +60,9 @@ class OPS:
     systemready = Operation(
         INFO,
         "systemready",
-        JsonRpcBinding("systemready", PATH),
+        JsonRpcBinding(
+            "systemready", PATH, negotiation=GetSupportedVersions(auth="if_challenged"), auth="if_challenged"
+        ),
         params=SystemreadyRequest,
         result=SystemreadyResult,
         access="anonymous",

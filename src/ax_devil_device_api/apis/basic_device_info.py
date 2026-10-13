@@ -11,7 +11,7 @@ from pydantic import Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation, ParamDiscovery
-from .._protocols.jsonrpc import JsonRpcBinding
+from .._protocols.jsonrpc import GetSupportedVersions, JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ class OPS:
     get_all_properties = Operation(
         INFO,
         "get_all_properties",
-        JsonRpcBinding("getAllProperties", PATH),
+        JsonRpcBinding("getAllProperties", PATH, negotiation=GetSupportedVersions(auth="if_challenged")),
         result=AllProperties,
         access="operator",
         effect="read",
@@ -121,7 +121,7 @@ class OPS:
     get_properties = Operation(
         INFO,
         "get_properties",
-        JsonRpcBinding("getProperties", PATH),
+        JsonRpcBinding("getProperties", PATH, negotiation=GetSupportedVersions(auth="if_challenged")),
         params=GetPropertiesRequest,
         result=SelectedProperties,
         access="operator",
@@ -130,7 +130,12 @@ class OPS:
     get_all_unrestricted_properties = Operation(
         INFO,
         "get_all_unrestricted_properties",
-        JsonRpcBinding("getAllUnrestrictedProperties", PATH),
+        JsonRpcBinding(
+            "getAllUnrestrictedProperties",
+            PATH,
+            negotiation=GetSupportedVersions(auth="if_challenged"),
+            auth="if_challenged",
+        ),
         result=UnrestrictedProperties,
         access="anonymous",
         effect="read",
