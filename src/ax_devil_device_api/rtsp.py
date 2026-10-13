@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
 from ._http.config import BearerToken, Credentials
-from ._http.types import has_dot_segment
+from ._http.types import unsafe_path
 from ._protocols.base import CallFlow, Model, Operation, register_binding
 from .errors import ConfigurationError
 
@@ -64,8 +64,8 @@ class RtspUrl:
             raise ConfigurationError(f"Invalid RTSP port: {self.port!r}")
         if not self.path.startswith("/") or "?" in self.path:
             raise ConfigurationError(f"RTSP path must be absolute and without a query: {self.path!r}")
-        if has_dot_segment(self.path):
-            raise ConfigurationError(f"RTSP path must not contain '.' or '..' segments: {self.path!r}")
+        if unsafe_path(self.path):
+            raise ConfigurationError(f"RTSP path must not contain '.' or '..' segments or backslashes (also percent-encoded): {self.path!r}")
         if self.password is not None and self.username is None:
             raise ConfigurationError("a password needs a username")
 

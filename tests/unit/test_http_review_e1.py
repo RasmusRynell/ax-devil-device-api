@@ -228,7 +228,9 @@ def test_names_that_merely_contain_pin_are_not_secrets(name: str) -> None:
 
 @pytest.mark.parametrize(
     "base_path",
-    ["/vms/camera/../admin", "/a/./b", "/..", "/a/%2e%2e/b", "/a/%2E%2e", "/a/%252e%252e/b", "/a//b", "/a\\..\\b", "/a/..%2f"],
+    ["/vms/camera/../admin", "/a/./b", "/..", "/a/%2e%2e/b", "/a/%2E%2e", "/a/%252e%252e/b", "/a//b", "/a\\..\\b", "/a/..%2f",
+     "/vms/%2f/cam", "/vms/%252f/cam", "/vms/%5c/cam", "/vms/%255c/cam", "/vms/%2F%2fcam", "/vms%2f", "/vms/cam%2f",
+     "/a/%25252e%25252e/b", "/a/%2525252e"],
 )
 def test_base_path_rejects_dot_and_empty_segments(base_path: str) -> None:
     from ax_devil_device_api._http.config import ConnectionConfig
@@ -245,7 +247,7 @@ def test_ordinary_base_paths_are_kept(base_path: str) -> None:
     assert ConnectionConfig("cam", base_path=base_path).base_path == base_path
 
 
-@pytest.mark.parametrize("path", ["/a/../b", "/a/%2e%2e/b", "/a/./b"])
+@pytest.mark.parametrize("path", ["/a/../b", "/a/%2e%2e/b", "/a/./b", "/a/%5c/b", "/a/%255c/b", "/a/%252e%252e/b"])
 def test_request_and_rtsp_paths_reject_dot_segments(path: str) -> None:
     from ax_devil_device_api.errors import ConfigurationError
     from ax_devil_device_api.rtsp import build_rtsp_url

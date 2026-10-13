@@ -6,7 +6,6 @@ values and parse ``Response`` values without doing I/O.
 
 from __future__ import annotations
 
-import re
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
@@ -25,18 +24,22 @@ AuthPolicy = Literal["required", "anonymous", "if_challenged"]
 """
 
 
-_PATH_SEPARATORS = re.compile(r"[/\\]")
+def unsafe_path(path: str, *, strict: bool = False) -> bool:
+    """Whether ``path`` could be normalised by a client, proxy or device into a different path.
 
-
-def has_dot_segment(path: str) -> bool:
-    """Whether ``path`` has a ``.`` or ``..`` segment in any form a client, proxy or device may normalise.
-
-    Backslashes count as separators and percent-encoding is decoded layer by layer (``%2e%2e``, ``%252e%252e``);
-    a path that still changes after four layers is treated as hostile.
+    Checked at every percent-decoding layer (``%2e%2e``, ``%252e%252e``, ``%2f``, ``%5c``, ...), at most four
+    layers deep; a path that still changes after that is treated as unsafe. A layer is unsafe when it has a ``.``
+    or ``..`` segment or a backslash. With ``strict`` (a configured prefix) it is also unsafe when it has an empty
+    segment or a trailing separator.
     """
     current = path
     for _ in range(5):
-        if any(segment in (".", "..") for segment in _PATH_SEPARATORS.split(current)):
+        if "\\" in current:
+            return True
+        segments = current.split("/")
+        if any(segment in (".", "..") for segment in segments):
+            return True
+        if strict and any(segment == "" for segment in segments[1:]):
             return True
         decoded = unquote(current)
         if decoded == current:
@@ -174,8 +177,8 @@ class Request:
             raise ValueError(f"Request path must be absolute: {self.path!r}")
         if "?" in self.path:
             raise ValueError(f"Request path must not contain a query; use query=: {self.path!r}")
-        if has_dot_segment(self.path):
-            raise ValueError(f"Request path must not contain '.' or '..' segments: {self.path!r}")
+        if unsafe_path(self.path):
+            raise ValueError(f"Request path must not contain '.' or '..' segments or backslashes (also percent-encoded): {self.path!r}")
 
     @property
     def replayable(self) -> bool:
