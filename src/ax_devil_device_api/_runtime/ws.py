@@ -40,6 +40,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import quote
 
+import anyio
 import httpcore
 import httpx_ws
 import wsproto.events
@@ -750,6 +751,22 @@ class AsyncSession:
             return core.pending.popleft()
         return await self._read(timeout)
 
+    async def _next_event(self, remaining: float | None) -> wsproto.events.Event:
+        """The next wsproto event. With nothing left to wait (0) the buffer is only looked at, never awaited:
+        AnyIO checkpoints before it reads, so ``fail_after(0)`` would time out even with a frame already queued."""
+        stream = getattr(self._raw, "_receive_event", None)
+        if remaining != 0 or stream is None:
+            return await self._raw.receive(remaining)
+        try:
+            event = stream.receive_nowait()
+        except anyio.WouldBlock:
+            raise TimeoutError from None
+        if isinstance(event, httpx_ws.HTTPXWSException):
+            raise event
+        if isinstance(event, wsproto.events.CloseConnection):
+            raise httpx_ws.WebSocketDisconnect(event.code, event.reason)
+        return event
+
     async def _read(self, timeout: float | None) -> Any:
         core = self._core
         if core.closed is not None:
@@ -763,7 +780,7 @@ class AsyncSession:
         while True:
             remaining = None if deadline is None else max(0.0, deadline - loop.time())
             try:
-                event = await self._raw.receive(remaining)
+                event = await self._next_event(remaining)
             except TimeoutError:
                 raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s") from None
             except httpx_ws.WebSocketDisconnect as error:

@@ -77,6 +77,7 @@ class MixedReplaceDecoder:
         self._headers = Headers()
         self._length: int | None = None
         self._scanned = 0
+        self._undecided = False
         self._done = False
 
     @classmethod
@@ -158,23 +159,65 @@ class MixedReplaceDecoder:
             del buf[: self._length]
             self._state = "preamble"
             return True, Part(self._headers, body)
-        marker = b"\r\n" + self._delimiter
-        index = buf.find(marker, self._scanned)
-        width = len(marker)
-        if index < 0:
-            index = buf.find(b"\n" + self._delimiter, self._scanned)
-            width = len(self._delimiter) + 1
-        if index < 0:
-            if len(buf) > self._max + len(marker):  # a partial delimiter may be buffered after the body
+        found = self._find_boundary(buf)
+        if found is None:  # no complete boundary line yet
+            if not self._undecided and len(buf) > self._max + len(self._delimiter) + 2:  # a partial delimiter may be buffered after the body
                 raise ResponseFormatError(self._api, "stream", f"part exceeds the {self._max} byte limit")
-            self._scanned = max(0, len(buf) - len(marker))
             return False, None
-        if index > self._max:
+        body_end, consumed = found
+        if body_end > self._max:
             raise ResponseFormatError(self._api, "stream", f"part exceeds the {self._max} byte limit")
-        body = bytes(buf[:index])
-        del buf[: index + (width - len(self._delimiter))]  # keep the delimiter for the preamble step
+        body = bytes(buf[:body_end])
+        del buf[:consumed]  # keep the delimiter for the preamble step
         self._state = "preamble"
         return True, Part(self._headers, body)
+
+    def _find_boundary(self, buf: bytearray) -> tuple[int, int] | None:
+        """``(end of the part body, bytes to drop before the delimiter)`` of the next real boundary line, or ``None``.
+
+        A real boundary is a line break, the delimiter, and then ``--``, or optional blanks and a line end. The same
+        bytes inside the content (``\\r\\n--<boundary>x``) do not end the part. If the bytes after a candidate have
+        not arrived yet, scanning resumes at that candidate with the next chunk.
+        """
+        delimiter, width = self._delimiter, len(self._delimiter)
+        start = self._scanned
+        self._undecided = False
+        while True:
+            pos = buf.find(b"\n" + delimiter, start)
+            if pos < 0:
+                self._scanned = max(0, len(buf) - width - 1)
+                return None
+            verdict = self._boundary_suffix(buf, pos + 1 + width)
+            if verdict is None and len(buf) - pos > 1024:
+                verdict = False  # endless blanks after the delimiter: not a boundary line
+            if verdict is None:  # undecided: wait for more data
+                if (pos - 1 if pos > 0 and buf[pos - 1] == 13 else pos) > self._max:
+                    raise ResponseFormatError(self._api, "stream", f"part exceeds the {self._max} byte limit")
+                self._scanned = pos
+                self._undecided = True  # a candidate waits for its suffix; its position was checked against the limit
+                return None
+            if verdict:
+                body_end = pos - 1 if pos > 0 and buf[pos - 1] == 13 else pos
+                return body_end, pos + 1
+            start = pos + 1
+
+    @staticmethod
+    def _boundary_suffix(buf: bytearray, at: int) -> bool | None:
+        """Whether what follows the delimiter ends a boundary line (``None``: not enough data to tell)."""
+        if buf[at : at + 2] == b"--":
+            return True
+        if len(buf) - at < 2 and buf[at : at + 1] in (b"", b"-"):
+            return None
+        index = at
+        while index < len(buf) and buf[index] in b" \t":
+            index += 1
+        if index >= len(buf):
+            return None
+        if buf[index] == 10:
+            return True
+        if buf[index] == 13:
+            return True if index + 1 < len(buf) and buf[index + 1] == 10 else (None if index + 1 >= len(buf) else False)
+        return False
 
 
 def _length(headers: Headers) -> int | None:
