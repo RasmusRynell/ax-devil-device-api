@@ -89,7 +89,13 @@ def encode_multipart(body: MultipartBody) -> EncodedMultipart:
             if isinstance(part.content, bytes):
                 yield part.content
             else:
-                yield from part.content
+                iterator = iter(part.content)
+                try:
+                    yield from iterator
+                finally:
+                    close = getattr(iterator, "close", None)
+                    if callable(close):
+                        close()
             yield b"\r\n"
         yield closing
 

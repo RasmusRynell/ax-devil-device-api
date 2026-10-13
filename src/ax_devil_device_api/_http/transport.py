@@ -88,8 +88,24 @@ def _is_tls(error: BaseException) -> bool:
 
 
 async def _aiter(chunks: Iterator[bytes]) -> AsyncIterator[bytes]:
-    for chunk in chunks:
-        yield chunk
+    try:
+        for chunk in chunks:
+            yield chunk
+    finally:
+        _close(chunks)
+
+
+def _closing(chunks: Iterator[bytes]) -> Iterator[bytes]:
+    try:
+        yield from chunks
+    finally:
+        _close(chunks)
+
+
+def _close(iterator: object) -> None:
+    close = getattr(iterator, "close", None)
+    if callable(close):
+        close()
 
 
 class UpgradeRefused(Exception):
@@ -116,8 +132,15 @@ def _ws_request(request: Request) -> Request:
     return replace(request, headers=request.headers + handshake)
 
 
-def _build(client: httpx.Client | httpx.AsyncClient, request: Request, base_path: str) -> httpx.Request:
-    """Build the httpx request; headers are derived from the body, never defaulted."""
+def _build(
+    client: httpx.Client | httpx.AsyncClient, request: Request, base_path: str, opened: list[Any] | None = None,
+) -> httpx.Request:
+    """Build the httpx request; headers are derived from the body, never defaulted.
+
+    Lazy body iterators (which may own open files) are appended to ``opened`` so the
+    caller can close them once the send is over, however it ended.
+    """
+    track = opened if opened is not None else []
     headers: list[tuple[str, str]] = []
     if request.accept is not None:
         headers.append(("Accept", request.accept))
@@ -131,8 +154,10 @@ def _build(client: httpx.Client | httpx.AsyncClient, request: Request, base_path
         headers.append(("Content-Type", "application/x-www-form-urlencoded"))
     elif isinstance(body, RawBody):
         content = body.content
-        if isinstance(client, httpx.AsyncClient) and not isinstance(content, bytes) and not isinstance(content, AsyncIterable):
-            content = _aiter(iter(content))
+        if not isinstance(content, (bytes, AsyncIterable)):
+            content = _aiter(iter(content)) if isinstance(client, httpx.AsyncClient) else _closing(iter(content))
+        if not isinstance(content, bytes):
+            track.append(content)
         kwargs["content"] = content
         headers.append(("Content-Type", body.content_type))
         if body.size is not None and not isinstance(body.content, bytes):
@@ -144,7 +169,10 @@ def _build(client: httpx.Client | httpx.AsyncClient, request: Request, base_path
             kwargs["content"] = encoded.content
         else:
             # httpx's async client needs an async iterable; the sync one a sync iterable.
+            track.append(encoded.content)
             kwargs["content"] = _aiter(encoded.content) if isinstance(client, httpx.AsyncClient) else encoded.content
+            if isinstance(client, httpx.AsyncClient):
+                track.append(kwargs["content"])
             if encoded.length is not None:
                 headers.append(("Content-Length", str(encoded.length)))
     if request.timeout is not None:
@@ -214,14 +242,18 @@ class SyncTransport:
         return self._send_once(request, stream=stream)
 
     def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
+        opened: list[Any] = []
         try:
             return self._client.send(
-                _build(self._client, request, self.config.base_path),
+                _build(self._client, request, self.config.base_path, opened),
                 auth=self._auth.for_request(request.auth, request.replayable),
                 stream=stream,
             )
         except httpx.TransportError as error:
             raise map_error(error) from error
+        finally:
+            for iterator in opened:
+                _close(iterator)
 
     def send(self, request: Request) -> Response:
         """Send ``request`` and return the fully read response."""
@@ -326,14 +358,21 @@ class AsyncTransport:
         return await self._send_once(request, stream=stream)
 
     async def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
+        opened: list[Any] = []
         try:
             return await self._client.send(
-                _build(self._client, request, self.config.base_path),
+                _build(self._client, request, self.config.base_path, opened),
                 auth=self._auth.for_request(request.auth, request.replayable),
                 stream=stream,
             )
         except httpx.TransportError as error:
             raise map_error(error) from error
+        finally:
+            for iterator in reversed(opened):
+                if hasattr(iterator, "aclose"):
+                    await iterator.aclose()
+                else:
+                    _close(iterator)
 
     async def send(self, request: Request) -> Response:
         """Send ``request`` and return the fully read response."""
