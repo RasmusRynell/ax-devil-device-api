@@ -185,7 +185,8 @@ def render_field(f: FieldDef) -> list[str]:
         value = " = " + parts[0][len("default=") :]
     else:
         value = ""
-    lines = [f"    {f.py}: {ann}{value}"]
+    noqa = "  # noqa: E741" if f.py in ("l", "O", "I") else ""  # wire-derived names stay as the spec spells them
+    lines = [f"    {f.py}: {ann}{value}{noqa}"]
     if f.doc:
         lines += docstring(f.doc, "    ")
     return lines

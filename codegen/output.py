@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 from .loader import ROOT
@@ -36,10 +37,21 @@ def format_python(source: str, filename: str = "module.py") -> str:
 
 def render_namespace(apis: list[ApiDef]) -> str:
     apis = sorted(apis, key=lambda a: a.module)
-    imports = []
-    for a in apis:
-        n = a.class_name
-        imports.append(f"    from .{a.module} import Async{n}Api, {n}Api")
+    # Two modules can share a class name; alias those so each annotation names its own module's class.
+    counts = Counter(a.class_name for a in apis)
+
+    def cls_name(a: ApiDef, prefix: str) -> str:
+        base = f"{prefix}{a.class_name}Api"
+        return base if counts[a.class_name] == 1 else f"{base}_{a.module}"
+
+    def import_item(a: ApiDef, prefix: str) -> str:
+        base = f"{prefix}{a.class_name}Api"
+        local = cls_name(a, prefix)
+        return base if local == base else f"{base} as {local}"
+
+    imports = [
+        f"    from .{a.module} import {import_item(a, 'Async')}, {import_item(a, '')}" for a in apis
+    ]
 
     def block(cls: str, device: str, prefix: str, doc: str) -> list[str]:
         lines = [
@@ -53,10 +65,11 @@ def render_namespace(apis: list[ApiDef]) -> str:
         ]
         for a in apis:
             name = f"{prefix}{a.class_name}Api"
+            ann = cls_name(a, prefix)
             lines += [
                 "",
                 "    @cached_property",
-                f"    def {a.module}(self) -> {name}:",
+                f"    def {a.module}(self) -> {ann}:",
                 f"        from .{a.module} import {name}",
                 "",
                 f"        return self._device.api({name})",

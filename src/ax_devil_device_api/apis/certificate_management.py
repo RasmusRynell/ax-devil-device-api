@@ -40,7 +40,7 @@ class CertificateSubject(Model):
     """Country."""
     st: str | None = Field(default=None, validation_alias="acert:ST", serialization_alias="acert:ST")
     """State or province."""
-    l: str | None = Field(default=None, validation_alias="acert:L", serialization_alias="acert:L")
+    l: str | None = Field(default=None, validation_alias="acert:L", serialization_alias="acert:L")  # noqa: E741
     """Locality."""
     o: str | None = Field(default=None, validation_alias="acert:O", serialization_alias="acert:O")
     """Organization."""

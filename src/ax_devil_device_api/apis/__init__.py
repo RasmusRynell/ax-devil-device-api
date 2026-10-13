@@ -115,8 +115,10 @@ if TYPE_CHECKING:
     from .mqtt_event_bridge import AsyncMqttEventBridgeApi, MqttEventBridgeApi
     from .network_diagnostics import AsyncNetworkDiagnosticsApi, NetworkDiagnosticsApi
     from .network_radar_pairing import AsyncNetworkRadarPairingApi, NetworkRadarPairingApi
-    from .network_settings import AsyncNetworkSettingsApi, NetworkSettingsApi
-    from .network_settings_api import AsyncNetworkSettingsApi, NetworkSettingsApi
+    from .network_settings import AsyncNetworkSettingsApi as AsyncNetworkSettingsApi_network_settings
+    from .network_settings import NetworkSettingsApi as NetworkSettingsApi_network_settings
+    from .network_settings_api import AsyncNetworkSettingsApi as AsyncNetworkSettingsApi_network_settings_api
+    from .network_settings_api import NetworkSettingsApi as NetworkSettingsApi_network_settings_api
     from .network_settings_params import AsyncNetworkSettingsParamsApi, NetworkSettingsParamsApi
     from .network_share import AsyncNetworkShareApi, NetworkShareApi
     from .network_time_sync import AsyncNetworkTimeSyncApi, NetworkTimeSyncApi
@@ -862,13 +864,13 @@ class Apis:
         return self._device.api(NetworkRadarPairingApi)
 
     @cached_property
-    def network_settings(self) -> NetworkSettingsApi:
+    def network_settings(self) -> NetworkSettingsApi_network_settings:
         from .network_settings import NetworkSettingsApi
 
         return self._device.api(NetworkSettingsApi)
 
     @cached_property
-    def network_settings_api(self) -> NetworkSettingsApi:
+    def network_settings_api(self) -> NetworkSettingsApi_network_settings_api:
         from .network_settings_api import NetworkSettingsApi
 
         return self._device.api(NetworkSettingsApi)
@@ -2117,13 +2119,13 @@ class AsyncApis:
         return self._device.api(AsyncNetworkRadarPairingApi)
 
     @cached_property
-    def network_settings(self) -> AsyncNetworkSettingsApi:
+    def network_settings(self) -> AsyncNetworkSettingsApi_network_settings:
         from .network_settings import AsyncNetworkSettingsApi
 
         return self._device.api(AsyncNetworkSettingsApi)
 
     @cached_property
-    def network_settings_api(self) -> AsyncNetworkSettingsApi:
+    def network_settings_api(self) -> AsyncNetworkSettingsApi_network_settings_api:
         from .network_settings_api import AsyncNetworkSettingsApi
 
         return self._device.api(AsyncNetworkSettingsApi)
