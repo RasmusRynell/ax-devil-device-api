@@ -4,13 +4,17 @@ Three probes describe what a device offers, and a fourth runs only for APIs that
 
 - classic API discovery (``apidiscovery.cgi`` ``getApiList``),
 - Device Configuration discovery (``/config/discover``),
-- the ``param.cgi`` ``Properties.API`` group,
+- the ``param.cgi`` ``Properties.API`` group (a property outside it is probed lazily, one ``param.cgi`` list per
+  declared property, cached as ``properties:<name>``; a leading ``root.`` is stripped),
 - installed ACAP applications (``applications/list.cgi``),
 - the web services listed by the Entry service (``GetServices``).
 
 Each probe either succeeds (its result is cached until ``refresh()``) or
 fails (the error is reported and the probe is retried next time). A probe
-failure never turns into "not supported".
+failure never turns into "not supported". A property that was never queried
+counts as unknown, a queried one that is absent as "no". An ``ApiError``
+containing ``getting param in group`` means the property is absent ("no");
+any other probe error is unknown.
 """
 
 from __future__ import annotations

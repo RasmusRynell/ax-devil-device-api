@@ -28,7 +28,7 @@ access: admin                    # default access level for operations
 discovery:                       # how Device.supports() recognizes the API; tried in order
   - api_discovery: mqtt-client
   - dca: {api: analytics-mqtt, version: v1}
-  - param: {name: Properties.API.HTTP.Version, value: "3"}
+  - param: {name: Properties.API.HTTP.Version, value: "3"}   # outside Properties.API: probed lazily per property
   - param: {name: Properties.EmbeddedDevelopment.Version, value: "1.20", compare: ">="}
   - acap: {name: loiteringguard}
   - service: {namespace: "http://www.axis.com/vapix/ws/event1"}
@@ -441,8 +441,8 @@ Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `it
 - Optional fields become `X | None = None`.
 - Extensions:
   - `x-nullable: [field, ...]`: may be sent as explicit `null`.
-  - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips.
-  - `x-read-only: [field, ...]`: present in responses, never sent. When a request type is shared with the response, read-only fields stay on the model but are not method arguments. A field that is also in `required` is required in responses only: a response without it raises `ResponseFormatError`, while a request model leaves it out (the attribute is `None` on a model you built yourself; type checkers still see the field type) and never sends it.
+  - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips at any depth (through nested models and lists); also redacted by name in `on_request` records.
+  - `x-read-only: [field, ...]`: present in responses, never sent: omitted from request serialization at any depth, even when supplied. When a request type is shared with the response, read-only fields stay on the model but are not method arguments. A field that is also in `required` is required in responses only: a response without it raises `ResponseFormatError`, while a request model leaves it out (the attribute is `None` on a model you built yourself; type checkers still see the field type) and never sends it.
   - `x-python-name` on a property: overrides the derived name.
   - `x-style` on a property (cgi only): `plain`, `csv`, `axis_bool`, `spread`, `flag` (a boolean sent as the bare key when true).
   - `x-in` on a property (cgi only): `query`, `form` or `body`, where the argument goes (see "CGI arguments, bodies and uploads").

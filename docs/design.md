@@ -130,7 +130,7 @@ Every upload argument (cgi and jsonrpc, multipart or raw body) is an `UploadSour
   - `anonymous`: never adds credentials. `if_challenged`: like `required` but never pre-emptive, so a device that allows anonymous access is used anonymously (classic API discovery needs this).
   - A request with `replayable=False` (one-shot bodies: iterators, open files, uploads over 8 MiB) is never retried: if it would need a challenge round trip (no verified state, or a 401 after being sent with verified state), it fails with `AuthError` and the caller must re-supply the body. To avoid that for password credentials, the transport sends the preflight described under "Uploads" before such a body when no verified state exists (`needs_verification`). Replayable bodies and Bearer credentials need no preflight.
   - `BearerToken` (static string or callable) is sent on every non-anonymous request. A callable is called for every request and once more after a 401 (if the body is replayable); a second 401 raises `AuthError`. `ConnectionConfig` rejects Bearer over HTTP.
-- `ConnectionConfig` is frozen and validated at construction; its fields are listed in section 6. `Credentials` redacts the password in `repr`; `_http/debug.py` redacts secrets in `on_request` records.
+- `ConnectionConfig` is frozen and validated at construction; its fields are listed in section 6. `Credentials` redacts the password in `repr`; `_http/debug.py` redacts secrets in `on_request` records: by key name (including Azure `sharedKey`/`sas`, session tokens), by every field the specs mark `x-masked` (registered when the models load), and by URL credentials or secret query values embedded in any string.
 - The per-device concurrency limits (section 6) and the error classes (section 7) are applied here; the retry loop is in the driver (section 7).
 
 ## 4. Protocols: sans-IO call flows
@@ -249,7 +249,7 @@ Methods:
 - Signature rule (deterministic, so the generator can apply it): an operation whose params include a nested model, or more than four fields, gets two overloads: flattened keyword arguments, or one positional `*Request` object (passing both is a `TypeError`). Smaller operations, such as `parameter_management.update(parameters)` or `get_publisher(id)`, get one plain signature: path keys and the main argument positional, the rest keyword-only.
 - Required read-only fields (`x-read-only` plus `required`) are required in responses only: a response without one raises `ResponseFormatError`, while the request model leaves it out (`None` on a model you build, never sent). In the models this is the `not_sent` default and `__response_required__`.
 - Writes declare `write`: `replace` (fields left out return to defaults), `patch`, `create` or `delete`, shown in the docstring.
-- Where a read result can be written back, the request model gets `from_current(result)`. It drops fields the device masks or that are read-only (from the spec), and sets "keep existing" flags where the API has them (MQTT `keepExistingPassword`). Blind round trips must never write a masked `*****` back.
+- Where a read result can be written back, the request model gets `from_current(result)`. It drops fields the device masks or that are read-only (from the spec), and sets "keep existing" flags where the API has them (MQTT `keepExistingPassword`). Blind round trips must never write a masked `*****` back: masked and read-only fields are dropped through nested models and lists, and a secret the creation call needs must be set on the request afterwards (the docstring names the masked paths). Read-only fields are omitted from every request at any depth even when supplied (`__read_only__`, applied by `to_wire`). Models hide input values in validation errors (`hide_input_in_errors`), so secrets never appear in them.
 - Raw-body CGI operations can take the Content-Type per call through an `x-in: content_type` argument (for example `transmit_audio(audio, content_type="audio/G726-32")`).
 - Streaming operations return a `StreamResult[T]` / `AsyncStreamResult[T]`, session operations a `Session` / `AsyncSession` context manager, RTSP operations an `RtspUrl` (section 3 and the families table).
 
@@ -296,7 +296,7 @@ Capabilities and discovery. `capabilities()` runs three probes (concurrently on 
 |---|---|
 | `api_discovery` | `apidiscovery.cgi` lists the id (a different major version gives `NO`) |
 | `dca` | `/config/discover` lists the API and path version |
-| `param` | a `param.cgi` property exists, equals a value, or compares `>=` as a dotted number |
+| `param` | a `param.cgi` property exists, equals a value, or compares `>=` as a dotted number. Properties in `Properties.API` come from the capabilities probe; any other property gets its own lazy `properties:<name>` probe (one `param.cgi` list per declared property, cached, `Capabilities.property_groups` records what was queried; a leading `root.` is stripped). A never-queried property is `UNKNOWN`, a queried and absent one is `NO`; an `ApiError` containing "getting param in group" counts as `NO`, any other error as `UNKNOWN` |
 | `acap` | an application with that name (case-insensitive) is installed; running is not required |
 | `service` | the Entry service lists the web service namespace (AXIS OS 5.60 and later); used for SOAP and service JSON APIs that API discovery does not list |
 
@@ -328,7 +328,7 @@ DeviceError
 ├── ResponseFormatError(api, operation, reason)
 ├── NotSupported(api, operation, reason, required)
 ├── AccessDenied                    category: catch both 403 and documented auth-failure codes
-└── Unavailable                     category: catch both 503 and documented busy codes
+└── Unavailable                     category: catch both 503 and documented busy codes (an HTTP 503 API error envelope without a documented kind is also unavailable)
 ```
 
 Errors without a code. Some classic CGIs report a failure only as text (`Error: account user name.` with HTTP 200). A spec's error table can match such a message with `message` (the whole text) or `message_prefix` (its start); whitespace is collapsed, a trailing full stop is ignored and the match is case-sensitive. The raised `ApiError` has `code=None` and takes `kind` and `description` from the entry; an unmatched failure is still an `ApiError` carrying the message. Message matching applies wherever the runtime has a message (cgi plain-text and JSON error replies, SOAP faults, JSON-RPC errors).
