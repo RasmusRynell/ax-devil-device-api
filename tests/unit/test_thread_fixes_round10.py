@@ -49,11 +49,17 @@ def test_raising_on_response_hook_does_not_leak_stream_slots() -> None:
     with Device(
         "cam.test", credentials=("root", "pass"), transport=camera.transport(), max_streams=1, on_response=hook
     ) as dev:
+        slots = dev._transport._stream_slots  # noqa: SLF001
         for _ in range(4):  # more than max_streams
-            with pytest.raises(RuntimeError, match="hook failed"):
+            with pytest.raises(RuntimeError, match="hook failed") as caught:
                 with dev.connect_session(EVENTS, heartbeat=QUICK):
                     pass
-    assert camera.streams and all(s.closed for s in camera.streams)
+            # While the exception (and so the failed call's frames) is still alive, nothing may be held open:
+            # a leak that only garbage collection would clean up must fail here.
+            assert slots._value == 1  # noqa: SLF001
+            assert camera.streams[-1].closed
+            del caught
+    assert len(camera.streams) == 4
 
 
 @pytest.mark.anyio
@@ -67,7 +73,11 @@ async def test_async_raising_on_response_hook_does_not_leak_stream_slots() -> No
         "cam.test", credentials=("root", "pass"), transport=camera.async_transport(), max_streams=1, on_response=hook
     ) as dev:
         for _ in range(4):
-            with pytest.raises(RuntimeError, match="hook failed"):
+            with pytest.raises(RuntimeError, match="hook failed") as caught:
                 async with dev.connect_session(EVENTS, heartbeat=QUICK):
                     pass
-    assert camera.streams and all(s.closed for s in camera.streams)
+            _, slots = dev._transport._semaphores()  # noqa: SLF001
+            assert slots._value == 1  # noqa: SLF001
+            assert camera.streams[-1].closed
+            del caught
+    assert len(camera.streams) == 4
