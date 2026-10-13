@@ -250,6 +250,10 @@ class SessionLedger:
 # Shared (I/O free) session logic
 
 
+NO_MESSAGE: Any = object()
+"""Private marker for "no complete message yet" (control frame, unfinished fragment); never a real message, ``None`` included."""
+
+
 class _Core:
     def __init__(self, spec: SessionSpec, ledger: SessionLedger, response: Response, default_timeout: float) -> None:
         self.spec = spec
@@ -337,9 +341,12 @@ class _Core:
         return f"ax-{self._counter}"
 
     def decode(self, event: wsproto.events.Event) -> Any:
-        """Turn a wsproto message into a Python value; ``None`` for non-message events."""
+        """Turn a wsproto message into a Python value; ``NO_MESSAGE`` for control frames and unfinished messages.
+
+        A complete JSON ``null`` is a message like any other and decodes to ``None``.
+        """
         if not isinstance(event, (wsproto.events.BytesMessage, wsproto.events.TextMessage)):
-            return None
+            return NO_MESSAGE
         if self.record is not None and not self._ended:
             self.ledger.touch(self.record, self._frame_time())
         is_text = isinstance(event, wsproto.events.TextMessage)
@@ -350,7 +357,7 @@ class _Core:
             self._parts_size = 0
             raise self._too_large()
         if not event.message_finished:
-            return None
+            return NO_MESSAGE
         parts, self._parts, self._parts_size = self._parts, [], 0
         if not is_text:
             return b"".join(parts)
@@ -543,7 +550,7 @@ class Session:
                 if core.overflowed:
                     self._abort()
                 raise
-            if message is not None:
+            if message is not NO_MESSAGE:
                 return message
 
     def _abort(self) -> None:
@@ -729,7 +736,7 @@ class AsyncSession:
                 if core.overflowed:
                     await self._abort()
                 raise
-            if message is not None:
+            if message is not NO_MESSAGE:
                 return message
 
     async def _abort(self) -> None:

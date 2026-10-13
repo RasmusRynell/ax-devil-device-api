@@ -372,22 +372,23 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
     """
     result = _decide_discovery(info, caps)
     minimum = info.requires_firmware
-    if minimum is None or result.status is not Support.YES:
-        return result
-    want = _firmware_key(minimum)
-    if want is None:
-        return result  # a minimum this client cannot read is not enforced
+    want = _firmware_key(minimum) if minimum is not None else None
+    if minimum is None or want is None:
+        return result  # no minimum, or one this client cannot read: not enforced
     have = _firmware_key(caps.firmware) if caps.firmware else None
+    if have is not None and have < want and result.status is not Support.NO:
+        # A known firmware below the minimum settles it, even when discovery failed (old firmware often lacks the endpoints).
+        return SupportResult(
+            Support.NO, f"device firmware {caps.firmware} is older than the {minimum} that {info.id} requires",
+            observed_at=caps.observed_at,
+        )
+    if result.status is not Support.YES:
+        return result
     if have is None:
         why = caps.errors.get("identity") or ("firmware version not known" if not caps.firmware else f"unreadable firmware {caps.firmware!r}")
         return SupportResult(
             Support.UNKNOWN, f"{info.id} needs firmware {minimum} or newer, and the device firmware is not known",
             (f"device identity: {why}",), caps.observed_at,
-        )
-    if have < want:
-        return SupportResult(
-            Support.NO, f"device firmware {caps.firmware} is older than the {minimum} that {info.id} requires",
-            observed_at=caps.observed_at,
         )
     return result
 
