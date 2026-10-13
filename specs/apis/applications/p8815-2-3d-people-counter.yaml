@@ -269,8 +269,8 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - "BLOCKED(raw-body): adjust_occupancy: POST /axis-cgi/a3dpc.cgi with a JSON envelope body (apiVersion, context, method adjustOccupancy, params.occupancy), Operator access, error 1200."
-  - "BLOCKED(raw-body): restart_passthrough_countdown: POST /axis-cgi/a3dpc.cgi with a JSON envelope body (method restartPassthroughCountdown), Operator access, error 1200."
+  - "BLOCKED(jsonrpc-in-cgi): adjust_occupancy: POST /axis-cgi/a3dpc.cgi takes a Google JSON envelope (apiVersion, context, method adjustOccupancy, params.occupancy) and answers {apiVersion, context, method, data} or {error: {code, message}} with error 1200 (secondary device, or occupancy estimation off); Operator access. A raw body would send the envelope but the cgi family cannot read the error member of a 200 reply, and the spec family is cgi for the GET exports, so the method needs a jsonrpc-family binding (own spec or per-operation family)."
+  - "BLOCKED(jsonrpc-in-cgi): restart_passthrough_countdown: same /axis-cgi/a3dpc.cgi envelope with method restartPassthroughCountdown and no params; the reply data is {}; error 1200; Operator access. Blocked for the same reason as adjust_occupancy."
   - Generic data push is pushed by the device to a configured HTTPS endpoint, so it is not an operation. The field table names Data and Sensor as arrays but the sample uses plain objects, and it says sensor[].timeZone while the sample uses timezone.
   - Error code 1200 of the a3dpc.cgi methods is used for three different conditions and is missing from the general error code list.
   - Occupancy example 2 text says current day but uses start=yesterday&end=today.

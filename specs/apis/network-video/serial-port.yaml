@@ -134,6 +134,299 @@ operations:
           PortManager.P0.PortEnabled: 'yes'
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/serial-port-api/#common-examples
+  set_serial_port:
+    summary: Change the settings of a serial port.
+    description: Sets parameters of the group Serial.Ser<n>. Only the given parameters change. Which values are valid is product
+      dependent.
+    access: admin
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query:
+        action: update
+      reply: text_ok
+    params:
+      type: object
+      required:
+      - serial
+      properties:
+        serial:
+          type: integer
+          minimum: 0
+          description: Serial port index n of Serial.Ser<n>; starts at 1.
+        Serial.Ser{serial}.PortMode:
+          type: string
+          enum:
+          - RS232
+          - RS485
+          - RS485_4
+          - RS422
+          x-python-name: port_mode
+          description: Serial port protocol (product dependent; may be read-only depending on hardware).
+        Serial.Ser{serial}.BaudRate:
+          type: string
+          enum:
+          - '300'
+          - '600'
+          - '1200'
+          - '2400'
+          - '4800'
+          - '9600'
+          - '19200'
+          - '38400'
+          - '57600'
+          - '115200'
+          - '230400'
+          - '460800'
+          x-python-name: baud_rate
+          description: Transmission speed in bits per second. 230400 and 460800 only apply to RS485 and RS485_4.
+        Serial.Ser{serial}.DataBits:
+          type: string
+          enum:
+          - '7'
+          - '8'
+          x-python-name: data_bits
+          description: Number of data bits.
+        Serial.Ser{serial}.StopBits:
+          type: string
+          enum:
+          - '1'
+          - '2'
+          x-python-name: stop_bits
+          description: Number of stop bits.
+        Serial.Ser{serial}.Parity:
+          type: string
+          enum:
+          - None
+          - Even
+          - Odd
+          - Mark
+          - Space
+          x-python-name: parity
+          description: Parity; None adds no parity bit.
+        Serial.Ser{serial}.FlowControlXONXOFF:
+          type: string
+          enum: &id001
+          - 'yes'
+          - 'no'
+          x-python-name: flow_control_xon_xoff
+          description: XON/XOFF flow control (needs a full duplex port); unsupported if the parameter is missing on the device.
+        Serial.Ser{serial}.FlowControlRTSCTS:
+          type: string
+          enum: *id001
+          x-python-name: flow_control_rts_cts
+          description: RTS/CTS flow control (needs a RS232 port); unsupported if the parameter is missing on the device.
+        Serial.Ser{serial}.Termination:
+          type: string
+          enum: *id001
+          x-python-name: termination
+          description: RS485/RS422 termination; unsupported if the parameter is missing on the device.
+        Serial.Ser{serial}.Bias:
+          type: string
+          enum: *id001
+          x-python-name: bias
+          description: RS485/RS422 bias; unsupported if the parameter is missing on the device.
+    positional:
+    - serial
+    examples:
+    - title: Set the baud rate and the number of data bits
+      request:
+        query:
+          Serial.Ser1.BaudRate: '9600'
+          Serial.Ser1.DataBits: '8'
+      response:
+        status: 200
+        text: OK
+      source: https://developer.axis.com/vapix/network-video/serial-port-api/#common-examples
+      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
+  set_port_manager:
+    summary: Change the settings of a port manager.
+    description: Sets parameters of the group PortManager.P<n> and its sub-groups (SerialCGI, PTZServer, RemotePortServer, GenericTCPServer).
+      Only the given parameters change. The RemotePortServer and PTZServer groups do not exist on products without that functionality.
+    access: admin
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query:
+        action: update
+      reply: text_ok
+    params:
+      type: object
+      required:
+      - port_manager
+      properties:
+        port_manager:
+          type: integer
+          minimum: 0
+          description: Port manager index n of PortManager.P<n>; goes from 0 to the number of port managers minus 1.
+        PortManager.P{port_manager}.PortEnabled:
+          type: string
+          enum: *id001
+          x-python-name: port_enabled
+          description: Enable or disable the output port defined by PortType.
+        PortManager.P{port_manager}.PortType:
+          type: string
+          enum:
+          - Serial
+          - RemotePort
+          x-python-name: port_type
+          description: 'What the port manager manages: Serial (a local serial port) or RemotePort (data forwarded to a serial
+            port on another CPU).'
+        PortManager.P{port_manager}.SerialCGI.Enabled:
+          type: string
+          enum: *id001
+          x-python-name: serial_cgi_enabled
+          description: Enable the internal server that /axis-cgi/com/serial.cgi uses to reach the port manager (default no).
+        PortManager.P{port_manager}.PTZServer.Enabled:
+          type: string
+          enum: *id001
+          x-python-name: ptz_server_enabled
+          description: Enable the internal server that PTZ drivers use to reach the port manager (default no).
+        PortManager.P{port_manager}.RemotePortServer.Enabled:
+          type: string
+          enum: *id001
+          x-python-name: remote_port_server_enabled
+          description: Enable the remote port server (default no).
+        PortManager.P{port_manager}.RemotePortServer.AllowedIPAddresses:
+          type: string
+          x-python-name: remote_port_server_allowed_ip_addresses
+          description: Comma separated list of IP addresses allowed to connect; ranges such as 2.3.4.5-9 and 3.4.5.* are allowed.
+            Empty allows all.
+        PortManager.P{port_manager}.RemotePortServer.Timeout:
+          type: integer
+          minimum: 0
+          maximum: 3600
+          x-python-name: remote_port_server_timeout
+          description: Seconds of inactivity after which a connection is closed; 0 waits forever.
+        PortManager.P{port_manager}.RemotePortServer.AuthenticationKey:
+          type: string
+          x-python-name: remote_port_server_authentication_key
+          description: Key that remote port clients use when connecting to this remote port server.
+        PortManager.P{port_manager}.RemotePortServer.Listener.Enabled:
+          type: string
+          enum: *id001
+          x-python-name: remote_port_server_listener_enabled
+          description: Accept connections to the remote port server (default no).
+        PortManager.P{port_manager}.RemotePortServer.Listener.Port:
+          type: integer
+          minimum: 1024
+          maximum: 65535
+          x-python-name: remote_port_server_listener_port
+          description: Port to listen on for remote port clients (default 1024 + the port manager index).
+        PortManager.P{port_manager}.GenericTCPServer.Enabled:
+          type: string
+          enum: *id001
+          x-python-name: generic_tcp_server_enabled
+          description: Enable the generic TCP server (default no).
+        PortManager.P{port_manager}.GenericTCPServer.AllowedIPAddresses:
+          type: string
+          x-python-name: generic_tcp_server_allowed_ip_addresses
+          description: Comma separated list of IP addresses allowed to connect; ranges such as 2.3.4.5-9 and 3.4.5.* are allowed.
+            Empty allows all.
+        PortManager.P{port_manager}.GenericTCPServer.Timeout:
+          type: integer
+          minimum: 0
+          maximum: 3600
+          x-python-name: generic_tcp_server_timeout
+          description: Seconds of inactivity after which a connection is closed; 0 waits forever.
+        PortManager.P{port_manager}.GenericTCPServer.ConnectTo.Enabled:
+          type: string
+          enum: *id001
+          x-python-name: generic_tcp_server_connect_to_enabled
+          description: Let the port manager act as a client and connect to another host (default no).
+        PortManager.P{port_manager}.GenericTCPServer.ConnectTo.Host:
+          type: string
+          x-python-name: generic_tcp_server_connect_to_host
+          description: Host name or IP address to connect to.
+        PortManager.P{port_manager}.GenericTCPServer.ConnectTo.Port:
+          type: integer
+          minimum: 1024
+          maximum: 65535
+          x-python-name: generic_tcp_server_connect_to_port
+          description: TCP port to connect to (default 1024 + the port manager index).
+        PortManager.P{port_manager}.GenericTCPServer.Listener.Enabled:
+          type: string
+          enum: *id001
+          x-python-name: generic_tcp_server_listener_enabled
+          description: Enable connections to the generic TCP server (default no).
+        PortManager.P{port_manager}.GenericTCPServer.Listener.Port:
+          type: integer
+          minimum: 1024
+          maximum: 65535
+          x-python-name: generic_tcp_server_listener_port
+          description: TCP port to listen on (default 1024 + the port manager index).
+    positional:
+    - port_manager
+    examples:
+    - title: Enable a generic TCP server on port 3000
+      request:
+        query:
+          PortManager.P0.GenericTCPServer.Enabled: 'yes'
+          PortManager.P0.GenericTCPServer.Listener.Enabled: 'yes'
+          PortManager.P0.GenericTCPServer.Listener.Port: '3000'
+          PortManager.P0.PortEnabled: 'yes'
+      response:
+        status: 200
+        text: OK
+      source: https://developer.axis.com/vapix/network-video/serial-port-api/#common-examples
+      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
+  set_remote_port:
+    summary: Change the settings of a remote port client.
+    description: Sets parameters of the group RemotePort.R<n>. The group does not exist on products without remote port support.
+    access: admin
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query:
+        action: update
+      reply: text_ok
+    params:
+      type: object
+      required:
+      - remote_port
+      properties:
+        remote_port:
+          type: integer
+          minimum: 0
+          description: Remote port client index n of RemotePort.R<n>; starts at 0.
+        RemotePort.R{remote_port}.AutoConf:
+          type: string
+          enum: *id001
+          x-python-name: auto_conf
+          description: Find the address and port of the remote port server automatically using Bonjour (default yes).
+        RemotePort.R{remote_port}.AuthenticationKey:
+          type: string
+          x-python-name: authentication_key
+          description: Key for authenticating to the remote port server (the server shows it in PortManager.P<n>.RemotePortServer.AuthenticationKey).
+        RemotePort.R{remote_port}.Host:
+          type: string
+          x-python-name: host
+          description: Host name or IP address of the remote port server; ignored if AutoConf is yes.
+        RemotePort.R{remote_port}.Port:
+          type: integer
+          minimum: 1024
+          maximum: 65535
+          x-python-name: port
+          description: Listen port of the remote port server (default 5555); ignored if AutoConf is yes.
+    positional:
+    - remote_port
+    examples:
+    - title: Point remote port client 3 at a remote port server
+      request:
+        query:
+          RemotePort.R3.Host: 10.0.0.1
+          RemotePort.R3.Port: '2500'
+      response:
+        status: 200
+        text: OK
+      source: https://developer.axis.com/vapix/network-video/serial-port-api/#common-examples
+      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/serial-port-api/
@@ -143,7 +436,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(templated-param-name): typed serial port parameter groups (Serial.Ser#, PortManager.P#, RemotePort.R#, GenericTCPServer): the wire names embed the index, so update_serial_parameters takes the parameter map.'
+  - The generic update_serial_parameters operation is kept for parameters without a typed operation and for combining groups in one request.
   - The port argument of serial.cgi is used in the examples but not in the parameter table; the numbering of ports against PortManager indices ("port 2 (PortManager.P0)") is unclear.
   - Whether write and read can be combined in one serial.cgi request is not stated, so they are separate operations.
   - The reply of write and the error format of serial.cgi are not documented.

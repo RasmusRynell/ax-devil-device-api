@@ -864,9 +864,12 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(websocket): the WebSocket functions on /vapix/intercomws (axev:subscribe, axev:getSupported, axev:notify
-    and the axdsapi: prefixed function subscriptions) are not bound; the Intercom events (RFID, KeyPin, MainState,
-    KeypadState) are delivered through them or the event service.'
+  - 'BLOCKED(websocket): /vapix/intercomws (axev:subscribe, axev:getSupported, axev:notify and the axdsapi: prefixed function
+    subscriptions) needs a new session codec and setup. Requests are Google JSON ({apiVersion, method, params, id}; replies
+    echo id and carry data or error), axev:subscribe takes style, topics and functions, and axev:notify delivers a params.notifications
+    array. The existing events codec correlates by context and reads events:notify with params.notification, the datahub
+    codec is JSON-RPC 2.0, and the raw codec has no requests, so none fits. The Intercom events (RFID, KeyPin, MainState, KeypadState)
+    stay available through the event service until a Google JSON codec exists.'
   - 'Not bound: the REST resource /vapix/intercom/Configuration (GET, POST for UpdateConfiguration, PUT for SetConfiguration)
     duplicates get_configuration, update_configuration and set_configuration. Its imageFile and includeImageFile
     members use an ImageFile type that is not defined.'

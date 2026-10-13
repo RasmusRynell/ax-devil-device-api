@@ -366,6 +366,144 @@ operations:
               </config>
           </reply>
       source: https://developer.axis.com/vapix/applications/video-motion-detection-3-api/#getting-started
+  modify_configuration:
+    summary: Modify the application configuration.
+    description: Changes the size of the include area, adds and configures exclude areas and changes filter values; all other settings must be kept as is, and if a named object is renamed the matching parameter value must change too. Posts the XML as the raw request body with action and name in the URL, as the API syntax shows.
+    effect: write
+    write: replace
+    binding:
+      method: POST
+      encoding: body
+      content_type: text/xml
+      query:
+        action: modify
+        name: VideoMotionDetection3
+      reply:
+        xml:
+          status_error:
+            attribute: result
+            value: error
+    params:
+      type: object
+      required:
+      - configuration
+      properties:
+        configuration:
+          type: string
+          x-in: body
+          description: The complete configuration document to apply (the application element, or the config element around it,
+            as returned by get_configuration), edited as described above. All settings that are not to change must be kept as is.
+    examples:
+    - title: Modify the application configuration
+      request:
+        query:
+          action: modify
+          name: VideoMotionDetection3
+        content_type: text/xml
+        body: |
+          <config version="2.0">
+            <application name="VMD3" nicename="Video Motion Detection 3">
+              <ruleEngines>
+                <ruleEngine status="enabled">
+                  <namedObjects>
+                    <namedObject name="Detection Area">
+                      <data knownNameType="geometry.polygon">
+                        <polygon>
+                          <point x="0.97" y="0.97"/>
+                          <point x="0.97" y="-0.97"/>
+                          <point x="-0.97" y="-0.97"/>
+                          <point x="-0.97" y="0.97"/>
+                        </polygon>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Exclude Area 0">
+                      <data knownNameType="geometry.polygon">
+                        <polygon>
+                          <point x="0.20" y="0.20"/>
+                          <point x="0.20" y="-0.20"/>
+                          <point x="-0.20" y="-0.20"/>
+                          <point x="-0.20" y="0.20"/>
+                        </polygon>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Object Duration">
+                      <data knownNameType="core.int">
+                        <int value="0"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Object Height">
+                      <data knownNameType="core.int">
+                        <int value="20"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Object Width">
+                      <data knownNameType="core.int">
+                        <int value="10"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Traveled Distance">
+                      <data knownNameType="core.int">
+                        <int value="0"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Visual Duration">
+                      <data knownNameType="core.int">
+                        <int value="0"/>
+                      </data>
+                    </namedObject>
+                  </namedObjects>
+                  <rules>
+                    <rule name="detection_0" function="guardIncludeArea">
+                      <parameter name="IncludeArea" value="Detection Area"/>
+                      <parameter name="ExcludeArea0" value="Exclude Area 0"/>
+                      <parameter name="Time" value="Object Duration"/>
+                      <parameter name="Width" value="Object Width"/>
+                      <parameter name="Height" value="Object Height"/>
+                      <parameter name="Distance" value="Traveled Distance"/>
+                      <parameter name="Duration" value="Visual Duration"/>
+                    </rule>
+                  </rules>
+                  <scripts>
+                    <script encryption="1">combined.lua</script>
+                  </scripts>
+                  <events>
+                    <event name="vmd3_video_1" nicename="VMD 3">
+                      <attr key="areaid" nicename="Area ID" tag="source" value="0"/>
+                      <attr key="areapolygon" nicename="Polygon info" tag="data"/>
+                      <attr key="active" nicename="Active" tag="property-state"/>
+                    </event>
+                  </events>
+                  <analyticSources>
+                    <analyticSource name="imageSource" value="1"/>
+                  </analyticSources>
+                  <moteConfig>
+                    <option name="boundingBox" value="false"/>
+                    <option name="polygon" value="true"/>
+                    <option name="velocity" value="true"/>
+                  </moteConfig>
+                  <libraries>
+                    <library name="system"/>
+                  </libraries>
+                </ruleEngine>
+              </ruleEngines>
+            </application>
+          </config>
+      source: https://developer.axis.com/vapix/applications/video-motion-detection-3-api/#getting-started
+  event_stream_url:
+    summary: Build the RTSP URL of a stream with event metadata.
+    description: RTSP stream that carries the motion events of video channel 1 as metadata. The library only builds the URL; use an RTSP client to read the stream.
+    effect: read
+    binding:
+      rtsp:
+        query:
+          event: 'on'
+          eventtopic: 'onvif:RuleEngine/axis:VMD3/vmd3_video_1//'
+    params:
+      type: object
+      properties:
+        video:
+          type: integer
+          description: Video source number (the documented example uses 0).
 sources:
 - url: https://developer.axis.com/vapix/applications/video-motion-detection-3-api/
   sha256_md: 434d49de8431dad15a83f526302a5bb2c4401eb72e5d4b820eeda789ff7d7089
@@ -373,6 +511,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
+  - "modify_configuration: the page's example posts 'action=modify&name=<name>' and a newline in front of the XML as one form-encoded body, while the Application configuration API syntax puts action and name in the URL query. The spec follows the syntax (query arguments, raw XML body); if a device rejects it the body form may be needed. The documented success reply is not shown."
   - 'Name inconsistency: vaconfig.cgi name=VideoMotionDetection3 but application name in XML and list.cgi is VMD3. https://developer.axis.com/vapix/applications/video-motion-detection-3-api/#common-examples'
   - Table uses attribute 'knownTypeName' / 'knownType' while XML uses 'knownNameType'.
   - 'Swaying filter: ''10 and 100'' range but 0/negative disables; values 1-9 behaviour unspecified.'
@@ -381,10 +520,6 @@ provenance:
   - 'Event topic in RTSP uses onvif:RuleEngine/axis:VMD3/vmd3_video_1//. while declaration is tns1:RuleEngine/tnsaxis:VMD3/vmd3_video_1;
     event nicename varies (''VMD 3'' vs ''VMD 3: Video 1'').'
   - Start application example uses GET while Application API documents POST.
-  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=VideoMotionDetection3'',
-    a newline and the raw configuration XML as one form-encoded body; the XML is not a key=value pair. If the name of a named
-    object changes, the rule parameter value must change with it.'
-  - 'BLOCKED(rtsp-url): get_event_stream: the events are delivered in the RTSP stream rtsp://<servername>/axis-media/media.amp?event=on&video=0&eventtopic=onvif:RuleEngine/axis:VMD3/vmd3_video_1//.'
   - The acap discovery name VMD3 is the application name from list.cgi given in the docs; the vaconfig name is VideoMotionDetection3.
   migrated_from: v1
   curated: true

@@ -52,9 +52,9 @@ operations:
       x-contract: {skip: "The documented reply is a fragment of several root-level entry elements, not a complete XML document."}
       source: https://developer.axis.com/vapix/network-video/video-streaming/#list-supported-scene-profiles
   set_scene_profile:
-    summary: 'Change the scene profile, e.g. ``{"ImageSource.I0.SceneProfile": "vivid"}``.'
+    summary: Change the scene profile of an image source.
     description: >-
-      The key is the parameter name ImageSource.I<n>.SceneProfile and the value one of forensic, vivid,
+      Sets ImageSource.I<n>.SceneProfile; the value is one of forensic, vivid,
       traffic_overview, indoor, outdoor or license_plate (product dependent). The device answers 200 OK and changes
       nothing when the value is invalid. All streams are affected. The obsolete profile0, profile1 and profile2 are
       replaced by forensic, vivid and traffic_overview.
@@ -66,15 +66,20 @@ operations:
       reply: text_ok
     params:
       type: object
-      required: [parameters]
+      required: [image_source, 'ImageSource.I{image_source}.SceneProfile']
       properties:
-        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
-    positional: [parameters]
+        image_source: {type: integer, minimum: 0, description: 'Image source index n of ImageSource.I<n>.SceneProfile, 0 for the first.'}
+        'ImageSource.I{image_source}.SceneProfile':
+          type: string
+          x-python-name: profile
+          description: 'Scene profile: forensic, vivid, traffic_overview, indoor, outdoor or license_plate (product dependent; the obsolete profile0, profile1 and profile2 are replaced by forensic, vivid and traffic_overview).'
+    positional: [image_source, profile]
     examples:
     - title: Switch to the Vivid scene profile
       request: {query: {ImageSource.I0.SceneProfile: vivid}}
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/video-streaming/#change-scene-profiles
+      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/video-streaming/
@@ -84,7 +89,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(templated-param-name): typed set_scene_profile(image_source, profile): the wire name ImageSource.I<n>.SceneProfile embeds the image source index, so the operation takes the parameter map instead.'
   - The documented list reply is a fragment of entry elements without an enclosing document, so the result stays the raw XML element until the full reply is known.
   - responsecharset=utrf in the example is likely a typo for utf8.
   - The body of the update reply is not shown (only HTTP 200); param.cgi answers OK, so the reply is read as OK.

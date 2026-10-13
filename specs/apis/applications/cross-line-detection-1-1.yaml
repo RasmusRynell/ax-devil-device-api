@@ -332,6 +332,94 @@ operations:
               </application>
           </reply>
       source: https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/#getting-started
+  modify_configuration:
+    summary: Modify the application configuration.
+    description: Only the virtual line (named object CrossLine0) and the Direction parameter of the rule are to change; all other settings must be kept as is. Posts the XML as the raw request body with action and name in the URL, as the API syntax shows.
+    effect: write
+    write: replace
+    binding:
+      method: POST
+      encoding: body
+      content_type: text/xml
+      query:
+        action: modify
+        name: CrossLineDetection
+      reply:
+        xml:
+          status_error:
+            attribute: result
+            value: error
+    params:
+      type: object
+      required:
+      - configuration
+      properties:
+        configuration:
+          type: string
+          x-in: body
+          description: The complete configuration document to apply (the application element, or the config element around it,
+            as returned by get_configuration), edited as described above. All settings that are not to change must be kept as is.
+    examples:
+    - title: Modify the application configuration
+      request:
+        query:
+          action: modify
+          name: CrossLineDetection
+        content_type: text/xml
+        body: |
+          <application name="CrossLineDetection">
+            <ruleEngine>
+              <namedObjects>
+                <namedObject name="CrossLine0">
+                  <data knownNameType="geometry.segment">
+                    <segment>
+                      <point x="-0.5" y="0.0"/>
+                      <point x="0.5" y="0.0"/>
+                    </segment>
+                  </data>
+                </namedObject>
+              </namedObjects>
+              <rules>
+                <rule name="crossed_CrossLine0" function="line_touching">
+                  <parameter name="LineObj" value="CrossLine0"/>
+                  <parameter name="Direction" value="both"/>
+                </rule>
+              </rules>
+              <scripts>
+                <script encryption="1">dbgutils.lua</script>
+                <script encryption="1">lineTouching.lua</script>
+              </scripts>
+              <events>
+                <event name="linetouched">
+                  <attr key="type" nicename="Touched" value="touched"/>
+                  <attr key="line" nicename="Cross line"/>
+                  <attr key="object" nicename="Passed object id" />
+                </event>
+                <event name="timer" hiddenFromTriggerList="true"/>
+              </events>
+              <moteConfig>
+                <option name="boundingBox" value="false"/>
+                <option name="polygon" value="true"/>
+                <option name="velocity" value="true"/>
+              </moteConfig>
+            </ruleEngine>
+          </application>
+      source: https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/#getting-started
+  event_stream_url:
+    summary: Build the RTSP URL of a stream with event metadata.
+    description: RTSP stream that carries the linetouched events as metadata. The library only builds the URL; use an RTSP client to read the stream.
+    effect: read
+    binding:
+      rtsp:
+        query:
+          event: 'on'
+          eventtopic: 'onvif:RuleEngine/axis:CrossLineDetection//'
+    params:
+      type: object
+      properties:
+        video:
+          type: integer
+          description: Video source number (the documented example uses 0).
 sources:
 - url: https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/
   sha256_md: ab3b239014a3933c4c3dc872c2c41f6e7eb170dcb1222e96110efc10f4e64657
@@ -339,6 +427,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
+  - "modify_configuration: the page's example posts 'action=modify&name=<name>' and a newline in front of the XML as one form-encoded body, while the Application configuration API syntax puts action and name in the URL query. The spec follows the syntax (query arguments, raw XML body); if a device rejects it the body form may be needed. The example XML's unclosed event element (timer) is closed in the spec example. The documented success reply is not shown."
   - Events section says 'The cross line detection 2.1 event' on a 1.1 page. https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/#events
   - Event 'object' is described as 'the ID of the virtual line which the moving object has crossed' but its nice name is 'Passed
     object id'; type string although described as integer.
@@ -347,19 +436,6 @@ provenance:
     wrapper used in Application configuration API.
   - Response Content-Type is application/xml here vs text/xml in Application configuration API.
   - Start application example uses GET while Application API documents POST.
-  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=CrossLineDetection'',
-    a newline and the raw <application> XML as one form-encoded body; the XML is not a key=value pair. Only CrossLine0 and
-    the Direction parameter should change.'
-  - 'BLOCKED(rtsp-url): get_event_stream: rtsp://<servername>/axis-media/media.amp?event=on&video=0&eventtopic=onvif:RuleEngine/axis:CrossLineDetection//.
-    delivers the linetouched events.'
-  - The documented get reply has <application> directly under <reply>, while the Application configuration API shows <config
-    version> in between; the result type reads the application from either place only if the device matches the documented
-    shape (root '.').
-  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=CrossLineDetection'',
-    a newline and the raw <application> XML as one form-encoded body; the XML is not a key=value pair. Only CrossLine0 and
-    the Direction parameter should change.'
-  - 'BLOCKED(rtsp-url): get_event_stream: rtsp://<servername>/axis-media/media.amp?event=on&video=0&eventtopic=onvif:RuleEngine/axis:CrossLineDetection//.
-    delivers the linetouched events.'
   - The documented get reply has <application> directly under <reply>, while the Application configuration API shows <config
     version> in between; the result type reads the application from either place only if the device matches the documented
     shape (root '.').

@@ -78,7 +78,7 @@ operations:
     binding:
       method: GET
       query:
-        live-sum-people.json: ''
+        live-sum-people.json: null
       reply: json
     result:
       $ref: '#/types/LiveSumPeople'
@@ -86,7 +86,7 @@ operations:
     - title: Get real time people in queue data
       request:
         query:
-          live-sum-people.json: ''
+          live-sum-people.json: null
       response:
         status: 200
         content_type: application/json
@@ -112,7 +112,7 @@ operations:
     binding:
       method: GET
       query:
-        export-csv-minutes: ''
+        export-csv-minutes: null
       reply: text
     params:
       type: object
@@ -154,7 +154,7 @@ operations:
     binding:
       method: GET
       query:
-        export-csv-people: ''
+        export-csv-people: null
       reply: text
     params:
       type: object
@@ -195,13 +195,13 @@ operations:
       path: /local/queue/.apioperator
       method: GET
       query:
-        clear-data: ''
+        clear-data: null
       reply: text_ok
     examples:
     - title: Clear local queue data
       request:
         query:
-          clear-data: ''
+          clear-data: null
       response:
         status: 200
         text: OK
@@ -212,7 +212,7 @@ operations:
     binding:
       method: GET
       query:
-        params.json: ''
+        params.json: null
       reply: json
     result:
       type: object
@@ -225,7 +225,7 @@ operations:
       path: /local/queue/.apioperator
       method: GET
       query:
-        show-logs: ''
+        show-logs: null
       reply: text
     result:
       type: string
@@ -237,7 +237,7 @@ operations:
       path: /local/queue/.apioperator
       method: GET
       query:
-        generate-logs: ''
+        generate-logs: null
       reply:
         binary:
           media_types:
@@ -257,11 +257,10 @@ provenance:
   - 'setparams: the curl example carries no p/v pairs and no body; unclear whether pairs are query or form parameters.'
   - params.json response structure, error responses, access levels and AXIS OS/ACAP version requirements are not documented.
   - Return value table only lists region1 fields; number of regions not stated (examples show 3).
-  - 'BLOCKED(mixed-query-form): set_params: POST /local/queue/.apioperator?setparams with pairs p<n>=<parameter name>&v<n>=<value>
-    (for example &p1=Counter.Enabled&v1=1). The setparams marker is in the query string and the docs do not say where the
-    pairs go.'
-  - The docs write bare query keys (?live-sum-people.json, ?export-csv-minutes&date=...). The binding sends them as key= with
-    an empty value; this needs device verification.
+  - 'BLOCKED(indexed-pairs): set_params: POST /local/queue/.apioperator?setparams takes parameters as indexed pairs p<n>=<parameter
+    name>&v<n>=<value> (for example p1=Counter.Enabled&v1=1&p2=WebReportUpload.Enabled&v2=1), and the docs do not say whether
+    the pairs go in the URL or a form body. A mapping argument can only be spread as name=value, and a templated name (p{n}/v{n})
+    would send a single pair per call, so the op is left out until the runtime has an indexed-pairs style for map arguments.'
   - Access levels are not documented; clear_data, show_logs and generate_logs are marked operator from the .apioperator path.
   migrated_from: v1
   curated: true

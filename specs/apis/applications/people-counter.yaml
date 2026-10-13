@@ -156,7 +156,7 @@ operations:
     binding:
       method: GET
       query:
-        live-sum.json: ''
+        live-sum.json: null
       reply: json
     result:
       $ref: '#/types/LiveSum'
@@ -164,7 +164,7 @@ operations:
     - title: Request real time data
       request:
         query:
-          live-sum.json: ''
+          live-sum.json: null
       response:
         status: 200
         text: |
@@ -183,7 +183,7 @@ operations:
     binding:
       method: GET
       query:
-        list-cnt.json: ''
+        list-cnt.json: null
       reply: json
     result:
       $ref: '#/types/DayList'
@@ -191,7 +191,7 @@ operations:
     - title: List all days of data
       request:
         query:
-          list-cnt.json: ''
+          list-cnt.json: null
       response:
         status: 200
         text: |
@@ -207,7 +207,7 @@ operations:
     binding:
       method: GET
       query:
-        export-cnt: ''
+        export-cnt: null
       reply: binary
     params:
       type: object
@@ -225,7 +225,7 @@ operations:
     - title: Request historical data for 12 to 15 May 2017
       request:
         query:
-          export-cnt: ''
+          export-cnt: null
           date: 20170512-20170515
       source: https://developer.axis.com/vapix/applications/people-counter-api/#request-historical-data-for-the-12th-to-the-15th-of-may-2017
   export_csv:
@@ -236,7 +236,7 @@ operations:
     binding:
       method: GET
       query:
-        export-csv: ''
+        export-csv: null
       reply: text
     params:
       type: object
@@ -254,7 +254,7 @@ operations:
     - title: CSV data for 12 and 15 May 2017 with 15-minute resolution
       request:
         query:
-          export-csv: ''
+          export-csv: null
           date: 20170512,20170515
           res: 15m
       source: https://developer.axis.com/vapix/applications/people-counter-api/#request-historical-csv-data-for-the-12th-and-the-15th-of-may-2017-with-15-minute-resolution
@@ -265,7 +265,7 @@ operations:
     binding:
       method: GET
       query:
-        export-json: ''
+        export-json: null
       reply: json
     params:
       type: object
@@ -285,7 +285,7 @@ operations:
     binding:
       method: GET
       query:
-        export-xml: ''
+        export-xml: null
       reply: xml
     params:
       type: object
@@ -303,7 +303,7 @@ operations:
     - title: XML data for 12 and 15 May 2017 with 15-minute resolution
       request:
         query:
-          export-xml: ''
+          export-xml: null
           date: 20170512,20170515
           res: 15m
       source: https://developer.axis.com/vapix/applications/people-counter-api/#request-historical-xml-data-for-the-12th-and-the-15th-of-may-2017-with-15-minute-resolution
@@ -317,13 +317,13 @@ operations:
       path: /local/tvpc/.apioperator
       method: GET
       query:
-        clear-data: ''
+        clear-data: null
       reply: text_ok
     examples:
     - title: Clear counting data
       request:
         query:
-          clear-data: ''
+          clear-data: null
       response:
         status: 200
         text: OK
@@ -334,7 +334,7 @@ operations:
     binding:
       method: GET
       query:
-        cntpos.json: ''
+        cntpos.json: null
       reply: json
     result:
       $ref: '#/types/CountPosition'
@@ -342,7 +342,7 @@ operations:
     - title: Request Live view information
       request:
         query:
-          cntpos.json: ''
+          cntpos.json: null
       response:
         status: 200
         text: |
@@ -367,7 +367,7 @@ operations:
       path: /local/tvpc/.apioperator
       method: GET
       query:
-        show-logs: ''
+        show-logs: null
       reply: text
     result:
       type: string
@@ -379,7 +379,7 @@ operations:
       path: /local/tvpc/.apioperator
       method: GET
       query:
-        generate-logs: ''
+        generate-logs: null
       reply: binary
     result:
       type: string
@@ -390,11 +390,49 @@ operations:
     binding:
       method: GET
       query:
-        params.json: ''
+        params.json: null
       reply: json
     result:
       type: object
       additionalProperties: true
+  set_params:
+    summary: Set people counter parameters.
+    description: Posts the parameters to the operator endpoint. The keys are parameter names (for example Counter.Height) and
+      the values are sent as form fields next to the setparams marker (AXIS OS 5.60 and later). Older AXIS OS versions expect
+      pairs p1=<name>&v1=<value> instead, which this operation does not send.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      path: /local/tvpc/.apioperator
+      method: POST
+      encoding: form
+      url_query:
+        setparams: null
+      reply: text_ok
+    params:
+      type: object
+      required:
+      - values
+      properties:
+        values:
+          type: object
+          additionalProperties:
+            type: string
+          description: Parameter names mapped to their new values, for example Counter.Height to 280.
+    positional:
+    - values
+    examples:
+    - title: Set the counter height
+      request:
+        query:
+          setparams: null
+        form:
+          Counter.Height: '280'
+      response:
+        status: 200
+        text: OK
+      source: https://developer.axis.com/vapix/applications/people-counter-api/#set-people-counter-parameters
   get_live_occupancy:
     summary: Request real-time occupancy data.
     description: The docs do not describe the JSON reply, so the result is the parsed JSON document.
@@ -403,7 +441,7 @@ operations:
       path: /tvpc/.api
       method: GET
       query:
-        live-occupancy.json: ''
+        live-occupancy.json: null
       reply: json
     result: {}
   reset_occupancy:
@@ -414,7 +452,7 @@ operations:
       path: /tvpc/.api
       method: GET
       query:
-        occupancy-reset: ''
+        occupancy-reset: null
       reply: text
     params:
       type: object
@@ -428,7 +466,7 @@ operations:
     binding:
       method: GET
       query:
-        occupancy-export-csv: ''
+        occupancy-export-csv: null
       reply: text
     params:
       type: object
@@ -450,7 +488,7 @@ operations:
     binding:
       method: GET
       query:
-        occupancy-export-json: ''
+        occupancy-export-json: null
       reply: json
     params:
       type: object
@@ -470,7 +508,7 @@ operations:
     - title: Occupancy data for all days with 24-hour resolution
       request:
         query:
-          occupancy-export-json: ''
+          occupancy-export-json: null
           date: all
           res: 24h
       response:
@@ -505,7 +543,7 @@ operations:
     binding:
       method: GET
       query:
-        occupancy-export-xml: ''
+        occupancy-export-xml: null
       reply: xml
     params:
       type: object
@@ -541,12 +579,9 @@ provenance:
   - Occupancy types table says 'Average time' while the JSON uses 'Average Time'; the meaning of the integer values under
     counter.types (64, 66, 67) is not explained.
   - Error responses, access levels and ACAP version requirements are not documented.
-  - 'BLOCKED(mixed-query-form): set_params: POST /local/tvpc/.apioperator?setparams with the parameter names as keys (AXIS
-    OS 5.60 and later: setparams&Counter.Height=280; before: pairs p1=<name>&v1=<value>&setparams=needstobeincluded). The
-    docs show the setparams marker in the query string and do not say where the parameter values go; the arguments are free-form
-    names.'
-  - The docs write bare query keys (?live-sum.json, ?export-cnt&date=...). The binding sends them as key= with an empty value;
-    this needs device verification.
+  - 'set_params: the docs show only POST /local/tvpc/.apioperator?setparams with no body. The description says the AXIS OS 5.60
+    and later form is setparams&Counter.Height=280 and older versions post p<n>/v<n> pairs; the spec sends the name=value pairs
+    as a form body, which needs device verification (they could also belong in the URL).'
   - The XML export structure is defined by a DTD at /local/tvpc/appdata.dtd, which is not in the mirrored docs, so export_xml
     and occupancy_export_xml return the raw XML element.
   - The JSON structure of export_json is not documented, so it returns the parsed document.

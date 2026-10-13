@@ -356,6 +356,145 @@ operations:
               </config>
           </reply>
       source: https://developer.axis.com/vapix/applications/digital-autotracking-api/#getting-started
+  modify_configuration:
+    summary: Modify the application configuration.
+    description: Defines which view area to use, the size of the include area, exclude areas and the filter values; all other settings must be kept as is, and if a named object is renamed the matching parameter value must change too. Posts the XML as the raw request body with action and name in the URL, as the API syntax shows.
+    effect: write
+    write: replace
+    binding:
+      method: POST
+      encoding: body
+      content_type: text/xml
+      query:
+        action: modify
+        name: DigitalAutotracking
+      reply:
+        xml:
+          status_error:
+            attribute: result
+            value: error
+    params:
+      type: object
+      required:
+      - configuration
+      properties:
+        configuration:
+          type: string
+          x-in: body
+          description: The complete configuration document to apply (the application element, or the config element around it,
+            as returned by get_configuration), edited as described above. All settings that are not to change must be kept as is.
+    examples:
+    - title: Modify the application configuration
+      request:
+        query:
+          action: modify
+          name: DigitalAutotracking
+        content_type: text/xml
+        body: |
+          <config version="1.0">
+            <application name="DigitalAutotracking" nicename="Digital Autotracking">
+              <ruleEngine>
+                <namedObjects>
+                  <namedObject name="Detection Area">
+                    <data knownNameType="geometry.polygon">
+                      <polygon>
+                        <point x="0.97" y="0.97"/>
+                        <point x="0.97" y="-0.97"/>
+                        <point x="-0.97" y="-0.97"/>
+                        <point x="-0.97" y="0.97"/>
+                      </polygon>
+                    </data>
+                  </namedObject>
+                  <namedObject name="Exclude Area 1">
+                    <data knownNameType="geometry.polygon">
+                      <polygon>
+                        <point x="0.20" y="0.20"/>
+                        <point x="0.20" y="-0.20"/>
+                        <point x="-0.20" y="-0.20"/>
+                        <point x="-0.20" y="0.20"/>
+                      </polygon>
+                    </data>
+                  </namedObject>
+                  <namedObject name="Object Duration">
+                    <data knownNameType="core.int">
+                      <int value="-10"/>
+                    </data>
+                  </namedObject>
+                  <namedObject name="Object Width">
+                    <data knownNameType="core.int">
+                      <int value="-10"/>
+                    </data>
+                  </namedObject>
+                  <namedObject name="Object Height">
+                    <data knownNameType="core.int">
+                      <int value="-10"/>
+                    </data>
+                  </namedObject>
+                  <namedObject name="Swaying Object Suppression">
+                    <data knownNameType="core.int">
+                      <int value="0"/>
+                    </data>
+                  </namedObject>
+                  <namedObject name="Visual Duration">
+                    <data knownNameType="core.int">
+                      <int value="1"/>
+                    </data>
+                  </namedObject>
+                  <namedObject name="View Area">
+                    <data knownNameType="core.int">
+                      <int value="7"/>
+                    </data>
+                  </namedObject>
+                </namedObjects>
+                <rules>
+                  <rule name="detection_0" function="guardIncludeArea">
+                    <parameter name="SwayingObjectSuppression" value="Swaying Object Suppression"/>
+                    <parameter name="Duration" value="Visual Duration"/>
+                    <parameter name="Time" value="Object Duration"/>
+                    <parameter name="Width" value="Object Width"/>
+                    <parameter name="Height" value="Object Height"/>
+                    <parameter name="VA" value="View Area"/>
+                    <parameter name="IncludeArea" value="Detection Area"/>
+                    <parameter name="EA1" value="Exclude Area 1"/>
+                  </rule>
+                </rules>
+                <scripts>
+                  <script encryption="1">combined.lua</script>
+                </scripts>
+                <events>
+                  <event name="tracking" nicename="Tracking">
+                    <attr key="camera" nicename="View Area" tag="source"/>
+                    <attr key="active" nicename="Active" tag="property-state"/>
+                  </event>
+                </events>
+                <moteConfig>
+                  <option name="boundingBox" value="false"/>
+                  <option name="polygon" value="true"/>
+                  <option name="velocity" value="true"/>
+                </moteConfig>
+                <libraries>
+                  <library name="digitalAutotracking"/>
+                  <library name="system"/>
+                </libraries>
+              </ruleEngine>
+            </application>
+          </config>
+      source: https://developer.axis.com/vapix/applications/digital-autotracking-api/#getting-started
+  event_stream_url:
+    summary: Build the RTSP URL of a stream with event metadata.
+    description: RTSP stream that carries the tracking event as metadata. The library only builds the URL; use an RTSP client to read the stream.
+    effect: read
+    binding:
+      rtsp:
+        query:
+          event: 'on'
+          eventtopic: 'onvif:RuleEngine/axis:DigitalAutotracking/tracking//'
+    params:
+      type: object
+      properties:
+        video:
+          type: integer
+          description: Video source number (the documented example uses 0).
 sources:
 - url: https://developer.axis.com/vapix/applications/digital-autotracking-api/
   sha256_md: 99c6d88fd868ec27c1f762c0f41e2042630c8f9b388596945d694f6ae95bbf8f
@@ -363,6 +502,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
+  - "modify_configuration: the page's example posts 'action=modify&name=<name>' and a newline in front of the XML as one form-encoded body, while the Application configuration API syntax puts action and name in the URL query. The spec follows the syntax (query arguments, raw XML body); if a device rejects it the body form may be needed. The documented success reply is not shown."
   - Event stream example topic is 'tns1:RuleEnginge/...' (typo). Event source SimpleItem Name is 'View Area' in the stream
     but 'camera' in the declaration.
   - Table uses attribute 'knownTypeName'/'knownType' while XML uses 'knownNameType'.
@@ -372,8 +512,5 @@ provenance:
     explained.
   - Event declaration block is malformed (<tracking wstop="true"> and unclosed <tracking>).
   - Default values of filters not stated beyond example values (-10 for Time/Width/Height, 0 for swaying).
-  - 'BLOCKED(raw-body): modify_configuration: POST /axis-cgi/vaconfig.cgi sends ''action=modify&name=DigitalAutotracking'',
-    a newline and the raw configuration XML as one form-encoded body; the XML is not a key=value pair.'
-  - 'BLOCKED(rtsp-url): get_event_stream: the tracking event is delivered in the RTSP stream rtsp://<servername>/axis-media/media.amp?event=on&video=0&eventtopic=onvif:RuleEngine/axis:DigitalAutotracking/tracking//.'
   migrated_from: v1
   curated: true
