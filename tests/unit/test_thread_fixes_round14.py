@@ -171,11 +171,11 @@ async def test_cancelled_heartbeat_write_on_a_normal_exit_is_not_a_write_failure
             camera.sockets[0].push_bytes(b"d")
             assert await session.receive(timeout=5) == b"d"
             stream = camera.streams[0]
-            real_write = stream.write
+            real_write: Any = stream.write
 
             async def slow_write(buffer: bytes, timeout: float | None = None) -> None:
                 await anyio.sleep(0.1)  # a heartbeat ping write is in flight when the session is left
-                await real_write(buffer, timeout)
+                await real_write(buffer, timeout)  # type: ignore[misc]
 
             stream.write = slow_write  # type: ignore[method-assign]
             await anyio.sleep(0.07)
