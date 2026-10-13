@@ -284,3 +284,27 @@ def test_connection_timeout_and_heartbeat_reject_non_finite_values(value: float)
         Heartbeat(timeout=value)
     with pytest.raises(ValueError):
         Heartbeat(interval=value)
+
+
+# --- NaN / infinity in request payloads ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_floats_are_rejected_before_a_json_rpc_request_is_sent(value: float) -> None:
+    from pydantic import ValidationError
+
+    from ax_devil_device_api.apis.axis_audio_manager_edge import OffsetVolumeRequest
+    from ax_devil_device_api.testing import MockCamera
+
+    camera = MockCamera()
+    with camera.device() as dev:
+        with pytest.raises(ValidationError, match="NaN"):
+            dev.apis.axis_audio_manager_edge.offset_volume("vc1", volume_offset=value)
+    with pytest.raises(ValidationError):
+        OffsetVolumeRequest(volume_controller_id="vc1", volume_offset=value)
+
+
+def test_finite_floats_still_validate() -> None:
+    from ax_devil_device_api.apis.axis_audio_manager_edge import OffsetVolumeRequest
+
+    assert OffsetVolumeRequest(volume_controller_id="vc1", volume_offset=-2.5).volume_offset == -2.5

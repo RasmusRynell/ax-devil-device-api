@@ -8,6 +8,7 @@ protocol modules, which are sans-IO: a call is a generator that yields
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable, Generator, Iterable, Mapping
 from dataclasses import dataclass, field
@@ -204,6 +205,8 @@ class Model(BaseModel):
                 if missing:
                     raise ValueError(f"required field(s) missing from the response: {', '.join(missing)}")
             return data
+        if _has_non_finite(data):
+            raise ValueError("NaN and infinity cannot be sent: JSON has no representation for them")
         names = cls._wire_to_field()
         unknown = sorted(str(key) for key in data if key not in names)
         if unknown:
@@ -531,6 +534,17 @@ def _masked_wire_names(model: type[Model]) -> frozenset[str]:
 
     walk(model)
     return frozenset(names)
+
+
+def _has_non_finite(value: Any) -> bool:
+    """Whether a request payload holds a NaN or infinite float, at any depth."""
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(_has_non_finite(item) for item in value.values())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_has_non_finite(item) for item in value)
+    return False
 
 
 def is_response(info: ValidationInfo) -> bool:
