@@ -22,6 +22,16 @@ from ._base import AsyncApi, SyncApi
 # ---------------------------------------------------------------------------
 # Models
 
+AudioMimeType = Literal[
+    "audio/basic",
+    "audio/axis-mulaw-128",
+    "audio/G726-32",
+    "audio/G726-24",
+    "audio/mpeg4-generic",
+    "audio/opus",
+    "audio/L24",
+]
+
 
 class ReceiveAudioRequest(Model):
     audio: Literal[0, 1] | None = None
@@ -49,6 +59,8 @@ class ReceiveAudioRequest(Model):
 class TransmitAudioRequest(Model):
     audio: UploadSource = Field(exclude=True, repr=False)
     """The audio data."""
+    content_type: AudioMimeType | None = None
+    """The audio format of the data (the Content-Type of the request). Default: the content type of an Upload, else audio/basic."""
     audiodeviceid: str | None = None
     """The audio device ID (id from Audio Device Control API). Supported only if audio-device-control status is official in API discovery."""
     audiooutputid: str | None = None
@@ -130,6 +142,7 @@ class OPS:
             encoding="body",
             args=(CgiArg("audiodeviceid"), CgiArg("audiooutputid")),
             body_field="audio",
+            content_type_field="content_type",
             uploads=(UploadSpec("audio", content_type="audio/basic"),),
             reply=Text(),
         ),
@@ -198,6 +211,7 @@ class AudioApi(SyncApi):
         self,
         *,
         audio: UploadSource,
+        content_type: AudioMimeType | MISSING = MISSING,
         audiodeviceid: str | MISSING = MISSING,
         audiooutputid: str | MISSING = MISSING,
         request_options: RequestOptions | None = None,
@@ -205,17 +219,23 @@ class AudioApi(SyncApi):
         """Transmit an audio stream to the device (POST audio data to transmit.cgi).
 
         Sends the audio as the request body. The content type is set once at the start of the connection and
-        defaults to `audio/basic` (G.711 mu-law); pass an `Upload` with another `content_type` (for example
-        `audio/axis-mulaw-128`, `audio/G726-32`, `audio/opus`) for other formats. Check the supported
-        decoders in `Properties.Audio.Decoder.Format`. The server answers every successful playback; if
-        playback fails, the connection is closed without a response.
+        defaults to `audio/basic` (G.711 mu-law); pass `content_type` for another format (for example
+        `audio/axis-mulaw-128`, `audio/G726-32`, `audio/opus`). A content type on an `Upload` is used when
+        `content_type` is not given. Check the supported decoders in `Properties.Audio.Decoder.Format`. The
+        server answers every successful playback; if playback fails, the connection is closed without a
+        response.
 
         Access: viewer.
         """
         return self._run(
             OPS.transmit_audio,
             None,
-            {"audio": audio, "audiodeviceid": audiodeviceid, "audiooutputid": audiooutputid},
+            {
+                "audio": audio,
+                "content_type": content_type,
+                "audiodeviceid": audiodeviceid,
+                "audiooutputid": audiooutputid,
+            },
             request_options,
         )
 
@@ -297,6 +317,7 @@ class AsyncAudioApi(AsyncApi):
         self,
         *,
         audio: UploadSource,
+        content_type: AudioMimeType | MISSING = MISSING,
         audiodeviceid: str | MISSING = MISSING,
         audiooutputid: str | MISSING = MISSING,
         request_options: RequestOptions | None = None,
@@ -304,17 +325,23 @@ class AsyncAudioApi(AsyncApi):
         """Transmit an audio stream to the device (POST audio data to transmit.cgi).
 
         Sends the audio as the request body. The content type is set once at the start of the connection and
-        defaults to `audio/basic` (G.711 mu-law); pass an `Upload` with another `content_type` (for example
-        `audio/axis-mulaw-128`, `audio/G726-32`, `audio/opus`) for other formats. Check the supported
-        decoders in `Properties.Audio.Decoder.Format`. The server answers every successful playback; if
-        playback fails, the connection is closed without a response.
+        defaults to `audio/basic` (G.711 mu-law); pass `content_type` for another format (for example
+        `audio/axis-mulaw-128`, `audio/G726-32`, `audio/opus`). A content type on an `Upload` is used when
+        `content_type` is not given. Check the supported decoders in `Properties.Audio.Decoder.Format`. The
+        server answers every successful playback; if playback fails, the connection is closed without a
+        response.
 
         Access: viewer.
         """
         return await self._run(
             OPS.transmit_audio,
             None,
-            {"audio": audio, "audiodeviceid": audiodeviceid, "audiooutputid": audiooutputid},
+            {
+                "audio": audio,
+                "content_type": content_type,
+                "audiodeviceid": audiodeviceid,
+                "audiooutputid": audiooutputid,
+            },
             request_options,
         )
 

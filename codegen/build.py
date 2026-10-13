@@ -716,10 +716,16 @@ def check_cgi_binding(op: OpDef) -> None:
     default = "query" if encoding in ("query", "body") else "form"
     keys = set(op.key_fields)
     body_fields = [f for f in op.args if f.place == "body"]
+    type_fields = [f for f in op.args if f.place == "content_type"]
     for f in op.args:
         where = f"{op.id}: argument {f.py!r}"
         if f.place == "form" and default != "form":
             raise SpecError(f"{where} has x-in: form, which needs binding.encoding form or multipart")
+        if f.place == "content_type":
+            if encoding != "body":
+                raise SpecError(f"{where} has x-in: content_type, which needs binding.encoding body")
+            if f.has_model or f.upload is not None or f.sig.startswith(("list[", "Mapping[")) or f.sig in ("int", "float", "bool"):
+                raise SpecError(f"{where}: x-in content_type must be a string (or an enum of strings)")
         if f.place == "body" and encoding != "body":
             raise SpecError(f"{where} has x-in: body, which needs binding.encoding body")
         if f.upload is not None:
@@ -741,6 +747,8 @@ def check_cgi_binding(op: OpDef) -> None:
             raise SpecError(f"{op.id}: encoding body needs binding.method POST")
         if len(body_fields) != 1:
             raise SpecError(f"{op.id}: encoding body needs exactly one argument with x-in: body, found {len(body_fields)}")
+        if len(type_fields) > 1:
+            raise SpecError(f"{op.id}: at most one argument can have x-in: content_type")
         upload = body_fields[0].upload
         if not ob.get("content_type") and not (upload or {}).get("content_type"):
             raise SpecError(f"{op.id}: encoding body needs binding.content_type")

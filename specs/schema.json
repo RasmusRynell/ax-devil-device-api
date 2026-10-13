@@ -1667,7 +1667,8 @@
           "enum": [
             "query",
             "form",
-            "body"
+            "body",
+            "content_type"
           ]
         },
         "x-upload": {

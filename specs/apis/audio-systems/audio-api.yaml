@@ -27,6 +27,12 @@ errors:
   415: {description: 'Unsupported media type. The request is not in an acceptable format and can not be processed.', kind: invalid_argument}
   503: {description: 'Service unavailable. The maximum number of clients are already connected.', kind: unavailable}
 
+types:
+  AudioMimeType:
+    type: string
+    enum: [audio/basic, audio/axis-mulaw-128, audio/G726-32, audio/G726-24, audio/mpeg4-generic, audio/opus, audio/L24]
+    description: 'A documented audio compression format: G.711 mu-law (audio/basic), Axis mu-law 128, G.726 at 32 or 24 kbit/s, AAC (audio/mpeg4-generic), Opus or LPCM. The product supports some of them (Properties.Audio.Decoder.Format).'
+
 operations:
   receive_audio:
     summary: Request and configure an audio stream from the device (singlepart or multipart).
@@ -87,9 +93,10 @@ operations:
   transmit_audio:
     summary: Transmit an audio stream to the device (POST audio data to transmit.cgi).
     description: 'Sends the audio as the request body. The content type is set once at the start of the connection and
-      defaults to `audio/basic` (G.711 mu-law); pass an `Upload` with another `content_type` (for example `audio/axis-mulaw-128`,
-      `audio/G726-32`, `audio/opus`) for other formats. Check the supported decoders in `Properties.Audio.Decoder.Format`.
-      The server answers every successful playback; if playback fails, the connection is closed without a response.'
+      defaults to `audio/basic` (G.711 mu-law); pass `content_type` for another format (for example `audio/axis-mulaw-128`,
+      `audio/G726-32`, `audio/opus`). A content type on an `Upload` is used when `content_type` is not given. Check the
+      supported decoders in `Properties.Audio.Decoder.Format`. The server answers every successful playback; if playback
+      fails, the connection is closed without a response.'
     access: viewer
     effect: action
     binding:
@@ -102,6 +109,10 @@ operations:
       required: [audio]
       properties:
         audio: {type: string, format: binary, x-in: body, x-upload: {content_type: audio/basic}, description: The audio data.}
+        content_type:
+          $ref: '#/types/AudioMimeType'
+          x-in: content_type
+          description: 'The audio format of the data (the Content-Type of the request). Default: the content type of an Upload, else audio/basic.'
         audiodeviceid:
           type: string
           description: The audio device ID (id from Audio Device Control API). Supported only if audio-device-control status is official in API discovery.
@@ -112,6 +123,10 @@ operations:
     examples:
     - title: Transmit singlepart audio using G.711 mu-law
       request: {body: AUDIO, content_type: audio/basic}
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/audio-systems/audio-api/#transmit-audio-data
+    - title: Transmit G.726 audio (the type is set per call; the docs show the header as <Audio MIME>)
+      request: {body: AUDIO, content_type: audio/G726-32}
       response: {status: 200, text: ''}
       source: https://developer.axis.com/vapix/audio-systems/audio-api/#transmit-audio-data
   rtsp_audio_stream_url:

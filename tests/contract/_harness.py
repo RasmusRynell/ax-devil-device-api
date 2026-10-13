@@ -421,6 +421,8 @@ def upload_values(op, request: dict) -> dict[str, Any]:
         field = binding.body_field
         is_upload = any(u.field == field for u in binding.uploads)
         values[field] = _payload(request["body"]) if is_upload else request["body"]
+        if binding.content_type_field and request.get("content_type"):
+            values[binding.content_type_field] = request["content_type"]  # the per-call content type argument
     return values
 
 

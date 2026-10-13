@@ -442,7 +442,7 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
     if op.params is not None:
         cgi_args = []
         for f in op.args:
-            if f.py in op.key_fields or f.upload is not None or f.place == "body":
+            if f.py in op.key_fields or f.upload is not None or f.place in ("body", "content_type"):
                 continue
             style = f.style or ("csv" if f.sig.startswith("list[") else "spread" if f.is_mapping else None)
             parts = [repr(f.py)]
@@ -458,6 +458,9 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
         body = [f for f in op.args if f.place == "body"]
         if body:
             args.append(f"body_field={body[0].py!r}")
+        content_type = [f for f in op.args if f.place == "content_type"]
+        if content_type:
+            args.append(f"content_type_field={content_type[0].py!r}")
         uploads = upload_specs(op)
         if uploads:
             args.append(f"uploads={tup(uploads)}")

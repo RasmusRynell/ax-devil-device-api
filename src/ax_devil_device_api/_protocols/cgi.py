@@ -272,6 +272,8 @@ class CgiBinding:
     content_type: str | None = None
     """Content type of a raw ``body``."""
     body_field: str | None = None
+    content_type_field: str | None = None
+    """``body`` encoding: the params field whose value, when set, is the Content-Type of this call's body."""
     uploads: tuple[UploadSpec, ...] = ()
     """File arguments: multipart file parts, or the raw body when ``encoding`` is ``body``."""
     reply: Codec = Text()
@@ -484,13 +486,15 @@ def _build(op: Operation[CgiBinding], params: Model | None, values: Mapping[str,
     elif binding.encoding == "body":
         assert binding.body_field is not None
         value = getattr(params, binding.body_field, None) if params is not None else None
+        # A content type given with the call wins over the upload's and the binding's.
+        given = getattr(params, binding.content_type_field, None) if params is not None and binding.content_type_field else None
         if value is not None:
             spec = next((u for u in binding.uploads if u.field == binding.body_field), None)
             if spec is not None:
                 content, size, _, ctype = resolve_upload(value, filename=None, content_type=spec.content_type)
-                body = RawBody(content, ctype or binding.content_type or "application/octet-stream", size=size)
+                body = RawBody(content, given or ctype or binding.content_type or "application/octet-stream", size=size)
             else:
-                body = RawBody(_body_bytes(value), binding.content_type or "application/octet-stream")
+                body = RawBody(_body_bytes(value), given or binding.content_type or "application/octet-stream")
     return Request(
         binding.method, path, query=tuple(query), body=body, accept=binding.accept,
         auth=binding.auth, timeout=binding.timeout, stream=binding.stream,
