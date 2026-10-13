@@ -180,7 +180,7 @@ def _version(op: Operation[JsonRpcBinding], state: DeviceState) -> CallFlow[ApiV
 def _multipart(spec: JsonRpcMultipart, envelope: dict[str, Any], params: Model | None) -> MultipartBody:
     files: list[FilePart] = []
     if spec.json_part is not None:
-        files.append(FilePart(spec.json_part, None, json.dumps(envelope).encode("utf-8"), "application/json"))
+        files.append(FilePart(spec.json_part, None, json.dumps(envelope, allow_nan=False).encode("utf-8"), "application/json"))
     for upload in spec.uploads:
         value = getattr(params, upload.field, None) if params is not None else None
         if value is not None:

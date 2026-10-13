@@ -273,6 +273,7 @@ class _Core:
         self._reader_over: Callable[[], bool] | None = None
         self._raw: Any = None
         self.closing = False
+        self.failure: TransportError | None = None
 
     def begin(self) -> None:
         """Enter the gap ledger. Called once setup has succeeded, so a failed attempt leaves no trace."""
@@ -374,7 +375,10 @@ class _Core:
             return bytes(message)
         if isinstance(message, str):
             return message
-        return json.dumps(message)
+        try:
+            return json.dumps(message, allow_nan=False)
+        except ValueError as error:  # NaN / infinity: JSON has no representation; nothing is sent
+            raise ValueError("NaN and infinity cannot be sent: JSON has no representation for them") from error
 
     def overflow_closed(self) -> SessionClosed:
         return SessionClosed(LIMIT_CLOSE_CODE, LIMIT_CLOSE_REASON)
@@ -402,6 +406,8 @@ class _Core:
         """
         if self.closed is not None:
             return self.closed
+        if self.failure is not None:
+            return self.failure
         stamped = self.remote_close
         if stamped is not None:
             return self.on_disconnect(httpx_ws.WebSocketDisconnect(stamped[0], ""))
@@ -413,6 +419,7 @@ class _Core:
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: connection lost (network error or heartbeat timeout)"))
 
     def _fail(self, error: TransportError) -> TransportError:
+        self.failure = error  # the terminal event is queued once: later reads raise this again
         return error
 
     def reply_for(self, message: Any, request_id: str, method: str) -> tuple[bool, Any]:
@@ -541,6 +548,8 @@ class Session:
         core = self._core
         if core.closed is not None:
             raise core.closed
+        if core.failure is not None:
+            raise core.failure
         if core.overflowed:
             raise core.overflow_closed()
         deadline = None if timeout is None else time.monotonic() + timeout
@@ -725,6 +734,8 @@ class AsyncSession:
         core = self._core
         if core.closed is not None:
             raise core.closed
+        if core.failure is not None:
+            raise core.failure
         if core.overflowed:
             raise core.overflow_closed()
         loop = asyncio.get_running_loop()
