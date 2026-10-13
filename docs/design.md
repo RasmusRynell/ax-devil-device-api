@@ -95,7 +95,7 @@ Bodies: `JsonBody`, `FormBody`, `RawBody` (bytes are replayable, an iterable of 
 
 ### Streaming
 
-A request with `stream=True` must be the last request a flow yields. For a 2xx response the flow receives an empty-content `Response` and returns a `StreamDecoder` (`feed(chunk)` / `close()`). For any other status the transport reads the whole body first, so the flow can parse the error and raise. The driver wraps the open httpx response and the decoder in a managed result: `StreamResult` (sync context manager, iterable) or `AsyncStreamResult` (async context manager, async iterable), both in `_runtime/driver.py`; `.response` gives status and headers. Leaving the context or cancelling the task closes the httpx response. Streaming operations return these managers, never data. A spec selects the decoder (`_streams.py`): `bytes` (raw chunks), `mjpeg` (`multipart/x-mixed-replace` parts as `Part`, one JPEG each) or `lines` (text lines).
+A request with `stream=True` must be the last request a flow yields. For a 2xx response the flow receives an empty-content `Response` and returns a `StreamDecoder` (`feed(chunk)` / `close()`). For any other status the transport reads the whole body first, so the flow can parse the error and raise. The driver wraps the open httpx response and the decoder in a managed result: `StreamResult` (sync context manager, iterable) or `AsyncStreamResult` (async context manager, async iterable), both in `_runtime/driver.py`; `.response` gives status and headers. Leaving the context or cancelling the task closes the httpx response. Streaming operations return these managers, never data. A spec selects the decoder (`_streams.py`): `bytes` (raw chunks), `mjpeg` (`multipart/x-mixed-replace` parts as `Part`, one JPEG each) or `lines` (text lines; on a `multipart/x-mixed-replace` or `multipart/mixed` answer, such as the I/O port monitor, the lines of the part bodies, with boundaries, part headers and blank keep-alive lines dropped).
 
 ```python
 with dev.apis.media_stream.get_media_stream(container="mp4") as stream:          # sync
@@ -116,7 +116,7 @@ Sessions (event streaming, Device Data Hub, the audio and intercom WebSockets) a
 
 ### Uploads
 
-Every upload argument (cgi and jsonrpc, multipart or raw body) is an `UploadSource`: `bytes`, a `pathlib.Path`, or `Upload(stream, size, filename=None, content_type=None)`. A plain `str` is rejected as ambiguous. Requests always carry `Content-Length`. Content up to 8 MiB (`INLINE_LIMIT` in `_http/upload.py`) is read into memory, so the body is replayable after an authentication challenge. Larger content is streamed and therefore not replayable. When the credentials are a password and no verified state exists, the transport first sends an authenticated preflight `GET /axis-cgi/usergroup.cgi` (read-only, answered for any role, same Digest realm as the other CGIs) and only then the body, so the body is sent once with a verified credential. If the preflight fails the call raises `AuthError` without sending the body.
+Every upload argument (cgi and jsonrpc, multipart or raw body) is an `UploadSource`: `bytes`, a `pathlib.Path`, or `Upload(stream, size, filename=None, content_type=None)`. A plain `str` is rejected as ambiguous. Requests always carry `Content-Length`. Content up to 8 MiB (`INLINE_LIMIT` in `_http/upload.py`) is read into memory, so the body is replayable after an authentication challenge. Larger content is streamed and therefore not replayable. When the credentials are a password, the operation sends credentials from the first request (`auth: required`, the default) and no verified state exists, the transport first sends an authenticated preflight `GET /axis-cgi/usergroup.cgi` (read-only, answered for any role, same Digest realm as the other CGIs) and only then the body, so the body is sent once with a verified credential. If the preflight fails the call raises `AuthError` without sending the body. Operations with `auth: if_challenged` or `anonymous` are not primed. The file name and content type of a part come from `Upload`, then `x-upload`, then the part name / `application/octet-stream`; for raw-body CGIs an argument marked `x-in: content_type` sets the Content-Type per call and wins over all of these.
 
 ### Headers, transports, auth
 
@@ -185,7 +185,7 @@ Negotiation is a per-API strategy on the JSON-RPC binding: `GetSupportedVersions
 | Device Configuration REST (`dca`) | `dca` | `/config/rest/<api>/<ver>/…` path templates with percent-encoded path parameters; `{data}` request body; `{status, data}` / `{status:"error", error}`; entity get/set/add/remove/actions |
 | Classic CGI (`cgi`) | `cgi` | query/form/multipart/raw-body encoding with per-argument placement, `yes/no` booleans, CSV lists, spread mappings, templated names, uploads; reply codecs `TextOk`, `TextKv`, `Text`, text lines, `Xml` (element mapping), `Binary` (media type and signature checks), `JsonReply`; `# Error:` / `# Request failed:` and XML error detection; stream replies. The generic `param.cgi` operations (`list`, `update`, `add`, `remove`) are ordinary `cgi` operations (`apis/parameter_management.py`). |
 | VAPIX JSON service (`service_json`) | `service_json` | `POST /vapix/<svc>` with `{"<prefix>:<Op>": {...}}`; the bare reply message; JSON faults (`FaultCode` / `FaultSubCode`) → `ApiError` keyed by the subcode |
-| SOAP (`soap`) | `soap`, `xmlmap` | SOAP 1.2 envelope and faults over `POST /vapix/services`, for services without a JSON form; request elements from `params`, replies read with the same XML mapping as `cgi` |
+| SOAP (`soap`) | `soap`, `xmlmap` | SOAP 1.2 envelope and faults over `POST /vapix/services`, for services without a JSON form; request elements from `params` (`@name` attributes, `#text` for the text of an element that also has attributes), replies read with the same XML mapping as `cgi`, or returned as the raw reply element with `result: {x-xml: true}` |
 | Plain REST (`rest`) | `rest` | non-framework REST APIs (AXIS Audio Manager Edge/Pro): path templates, JSON bodies, errors keyed by HTTP status |
 | WebSocket sessions (`ws`, or session operations in any family) | `_runtime/ws`, `_runtime/ws_codecs` | handshake path and query, optional `wssession.cgi` token, ping heartbeat, setup requests and message codecs; see "Sessions" in section 3 |
 | Streams (a reply mode of `cgi`) | `_streams`, `_runtime/driver` | decoders `bytes`, `mjpeg`, `lines` and the managed `StreamResult`; see "Streaming" in section 3 |
@@ -247,8 +247,10 @@ Methods:
 
 - Every method that makes a request takes `request_options: RequestOptions | None` (timeout, retry policy for this call). RTSP URL builders make no request and take none.
 - Signature rule (deterministic, so the generator can apply it): an operation whose params include a nested model, or more than four fields, gets two overloads: flattened keyword arguments, or one positional `*Request` object (passing both is a `TypeError`). Smaller operations, such as `parameter_management.update(parameters)` or `get_publisher(id)`, get one plain signature: path keys and the main argument positional, the rest keyword-only.
+- Required read-only fields (`x-read-only` plus `required`) are required in responses only: a response without one raises `ResponseFormatError`, while the request model leaves it out (`None` on a model you build, never sent). In the models this is the `not_sent` default and `__response_required__`.
 - Writes declare `write`: `replace` (fields left out return to defaults), `patch`, `create` or `delete`, shown in the docstring.
 - Where a read result can be written back, the request model gets `from_current(result)`. It drops fields the device masks or that are read-only (from the spec), and sets "keep existing" flags where the API has them (MQTT `keepExistingPassword`). Blind round trips must never write a masked `*****` back.
+- Raw-body CGI operations can take the Content-Type per call through an `x-in: content_type` argument (for example `transmit_audio(audio, content_type="audio/G726-32")`).
 - Streaming operations return a `StreamResult[T]` / `AsyncStreamResult[T]`, session operations a `Session` / `AsyncSession` context manager, RTSP operations an `RtspUrl` (section 3 and the families table).
 
 Descriptors and naming:
@@ -329,6 +331,10 @@ DeviceError
 └── Unavailable                     category: catch both 503 and documented busy codes
 ```
 
+Errors without a code. Some classic CGIs report a failure only as text (`Error: account user name.` with HTTP 200). A spec's error table can match such a message with `message` (the whole text) or `message_prefix` (its start); whitespace is collapsed, a trailing full stop is ignored and the match is case-sensitive. The raised `ApiError` has `code=None` and takes `kind` and `description` from the entry; an unmatched failure is still an `ApiError` carrying the message. Message matching applies wherever the runtime has a message (cgi plain-text and JSON error replies, SOAP faults, JSON-RPC errors).
+
+HTTP 401. A 401 is an `AuthError`, raised before the body is read. The one exception is an operation with `auth: if_challenged` (sent without credentials first): a 401 without a `WWW-Authenticate` challenge is not a request for credentials but an answer of the API, so it reaches the CGI decoder and typically becomes an `ApiAccessDenied` or a matched message error (`pwdgrp.cgi` before the first administrator exists). A 401 with a challenge, and every 401 of an operation that sends credentials from the start, stays an `AuthError`.
+
 Retries (`RetryPolicy`, per device, overridable per call through `RequestOptions(retry=...)`; `NO_RETRY` disables them): requests that were never sent are retried for every operation (default 2 attempts in total, backoff 0.2 s doubling up to 5 s). Read timeouts and dropped connections are retried only with `retry_reads=True` and only for `effect: read` with a replayable body. Writes and actions are never resent after the request may have arrived; HTTP and API errors are never retried; streams and sessions are never restarted.
 
 ## 8. Specs, patches and the generator
@@ -377,7 +383,7 @@ All run with `uv run pytest`; `uv run pyright` type-checks `src` and `tests`.
 
 1. Unit tests (`tests/unit/`): `_http` (transport, auth including the 0.x security cases, retries, uploads and the upload preflight), the protocol families, the driver, capabilities and support decisions, version selection, models and error mapping, streams and decoders, WebSocket sessions against a fake network stream, RTSP URLs, `MockCamera`, features, the CLI, and round trips through reference APIs. Async tests use `anyio`.
 2. Contract tests (`tests/contract/`): every `examples` entry of every spec is run through the generated module over fake transports. The built request must match the documented request, and the documented response must parse into the result model (or raise the documented error). Streams, sessions and RTSP URL builders have their own example conventions (spec-format.md).
-3. Codegen tests (`tests/codegen/`): bindings, rendering, staleness checks, migrations.
+3. Codegen tests (`tests/codegen/`): bindings, rendering, staleness checks, migrations, and the behaviours added with the runtime pass: message-matched errors, required read-only fields, `x-in: content_type`, SOAP `#text` and raw results, `{n}` placeholders in fixed `query` / `url_query` values, upload and cgi contract examples.
 4. Example tests (`tests/examples/`): each script in `examples/` is imported and run against a `MockCamera` or fake WebSocket camera, so the examples cannot rot. No real network.
 
 Planned: live conformance (`pytest -m live --device …`) runs `effect: read` operations of APIs that `supports()` reports as `YES`; `unknown`-effect operations are skipped. Results are recorded per operation with model and firmware and feed the support status in section 5. Failures become correction or variant patches.
@@ -403,7 +409,7 @@ Remaining:
 2. `specs/patches/` content from those runs, and variant handling in the generator.
 3. `import-linter` contract for the layer rules.
 4. A JSON-RPC negotiation strategy based on `api_discovery`.
-5. The unsupported items listed under Scope statements (`BLOCKED` entries in the specs).
+5. The unsupported items listed under Scope statements (`BLOCKED` entries in the specs). The SOAP-related ones are resolved (`action_service.add_action_rule` and `event_service.get_event_instances`, using `#text` and raw reply elements).
 
 ## 13. Decisions log
 
@@ -427,7 +433,7 @@ Settled on 2026-10-12 after an API-shape review (Codex `gpt-6-astra` and Claude 
 | User testing | `testing.MockCamera` on top of transport injection. |
 | Auth and routing | `BearerToken`, `base_path`, `proxy`; ACAP routes are ordinary absolute paths under the base path. |
 | Uploads | One argument type, `UploadSource` (`bytes`, `Path` or `Upload(stream, size)`), for cgi and jsonrpc; always sent with `Content-Length`; content up to 8 MiB is read into memory so it stays replayable; larger content is streamed and, being non-replayable, is preceded by a credential-priming `GET /axis-cgi/usergroup.cgi`. |
-| CGI argument placement | `encoding` query/form/multipart/body plus per-argument `x-in`; `{name}` placeholders in paths and wire names are filled from required scalar arguments; bare query keys are `null` values. |
+| CGI argument placement | `encoding` query/form/multipart/body plus per-argument `x-in` (`query`, `form`, `body`, `content_type`); `{name}` placeholders in paths and wire names are filled from required scalar arguments; bare query keys are `null` values; fixed `query` / `url_query` values may contain `{name}` placeholders filled from required scalar arguments. |
 | RTSP | URLs only; no RTSP client, no session commands, no RTSP-over-HTTP. |
 | Service APIs | `service_json` over SOAP when both exist; discovery of service APIs through the Entry service namespace list. |
 | CLI | argparse, JSON output, generic `call` driven by the generated modules; hand-written commands only for `snapshot`, `summary`, `supported`. |
