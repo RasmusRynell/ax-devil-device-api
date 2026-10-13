@@ -20,7 +20,7 @@ from ._base import AsyncApi, SyncApi
 # Models
 
 ModbusPort = Annotated[int, Field(ge=1024, le=65535)]
-SensorId = Annotated[str, Field(min_length=1, pattern=r"^[1-9]\d*|0$")]
+SensorId = Annotated[str, Field(min_length=1, pattern="^[A-Za-z0-9][A-Za-z0-9_-]*$")]
 
 
 class Configuration(Model):

@@ -25,8 +25,8 @@ types:
   SensorId:
     type: string
     minLength: 1
-    pattern: ^[1-9]\d*|0$
-    description: A unique alphanumeric ID
+    pattern: ^[A-Za-z0-9][A-Za-z0-9_-]*$
+    description: A unique alphanumeric ID. The documented pattern is numeric only (^[1-9]\d*|0$), but the description and the examples (My-SensorId) use alphanumeric ids.
   AirQualityModbusRelease:
     type: object
     description: The whole API tree.
@@ -100,7 +100,6 @@ operations:
     result: {type: boolean}
     examples:
     - title: Get a single configuration
-      x-contract: {skip: "Docs use the placeholder sensor id My-SensorId, which the documented SensorId pattern rejects"}
       request:
         path: /configurations/My-SensorId/modbusEnable
       response:
@@ -127,7 +126,6 @@ operations:
     params: {$ref: '#/types/UpdateConfigurationRequest'}
     examples:
     - title: Set all configurations
-      x-contract: {skip: "Docs use the placeholder sensor id My-SensorId, which the documented SensorId pattern rejects"}
       request:
         path: /configurations/My-SensorId
         body: {data: {modbusEnable: true, modbusPort: 1502}}
@@ -152,7 +150,6 @@ operations:
         modbusEnable: {type: boolean, description: Modbus enable}
     examples:
     - title: Set a single configuration
-      x-contract: {skip: "Docs use the placeholder sensor id My-SensorId, which the documented SensorId pattern rejects"}
       request:
         path: /configurations/My-SensorId/modbusEnable
         body: {data: true}
