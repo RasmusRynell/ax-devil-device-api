@@ -129,7 +129,7 @@ binding:
     namespaces: {acert: "http://www.axis.com/vapix/ws/cert"}   # prefix -> URI; merged over the API-level map
 ```
 
-`params` fields become child elements of the request element, in field order, in the request element's namespace: the property key is the element name (local name, no prefix) unless it is a prefixed name, below. A key starting with `@` is an attribute of its parent (`"@token": {type: string}` -> `token="..."`; the Python name is derived without the `@`, so set `x-python-name` if an element of the same name exists). Scalars are text (`true`/`false` for booleans), arrays repeat the element, nested objects nest. The `result` must be an object type; it is read from the first element inside the SOAP body with the same `x-xml` mapping as XML replies of `cgi` (see below), with one difference: an unannotated scalar property is the text of the child element of that name, not an attribute (use `x-xml: {attribute: name}` for attributes). `x-xml: {root: ...}` on the result type is relative to the reply element (for example `GetEventInstancesResponse`). Without a `result` the reply is ignored. Faults are keyed by their subcode strings, innermost first (`ter:InvalidArgs`, then the code value `env:Sender`).
+`params` fields become child elements of the request element, in field order, in the request element's namespace: the property key is the element name (local name, no prefix) unless it is a prefixed name, below. A key starting with `@` is an attribute of its parent (`"@token": {type: string}` -> `token="..."`; the Python name is derived without the `@`, so set `x-python-name` if an element of the same name exists). The key `#text` is the text of its parent, so an element can have attributes and text: `TopicExpression: {"@Dialect": ..., "#text": "tns1:Device//."}` -> `<TopicExpression Dialect="...">tns1:Device//.</TopicExpression>` (the Python name is `text`; set `x-python-name` for a better one). For the same type to be read from a reply, annotate the properties with `x-xml: {attribute: Dialect}` and `x-xml: text`. Scalars are text (`true`/`false` for booleans), arrays repeat the element, nested objects nest. The `result` must be an object type; it is read from the first element inside the SOAP body with the same `x-xml` mapping as XML replies of `cgi` (see below), with one difference: an unannotated scalar property is the text of the child element of that name, not an attribute (use `x-xml: {attribute: name}` for attributes). `x-xml: {root: ...}` on the result type is relative to the reply element (for example `GetEventInstancesResponse`). `result: {x-xml: true}` returns the reply element itself (`xml.etree.ElementTree.Element`), for replies with dynamic content such as the event topic tree of `GetEventInstances`; a fault is still raised as an error. Without a `result` the reply is ignored. Faults are keyed by their subcode strings, innermost first (`ter:InvalidArgs`, then the code value `env:Sender`).
 
 Prefixed names. Some requests mix namespaces (`<acert:Id>` under a request element in another namespace). A property key, or an attribute key after the `@`, may carry a prefix: `acert:Id`, `@acert:flag`. Every prefix must be declared in `binding.namespaces` (API level and operation level, merged); `codegen` rejects undeclared prefixes and the reserved `env`, `xml` and `xmlns`. The request element declares all of them. The Python name comes from the local name (`acert:Id` -> `id`; use `x-python-name` on a clash), and replies are read by local name, so a result property `acert:Id` matches `<Id>` in any namespace. Empty reply elements (`<Size/>`) are dropped for fields that cannot hold an empty string, as for XML replies of `cgi`.
 
@@ -170,13 +170,13 @@ operations:
 |---|---|---|
 | `bytes` (default) | `bytes` chunks | MP4/Matroska/audio, any binary body |
 | `mjpeg` | `Part` (`headers`, `body`, `content_type`) | `multipart/x-mixed-replace`, one JPEG per part; a plain `image/jpeg` answer raises `ResponseFormatError` |
-| `lines` | `str`, one per line | line-oriented text streams (I/O port monitor) |
+| `lines` | `str`, one per line | line-oriented text streams. On a `multipart/x-mixed-replace` (or `multipart/mixed`) answer, such as `port.cgi?monitor=`, the lines of the part bodies are returned: boundaries and part headers are consumed and blank lines (the keep-alive parts) are dropped |
 
 A stream operation has no `result`. It may have `examples` (see "Examples of streams, sessions and RTSP URLs"). Non-2xx answers are errors raised before the result is returned. `effect` is usually `read`. Request bodies of POST streams (audio transmit) belong to the upload bindings.
 
 ### WebSocket sessions (`ws`, or any family)
 
-A session operation opens a WebSocket and returns a context manager: `Session` on `Device`-bound APIs (`with dev.apis.x.connect(...) as session:`), `AsyncSession` on `AsyncDevice` (`async with`). It carries the handshake, keep-alive (`heartbeat=`), authentication (`use_token=True` uses `wssession.cgi`) and gap tracking of `Device.connect_session`; see the design document, section 13. Use `family: ws` for an API that is only sessions, or put the operation in any other family.
+A session operation opens a WebSocket and returns a context manager: `Session` on `Device`-bound APIs (`with dev.apis.x.connect(...) as session:`), `AsyncSession` on `AsyncDevice` (`async with`). It carries the handshake, keep-alive (`heartbeat=`), authentication (`use_token=True` uses `wssession.cgi`) and gap tracking of `Device.connect_session`; see the design document, section 3 ("Sessions"). Use `family: ws` for an API that is only sessions, or put the operation in any other family.
 
 ```yaml
 family: ws
@@ -248,12 +248,13 @@ binding:
   url_query: {setparams: null}                # always in the URL; a null value is a bare key: ?setparams
 ```
 
+- A value in `query` or `url_query` may contain `{name}` placeholders, filled from the required scalar params field `name` like the placeholders of names and paths (see "Templated names"): `query: {action: list, group: 'Image.I{n}.RateControl'}` with a required integer `n`. This makes reads of index-named groups typed (`list_rate_control(0)`), together with `strip_prefix: 'root.Image.I{n}.RateControl.'`.
 - `schemaversion` is the version of the request and response format that the CGIs of the recording export, disk and similar APIs require (`schemaversion=1`). It is a fixed argument of the binding, not a params field: put it in `query` and the generated method never exposes it.
 - A bare key (`?live-sum.json`, `?export-cnt&date=...`; the people counter and queue monitor docs write them this way) is a `null` value in `query` or `url_query`, and a params field with `x-style: flag` (true sends the key, false sends nothing). A key with an empty value (`live-sum.json: ''`) is sent as `live-sum.json=`. Bare keys only go in the URL.
 
 ### Where one argument goes: `x-in`
 
-`x-in` on a params property overrides the default place for that argument: `query` (the URL), `form` (a body field; only with `form` or `multipart`) or `body` (the raw body; only with `body`). This is how one POST mixes URL arguments and body fields:
+`x-in` on a params property overrides the default place for that argument: `query` (the URL), `form` (a body field; only with `form` or `multipart`), `body` (the raw body; only with `body`) or `content_type` (the Content-Type of the raw body; only with `body`, see "Raw request bodies"). This is how one POST mixes URL arguments and body fields:
 
 ```yaml
 binding: {method: POST, encoding: form, url_query: {setparams: null}}   # POST /local/tvpc/.apioperator?setparams&date=...
@@ -301,6 +302,8 @@ The Python name of a templated property is derived as usual (`Image.I{n}.Name` -
 
 `encoding: body` sends one argument, marked `x-in: body`, as the whole POST body with `content_type`. A `string` is sent as UTF-8, `format: binary` as bytes, and an object or array as JSON. The other arguments go in the URL.
 
+The content type can be chosen per call: one optional string argument (usually an enum) marked `x-in: content_type` is not sent as an argument, and its value, when given, becomes the Content-Type of the body. It wins over the `Upload.content_type`, the `x-upload` content type and `binding.content_type`, so `binding.content_type` may be left out when every call has one of these. This is how `transmit_audio(audio, content_type="audio/G726-32")` picks the codec.
+
 ```yaml
 set_settings:
   binding: {method: POST, encoding: body, content_type: application/xml, reply: text_ok}
@@ -318,7 +321,7 @@ A params property with `x-upload` is file content. Its generated type is `Upload
 - a `pathlib.Path`: read from disk when the request is sent. A plain `str` is rejected because it is ambiguous.
 - `Upload(stream, size, filename=None, content_type=None)` (from `ax_devil_device_api`): a binary stream and its exact byte count.
 
-The file name sent is the path's name, `Upload.filename`, or the `filename` of `x-upload`, then the part name. Requests always carry `Content-Length`. Content up to 8 MiB is read into memory and can be replayed after an authentication challenge. Larger content is streamed and cannot be replayed, so before sending it the runtime primes the credentials with an authenticated `GET /axis-cgi/usergroup.cgi` when no verified credential exists yet; if that fails, the call raises `AuthError` without sending the body.
+The file name of a multipart file part is the path's name for a `Path`; for `bytes` and `Upload` it is `Upload.filename`, then the `filename` of `x-upload`, then the part name. A content type is `Upload.content_type`, then the `content_type` of `x-upload`, then `application/octet-stream`. Requests always carry `Content-Length`. Content up to 8 MiB is read into memory and can be replayed after an authentication challenge. Larger content is streamed and cannot be replayed, so before sending it an operation that sends credentials from the first request (`auth: required`, the default) first primes them with an authenticated `GET /axis-cgi/usergroup.cgi` when no verified credential exists yet; if that fails, the call raises `AuthError` without sending the body. Operations with `auth: if_challenged` or `anonymous` are not primed.
 
 ```yaml
 x-upload: true                    # part name = the property's wire name, application/octet-stream
@@ -417,6 +420,18 @@ errors:
 
 `kind` is one of `access_denied`, `unavailable`, `invalid_argument`, `not_found`, `unsupported`, `internal`. It selects the error class at runtime, so set it whenever the meaning is clear. Operations may add their own `errors`.
 
+Some APIs report failures only as a message, with no code: classic CGIs answer `Error: account user name.` (HTTP 200). Such an error is matched by its text: give the entry `message` (the whole message) or `message_prefix` (its start, for messages that end with a variable part), and use any label as the key:
+
+```yaml
+errors:
+  account_user_name: {description: The user name is missing or invalid, kind: invalid_argument, message: account user name.}
+  malformed_action: {description: The user name does not fit the action, kind: invalid_argument, message_prefix: 'malformed action operation,'}
+```
+
+The match is case-sensitive; whitespace is collapsed and a trailing full stop is ignored on both sides. An entry sets `message` or `message_prefix`, not both. A message entry is only looked up by message (never by its label), the raised `ApiError` has `code=None` and takes `kind` and `description` from the entry, and a failure that matches no entry is still an `ApiError` with the message. Entries with a code are unaffected. Message matching applies wherever the runtime has a message (cgi plain-text and JSON error replies, SOAP faults, JSON-RPC errors).
+
+HTTP 401. A 401 is an authentication failure and raises `AuthError` before the body is read. One exception exists for operations with `auth: if_challenged` (they are sent without credentials first): a 401 that carries no `WWW-Authenticate` challenge is not a request for credentials but an answer of the API, so a cgi operation reads its body for `Error:` lines as usual. `pwdgrp.cgi` uses this before the first administrator exists (`Error: initial admin user must be created first.`, HTTP 401). A 401 with a challenge, and every 401 of an operation that sends credentials from the start, stays an `AuthError`.
+
 ## Types
 
 Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `minItems`, `maxItems`, `default`, `description`, `since`, `$ref: "#/types/Name"`, `oneOf`.
@@ -427,7 +442,7 @@ Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `it
 - Extensions:
   - `x-nullable: [field, ...]`: may be sent as explicit `null`.
   - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips.
-  - `x-read-only: [field, ...]`: present in responses, never sent. When a request type is shared with the response, read-only fields stay on the model but are not method arguments.
+  - `x-read-only: [field, ...]`: present in responses, never sent. When a request type is shared with the response, read-only fields stay on the model but are not method arguments. A field that is also in `required` is required in responses only: a response without it raises `ResponseFormatError`, while a request model leaves it out (the attribute is `None` on a model you built yourself; type checkers still see the field type) and never sends it.
   - `x-python-name` on a property: overrides the derived name.
   - `x-style` on a property (cgi only): `plain`, `csv`, `axis_bool`, `spread`, `flag` (a boolean sent as the bare key when true).
   - `x-in` on a property (cgi only): `query`, `form` or `body`, where the argument goes (see "CGI arguments, bodies and uploads").
@@ -469,7 +484,7 @@ operations:
     support: docs-only           # docs-only | verified | known-broken
 ```
 
-Example conventions of the contract tests (`tests/contract`). `soap`: `request: {params: {...}}` is compared with the request element built from `params` (namespace-aware, whitespace-insensitive), or `request: {body: "<xml/>"}` (the element, or a full envelope) which wins for the comparison (`params` is still needed when the operation has required arguments, because it drives the call); `response: {text: "<xml/>"}` is the reply element, a Fault or a full envelope, with `status` and `error: {code, message}` as alternatives for a fault. Prefixed names are written as in `params` (`acert:Id`, `@acert:flag`); a prefixed attribute is compared in that prefix's namespace. `rest`: `request: {path, query, body}` (the path is relative to `binding.root`; `query` values may be lists) and `response: {status, body}` or `{status, text}`.
+Example conventions of the contract tests (`tests/contract`). `soap`: `request: {params: {...}}` is compared with the request element built from `params` (namespace-aware, whitespace-insensitive), or `request: {body: "<xml/>"}` (the element, or a full envelope) which wins for the comparison (`params` is still needed when the operation has required arguments, because it drives the call); `response: {text: "<xml/>"}` is the reply element, a Fault or a full envelope, with `status` and `error: {code, message}` as alternatives for a fault. Prefixed names are written as in `params` (`acert:Id`, `@acert:flag`); a prefixed attribute is compared in that prefix's namespace. `cgi` examples of operations with `{placeholders}` in `binding.path` give the path in `request.path` (`/local/fflprapp/cloud.cgi`); the placeholder values are read from it and must satisfy the argument's type. Index arguments of templated names and of templated fixed `query` values (`n` in `root.Image.I{n}.RateControl.Mode`, `group=Image.I{n}.RateControl`) are read from the concrete names and values the example gives, and must agree. `rest`: `request: {path, query, body}` (the path is relative to `binding.root`; `query` values may be lists) and `response: {status, body}` or `{status, text}`.
 
 `cgi` examples with raw bodies, uploads, mixed placement and bare keys:
 
@@ -489,6 +504,8 @@ examples:
 ```
 
 A body is compared by its content type: XML structurally (ignoring whitespace and attribute order), JSON as JSON, `text/*` as text without surrounding whitespace, anything else as bytes. For parts, `name` is required and matched in order against the file and typed parts sent (text fields are compared through `form`); `filename`, `content_type` and `content` (or `content_base64`) are compared only when given, and `size: N` stands for N bytes of filler (the length is compared). When `query` and `form` are both given, `query` keys must be in the URL and `form` keys only in the body. Bare keys must be sent without `=`.
+
+A part that names a `filename` is run with an `Upload` carrying that name, because plain bytes carry none (the runtime would send the `x-upload` default or the part name); a `content_type` is compared with what the operation sends. `jsonrpc` operations with `binding.multipart` take the same `request.parts` for their file parts. The JSON envelope part is compared through `request.params` like any JSON-RPC call, and without `parts` the file arguments get filler bytes (the docs often show only the JSON message). For an `encoding: body` operation with an `x-in: content_type` argument, the example's `content_type` is passed as that argument.
 
 ### Examples of streams, sessions and RTSP URLs
 
