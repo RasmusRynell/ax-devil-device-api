@@ -486,14 +486,6 @@ types:
     properties:
       UnsecureConnectionAllowed:
         type: boolean
-  LineOutEnabled:
-    type: object
-    required:
-    - enabled
-    properties:
-      enabled:
-        type: boolean
-        description: Whether the line-out port is enabled.
 operations:
   set_sequence:
     summary: Create a new sequence or update an existing one.
@@ -1369,53 +1361,6 @@ operations:
           code: 1100
           message: Internal error
       source: https://developer.axis.com/vapix/network-video/decoder2-api/#setunsecureconnectionallowed
-  set_line_out_enabled:
-    summary: Enable or disable audio playback through the line-out port.
-    effect: write
-    write: patch
-    binding:
-      method: setEnabled
-    params:
-      $ref: '#/types/LineOutEnabled'
-    examples:
-    - title: Enable line-out
-      request:
-        params: &id022
-          enabled: true
-      response:
-        data: {}
-      source: https://developer.axis.com/vapix/network-video/decoder2-api/#setenabled
-    - title: Internal error
-      request:
-        params: *id022
-      response:
-        error:
-          code: 1100
-          message: Internal error
-      source: https://developer.axis.com/vapix/network-video/decoder2-api/#setenabled
-  get_line_out_enabled:
-    summary: Check if the line-out port is enabled.
-    effect: read
-    binding:
-      method: getEnabled
-    result:
-      $ref: '#/types/LineOutEnabled'
-    examples:
-    - title: Get line-out state
-      request:
-        params: &id023 {}
-      response:
-        data:
-          enabled: true
-      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getenabled
-    - title: Internal error
-      request:
-        params: *id023
-      response:
-        error:
-          code: 1100
-          message: Internal error
-      source: https://developer.axis.com/vapix/network-video/decoder2-api/#getenabled
 sources:
 - url: https://developer.axis.com/vapix/network-video/decoder2-api/
   sha256_md: 6d4283f55e83f28e1fad78e85c074ed3e4bb3af9873e44fd5129758b24fd06c9
@@ -1423,8 +1368,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - The CGI path of the Line-out Control methods (setEnabled, getEnabled) is not documented; they use the binding default
-    /axis-cgi/decoder/player.cgi, which is a guess. This keeps the spec uncurated.
+  - 'The Line-out Control methods (setEnabled, getEnabled) are not modeled: the docs give no CGI path for them (every other method names its CGI, in the use cases or the method sections), and none of the documented CGIs (player.cgi, layout.cgi, mediasource.cgi, decodercapabilities.cgi) is stated to carry them. Add set_line_out_enabled(enabled) and get_line_out_enabled() once the path is known.'
   - Security levels of the methods are not documented; admin is assumed. No getSupportedVersions method is documented.
   - API discovery states version 3.0, but all examples send apiVersion 2.0. Version 3.0 is used.
   - 'Method name mismatches in the docs: listSequence (headings) vs listSequences (tables and examples); SetUnsecureConnectionAllowed
@@ -1444,4 +1388,4 @@ provenance:
   - 'playMediaSource: only resumeTimeout is marked optional in the parameter table, so the other parameters are required.'
   - The docs also document an older API major (apiVersion 2.0 in examples); this spec covers major 3 only.
   migrated_from: v1
-  curated: false
+  curated: true

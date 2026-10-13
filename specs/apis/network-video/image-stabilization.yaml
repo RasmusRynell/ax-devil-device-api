@@ -301,7 +301,7 @@ provenance:
     shows method getEISMargin.
   - Failure HTTP codes are 400/401/403 (not 200 as in other JSON-RPC APIs); mapping of each error code to HTTP status
     not given.
-  - 'Blocking: the CGI path is not documented anywhere in the mirrored docs, so binding.path is empty and the spec stays uncurated until it is known.'
+  - 'Blocking: the docs never name the endpoint. Every method is shown as a bare POST of a JSON-RPC envelope; the page gives no URL, and the only CGI it mentions is /axis-cgi/param.cgi, for the obsoleted Stabilizer* parameters. API discovery (id=image-stabilization) lists no path either. binding.path stays empty and the spec stays uncurated until the path is known.'
   - setType params.type is typed Integer in the docs table, but the enum values (EIS, OIS) and example are strings; modelled as string.
   migrated_from: v1
   curated: false

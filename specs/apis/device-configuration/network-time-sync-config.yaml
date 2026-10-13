@@ -112,4 +112,4 @@ provenance:
   - 'The docs examples use an abstract {operation, path} form; they are mapped to the framework paths and HTTP methods.'
   - 'Maturity (beta or released), AXIS OS version and permissions are not stated.'
   migrated_from: v1
-  curated: false
+  curated: true

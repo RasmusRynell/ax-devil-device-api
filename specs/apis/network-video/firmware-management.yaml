@@ -91,12 +91,12 @@ operations:
   upgrade:
     summary: Upgrade the firmware; the product reboots as part of this method.
     description: 'Only allowed if the current firmware is committed. Any inactive firmware is purged when an upgrade starts,
-      even if the upgrade fails, so a rollback to it is no longer possible. The docs define the request as multipart (a json
-      part, then a file part with the firmware image), which the generator cannot express yet: the generated method sends
-      the JSON message without the file.'
+      even if the upgrade fails, so a rollback to it is no longer possible. Downgrading requires factoryDefaultMode hard.
+      The request is multipart: the JSON message in the first part, the firmware image (.bin) in the second.'
     effect: action
     binding:
       method: upgrade
+      multipart: {json_part: json}
     params:
       $ref: '#/types/UpgradeRequest'
     result:
@@ -123,7 +123,6 @@ operations:
       424:
         description: Upgrade failed due to image referencing an unknown custom firmware certificate.
         kind: invalid_argument
-    support: known-broken
     examples:
     - title: Upgrade without a timeout
       request:
@@ -132,6 +131,7 @@ operations:
         data:
           firmwareVersion: 7.50.3
       source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
+      x-contract: {skip: "The contract harness cannot supply the file part of a multipart JSON-RPC request"}
     - title: Upgrade with a rollback timeout
       request:
         params:
@@ -140,6 +140,7 @@ operations:
         data:
           firmwareVersion: 7.50.3
       source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
+      x-contract: {skip: "The docs show this request as plain JSON without the firmware file; the real request is multipart, and the contract harness cannot supply the file part"}
     - title: Error 421
       request:
         params: {}
@@ -148,6 +149,7 @@ operations:
           code: 421
           message: Upgrade failed due to image not matching device.
       source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
+      x-contract: {skip: "The contract harness cannot supply the file part of a multipart JSON-RPC request"}
   commit:
     summary: Commit the current firmware and stop a pending automatic rollback.
     description: Does nothing if the firmware is already committed.
@@ -254,18 +256,14 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - upgrade is a multipart request (a json part with the JSON message, then a file part with the firmware image); the spec
-    format has no multipart binding, so the generated method cannot upload the image. This keeps the spec uncurated until
-    the generator supports it.
-  - The "Upgrade with timeout" example shows a plain JSON request with autoRollback "50"; the real request has to be multipart
-    too.
+  - 'The "Upgrade with timeout" example in the docs shows a plain JSON request with autoRollback "50"; the real upgrade request is multipart (json part, then file part). The upgrade examples are skipped in the contract tests because the harness cannot supply the file part.'
   - 'autoRollback is a string: never, default, or a number of minutes.'
   - The property Properties.FirmwareManagement.Version=1.3 is documented, while only apiVersion 1.0 appears in the examples.
     The property is not a name=value discovery entry and is not used.
   - The purge failure example message "Current firmware is not active." differs from the 412 table text.
   - The docs do not state which methods need the product to be idle, other than the 423 busy error.
   migrated_from: v1
-  curated: false
+  curated: true
 types:
   PendingCommit:
     enum:
@@ -332,8 +330,14 @@ types:
       is not none, otherwise started. Ignored if the new firmware does not support automatic rollback.'
   UpgradeRequest:
     type: object
-    description: 'JSON part of the upgrade request. The request is multipart: this JSON message first, then the firmware file.'
+    description: 'Arguments of ``upgrade``. The request is multipart: the JSON message (the options below) first, then the firmware file.'
+    required: [file]
     properties:
+      file:
+        type: string
+        format: binary
+        x-upload: {part: file, filename: firmware.bin, content_type: application/octet-stream}
+        description: The firmware image (.bin).
       factoryDefaultMode:
         $ref: '#/types/UpgradeFactoryDefaultMode'
       autoCommit:
