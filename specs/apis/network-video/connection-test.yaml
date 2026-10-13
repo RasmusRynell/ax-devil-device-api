@@ -26,6 +26,11 @@ operations:
       required: [ip]
       properties:
         ip: {type: string, description: IP address or DNS hostname of the device or server to ping.}
+    examples:
+      - title: Ping a host
+        request: {query: {ip: 192.168.0.10}}
+        response: {status: 200, text: ""}
+        source: https://developer.axis.com/vapix/network-video/#connection-test-ping-ports-and-ip-addresses
   tcp_test:
     summary: Test whether the device can reach an IP address and port.
     effect: action
@@ -38,6 +43,11 @@ operations:
       properties:
         address: {type: string, description: IP address to reach.}
         port: {type: integer, minimum: 1, maximum: 65535, description: Port to reach.}
+    examples:
+      - title: Test an IP address and port
+        request: {query: {address: 192.168.0.10, port: 80}}
+        response: {status: 200, text: ""}
+        source: https://developer.axis.com/vapix/network-video/#connection-test-ping-ports-and-ip-addresses
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/

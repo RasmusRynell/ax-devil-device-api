@@ -42,6 +42,11 @@ operations:
           description: Parameter groups to list, e.g. ``root.PTZ.Locator.L0.MaxZones`` or ``root.PTZ.Locator.L0.Zone``.
     positional: [group]
     result: {type: object, additionalProperties: {type: string}}
+    examples:
+      - title: Detect if OSDI is supported
+        request: {query: {group: root.PTZ.Locator.L0.MaxZones}}
+        response: {status: 200, text: "root.PTZ.Locator.L0.MaxZones=3\n"}
+        source: https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/#define-an-osdi-zone
 
   add_zone:
     summary: Create an OSDI zone parameter group.
@@ -70,6 +75,18 @@ operations:
           description: Initial values as full parameter names mapped to values.
     positional: [group, parameters]
     result: {type: string}
+    examples:
+      - title: Create a zone
+        request:
+          query:
+            root.PTZ.Locator.L0.Zone.Z.Name: NewZone
+            root.PTZ.Locator.L0.Zone.Z.Pan: "0.06:29.54"
+            root.PTZ.Locator.L0.Zone.Z.Tilt: "-44.99:-30.06"
+            root.PTZ.Locator.L0.Zone.Z.Enabled: "yes"
+            group: root.PTZ.Locator.L0.Zone
+            template: ptzlocator
+        response: {status: 200, text: "Z0 OK"}
+        source: https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/#define-an-osdi-zone
 
   update_zones:
     summary: 'Update parameters of existing zones, e.g. ``{"PTZ.Locator.L0.Zone.Z0.Enabled": "no"}``.'

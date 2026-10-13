@@ -1,9 +1,8 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: axis-audio-manager-edge-api
 name: AXIS Audio Manager Edge API
-summary: Integrate external tools with AXIS Audio Manager Edge — list targets (devices/zones), control volume controllers,
-  list/create/stop audio sessions, list audio...
+summary: Integrate external tools with AXIS Audio Manager Edge. List targets (devices and zones), control volume controllers,
+  list, create and stop audio sessions, and list audio files.
 section: audio-systems
 family: rest
 status: released
@@ -43,6 +42,8 @@ types:
   Target:
     oneOf:
     - type: object
+      required: [type, id]
+      x-name: DeviceTarget
       x-nullable: [niceName, ipAddress, serialNumber]
       properties:
         type: {const: device}
@@ -52,6 +53,8 @@ types:
         ipAddress: {type: string, description: The LAN IP address of the device.}
         serialNumber: {type: string}
     - type: object
+      required: [type, id]
+      x-name: PhysicalZoneTarget
       x-nullable: [niceName]
       properties:
         type: {const: physicalZone}
@@ -64,6 +67,7 @@ types:
     description: Enum of variants (discriminator 'type'); may be extended — clients must ignore unknown variants.
   VolumeController:
     type: object
+    required: [id]
     properties:
       allowMute: {type: boolean, description: Whether the volume controller can be muted.}
       contentClasses:
@@ -88,6 +92,7 @@ types:
           and maxVolume.
   AudioSession:
     type: object
+    required: [type, id]
     properties:
       type:
         type: string
@@ -114,6 +119,7 @@ types:
       port: {type: integer, description: Multicast port. Only when type is externalRTP.}
   AudioFile:
     type: object
+    required: [trackId]
     properties:
       trackId: {type: string, description: The unique identifier of the audio file.}
       name: {type: string}
@@ -126,6 +132,20 @@ operations:
     result:
       type: array
       items: {$ref: '#/types/Target'}
+    examples:
+      - title: Fetch all targets
+        request: {path: /v1.0/targets}
+        response:
+          status: 200
+          body:
+            - {type: device, id: 5109a18b-1f48-40d8-b185-586d152fa0e7, niceName: AXIS C8210 - 00408C1865FF, status: {type: ok}}
+            - {type: device, id: c9820c2a-08c8-4957-8bb4-db67957fad75, niceName: AXIS C1110 - B8A44F4DFD23, status: {type: warning}}
+            - type: physicalZone
+              id: 1b5c939d-c622-423d-a297-d6b8925e785d
+              niceName: 5th floor
+              children:
+                - {type: device, id: 5109a18b-1f48-40d8-b185-586d152fa0e7}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#examples
   get_target:
     summary: Retrieve the detailed information of a specified target.
     effect: read
@@ -136,6 +156,13 @@ operations:
       properties:
         targetId: {type: string, description: A unique target ID.}
     result: {$ref: '#/types/Target'}
+    examples:
+      - title: Fetch a specific target
+        request: {path: /v1.0/targets/fd25b527-b36a-4473-90fc-273810671d25}
+        response:
+          status: 200
+          body: {type: device, id: fd25b527-b36a-4473-90fc-273810671d25, niceName: AXIS C8210 - B8A44F4DFD12, status: {type: error}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#examples
   list_volume_controllers:
     summary: Retrieve all volume controllers.
     effect: read
@@ -143,6 +170,14 @@ operations:
     result:
       type: array
       items: {$ref: '#/types/VolumeController'}
+    examples:
+      - title: List volume controllers
+        request: {path: /v1.1/volumeControllers}
+        response:
+          status: 200
+          body:
+            - {allowMute: true, contentClasses: [{type: music}], id: d290f1ee-6c54-4b01-90e6-d701748f0864, maxVolume: 100, minVolume: 0, muted: true, target: [{type: device, id: d290f1ee-6c54-4b11-90e6-d701748f0864}], volume: 62}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#list-volume-controllers
   get_volume_controller:
     summary: Retrieve a specified volume controller.
     effect: read
@@ -153,6 +188,13 @@ operations:
       properties:
         volumeControllerId: {type: string}
     result: {$ref: '#/types/VolumeController'}
+    examples:
+      - title: Retrieve a volume controller
+        request: {path: /v1.1/volumeControllers/d290f1ee-6c54-4b01-90e6-d701748f0864}
+        response:
+          status: 200
+          body: {allowMute: true, contentClasses: [{type: music}], id: d290f1ee-6c54-4b01-90e6-d701748f0864, maxVolume: 100, minVolume: 0, muted: true, target: [{type: device, id: d290f1ee-6c54-4b11-90e6-d701748f0864}], volume: 62}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#retrieve-a-volume-controller
   modify_volume_controller:
     summary: Modify volume and/or mute status of a volume controller.
     effect: write
@@ -166,9 +208,18 @@ operations:
         volume:
           type: number
           description: Volume for the content type of all targets associated with the controller; between minVolume
-            and maxVolume. Optionality inferred (PATCH).
+            and maxVolume.
         muted: {type: boolean}
     result: {$ref: '#/types/VolumeController'}
+    examples:
+      - title: Set volume and mute
+        request:
+          path: /v1.1/volumeControllers/d290f1ee-6c54-4b01-90e6-d701748f0864
+          body: {volume: 50, muted: true}
+        response:
+          status: 200
+          body: {allowMute: true, contentClasses: [{type: music}], id: d290f1ee-6c54-4b01-90e6-d701748f0864, maxVolume: 100, minVolume: 0, muted: true, target: [{type: device, id: d290f1ee-6c54-4b11-90e6-d701748f0864}], volume: 62}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#modify-volume-controller
   toggle_mute:
     summary: Toggle the mute status of a volume controller.
     effect: action
@@ -180,8 +231,14 @@ operations:
         volumeControllerId: {type: string}
     result:
       type: object
+      required: [muted]
       properties:
-        muted: {type: boolean}
+        muted: {type: boolean, description: Whether the volume controller is muted after the toggle.}
+    examples:
+      - title: Toggle the mute status
+        request: {path: /v1.3/volumeControllers/fc058559-7fa1-4b4b-a06d-712dcf8a8791/toggleMute}
+        response: {status: 200, body: {muted: true}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#examples-1
   offset_volume:
     summary: Adjust volume by a specified relative amount.
     effect: action
@@ -199,8 +256,16 @@ operations:
           description: Requested volume change relative to the current value. Negative decreases.
     result:
       type: object
+      required: [volume]
       properties:
         volume: {type: number, description: The volume after adjustment.}
+    examples:
+      - title: Decrease the volume by 10
+        request:
+          path: /v1.3/volumeControllers/fc058559-7fa1-4b4b-a06d-712dcf8a8791/offsetVolume
+          body: {volumeOffset: -10.0}
+        response: {status: 200, body: {volume: 30.0}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#examples-1
   list_audio_sessions:
     summary: Retrieve all audio sessions.
     effect: read
@@ -208,6 +273,20 @@ operations:
     result:
       type: array
       items: {$ref: '#/types/AudioSession'}
+    examples:
+      - title: List audio sessions
+        request: {path: /v1.2/audioSessions}
+        response:
+          status: 200
+          body:
+            - type: vapixOneWay
+              intermediaryDevice: 5109a18b-1f48-40d8-b185-586d152fa0e7
+              targets: [5109a18b-1f48-40d8-b185-586d152fa0e7, d290f1ee-6c54-4b01-90e6-d701748f0851, 1b5c939d-c622-423d-a297-d6b8925e785d]
+              id: 35dc8237-877a-4e2d-a6a1-e362feacd6d0
+              prio: 4499
+              niceName: Vapix paging
+            - {type: sipTwoWay, intermediaryDevice: c9820c2a-08c8-4957-8bb4-db67957fad75, id: 692baed9-1f6f-483e-bb50-899734a68cd4, prio: 4498, niceName: Sip talkback session}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#list-audio-sessions
   get_audio_session:
     summary: Retrieve a specified audio session.
     effect: read
@@ -218,6 +297,19 @@ operations:
       properties:
         audioSessionId: {type: string}
     result: {$ref: '#/types/AudioSession'}
+    examples:
+      - title: Retrieve an audio session
+        request: {path: /v1.2/audioSessions/35dc8237-877a-4e2d-a6a1-e362feacd6d0}
+        response:
+          status: 200
+          body:
+            type: vapixOneWay
+            intermediaryDevice: 5109a18b-1f48-40d8-b185-586d152fa0e7
+            targets: [5109a18b-1f48-40d8-b185-586d152fa0e7, d290f1ee-6c54-4b01-90e6-d701748f0851, 1b5c939d-c622-423d-a297-d6b8925e785d]
+            id: 35dc8237-877a-4e2d-a6a1-e362feacd6d0
+            prio: 4499
+            niceName: Vapix paging
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#examples-2
   create_oneshot_audio_session:
     summary: Create a one-shot audio session playing audio files on targets.
     effect: write
@@ -229,7 +321,7 @@ operations:
       properties:
         fileIds:
           type: array
-          items: {type: string, description: format=uuid}
+          items: {type: string, description: File ID in UUID format.}
           description: Array of file IDs (UUID format) to be used in the audio session.
         prio:
           type: string
@@ -237,10 +329,11 @@ operations:
           description: The priority level of the audio session.
         targets:
           type: array
-          description: Array of target IDs (zones or devices). Documented as 'array of objects' but described as
-            IDs (see open_questions).
+          items: {type: string}
+          description: Array of target IDs (zones or devices) of the audio session.
     result:
       type: object
+      required: [type]
       properties:
         type: {const: oneShot}
         targets:
@@ -248,6 +341,16 @@ operations:
           items: {type: string}
         prio: {type: integer}
         niceName: {type: string}
+    examples:
+      - title: Create a one-shot audio session
+        description: The docs show no request body; it is built from the parameter table, the response is the documented one.
+        request:
+          path: /v1.2/audioSessions/oneshotPlayAudioFiles
+          body: {fileIds: [3fa85f64-5717-4562-b3fc-2c963f66afa6], prio: high, targets: [d290f1ee-6c54-4b01-90e6-d701748f0851]}
+        response:
+          status: 201
+          body: {type: oneShot, targets: [d290f1ee-6c54-4b01-90e6-d701748f0851], prio: 0, niceName: string}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#create-a-one-shot-audio-session
   stop_audio_session:
     summary: Stop an audio session.
     effect: action
@@ -257,6 +360,11 @@ operations:
       required: [audioSessionId]
       properties:
         audioSessionId: {type: string, description: The ID (UUID format) of the audio session to stop.}
+    examples:
+      - title: Stop an audio session
+        request: {path: /v1.2/audioSessions/35dc8237-877a-4e2d-a6a1-e362feacd6d0/stopAudioFiles}
+        response: {status: 204}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#stop-an-audio-session
   list_audio_files:
     summary: List audio files.
     effect: read
@@ -265,28 +373,37 @@ operations:
       type: array
       items: {$ref: '#/types/AudioFile'}
 
+    examples:
+      - title: List audio files
+        request: {path: /v1.2/audioFiles}
+        response:
+          status: 200
+          body:
+            - {trackId: 3fa85f64-5717-4562-b3fc-2c963f66afa6, name: string}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/#list-audio-files
 sources:
 - url: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/
   sha256_md: 3aa6854f194886edb085d747692316dd24c102ffe6fed68fd74af7ceb6a1ae84
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: partial
+  completeness: complete
   open_questions:
   - No discovery mechanism (API discovery id / property) or AXIS OS requirement is documented.
-  - Access levels per endpoint not documented.
-  - 'Create one-shot session: request body example missing; ''targets'' typed ''array of objects'' but described
-    as ''Array of target IDs''; prio is a string enum (high/medium/low) in request but integer in response; required-ness
-    not stated.'
-  - 'Retrieve target reference example uses "type": ok (unquoted, invalid JSON).'
-  - List targets reference response example is mangled in Markdown (nested fences); Example 1 used instead.
+  - Access levels per endpoint are not documented (admin is assumed).
+  - 'Create one-shot session: the docs show no request body; ''targets'' is typed ''array of objects'' but described
+    as ''Array of target IDs'' (modelled as strings, as in the response), required-ness is not stated (fileIds and
+    targets are treated as required), and prio is a string enum (high/medium/low) in the request but an integer
+    in the response.'
+  - 'Retrieve target reference example uses "type": ok (unquoted, invalid JSON); the second example of the Targets
+    section is used instead.'
+  - 'The volume controller examples of the Examples section use "targets" and plain strings in "contentClasses",
+    contradicting the field table ("target", objects with "type"); the reference examples are used.'
+  - 'The audio session examples use "externalRtp" and "vapixMediaClip" (the enum has externalRTP and vapixMediaclip)
+    and the path /vapix/aam-edge-api/ (the endpoints are under /vapix/aam-edge/api/); the reference examples are used.'
   - Error tables say reason valid values are only 'ResourceInstanceNotFound' even for 400/415 errors.
   - 500 error response body example is empty in the doc.
-  - Endpoints are spread across version paths v1.0–v1.3; whether older/newer versions serve all endpoints is not
-    stated.
-  - 'migration: versioned-paths: operations carry the API version in their path (for example /v1.1/); versions are
-    not negotiated'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-keywords: title x2'
+  - Endpoints are spread across version paths v1.0 to v1.3; whether older or newer versions serve all endpoints is
+    not stated. The versions are part of each operation path and are not negotiated.
   migrated_from: v1
-  curated: false
+  curated: true
