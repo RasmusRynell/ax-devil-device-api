@@ -207,6 +207,7 @@ class _Core:
         self.pending: deque[Any] = deque()
         self.closed: SessionClosed | None = None
         self.failed = False
+        self.overflowed = False
         self._counter = 0
         self._ended = False
 
@@ -253,8 +254,12 @@ class _Core:
             return message
         return json.dumps(message)
 
+    def overflow_closed(self) -> SessionClosed:
+        return SessionClosed(LIMIT_CLOSE_CODE, LIMIT_CLOSE_REASON)
+
     def _too_large(self) -> ResponseFormatError:
         self.failed = True
+        self.overflowed = True
         return ResponseFormatError(self.spec.api_id, "receive", f"message exceeds {MAX_WS_MESSAGE_BYTES} bytes; session closed")
 
     def on_disconnect(self, error: httpx_ws.WebSocketDisconnect) -> DeviceError:
@@ -368,6 +373,8 @@ class Session:
 
     def send(self, message: Any) -> None:
         """Send ``bytes`` as a binary frame, ``str`` as text, anything else as JSON text."""
+        if self._core.overflowed:
+            raise self._core.overflow_closed()
         data = self._core.encode(message)
         try:
             if isinstance(data, bytes):
@@ -390,6 +397,8 @@ class Session:
         core = self._core
         if core.closed is not None:
             raise core.closed
+        if core.overflowed:
+            raise core.overflow_closed()
         deadline = None if timeout is None else time.monotonic() + timeout
         while True:
             remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
@@ -398,12 +407,27 @@ class Session:
             except queue.Empty:
                 raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s") from None
             except httpx_ws.WebSocketDisconnect as error:
-                raise core.on_disconnect(error) from None
+                raised = core.on_disconnect(error)
+                if core.overflowed:
+                    self._abort()
+                raise raised from None
             except httpx_ws.WebSocketNetworkError:
                 raise core.on_network_error() from None
-            message = core.decode(event)
+            try:
+                message = core.decode(event)
+            except ResponseFormatError:
+                if core.overflowed:
+                    self._abort()
+                raise
             if message is not None:
                 return message
+
+    def _abort(self) -> None:
+        """Close the transport with 1009 after an oversized message (the context exit then sends nothing more)."""
+        try:
+            self._raw.close(LIMIT_CLOSE_CODE, LIMIT_CLOSE_REASON)
+        except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError, wsproto.utilities.LocalProtocolError):
+            pass
 
     def request(self, method: str, params: Mapping[str, Any] | None = None, *, timeout: float | None = None) -> Any:
         """Send a request and return its result; other messages that arrive meanwhile stay queued for ``receive()``."""
@@ -516,6 +540,8 @@ class AsyncSession:
 
     async def send(self, message: Any) -> None:
         """Send ``bytes`` as a binary frame, ``str`` as text, anything else as JSON text."""
+        if self._core.overflowed:
+            raise self._core.overflow_closed()
         data = self._core.encode(message)
         try:
             if isinstance(data, bytes):
@@ -538,6 +564,8 @@ class AsyncSession:
         core = self._core
         if core.closed is not None:
             raise core.closed
+        if core.overflowed:
+            raise core.overflow_closed()
         loop = asyncio.get_running_loop()
         deadline = None if timeout is None else loop.time() + timeout
         while True:
@@ -547,12 +575,27 @@ class AsyncSession:
             except TimeoutError:
                 raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s") from None
             except httpx_ws.WebSocketDisconnect as error:
-                raise core.on_disconnect(error) from None
+                raised = core.on_disconnect(error)
+                if core.overflowed:
+                    await self._abort()
+                raise raised from None
             except httpx_ws.WebSocketNetworkError:
                 raise core.on_network_error() from None
-            message = core.decode(event)
+            try:
+                message = core.decode(event)
+            except ResponseFormatError:
+                if core.overflowed:
+                    await self._abort()
+                raise
             if message is not None:
                 return message
+
+    async def _abort(self) -> None:
+        """Close the transport with 1009 after an oversized message (the context exit then sends nothing more)."""
+        try:
+            await self._raw.close(LIMIT_CLOSE_CODE, LIMIT_CLOSE_REASON)
+        except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError, wsproto.utilities.LocalProtocolError):
+            pass
 
     async def request(self, method: str, params: Mapping[str, Any] | None = None, *, timeout: float | None = None) -> Any:
         """Send a request and return its result; other messages that arrive meanwhile stay queued for ``receive()``."""

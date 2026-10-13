@@ -538,3 +538,38 @@ def test_messages_under_the_cap_still_arrive() -> None:
     with device(camera) as dev, dev.connect_session(RAW, heartbeat=QUICK) as session:
         camera.sockets[0].push_fragments(b"\x01" * (3 * MIB), b"\x02" * (3 * MIB))
         assert len(session.receive(timeout=5)) == 6 * MIB
+
+
+def test_overflow_closes_the_transport_with_1009_and_rejects_further_io() -> None:
+    camera = FakeWsCamera()
+    with device(camera) as dev:
+        with dev.connect_session(RAW, heartbeat=QUICK) as session:
+            camera.sockets[0].push_fragments(*_oversized("unfinished-binary"))
+            with pytest.raises(errors.ResponseFormatError):
+                session.receive(timeout=5)
+            assert camera.sockets[0].closed_by_client == 1009  # the peer saw the close
+            with pytest.raises(errors.SessionClosed):
+                session.send(b"x")
+            with pytest.raises(errors.SessionClosed):
+                session.receive(timeout=0.2)
+            assert camera.sockets[0].received == []  # nothing reached the server after the overflow
+        assert camera.sockets[0].closed_by_client == 1009  # exit sent no second close
+        assert camera.sockets[0].close_frames == 1
+        assert camera.streams[0].closed
+
+
+@pytest.mark.anyio
+async def test_async_overflow_closes_the_transport_with_1009_and_rejects_further_io() -> None:
+    camera = FakeWsCamera()
+    async with adevice(camera) as dev:
+        async with dev.connect_session(RAW, heartbeat=QUICK) as session:
+            camera.sockets[0].push_fragments(*_oversized("unicode-text"))
+            with pytest.raises(errors.ResponseFormatError):
+                await session.receive(timeout=5)
+            assert camera.sockets[0].closed_by_client == 1009
+            with pytest.raises(errors.SessionClosed):
+                await session.send(b"x")
+            with pytest.raises(errors.SessionClosed):
+                await session.receive()  # must not block
+        assert camera.sockets[0].close_frames == 1
+        assert camera.streams[0].closed

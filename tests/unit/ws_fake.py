@@ -33,6 +33,7 @@ class FakeSocket:
         self.pings = 0
         self.answer_pings = True
         self.closed_by_client: int | None = None
+        self.close_frames = 0
 
     # -- called by the stream
     def feed(self, data: bytes) -> None:
@@ -51,6 +52,7 @@ class FakeSocket:
                 self.received.append(bytes(event.data))
             elif isinstance(event, wsproto.events.CloseConnection):
                 self.closed_by_client = event.code
+                self.close_frames += 1
                 if self.conn.state == wsproto.connection.ConnectionState.REMOTE_CLOSING:
                     self._emit(self.conn.send(event.response()))
 
