@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 
 from pydantic import PlainValidator
@@ -35,13 +35,16 @@ class Upload:
     """A binary stream and the number of bytes to send from it.
 
     ``size`` must be exact: the request declares it as the content length.
-    The stream is read once, from its current position.
+    The stream is read once, from its current position (small uploads are then kept in memory, so repeating a failed call is safe).
     """
 
     stream: BinaryIO
     size: int
     filename: str | None = None
     content_type: str | None = None
+    _buffer: bytes | None = field(default=None, init=False, repr=False)
+    """Content of a small upload, kept after the first read: the stream is one-shot, so a call that failed before
+    the body was sent (no free slot, a failing hook, a connection error) can be repeated with the same source."""
 
     def __post_init__(self) -> None:
         if self.size < 0:
@@ -131,7 +134,9 @@ def _load(value: UploadSource) -> tuple[bytes | _PathChunks | _StreamChunks, int
         return value, len(value)
     if isinstance(value, Upload):
         if value.size <= INLINE_LIMIT:
-            return b"".join(_read_exactly(value.stream, value.size)), value.size
+            if value._buffer is None:
+                value._buffer = b"".join(_read_exactly(value.stream, value.size))
+            return value._buffer, value.size
         return _StreamChunks(value.stream, value.size), value.size
     path = os.fspath(value)
     size = os.stat(path).st_size

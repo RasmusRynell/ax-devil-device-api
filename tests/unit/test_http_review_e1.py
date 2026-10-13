@@ -308,3 +308,93 @@ def test_finite_floats_still_validate() -> None:
     from ax_devil_device_api.apis.axis_audio_manager_edge import OffsetVolumeRequest
 
     assert OffsetVolumeRequest(volume_controller_id="vc1", volume_offset=-2.5).volume_offset == -2.5
+
+
+# --- a documented HTTP status wins over the generic 404 -> NotSupported mapping ---------------------------------------
+
+
+def test_documented_404_is_an_api_error_not_not_supported() -> None:
+    from ax_devil_device_api._protocols.base import http_error
+    from ax_devil_device_api._protocols.cgi import _decode
+    from ax_devil_device_api.apis import media_stream
+    from ax_devil_device_api.errors import ApiError, NotSupported
+
+    op = media_stream.OPS.get_media_stream
+    request = Request("GET", "/axis-media/media.amp")
+    response = Response(404, Headers(()), b"not here", request)
+    error = http_error(op, response)
+    assert isinstance(error, ApiError) and error.kind == "not_found" and error.http_status == 404
+    with pytest.raises(ApiError):
+        _decode(op, response)
+    # an operation that documents nothing for the status keeps the generic mapping
+    undocumented = media_stream.OPS.get_media_stream
+    assert isinstance(http_error(undocumented, Response(418, Headers(()), b"", request)), Exception)
+    assert not isinstance(http_error(op, response), NotSupported)
+
+
+# --- a reused one-shot upload source never silently sends an empty body ---------------------------------------------
+
+
+def _mock_ok() -> Any:
+    import httpx
+
+    seen: list[bytes] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.content)
+        return httpx.Response(200)
+
+    return httpx.MockTransport(handler), seen
+
+
+def _upload_flow(upload: Upload) -> CallFlow[int]:
+    response = yield Request("POST", "/up", body=MultipartBody((), (file_part("f", upload),)), timeout=0.05)
+    return response.status
+
+
+def test_sync_reused_upload_after_a_failing_hook_or_pool_timeout_sends_the_data() -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import SyncTransport
+    from ax_devil_device_api.errors import PoolTimeout
+
+    upload = Upload(io.BytesIO(b"PAYLOAD"), 7)
+    mock, seen = _mock_ok()
+
+    def boom(record: dict[str, Any]) -> None:
+        raise RuntimeError("hook failed")
+
+    with SyncTransport(ConnectionConfig("cam", on_request=boom, max_concurrency=1), transport=mock) as failing:
+        with pytest.raises(RuntimeError):
+            run_sync(failing, _upload_flow(upload), Call())
+    with SyncTransport(ConnectionConfig("cam", max_concurrency=1), transport=mock) as busy:
+        assert busy._slots.acquire()
+        with pytest.raises(PoolTimeout):
+            run_sync(busy, _upload_flow(upload), Call())
+        busy._slots.release()
+        assert run_sync(busy, _upload_flow(upload), Call()) == 200
+    assert seen and b"PAYLOAD" in seen[-1]
+
+
+@pytest.mark.anyio
+async def test_async_reused_upload_after_a_failing_hook_or_pool_timeout_sends_the_data() -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import AsyncTransport
+    from ax_devil_device_api.errors import PoolTimeout
+
+    upload = Upload(io.BytesIO(b"PAYLOAD"), 7)
+    mock, seen = _mock_ok()
+
+    def boom(record: dict[str, Any]) -> None:
+        raise RuntimeError("hook failed")
+
+    async with AsyncTransport(ConnectionConfig("cam", on_request=boom), transport=mock) as failing:
+        with pytest.raises(RuntimeError):
+            await run_async(failing, _upload_flow(upload), Call())
+    async with AsyncTransport(ConnectionConfig("cam", max_concurrency=1), transport=mock) as busy:
+        slots, _ = busy._semaphores()
+        await slots.acquire()
+        with pytest.raises(PoolTimeout):
+            await run_async(busy, _upload_flow(upload), Call())
+        slots.release()
+        assert await run_async(busy, _upload_flow(upload), Call()) == 200
+    assert seen and b"PAYLOAD" in seen[-1]

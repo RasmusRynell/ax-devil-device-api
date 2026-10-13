@@ -810,8 +810,13 @@ def api_error(
 
 
 def http_error(op: Operation[Any], response: Response) -> DeviceError:
-    """Build the error for a failure status that carried no API error envelope."""
+    """Build the error for a failure status that carried no API error envelope.
+
+    A status the operation (or API) documents wins over the generic mapping below."""
     status = response.status
+    if status != 401 and op.error_code(status) is not None:
+        # The operation documents this status (for example a 404 that means "not found", not "unsupported").
+        return api_error(op, status, response.excerpt(), http_status=status, details=response.text)
     if status == 401:
         return AuthError(f"{op.api.id}.{op.id}: the device requires authentication and no usable credentials were configured")
     if status == 403:
