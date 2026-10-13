@@ -15,7 +15,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -484,7 +484,7 @@ class NetworkShareApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ModifyShareRequest):
-            kwargs = {**dict(zip(("shareid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.modify_share, ("shareid",), (request, *args), kwargs)
             request = None
         self._run(OPS.modify_share, request, kwargs, request_options)
 
@@ -652,7 +652,7 @@ class AsyncNetworkShareApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ModifyShareRequest):
-            kwargs = {**dict(zip(("shareid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.modify_share, ("shareid",), (request, *args), kwargs)
             request = None
         await self._run(OPS.modify_share, request, kwargs, request_options)
 

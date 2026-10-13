@@ -183,7 +183,7 @@ class UpdateTrapRequest(Model):
     def from_current(cls, trap: Trap) -> UpdateTrapRequest:
         """A request that rewrites ``trap`` unchanged: copy it, edit fields, send it back."""
         data = trap.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateSnmpV1V2CommonRequest(Model):
@@ -205,7 +205,7 @@ class UpdateSnmpV1V2CommonRequest(Model):
     def from_current(cls, common: SnmpV1V2Common) -> UpdateSnmpV1V2CommonRequest:
         """A request that rewrites ``common`` unchanged: copy it, edit fields, send it back."""
         data = common.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateSnmpV1Request(Model):
@@ -218,7 +218,7 @@ class UpdateSnmpV1Request(Model):
     def from_current(cls, v1: SnmpV1) -> UpdateSnmpV1Request:
         """A request that rewrites ``v1`` unchanged: copy it, edit fields, send it back."""
         data = v1.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateSnmpV2Request(Model):
@@ -231,7 +231,7 @@ class UpdateSnmpV2Request(Model):
     def from_current(cls, v2: SnmpV2) -> UpdateSnmpV2Request:
         """A request that rewrites ``v2`` unchanged: copy it, edit fields, send it back."""
         data = v2.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateSnmpV3Request(Model):
@@ -263,7 +263,7 @@ class UpdateNtcipRequest(Model):
     def from_current(cls, ntcip: Ntcip) -> UpdateNtcipRequest:
         """A request that rewrites ``ntcip`` unchanged: copy it, edit fields, send it back."""
         data = ntcip.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateAllRequest(Model):
@@ -773,7 +773,7 @@ class OPS:
     set_snmp_v3_user_passwd = Operation(
         INFO,
         "set_snmp_v3_user_passwd",
-        DcaBinding("PATCH", f"{ROOT}/snmpV3/userPasswd", body="value", body_field="userPasswd"),
+        DcaBinding("PATCH", f"{ROOT}/snmpV3/userPasswd", body="value", body_field="userPasswd", sensitive=True),
         params=SetSnmpV3UserPasswdRequest,
         access="admin",
         effect="write",
@@ -782,7 +782,7 @@ class OPS:
     set_snmp_v3_user_passwd_set = Operation(
         INFO,
         "set_snmp_v3_user_passwd_set",
-        DcaBinding("PATCH", f"{ROOT}/snmpV3/userPasswdSet", body="value", body_field="userPasswdSet"),
+        DcaBinding("PATCH", f"{ROOT}/snmpV3/userPasswdSet", body="value", body_field="userPasswdSet", sensitive=True),
         params=SetSnmpV3UserPasswdSetRequest,
         access="admin",
         effect="write",
@@ -840,7 +840,11 @@ class OPS:
         INFO,
         "set_user_auth_passphrase",
         DcaBinding(
-            "PATCH", f"{ROOT}/snmpV3/users/{{username}}/authPassphrase", body="value", body_field="authPassphrase"
+            "PATCH",
+            f"{ROOT}/snmpV3/users/{{username}}/authPassphrase",
+            body="value",
+            body_field="authPassphrase",
+            sensitive=True,
         ),
         params=SetUserAuthPassphraseRequest,
         access="admin",
@@ -851,7 +855,11 @@ class OPS:
         INFO,
         "set_user_encrypt_passphrase",
         DcaBinding(
-            "PATCH", f"{ROOT}/snmpV3/users/{{username}}/encryptPassphrase", body="value", body_field="encryptPassphrase"
+            "PATCH",
+            f"{ROOT}/snmpV3/users/{{username}}/encryptPassphrase",
+            body="value",
+            body_field="encryptPassphrase",
+            sensitive=True,
         ),
         params=SetUserEncryptPassphraseRequest,
         access="admin",

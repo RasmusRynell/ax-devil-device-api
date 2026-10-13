@@ -15,7 +15,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import Binary, CgiArg, CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -434,7 +434,7 @@ class ExportRecordingApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, GetPropertiesRequest):
-            kwargs = {**dict(zip(("recording_id", "disk_id"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.get_properties, ("recording_id", "disk_id"), (request, *args), kwargs)
             request = None
         return self._run(OPS.get_properties, request, kwargs, request_options)
 
@@ -471,10 +471,9 @@ class ExportRecordingApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ExportRecordingRequest):
-            kwargs = {
-                **dict(zip(("recording_id", "disk_id", "export_format"), (request, *args), strict=False)),
-                **kwargs,
-            }
+            kwargs = bind_positional(
+                OPS.export_recording, ("recording_id", "disk_id", "export_format"), (request, *args), kwargs
+            )
             request = None
         return self._run(OPS.export_recording, request, kwargs, request_options)
 
@@ -510,14 +509,12 @@ class ExportRecordingApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ExportToExternalRequest):
-            kwargs = {
-                **dict(
-                    zip(
-                        ("recording_id", "disk_id", "external_disk_id", "export_format"), (request, *args), strict=False
-                    )
-                ),
-                **kwargs,
-            }
+            kwargs = bind_positional(
+                OPS.export_to_external,
+                ("recording_id", "disk_id", "external_disk_id", "export_format"),
+                (request, *args),
+                kwargs,
+            )
             request = None
         return self._run(OPS.export_to_external, request, kwargs, request_options)
 
@@ -574,7 +571,7 @@ class AsyncExportRecordingApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, GetPropertiesRequest):
-            kwargs = {**dict(zip(("recording_id", "disk_id"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.get_properties, ("recording_id", "disk_id"), (request, *args), kwargs)
             request = None
         return await self._run(OPS.get_properties, request, kwargs, request_options)
 
@@ -611,10 +608,9 @@ class AsyncExportRecordingApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ExportRecordingRequest):
-            kwargs = {
-                **dict(zip(("recording_id", "disk_id", "export_format"), (request, *args), strict=False)),
-                **kwargs,
-            }
+            kwargs = bind_positional(
+                OPS.export_recording, ("recording_id", "disk_id", "export_format"), (request, *args), kwargs
+            )
             request = None
         return await self._run(OPS.export_recording, request, kwargs, request_options)
 
@@ -650,14 +646,12 @@ class AsyncExportRecordingApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ExportToExternalRequest):
-            kwargs = {
-                **dict(
-                    zip(
-                        ("recording_id", "disk_id", "external_disk_id", "export_format"), (request, *args), strict=False
-                    )
-                ),
-                **kwargs,
-            }
+            kwargs = bind_positional(
+                OPS.export_to_external,
+                ("recording_id", "disk_id", "external_disk_id", "export_format"),
+                (request, *args),
+                kwargs,
+            )
             request = None
         return await self._run(OPS.export_to_external, request, kwargs, request_options)
 

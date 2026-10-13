@@ -15,7 +15,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -375,7 +375,7 @@ class TemperatureAlarmApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetZoneRequest):
-            kwargs = {**dict(zip(("id",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_zone, ("id",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_zone, request, kwargs, request_options)
 
@@ -463,7 +463,7 @@ class AsyncTemperatureAlarmApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetZoneRequest):
-            kwargs = {**dict(zip(("id",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_zone, ("id",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_zone, request, kwargs, request_options)
 

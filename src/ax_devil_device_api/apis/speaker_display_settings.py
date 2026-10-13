@@ -129,7 +129,7 @@ class UpdateAppearanceRequest(Model):
     def from_current(cls, appearance: Appearance) -> UpdateAppearanceRequest:
         """A request that rewrites ``appearance`` unchanged: copy it, edit fields, send it back."""
         data = appearance.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateBrightnessRequest(Model):
@@ -156,7 +156,7 @@ class UpdateBrightnessRequest(Model):
     def from_current(cls, brightness: Brightness) -> UpdateBrightnessRequest:
         """A request that rewrites ``brightness`` unchanged: copy it, edit fields, send it back."""
         data = brightness.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdatePowerSaveRequest(Model):
@@ -175,7 +175,7 @@ class UpdatePowerSaveRequest(Model):
     def from_current(cls, save: PowerSave) -> UpdatePowerSaveRequest:
         """A request that rewrites ``save`` unchanged: copy it, edit fields, send it back."""
         data = save.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateAllRequest(Model):

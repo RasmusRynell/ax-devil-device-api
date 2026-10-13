@@ -301,7 +301,7 @@ def _text_errors(op: Operation[Any], text: str, http_status: int | None = None) 
     if envelope is not None:
         code, message = envelope
         raise api_error(op, code, message, http_status=http_status, details=text)
-    comment = _COMMENT_ERROR.match(text.strip())
+    comment = _COMMENT_ERROR.fullmatch(text.strip())
     if comment:
         raise api_error(op, None, comment.group(1).strip() or "Error", http_status=http_status, details=text)
     lines = [line.strip() for line in text.splitlines() if line.strip()]

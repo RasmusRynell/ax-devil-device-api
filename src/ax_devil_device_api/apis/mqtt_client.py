@@ -169,7 +169,7 @@ class ConfigureClientRequest(Model):
         missing = [name for name in ("client_id",) if name not in data]
         if missing:
             raise ValueError(f"the current value has no {', '.join(missing)} to keep")
-        return cls(**data, keep_existing_password=True)
+        return cls.from_response_data({**data, "keep_existing_password": True})
 
 
 # ---------------------------------------------------------------------------

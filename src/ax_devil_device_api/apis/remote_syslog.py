@@ -14,7 +14,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -140,7 +140,7 @@ class RemoteSyslogApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetupRequest):
-            kwargs = {**dict(zip(("servers",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.setup, ("servers",), (request, *args), kwargs)
             request = None
         return self._run(OPS.setup, request, kwargs, request_options)
 
@@ -197,7 +197,7 @@ class AsyncRemoteSyslogApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetupRequest):
-            kwargs = {**dict(zip(("servers",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.setup, ("servers",), (request, *args), kwargs)
             request = None
         return await self._run(OPS.setup, request, kwargs, request_options)
 

@@ -160,7 +160,8 @@ def build_dca(op, request: dict, root: str) -> tuple[Any, str]:
         candidate = given if given.startswith(root) else root + given
         styles = dict(getattr(op.binding, "key_styles", ()) or ())
         dotted = frozenset(n for n, s in styles.items() if s == "dots_to_slashes")
-        pattern, names = _template_regex(template, dotted)
+        nested = frozenset(n for n, s in styles.items() if s == "path")
+        pattern, names = _template_regex(template, dotted | nested)
         match = pattern.match(candidate)
         assert match, f"example path {given!r} does not match template {rel!r}"
         from urllib.parse import unquote
@@ -168,7 +169,12 @@ def build_dca(op, request: dict, root: str) -> tuple[Any, str]:
         values = {}
         for n, v in zip(names, match.groups()):
             # dots_to_slashes: the key is written as nested segments, the model holds the dotted key.
-            values[n] = ".".join(unquote(s) for s in v.split("/")) if n in dotted else unquote(v)
+            if n in dotted:
+                values[n] = ".".join(unquote(s) for s in v.split("/"))
+            elif n in nested:  # path: the model holds the nested path as written
+                values[n] = "/".join(unquote(s) for s in v.split("/"))
+            else:
+                values[n] = unquote(v)
         path = candidate
     raw_body = request.get("body")
     # {"data": <value>}: the value may be any JSON type (string, number, boolean, array, null).

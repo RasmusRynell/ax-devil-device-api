@@ -321,7 +321,7 @@ class UpdateConfigurationRequest(Model):
         missing = [name for name in ("sensor_id",) if name not in data]
         if missing:
             raise ValueError(f"the current value has no {', '.join(missing)} to keep")
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 MeasurementCategory = str

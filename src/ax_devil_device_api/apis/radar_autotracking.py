@@ -87,7 +87,7 @@ class SetObjectTypesToTrackRequest(Model):
     def from_current(cls, types: ObjectTypes) -> SetObjectTypesToTrackRequest:
         """A request that rewrites ``types`` unchanged: copy it, edit fields, send it back."""
         data = types.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 ObjectType = Literal["small", "human", "vehicle", "unknown"]

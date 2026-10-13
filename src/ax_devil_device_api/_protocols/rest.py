@@ -44,6 +44,8 @@ class RestBinding:
     query: tuple[tuple[str, str], ...] = ()
     auth: AuthPolicy = "required"
     timeout: float | None = None
+    sensitive: bool = False
+    """The ``value`` body is a secret (a masked or secret-named field): debug hooks never see it."""
 
     @property
     def path_params(self) -> tuple[str, ...]:
@@ -95,7 +97,7 @@ def _build(op: Operation[RestBinding], params: Model | None) -> Request:
     elif binding.body == "value":
         assert params is not None and binding.body_field is not None
         field = _field_for(params, binding.body_field) or binding.body_field
-        body = JsonBody(wire.get(_alias(params, field)))
+        body = JsonBody(wire.get(_alias(params, field)), sensitive=binding.sensitive)
 
     return Request(
         binding.method, path, query=tuple(query), body=body, accept="application/json", auth=binding.auth, timeout=binding.timeout

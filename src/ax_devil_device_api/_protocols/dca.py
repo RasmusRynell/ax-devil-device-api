@@ -41,11 +41,15 @@ class DcaBinding:
     path: str
     body: Literal["none", "object", "value"] = "none"
     body_field: str | None = None
-    key_styles: tuple[tuple[str, Literal["segment", "dots_to_slashes"]], ...] = ()
+    key_styles: tuple[tuple[str, Literal["segment", "dots_to_slashes", "path"]], ...] = ()
     """Per placeholder: ``dots_to_slashes`` writes a dotted key as nested path segments
-    (``com.axis.topic`` -> ``com/axis/topic``); the default is one encoded segment."""
+    (``com.axis.topic`` -> ``com/axis/topic``); ``path`` keeps the ``/`` of a nested path
+    (``a/b`` stays two segments); the default is one encoded segment. Empty, ``.`` and ``..``
+    segments are rejected in every style."""
     auth: AuthPolicy = "required"
     timeout: float | None = None
+    sensitive: bool = False
+    """The ``value`` body is a secret (a masked or secret-named field): debug hooks never see it."""
 
     @property
     def path_params(self) -> tuple[str, ...]:
@@ -62,7 +66,8 @@ def _build(op: Operation[DcaBinding], params: Model | None) -> Request:
         if value is None:
             raise TypeError(f"{op.api.id}.{op.id}: missing path parameter {name!r}")
         text = str(value)
-        segments = text.split(".") if dict(binding.key_styles).get(name) == "dots_to_slashes" else [text]
+        style = dict(binding.key_styles).get(name)
+        segments = text.split(".") if style == "dots_to_slashes" else text.split("/") if style == "path" else [text]
         for segment in segments:
             if segment in ("", ".", ".."):
                 # These would address a different resource after URL normalization.
@@ -82,7 +87,7 @@ def _build(op: Operation[DcaBinding], params: Model | None) -> Request:
     elif binding.body == "value":
         assert params is not None and binding.body_field is not None
         field = _field_for(params, binding.body_field) or binding.body_field
-        body = JsonBody({"data": wire.get(_alias(params, field))})
+        body = JsonBody({"data": wire.get(_alias(params, field))}, sensitive=binding.sensitive)
 
     return Request(binding.method, path, body=body, accept="application/json", auth=binding.auth, timeout=binding.timeout)
 

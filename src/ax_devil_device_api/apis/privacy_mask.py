@@ -15,7 +15,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, JsonReply, Text, TextKv, TextOk
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -358,7 +358,7 @@ class PrivacyMaskApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, AddMaskRequest):
-            kwargs = {**dict(zip(("name",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.add_mask, ("name",), (request, *args), kwargs)
             request = None
         self._run(OPS.add_mask, request, kwargs, request_options)
 
@@ -390,7 +390,7 @@ class PrivacyMaskApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, UpdateMaskRequest):
-            kwargs = {**dict(zip(("name",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.update_mask, ("name",), (request, *args), kwargs)
             request = None
         self._run(OPS.update_mask, request, kwargs, request_options)
 
@@ -535,7 +535,7 @@ class AsyncPrivacyMaskApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, AddMaskRequest):
-            kwargs = {**dict(zip(("name",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.add_mask, ("name",), (request, *args), kwargs)
             request = None
         await self._run(OPS.add_mask, request, kwargs, request_options)
 
@@ -569,7 +569,7 @@ class AsyncPrivacyMaskApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, UpdateMaskRequest):
-            kwargs = {**dict(zip(("name",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.update_mask, ("name",), (request, *args), kwargs)
             request = None
         await self._run(OPS.update_mask, request, kwargs, request_options)
 

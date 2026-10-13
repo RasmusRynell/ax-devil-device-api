@@ -251,7 +251,9 @@ class OPS:
     set_camera_pairing_password = Operation(
         INFO,
         "set_camera_pairing_password",
-        DcaBinding("PATCH", f"{ROOT}/cameraPairings/{{id}}/password", body="value", body_field="password"),
+        DcaBinding(
+            "PATCH", f"{ROOT}/cameraPairings/{{id}}/password", body="value", body_field="password", sensitive=True
+        ),
         params=SetCameraPairingPasswordRequest,
         access="admin",
         effect="write",

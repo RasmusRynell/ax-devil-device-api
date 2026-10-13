@@ -14,7 +14,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, DcaDiscovery, ErrorCode, Family, Model, Operation
 from .._protocols.dca import DcaBinding
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -135,7 +135,7 @@ class AddDestinationRequest(Model):
         needs one.
         """
         data = destination.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class SetFailoverRequest(Model):
@@ -302,7 +302,11 @@ class OPS:
         INFO,
         "set_destination_authorization_server",
         DcaBinding(
-            "PATCH", f"{ROOT}/destinations/{{id}}/authorizationServer", body="value", body_field="authorizationServer"
+            "PATCH",
+            f"{ROOT}/destinations/{{id}}/authorizationServer",
+            body="value",
+            body_field="authorizationServer",
+            sensitive=True,
         ),
         params=SetDestinationAuthorizationServerRequest,
         access="admin",
@@ -349,7 +353,7 @@ class RemoteObjectStorageApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetFailoverRequest):
-            kwargs = {**dict(zip(("failover",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_failover, ("failover",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_failover, request, kwargs, request_options)
 
@@ -452,7 +456,7 @@ class RemoteObjectStorageApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDestinationAzureRequest):
-            kwargs = {**dict(zip(("id", "azure"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_destination_azure, ("id", "azure"), (request, *args), kwargs)
             request = None
         self._run(OPS.set_destination_azure, request, kwargs, request_options)
 
@@ -474,7 +478,7 @@ class RemoteObjectStorageApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDestinationS3Request):
-            kwargs = {**dict(zip(("id", "s3"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_destination_s3, ("id", "s3"), (request, *args), kwargs)
             request = None
         self._run(OPS.set_destination_s3, request, kwargs, request_options)
 
@@ -501,7 +505,9 @@ class RemoteObjectStorageApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDestinationAuthorizationServerRequest):
-            kwargs = {**dict(zip(("id", "authorization_server"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(
+                OPS.set_destination_authorization_server, ("id", "authorization_server"), (request, *args), kwargs
+            )
             request = None
         self._run(OPS.set_destination_authorization_server, request, kwargs, request_options)
 
@@ -540,7 +546,7 @@ class AsyncRemoteObjectStorageApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetFailoverRequest):
-            kwargs = {**dict(zip(("failover",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_failover, ("failover",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_failover, request, kwargs, request_options)
 
@@ -643,7 +649,7 @@ class AsyncRemoteObjectStorageApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDestinationAzureRequest):
-            kwargs = {**dict(zip(("id", "azure"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_destination_azure, ("id", "azure"), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_destination_azure, request, kwargs, request_options)
 
@@ -665,7 +671,7 @@ class AsyncRemoteObjectStorageApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDestinationS3Request):
-            kwargs = {**dict(zip(("id", "s3"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_destination_s3, ("id", "s3"), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_destination_s3, request, kwargs, request_options)
 
@@ -692,6 +698,8 @@ class AsyncRemoteObjectStorageApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDestinationAuthorizationServerRequest):
-            kwargs = {**dict(zip(("id", "authorization_server"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(
+                OPS.set_destination_authorization_server, ("id", "authorization_server"), (request, *args), kwargs
+            )
             request = None
         await self._run(OPS.set_destination_authorization_server, request, kwargs, request_options)

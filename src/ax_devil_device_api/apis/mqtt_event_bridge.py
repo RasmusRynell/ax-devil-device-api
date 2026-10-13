@@ -103,7 +103,7 @@ class ConfigureEventPublicationRequest(Model):
         missing = [name for name in ("event_filter_list",) if name not in data]
         if missing:
             raise ValueError(f"the current value has no {', '.join(missing)} to keep")
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class EventPublicationConfigResult(Model):
@@ -141,7 +141,7 @@ class ConfigureMqttSubscriptionRequest(Model):
         missing = [name for name in ("mqtt_filter_list",) if name not in data]
         if missing:
             raise ValueError(f"the current value has no {', '.join(missing)} to keep")
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class MqttSubscriptionConfig(Model):

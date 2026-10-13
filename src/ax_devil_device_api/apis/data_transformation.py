@@ -127,7 +127,7 @@ class AddTransformRequest(Model):
     def from_current(cls, transform: Transform) -> AddTransformRequest:
         """A request that rewrites ``transform`` unchanged: copy it, edit fields, send it back."""
         data = transform.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateTransformRequest(Model):

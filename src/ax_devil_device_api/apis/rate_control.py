@@ -15,7 +15,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, TextKv, TextOk
 from ..rtsp import RtspBinding, RtspUrl
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -221,7 +221,7 @@ class RateControlApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRateControlRequest):
-            kwargs = {**dict(zip(("n",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_rate_control, ("n",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_rate_control, request, kwargs, request_options)
 
@@ -309,7 +309,7 @@ class AsyncRateControlApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRateControlRequest):
-            kwargs = {**dict(zip(("n",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_rate_control, ("n",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_rate_control, request, kwargs, request_options)
 

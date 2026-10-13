@@ -13,11 +13,25 @@ from collections.abc import Callable, Generator, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from types import UnionType
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Protocol, TypeVar, Union, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    ClassVar,
+    Generic,
+    Literal,
+    Protocol,
+    Self,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from pydantic import (
     BaseModel,
     ConfigDict,
+    PrivateAttr,
     SerializationInfo,
     SerializerFunctionWrapHandler,
     TypeAdapter,
@@ -102,6 +116,21 @@ _DROP_MASKED = "ax_devil_drop_masked"
 RESPONSE_CONTEXT = "ax_devil_response"
 """Validation context key set while parsing device responses (unknown fields allowed)."""
 
+_ROUND_TRIP = "ax_devil_round_trip"
+"""Context key of ``from_current``: a set collecting the enum values this client does not know (device-returned)."""
+_ALLOWED_VALUES = "ax_devil_allowed_values"
+"""Context key of send-time revalidation: the unknown enum values a round trip carried, which stay acceptable."""
+
+
+class _Masked:
+    """Stands in for a masked field's value in ``repr``."""
+
+    def __repr__(self) -> str:
+        return "'*****'"
+
+
+_MASKED_REPR = _Masked()
+
 
 class Model(BaseModel):
     """Base class for generated request and response models.
@@ -130,6 +159,9 @@ class Model(BaseModel):
     """Fields the device masks in responses (``x-masked``): never copied by ``from_current`` and redacted in debug hooks."""
     __read_only__: ClassVar[frozenset[str]] = frozenset()
     """Fields only present in responses (``x-read-only``): omitted from every request, at any depth."""
+
+    _round_trip_values: frozenset[Any] = PrivateAttr(default_factory=frozenset)
+    """Unknown enum values a ``from_current`` round trip carried over from the device; they pass send-time revalidation."""
 
     model_config = ConfigDict(
         hide_input_in_errors=True,
@@ -185,21 +217,36 @@ class Model(BaseModel):
         try:
             return handler(value)
         except ValidationError:
-            if is_response(info) and info.field_name is not None:
+            context = info.context or {}
+            response = bool(context.get(RESPONSE_CONTEXT))
+            collector = context.get(_ROUND_TRIP)
+            allowed = context.get(_ALLOWED_VALUES)
+            if info.field_name is not None and (response or collector is not None or allowed is not None):
                 annotation = cls.model_fields[info.field_name].annotation
-                coerced = _coerce_text(annotation, value)
-                if coerced is not value:
-                    try:
-                        return handler(coerced)
-                    except ValidationError:
-                        value = coerced
+                if response:
+                    coerced = _coerce_text(annotation, value)
+                    if coerced is not value:
+                        try:
+                            return handler(coerced)
+                        except ValidationError:
+                            value = coerced
                 if _is_new_enum_value(annotation, value):
-                    return value
+                    new = _unknown_items(annotation, value)
+                    if response:
+                        return value
+                    if collector is not None:
+                        collector.update(new)
+                        return value
+                    if all(item in allowed for item in new):
+                        return value
             raise
 
     def __repr_args__(self) -> Iterable[tuple[str | None, Any]]:
         fields_set = self.model_fields_set
-        return ((name, value) for name, value in super().__repr_args__() if name in fields_set or value is not None)
+        masked = self.__masked__
+        for name, value in super().__repr_args__():
+            if name in fields_set or value is not None:
+                yield name, (_MASKED_REPR if name in masked and value is not None else value)
 
     @model_serializer(mode="wrap")
     def _omit_unsendable(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> Any:
@@ -218,6 +265,29 @@ class Model(BaseModel):
             if field_info is not None and isinstance(field_info.serialization_alias, str):
                 data.pop(field_info.serialization_alias, None)
         return data
+
+    @classmethod
+    def from_response_data(cls, data: dict[str, Any]) -> Self:
+        """Build a request model from plain data a device returned (``from_current``).
+
+        Request rules apply (unknown fields and bad values are rejected), except that enum values newer
+        than the generated code are carried over, so a round trip survives a firmware upgrade. The model
+        remembers them: send-time revalidation accepts exactly those values and no others.
+        """
+        seen: set[Any] = set()
+        model = cls.model_validate(data, context={_ROUND_TRIP: seen})
+        model._round_trip_values = frozenset(seen)
+        return model
+
+    def revalidated(self) -> Self:
+        """A fresh, validated copy: catches edits made after construction (assignment, ``model_copy(update=...)``).
+
+        Runs under strict request rules, so a value that construction would reject raises ``ValidationError``.
+        """
+        data = _plain(self)
+        model = type(self).model_validate(data, context={_ALLOWED_VALUES: self._round_trip_values})
+        model._round_trip_values = self._round_trip_values
+        return model
 
     def to_wire(self) -> dict[str, Any]:
         """Serialize for sending: aliases, set fields only, read-only fields omitted at any depth."""
@@ -245,6 +315,19 @@ class Model(BaseModel):
         )
 
 
+def _plain(value: Any) -> Any:
+    """The set fields of models as plain dicts keyed by Python name (other values, such as uploads, kept as they are)."""
+    if isinstance(value, BaseModel):
+        return {name: _plain(getattr(value, name)) for name in value.model_fields_set}
+    if isinstance(value, list):
+        return [_plain(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_plain(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _plain(item) for key, item in value.items()}
+    return value
+
+
 def not_sent() -> Any:
     """Default of a required read-only field: absent on a request model, which never sends it."""
     return None
@@ -252,6 +335,8 @@ def not_sent() -> Any:
 
 def _literal_values(annotation: Any) -> tuple[Any, ...] | None:
     """The values of a ``Literal`` (possibly inside ``X | None``), or ``None``."""
+    if get_origin(annotation) is Annotated:
+        return _literal_values(get_args(annotation)[0])
     if get_origin(annotation) is Literal:
         return get_args(annotation)
     if get_origin(annotation) in (Union, UnionType):
@@ -268,6 +353,8 @@ def _is_new_enum_value(annotation: Any, value: Any) -> bool:
     ``list[Literal[...]]`` fields accept lists of such values. Nulls,
     objects and values of another type are still rejected.
     """
+    if get_origin(annotation) is Annotated:
+        return _is_new_enum_value(get_args(annotation)[0], value)
     if get_origin(annotation) in (Union, UnionType):
         return any(_is_new_enum_value(arg, value) for arg in get_args(annotation) if arg is not type(None))
     if get_origin(annotation) is list:
@@ -277,6 +364,19 @@ def _is_new_enum_value(annotation: Any, value: Any) -> bool:
     if not values or value is None:
         return False
     return type(value) in {type(v) for v in values}
+
+
+def _known_values(annotation: Any) -> tuple[Any, ...]:
+    """Every enum value the annotation lists (through ``Annotated``, unions and lists)."""
+    if get_origin(annotation) in (Annotated, list, Union, UnionType):
+        return tuple(v for arg in get_args(annotation) for v in _known_values(arg))
+    return _literal_values(annotation) or ()
+
+
+def _unknown_items(annotation: Any, value: Any) -> list[Any]:
+    """The scalars of ``value`` (itself or its list items) that the annotation does not list."""
+    known = _known_values(annotation)
+    return [item for item in (value if isinstance(value, list) else [value]) if item not in known]
 
 
 def _matches(annotation: Any, value: Any) -> bool:
@@ -326,6 +426,8 @@ def parse_result(op: Operation[Any], data: Any) -> Any:
     try:
         return adapter(op.result).validate_python(data, context={RESPONSE_CONTEXT: True})
     except ValidationError as error:
+        if _is_new_enum_value(op.result, data):  # newer firmware may add an enum value to a scalar result too
+            return data
         raise ResponseFormatError(op.api.id, op.id, f"response does not match the documented shape: {error}") from error
 
 
@@ -474,17 +576,39 @@ class Operation(Generic[B]):
     support: SupportStatus = "docs-only"
 
     def error_code(self, code: int | str | None, message: str | None = None) -> ErrorCode | None:
-        """The documented error for ``code``; without a code (or when it is unknown), the one matching ``message``."""
-        for table in (self.errors, self.api.errors):
-            entry = table.get(code) if code is not None else None
-            if entry is not None and entry.message is None and entry.message_prefix is None:
-                return entry
+        """The documented error for ``code``; without a code (or when it is unknown), the one matching ``message``.
+
+        An exact key wins over a range key (``"9000-9999"``); the operation's table wins over the API's.
+        """
+        if code is not None:
+            for table in (self.errors, self.api.errors):
+                entry = table.get(code)
+                if entry is not None and entry.message is None and entry.message_prefix is None:
+                    return entry
+            number = _code_number(code)
+            if number is not None:
+                for table in (self.errors, self.api.errors):
+                    for key, entry in table.items():
+                        bounds = _RANGE_KEY.fullmatch(key.strip()) if isinstance(key, str) else None
+                        if bounds is not None and int(bounds[1]) <= number <= int(bounds[2]):
+                            return entry
         if message:
             for table in (self.errors, self.api.errors):
                 for entry in table.values():
                     if (entry.message is not None or entry.message_prefix is not None) and entry.matches_message(message):
                         return entry
         return None
+
+
+_RANGE_KEY = re.compile(r"(\d+)\s*-\s*(\d+)")
+
+
+def _code_number(code: int | str) -> int | None:
+    if isinstance(code, bool):
+        return None
+    if isinstance(code, int):
+        return code
+    return int(code) if code.strip().isdigit() else None
 
 
 def api_error(

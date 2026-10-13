@@ -14,7 +14,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -160,7 +160,7 @@ class PtzOrientationAidApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetTagStateRequest):
-            kwargs = {**dict(zip(("tag_list",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_tag_state, ("tag_list",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_tag_state, request, kwargs, request_options)
 
@@ -209,6 +209,6 @@ class AsyncPtzOrientationAidApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetTagStateRequest):
-            kwargs = {**dict(zip(("tag_list",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_tag_state, ("tag_list",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_tag_state, request, kwargs, request_options)

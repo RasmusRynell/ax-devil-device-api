@@ -31,6 +31,12 @@ class DataSource(Model):
     key: DataSourceKey
 
 
+class DataSources(Model):
+    """The data sources that can be published (the ``data`` member of the list response)."""
+
+    data_sources: list[DataSource]
+
+
 class Publisher(Model):
     """A configured publisher of one data source to one MQTT topic."""
 
@@ -64,7 +70,7 @@ class AddPublisherRequest(Model):
     def from_current(cls, publisher: Publisher) -> AddPublisherRequest:
         """A request that rewrites ``publisher`` unchanged: copy it, edit fields, send it back."""
         data = publisher.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class DataSourceKeyRequest(Model):
@@ -95,7 +101,7 @@ class OPS:
         INFO,
         "list_data_sources",
         DcaBinding("GET", f"{ROOT}/data_sources"),
-        result=list[DataSource],
+        result=DataSources,
         access="admin",
         effect="read",
     )
@@ -158,7 +164,7 @@ class AnalyticsMqttApi(SyncApi):
         """All data sources and publishers. Access: admin."""
         return self._run(OPS.get_all, None, {}, request_options)
 
-    def list_data_sources(self, *, request_options: RequestOptions | None = None) -> list[DataSource]:
+    def list_data_sources(self, *, request_options: RequestOptions | None = None) -> DataSources:
         """Data sources that can be published. Access: admin."""
         return self._run(OPS.list_data_sources, None, {}, request_options)
 
@@ -216,7 +222,7 @@ class AsyncAnalyticsMqttApi(AsyncApi):
         """All data sources and publishers. Access: admin."""
         return await self._run(OPS.get_all, None, {}, request_options)
 
-    async def list_data_sources(self, *, request_options: RequestOptions | None = None) -> list[DataSource]:
+    async def list_data_sources(self, *, request_options: RequestOptions | None = None) -> DataSources:
         """Data sources that can be published. Access: admin."""
         return await self._run(OPS.list_data_sources, None, {}, request_options)
 

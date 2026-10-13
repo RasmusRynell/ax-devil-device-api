@@ -38,7 +38,7 @@ class UpdateAllRequest(Model):
     def from_current(cls, snapshot: ObjectSnapshot) -> UpdateAllRequest:
         """A request that rewrites ``snapshot`` unchanged: copy it, edit fields, send it back."""
         data = snapshot.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class SetEnabledRequest(Model):

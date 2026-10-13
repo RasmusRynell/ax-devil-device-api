@@ -88,7 +88,7 @@ class UpdateClientRequest(Model):
     def from_current(cls, client: NtpClient) -> UpdateClientRequest:
         """A request that rewrites ``client`` unchanged: copy it, edit fields, send it back."""
         data = client.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 # ---------------------------------------------------------------------------

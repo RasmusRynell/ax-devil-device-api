@@ -271,7 +271,7 @@ class AddMacLeaseRequest(Model):
     def from_current(cls, lease: MacLease) -> AddMacLeaseRequest:
         """A request that rewrites ``lease`` unchanged: copy it, edit fields, send it back."""
         data = lease.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class AddCellularHostPortRequest(Model):
@@ -286,7 +286,7 @@ class AddCellularHostPortRequest(Model):
     def from_current(cls, port: CellularHostPort) -> AddCellularHostPortRequest:
         """A request that rewrites ``port`` unchanged: copy it, edit fields, send it back."""
         data = port.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class AddLanHostPortRequest(Model):
@@ -300,7 +300,7 @@ class AddLanHostPortRequest(Model):
     def from_current(cls, port: LanHostPort) -> AddLanHostPortRequest:
         """A request that rewrites ``port`` unchanged: copy it, edit fields, send it back."""
         data = port.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class ConfiguredPortMappingsRequest(Model):

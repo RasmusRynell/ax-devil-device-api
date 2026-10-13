@@ -7,6 +7,8 @@ import textwrap
 from dataclasses import dataclass
 from typing import Any
 
+from ax_devil_device_api._http.debug import is_secret_name
+
 from .build import BUILTIN_SHADOWS, SESSION_CODECS, SESSION_SETUPS
 from .loader import SpecError
 from .model import ApiDef, FieldDef, OpDef, TypeDef
@@ -248,11 +250,11 @@ def render_from_current(td: TypeDef, source: TypeDef, types: dict[str, TypeDef])
     if rt.set_values and clash:
         for k, v in rt.set_values.items():
             lines.append(f"        data[{k!r}] = {v!r}")
-        lines.append("        return cls(**data)")
+        lines.append("        return cls.from_response_data(data)")
     elif rt.set_values:
-        lines.append(f"        return cls(**data, {', '.join(f'{k}={v!r}' for k, v in rt.set_values.items())})")
+        lines.append(f"        return cls.from_response_data({{**data, {', '.join(f'{k!r}: {v!r}' for k, v in rt.set_values.items())}}})")
     else:
-        lines.append("        return cls(**data)")
+        lines.append("        return cls.from_response_data(data)")
     return lines
 
 
@@ -449,6 +451,8 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
             args.append(f"body={body!r}")
         if ob.get("body_field"):
             args.append(f"body_field={ob['body_field']!r}")
+        if body == "value" and body_is_secret(op, ob):
+            args.append("sensitive=True")
         if api.family == "rest":
             query = [(op.params.by_py(n) or op.params.by_wire(n)) if op.params else None for n in ob.get("query") or []]
             if query:
@@ -503,6 +507,14 @@ def binding_code(api: ApiDef, op: OpDef) -> str:
     if ob.get("stream") or op.kind == "stream":
         args.append("stream=True")
     return f"CgiBinding({', '.join(args + extra)})"
+
+
+def body_is_secret(op: OpDef, ob: dict[str, Any]) -> bool:
+    """Whether the scalar ``value`` body is a secret: the field is ``x-masked`` or its name says so."""
+    if op.params is None or not ob.get("body_field"):
+        return False
+    field = op.params.by_py(ob["body_field"]) or op.params.by_wire(ob["body_field"])
+    return field is not None and (field.py in op.params.masked or is_secret_name(field.py) or is_secret_name(field.wire))
 
 
 def _query_value(v: Any) -> str | None:
@@ -580,7 +592,7 @@ def render_ops(api: ApiDef) -> list[str]:
         if op.params:
             args.append(f"params={op.params.name}")
         if op.result:
-            args.append(f"result={shadow_fix(op.result, ids)}")
+            args.append(f"result={shadow_fix(op.result_type or op.result, ids)}")
         args += [f"access={op.access!r}", f"effect={op.effect!r}"]
         if op.since:
             args.append(f"since=ApiVersion({op.since[0]}, {op.since[1]})")
@@ -677,7 +689,7 @@ def render_call(op: OpDef, is_async: bool) -> list[str]:
                 "        if request is MISSING:",
                 "            request = None",
                 f"        elif args or not isinstance(request, {op.params.name}):",
-                f"            kwargs = {{**dict(zip({names}, (request, *args), strict=False)), **kwargs}}",
+                f"            kwargs = bind_positional(OPS.{op.id}, {names}, (request, *args), kwargs)",
                 "            request = None",
             ]
         return lines + [f"        {prefix}self._run(OPS.{op.id}, request, kwargs, request_options)"]
@@ -748,7 +760,7 @@ from .._protocols.service_json import ServiceJsonBinding
 from .._protocols.soap import SoapBinding
 from .._protocols.jsonrpc import FixedVersion, GetSupportedVersions, JsonRpcBinding, JsonRpcMultipart, NoVersion
 from .._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 """
 
 # Imported only by modules that use the feature, so type names cannot collide with them elsewhere (see build.FEATURE_RESERVED).

@@ -169,7 +169,7 @@ class SetConfigurationRequest(Model):
     def from_current(cls, configuration: Configuration) -> SetConfigurationRequest:
         """A request that rewrites ``configuration`` unchanged: copy it, edit fields, send it back."""
         data = configuration.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 Bound = float | list[float]

@@ -188,7 +188,7 @@ class OPS:
         "tcp_retransmissions",
         DcaBinding("POST", f"{ROOT}/netstats/tcpRetransmissions", body="value", body_field="hours"),
         params=TcpRetransmissionsRequest,
-        result=int,
+        result=Annotated[int, Field(ge=0)],
         access="admin",
         effect="action",
     )

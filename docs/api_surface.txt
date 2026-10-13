@@ -558,7 +558,7 @@ analytics_mqtt.AnalyticsMqttApi.add_publisher(self, request: AddPublisherRequest
 analytics_mqtt.AnalyticsMqttApi.get_all(self, *, request_options: RequestOptions | None = None) -> AnalyticsMqtt
 analytics_mqtt.AnalyticsMqttApi.get_data_source(self, key: DataSourceKey, *, request_options: RequestOptions | None = None) -> DataSource
 analytics_mqtt.AnalyticsMqttApi.get_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> Publisher
-analytics_mqtt.AnalyticsMqttApi.list_data_sources(self, *, request_options: RequestOptions | None = None) -> list[DataSource]
+analytics_mqtt.AnalyticsMqttApi.list_data_sources(self, *, request_options: RequestOptions | None = None) -> DataSources
 analytics_mqtt.AnalyticsMqttApi.list_publishers(self, *, request_options: RequestOptions | None = None) -> list[Publisher]
 analytics_mqtt.AnalyticsMqttApi.remove_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> None
 analytics_mqtt.AsyncAnalyticsMqttApi.add_publisher(self, /, *, id: PublisherId, data_source_key: DataSourceKey, mqtt_topic: MqttTopic, qos: Qos | MISSING = MISSING, retain: bool | MISSING = MISSING, use_topic_prefix: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
@@ -566,12 +566,13 @@ analytics_mqtt.AsyncAnalyticsMqttApi.add_publisher(self, request: AddPublisherRe
 analytics_mqtt.AsyncAnalyticsMqttApi.get_all(self, *, request_options: RequestOptions | None = None) -> AnalyticsMqtt
 analytics_mqtt.AsyncAnalyticsMqttApi.get_data_source(self, key: DataSourceKey, *, request_options: RequestOptions | None = None) -> DataSource
 analytics_mqtt.AsyncAnalyticsMqttApi.get_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> Publisher
-analytics_mqtt.AsyncAnalyticsMqttApi.list_data_sources(self, *, request_options: RequestOptions | None = None) -> list[DataSource]
+analytics_mqtt.AsyncAnalyticsMqttApi.list_data_sources(self, *, request_options: RequestOptions | None = None) -> DataSources
 analytics_mqtt.AsyncAnalyticsMqttApi.list_publishers(self, *, request_options: RequestOptions | None = None) -> list[Publisher]
 analytics_mqtt.AsyncAnalyticsMqttApi.remove_publisher(self, id: PublisherId, *, request_options: RequestOptions | None = None) -> None
 analytics_mqtt.DataSource(key: DataSourceKey)
 analytics_mqtt.DataSourceKey = Annotated[str, Field(min_length=3, max_length=128)]
 analytics_mqtt.DataSourceKeyRequest(key: DataSourceKey)
+analytics_mqtt.DataSources(data_sources: list[DataSource])
 analytics_mqtt.MqttTopic = Annotated[str, Field(min_length=1, max_length=128, pattern='^([a-zA-Z0-9_-]+)(/[a-zA-Z0-9_-]+)*$')]
 analytics_mqtt.Publisher(id: PublisherId, data_source_key: DataSourceKey, mqtt_topic: MqttTopic, qos: Qos | None, retain: bool | None, use_topic_prefix: bool | None)
 analytics_mqtt.PublisherId = Annotated[str, Field(min_length=1, max_length=128)]

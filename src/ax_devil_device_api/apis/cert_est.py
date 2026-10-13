@@ -106,7 +106,7 @@ class UpdateProfileRequest(Model):
     def from_current(cls, profile: Profile) -> UpdateProfileRequest:
         """A request that rewrites ``profile`` unchanged: copy it, edit fields, send it back."""
         data = profile.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class AddProfileRequest(Model):
@@ -138,7 +138,7 @@ class AddProfileRequest(Model):
     def from_current(cls, profile: Profile) -> AddProfileRequest:
         """A request that rewrites ``profile`` unchanged: copy it, edit fields, send it back."""
         data = profile.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class ProfileIdRequest(Model):

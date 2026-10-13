@@ -29,6 +29,13 @@ types:
     properties:
       key: {$ref: "#/types/DataSourceKey"}
 
+  DataSources:
+    type: object
+    description: The data sources that can be published (the ``data`` member of the list response).
+    required: [data_sources]
+    properties:
+      data_sources: {type: array, items: {$ref: "#/types/DataSource"}}
+
   Publisher:
     type: object
     description: A configured publisher of one data source to one MQTT topic.
@@ -71,7 +78,19 @@ operations:
     summary: Data sources that can be published.
     effect: read
     binding: {method: GET, path: /data_sources}
-    result: {type: array, items: {$ref: "#/types/DataSource"}}
+    result: {$ref: "#/types/DataSources"}
+    examples:
+      - title: List data sources
+        request: {}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              data_sources:
+                - {key: "com.axis.analytics_scene_description.v0.beta#1"}
+                - {key: "com.axis.consolidated_track.v1.beta#1"}
+        source: https://developer.axis.com/vapix/device-configuration/analytics-mqtt/
 
   get_data_source:
     summary: One data source.

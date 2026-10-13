@@ -14,7 +14,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Text, TextKv
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -802,7 +802,7 @@ class PtzControlApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, CenterRequest):
-            kwargs = {**dict(zip(("center",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.center, ("center",), (request, *args), kwargs)
             request = None
         self._run(OPS.center, request, kwargs, request_options)
 
@@ -834,7 +834,7 @@ class PtzControlApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, AreaZoomRequest):
-            kwargs = {**dict(zip(("area",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.area_zoom, ("area",), (request, *args), kwargs)
             request = None
         self._run(OPS.area_zoom, request, kwargs, request_options)
 
@@ -1310,7 +1310,7 @@ class AsyncPtzControlApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, CenterRequest):
-            kwargs = {**dict(zip(("center",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.center, ("center",), (request, *args), kwargs)
             request = None
         await self._run(OPS.center, request, kwargs, request_options)
 
@@ -1344,7 +1344,7 @@ class AsyncPtzControlApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, AreaZoomRequest):
-            kwargs = {**dict(zip(("area",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.area_zoom, ("area",), (request, *args), kwargs)
             request = None
         await self._run(OPS.area_zoom, request, kwargs, request_options)
 

@@ -119,7 +119,7 @@ class UpdateAuthEntityRequest(Model):
     def from_current(cls, entity: AuthEntity) -> UpdateAuthEntityRequest:
         """A request that rewrites ``entity`` unchanged: copy it, edit fields, send it back."""
         data = entity.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateBaseConfigEntityRequest(Model):
@@ -149,7 +149,7 @@ class UpdateBaseConfigEntityRequest(Model):
     def from_current(cls, entity: BaseConfigEntity) -> UpdateBaseConfigEntityRequest:
         """A request that rewrites ``entity`` unchanged: copy it, edit fields, send it back."""
         data = entity.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdateAllRequest(Model):
@@ -460,6 +460,7 @@ class OPS:
             f"{ROOT}/BaseConfigEntity/AuthEntity/OIDC_ClientSecret",
             body="value",
             body_field="OIDC_ClientSecret",
+            sensitive=True,
         ),
         params=SetClientSecretRequest,
         access="admin",

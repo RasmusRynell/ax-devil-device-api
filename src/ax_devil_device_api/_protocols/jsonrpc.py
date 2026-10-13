@@ -224,9 +224,11 @@ def flow(op: Operation[JsonRpcBinding], params: Model | None, state: DeviceState
         payload = _decode(op, response)
     except (ApiError, NotSupported) as error:
         # Evidence that cached versions are stale (e.g. firmware changed):
-        # the device rejected our version, or the endpoint vanished.
+        # the device rejected our version (code 2100, or the API's own documented "unsupported" error),
+        # or the endpoint vanished.
         if isinstance(binding.negotiation, GetSupportedVersions) and (
-            response.status == 404 or (isinstance(error, ApiError) and error.code == VERSION_NOT_SUPPORTED)
+            response.status == 404
+            or (isinstance(error, ApiError) and (error.code == VERSION_NOT_SUPPORTED or error.kind == "unsupported"))
         ):
             state.forget_advertised_versions(f"jsonrpc:{binding.path}")
         raise
@@ -236,7 +238,7 @@ def flow(op: Operation[JsonRpcBinding], params: Model | None, state: DeviceState
     data = payload.get("data")
     if op.result is None:
         return None
-    return parse_result(op, {} if data is None else data)
+    return parse_result(op, data)
 
 
 register_binding(JsonRpcBinding, flow)

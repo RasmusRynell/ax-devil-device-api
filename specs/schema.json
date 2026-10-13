@@ -589,7 +589,8 @@
                       "additionalProperties": {
                         "enum": [
                           "segment",
-                          "dots_to_slashes"
+                          "dots_to_slashes",
+                          "path"
                         ]
                       }
                     },

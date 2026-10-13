@@ -23,9 +23,14 @@ AuthPolicy = Literal["required", "anonymous", "if_challenged"]
 
 @dataclass(frozen=True)
 class JsonBody:
-    """JSON request body; sets ``Content-Type: application/json``."""
+    """JSON request body; sets ``Content-Type: application/json``.
+
+    ``sensitive`` marks a body that is a secret as a whole (a scalar DCA/REST value such as a password): debug
+    hooks see every leaf redacted, whatever the keys are called.
+    """
 
     value: Any
+    sensitive: bool = False
     replayable: bool = field(default=True, init=False)
 
 

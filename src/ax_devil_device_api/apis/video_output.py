@@ -15,7 +15,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -1107,7 +1107,7 @@ class VideoOutputApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, UpdateSequenceElementRequest):
-            kwargs = {**dict(zip(("sequenceelementid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.update_sequence_element, ("sequenceelementid",), (request, *args), kwargs)
             request = None
         self._run(OPS.update_sequence_element, request, kwargs, request_options)
 
@@ -1360,7 +1360,7 @@ class AsyncVideoOutputApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, UpdateSequenceElementRequest):
-            kwargs = {**dict(zip(("sequenceelementid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.update_sequence_element, ("sequenceelementid",), (request, *args), kwargs)
             request = None
         await self._run(OPS.update_sequence_element, request, kwargs, request_options)
 

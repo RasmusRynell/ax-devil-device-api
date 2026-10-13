@@ -472,20 +472,23 @@ class Builder:
         s = {**s, "properties": s.get("properties") or {}}
         return self.define_inline(s.get("x-name") or pascal_case(op_id) + "Request", s), None
 
-    def result_info(self, op_id: str, schema: Any) -> tuple[str | None, TypeDef | None]:
+    def result_info(self, op_id: str, schema: Any) -> tuple[str | None, TypeDef | None, str | None]:
+        """(signature type, result model, validation type if it differs: with the top-level constraints)."""
         if schema is None:
-            return None, None
+            return None, None, None
         s = self.norm(schema)
         if s.get("x-xml") is True:
-            return "ET.Element", None
+            return "ET.Element", None, None
         if "$ref" in s:
             name = self.ref_name(s["$ref"])
             text = self.expr(s, None, constraints=False)
             td = self.defs.get(name)
-            return text, td if td is not None and td.kind == "model" else None
-        text = self.expr(s, pascal_case(op_id) + "Result", constraints=False)
+            return text, td if td is not None and td.kind == "model" else None, None
+        nest = pascal_case(op_id) + "Result"
+        text = self.expr(s, nest, constraints=False)
+        typed = self.expr(s, nest)
         td = self.defs.get(text)
-        return text, td if td is not None and td.kind == "model" else None
+        return text, td if td is not None and td.kind == "model" else None, typed if typed != text else None
 
     def cgi_keys(
         self, op_id: str, ob: dict[str, Any], params: TypeDef | None, fields: list[FieldDef], result_model: TypeDef | None
@@ -534,7 +537,7 @@ class Builder:
             raise SpecError(f"operation id {op_id!r} is not a Python identifier")
         try:
             params, params_field = self.params_type(op_id, op.get("params"))
-            result, result_model = self.result_info(op_id, op.get("result"))
+            result, result_model, result_type = self.result_info(op_id, op.get("result"))
         except SpecError as error:
             message = str(error)
             raise SpecError(message if message.startswith(f"{op_id}:") else f"{op_id}: {message}") from None
@@ -606,7 +609,7 @@ class Builder:
             id=op_id, summary=clean(op.get("summary")) or op_id, description=clean(op.get("description")),
             access=op.get("access") or api_access, effect=effect, write=op.get("write"), since=since,
             support=op.get("support") or "docs-only", binding=dict(op.get("binding") or {}), params=params,
-            result=result, result_model=result_model, errors=errors, applicability=applicability,
+            result=result, result_type=result_type, result_model=result_model, errors=errors, applicability=applicability,
             positional=positional, overloaded=overloaded, args=fields, key_fields=key_fields, params_field=params_field, mapping_args=mapping_args, round_trip=round_trip,
             kind=kind, stream_decoder=stream_decoder, session=dict(op["binding"]["session"]) if kind == "session" else None,
             rtsp=dict(op["binding"]["rtsp"]) if kind == "rtsp" else None,

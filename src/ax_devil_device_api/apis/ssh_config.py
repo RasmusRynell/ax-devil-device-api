@@ -134,7 +134,7 @@ class OPS:
     set_user_password = Operation(
         INFO,
         "set_user_password",
-        DcaBinding("PATCH", f"{ROOT}/users/{{username}}/password", body="value", body_field="password"),
+        DcaBinding("PATCH", f"{ROOT}/users/{{username}}/password", body="value", body_field="password", sensitive=True),
         params=SetUserPasswordRequest,
         access="admin",
         effect="write",

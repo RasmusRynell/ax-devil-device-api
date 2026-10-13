@@ -14,7 +14,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -3328,7 +3328,7 @@ class ZWaveApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, GetNotificationStateRequest):
-            kwargs = {**dict(zip(("interface_descriptor",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.get_notification_state, ("interface_descriptor",), (request, *args), kwargs)
             request = None
         return self._run(OPS.get_notification_state, request, kwargs, request_options)
 
@@ -3477,7 +3477,7 @@ class ZWaveApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetTemperatureThresholdRequest):
-            kwargs = {**dict(zip(("endpoint_descriptor",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_temperature_threshold, ("endpoint_descriptor",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_temperature_threshold, request, kwargs, request_options)
 
@@ -4490,7 +4490,7 @@ class AsyncZWaveApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, GetNotificationStateRequest):
-            kwargs = {**dict(zip(("interface_descriptor",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.get_notification_state, ("interface_descriptor",), (request, *args), kwargs)
             request = None
         return await self._run(OPS.get_notification_state, request, kwargs, request_options)
 
@@ -4639,7 +4639,7 @@ class AsyncZWaveApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetTemperatureThresholdRequest):
-            kwargs = {**dict(zip(("endpoint_descriptor",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_temperature_threshold, ("endpoint_descriptor",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_temperature_threshold, request, kwargs, request_options)
 

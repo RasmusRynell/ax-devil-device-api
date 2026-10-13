@@ -14,7 +14,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, JsonReply, Text
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -235,7 +235,7 @@ class FocusRecallApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, AddMemoryZoneRequest):
-            kwargs = {**dict(zip(("focus",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.add_memory_zone, ("focus",), (request, *args), kwargs)
             request = None
         return self._run(OPS.add_memory_zone, request, kwargs, request_options)
 
@@ -319,7 +319,7 @@ class AsyncFocusRecallApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, AddMemoryZoneRequest):
-            kwargs = {**dict(zip(("focus",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.add_memory_zone, ("focus",), (request, *args), kwargs)
             request = None
         return await self._run(OPS.add_memory_zone, request, kwargs, request_options)
 

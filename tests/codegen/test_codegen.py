@@ -337,7 +337,7 @@ def test_positional_applies_to_overloaded_operations() -> None:
     overloads, impl = signatures(api.ops[0])
     assert overloads[1].args[:3] == ["a: str", "/", "*"]
     assert impl is not None and "*args: Any" in impl.args[1:3] + impl.args
-    assert "zip((" in render_module(api)
+    assert "bind_positional(OPS.go" in render_module(api)
 
 
 def test_since_on_result_fields_makes_them_optional_and_documented() -> None:
@@ -396,3 +396,41 @@ def test_invalid_yaml_in_one_file_does_not_stop_the_others(tmp_path: Path, monke
     err = capsys.readouterr()
     assert "broken.yaml" in err.err and "binary.yaml" in err.err
     assert "1/3 spec(s) valid" in err.out
+
+
+def test_acap_discovery_entries_are_rendered() -> None:
+    spec = make_spec(discovery=[{"acap": {"name": "objectanalytics"}}, {"service": {"namespace": "urn:x"}}])
+    assert validate(spec) == []
+    assert "discovery=(AcapDiscovery('objectanalytics'), ServiceDiscovery('urn:x'))" in render_module(build(spec))
+
+
+def test_dca_path_key_style_is_rendered_and_checked() -> None:
+    params = {"type": "object", "required": ["topic"], "properties": {"topic": {"type": "string"}}}
+    spec = make_spec("dca", binding={"root": "/r"}, operations={"get": _op(params)})
+    spec["operations"]["get"]["binding"].update(path="/t/{topic}", key_styles={"topic": "path"})
+    assert validate(spec) == []
+    assert "key_styles=(('topic', 'path'),)" in render_module(build(spec))
+
+
+def test_scalar_result_constraints_reach_the_runtime_type_not_the_signature() -> None:
+    op = {"summary": "s", "binding": {"path": "/c.cgi"}, "result": {"type": "integer", "minimum": 0}}
+    text = render_module(build(make_spec(operations={"count": op})))
+    assert "result=Annotated[int, Field(ge=0)]" in text
+    assert "def count(self, *, request_options: RequestOptions | None = None) -> int:" in text
+
+
+def test_scalar_dca_body_of_a_secret_field_is_marked_sensitive() -> None:
+    params = {
+        "type": "object",
+        "required": ["value"],
+        "properties": {"value": {"type": "string"}, "password": {"type": "string"}},
+        "x-masked": ["value"],
+    }
+    for field in ("value", "password"):
+        spec = make_spec("dca", binding={"root": "/r"}, operations={"set": _op({**params, "required": [field]})})
+        spec["operations"]["set"]["binding"].update(method="PATCH", path="/x", body="value", body_field=field)
+        assert "sensitive=True" in render_module(build(spec))
+    plain = {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
+    spec = make_spec("dca", binding={"root": "/r"}, operations={"set": _op(plain)})
+    spec["operations"]["set"]["binding"].update(method="PATCH", path="/x", body="value", body_field="name")
+    assert "sensitive" not in render_module(build(spec))

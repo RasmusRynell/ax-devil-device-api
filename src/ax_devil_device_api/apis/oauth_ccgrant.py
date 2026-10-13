@@ -93,7 +93,7 @@ class UpdateAuthEntityRequest(Model):
     def from_current(cls, entity: AuthEntity) -> UpdateAuthEntityRequest:
         """A request that rewrites ``entity`` unchanged: copy it, edit fields, send it back."""
         data = entity.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class SetAuthzAdminClaimRequest(Model):
@@ -233,7 +233,11 @@ class OPS:
         INFO,
         "set_oauth2_token_verify",
         DcaBinding(
-            "PATCH", f"{ROOT}/AuthEntity/CCG_OAuth2TokenVerify", body="value", body_field="CCG_OAuth2TokenVerify"
+            "PATCH",
+            f"{ROOT}/AuthEntity/CCG_OAuth2TokenVerify",
+            body="value",
+            body_field="CCG_OAuth2TokenVerify",
+            sensitive=True,
         ),
         params=SetOauth2TokenVerifyRequest,
         access="admin",

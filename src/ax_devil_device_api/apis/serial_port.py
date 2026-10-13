@@ -15,7 +15,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Text, TextOk
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -536,7 +536,7 @@ class SerialPortApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetSerialPortRequest):
-            kwargs = {**dict(zip(("serial",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_serial_port, ("serial",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_serial_port, request, kwargs, request_options)
 
@@ -584,7 +584,7 @@ class SerialPortApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetPortManagerRequest):
-            kwargs = {**dict(zip(("port_manager",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_port_manager, ("port_manager",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_port_manager, request, kwargs, request_options)
 
@@ -617,7 +617,7 @@ class SerialPortApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRemotePortRequest):
-            kwargs = {**dict(zip(("remote_port",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_remote_port, ("remote_port",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_remote_port, request, kwargs, request_options)
 
@@ -725,7 +725,7 @@ class AsyncSerialPortApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetSerialPortRequest):
-            kwargs = {**dict(zip(("serial",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_serial_port, ("serial",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_serial_port, request, kwargs, request_options)
 
@@ -773,7 +773,7 @@ class AsyncSerialPortApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetPortManagerRequest):
-            kwargs = {**dict(zip(("port_manager",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_port_manager, ("port_manager",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_port_manager, request, kwargs, request_options)
 
@@ -806,6 +806,6 @@ class AsyncSerialPortApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRemotePortRequest):
-            kwargs = {**dict(zip(("remote_port",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_remote_port, ("remote_port",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_remote_port, request, kwargs, request_options)

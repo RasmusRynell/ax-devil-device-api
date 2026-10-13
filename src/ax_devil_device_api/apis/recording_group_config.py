@@ -14,7 +14,7 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
 from .._protocols.dca import DcaBinding
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -287,7 +287,7 @@ class AddRecordingGroupRequest(Model):
     def from_current(cls, group: RecordingGroup) -> AddRecordingGroupRequest:
         """A request that rewrites ``group`` unchanged: copy it, edit fields, send it back."""
         data = group.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class RecordingGroupIdRequest(Model):
@@ -476,7 +476,9 @@ class RecordingGroupConfigApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRecordingGroupDataProducerOptionsRequest):
-            kwargs = {**dict(zip(("id", "data_producer_options"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(
+                OPS.set_recording_group_data_producer_options, ("id", "data_producer_options"), (request, *args), kwargs
+            )
             request = None
         self._run(OPS.set_recording_group_data_producer_options, request, kwargs, request_options)
 
@@ -498,7 +500,9 @@ class RecordingGroupConfigApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRecordingGroupObjectAttributesRequest):
-            kwargs = {**dict(zip(("id", "object_attributes"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(
+                OPS.set_recording_group_object_attributes, ("id", "object_attributes"), (request, *args), kwargs
+            )
             request = None
         self._run(OPS.set_recording_group_object_attributes, request, kwargs, request_options)
 
@@ -589,7 +593,9 @@ class AsyncRecordingGroupConfigApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRecordingGroupDataProducerOptionsRequest):
-            kwargs = {**dict(zip(("id", "data_producer_options"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(
+                OPS.set_recording_group_data_producer_options, ("id", "data_producer_options"), (request, *args), kwargs
+            )
             request = None
         await self._run(OPS.set_recording_group_data_producer_options, request, kwargs, request_options)
 
@@ -611,6 +617,8 @@ class AsyncRecordingGroupConfigApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetRecordingGroupObjectAttributesRequest):
-            kwargs = {**dict(zip(("id", "object_attributes"), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(
+                OPS.set_recording_group_object_attributes, ("id", "object_attributes"), (request, *args), kwargs
+            )
             request = None
         await self._run(OPS.set_recording_group_object_attributes, request, kwargs, request_options)

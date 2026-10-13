@@ -148,7 +148,7 @@ class Configuration(Model):
     def from_current(cls, configuration: Configuration) -> Configuration:
         """A request that rewrites ``configuration`` unchanged: copy it, edit fields, send it back."""
         data = configuration.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class AlarmOverlayCamera(Model):

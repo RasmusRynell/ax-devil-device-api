@@ -19,7 +19,7 @@ _SECRET_KEY_RE = re.compile(
     r"|secret[-_]?access)",
     re.IGNORECASE,
 )
-_SECRET_EXACT = {"sas", "sig", "psk", "signature", "sastoken", "sas_token"}
+_SECRET_EXACT = {"sas", "sig", "psk", "signature", "sastoken", "sas_token", "wssession"}
 # Headers whose whole value is dropped by name (no content parsing). Any name matching the secret set is dropped too.
 _SENSITIVE_HEADERS = frozenset({"authorization", "proxy-authorization", "cookie", "set-cookie"})
 _extra_secret_names: set[str] = set()
@@ -41,6 +41,11 @@ def _is_secret_key(key: Any) -> bool:
     text = str(key)
     lowered = text.lower()
     return bool(_SECRET_KEY_RE.search(text) or lowered in _SECRET_EXACT or lowered in _extra_secret_names)
+
+
+def is_secret_name(name: str) -> bool:
+    """Whether ``name`` (a wire or Python field name) identifies a secret; used by codegen to mark sensitive bodies."""
+    return _is_secret_key(name)
 
 
 def _text_has_secret_name(text: str) -> bool:
@@ -210,10 +215,19 @@ def _pairs(pairs: tuple[tuple[str, Any], ...]) -> list[list[Any]]:
     return [[k, serialize(v, k)] for k, v in pairs]
 
 
+def _redact_leaves(value: Any) -> Any:
+    """Replace every value of a sensitive body (the keys, like ``data``, are not secret)."""
+    if isinstance(value, dict):
+        return {str(k): _redact_leaves(v) for k, v in value.items()}
+    return _REDACTED
+
+
 def _body(body: Any) -> Any:
     if body is None:
         return None
     if isinstance(body, JsonBody):
+        if body.sensitive:
+            return _redact_leaves(body.value)
         return serialize(body.value)
     if isinstance(body, FormBody):
         return _pairs(body.fields)

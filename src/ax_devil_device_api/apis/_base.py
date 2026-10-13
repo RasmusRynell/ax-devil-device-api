@@ -34,12 +34,26 @@ def build_params(op: Operation[Any], request: Model | None, kwargs: dict[str, An
         if op.params is None or not isinstance(request, op.params):
             expected = op.params.__name__ if op.params else "no request"
             raise TypeError(f"{op.api.id}.{op.id} expects {expected}, got {type(request).__name__}")
-        return request
+        return request.revalidated()  # edits after construction (assignment, model_copy) skip validation
     if op.params is None:
         if args:
             raise TypeError(f"{op.api.id}.{op.id} takes no arguments, got: {', '.join(sorted(args))}")
         return None
     return op.params(**args)
+
+
+def bind_positional(op: Operation[Any], names: tuple[str, ...], values: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Keyword arguments from the positional values of an overloaded method, in the order of ``names``.
+
+    More values than names, or a name given both ways, is a ``TypeError`` (as for a plain Python call).
+    """
+    if len(values) > len(names):
+        raise TypeError(f"{op.api.id}.{op.id} takes at most {len(names)} positional argument(s), got {len(values)}")
+    bound = dict(zip(names, values, strict=False))
+    twice = sorted(set(bound) & set(kwargs))
+    if twice:
+        raise TypeError(f"{op.api.id}.{op.id} got multiple values for argument(s): {', '.join(twice)}")
+    return {**bound, **kwargs}
 
 
 class SyncApi:

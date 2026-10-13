@@ -15,7 +15,7 @@ from .._http.options import RequestOptions
 from .._http.upload import UploadSource, UploadSpec
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import Binary, CgiArg, CgiBinding, Text, TextKv
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -251,7 +251,7 @@ class MediaClipApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, PlayClipRequest):
-            kwargs = {**dict(zip(("clip",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.play_clip, ("clip",), (request, *args), kwargs)
             request = None
         return self._run(OPS.play_clip, request, kwargs, request_options)
 
@@ -301,7 +301,7 @@ class MediaClipApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, PlayClipAsViewerRequest):
-            kwargs = {**dict(zip(("clip",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.play_clip_as_viewer, ("clip",), (request, *args), kwargs)
             request = None
         return self._run(OPS.play_clip_as_viewer, request, kwargs, request_options)
 
@@ -369,7 +369,7 @@ class AsyncMediaClipApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, PlayClipRequest):
-            kwargs = {**dict(zip(("clip",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.play_clip, ("clip",), (request, *args), kwargs)
             request = None
         return await self._run(OPS.play_clip, request, kwargs, request_options)
 
@@ -419,7 +419,7 @@ class AsyncMediaClipApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, PlayClipAsViewerRequest):
-            kwargs = {**dict(zip(("clip",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.play_clip_as_viewer, ("clip",), (request, *args), kwargs)
             request = None
         return await self._run(OPS.play_clip_as_viewer, request, kwargs, request_options)
 

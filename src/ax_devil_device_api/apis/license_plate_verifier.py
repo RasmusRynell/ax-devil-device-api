@@ -16,7 +16,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import AcapDiscovery, ApiInfo, Family, Model, Operation
 from .._protocols.cgi import CgiArg, CgiBinding, JsonReply, Text, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -1084,7 +1084,7 @@ class LicensePlateVerifierApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetHeartbeatDataRequest):
-            kwargs = {**dict(zip(("data",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_heartbeat_data, ("data",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_heartbeat_data, request, kwargs, request_options)
 
@@ -1104,7 +1104,7 @@ class LicensePlateVerifierApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDirectionRequest):
-            kwargs = {**dict(zip(("config",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_direction, ("config",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_direction, request, kwargs, request_options)
 
@@ -1126,7 +1126,7 @@ class LicensePlateVerifierApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetListSettingsRequest):
-            kwargs = {**dict(zip(("settings",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_list_settings, ("settings",), (request, *args), kwargs)
             request = None
         self._run(OPS.set_list_settings, request, kwargs, request_options)
 
@@ -1326,7 +1326,7 @@ class AsyncLicensePlateVerifierApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetHeartbeatDataRequest):
-            kwargs = {**dict(zip(("data",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_heartbeat_data, ("data",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_heartbeat_data, request, kwargs, request_options)
 
@@ -1348,7 +1348,7 @@ class AsyncLicensePlateVerifierApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetDirectionRequest):
-            kwargs = {**dict(zip(("config",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_direction, ("config",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_direction, request, kwargs, request_options)
 
@@ -1370,7 +1370,7 @@ class AsyncLicensePlateVerifierApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, SetListSettingsRequest):
-            kwargs = {**dict(zip(("settings",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.set_list_settings, ("settings",), (request, *args), kwargs)
             request = None
         await self._run(OPS.set_list_settings, request, kwargs, request_options)
 

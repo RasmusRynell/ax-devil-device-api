@@ -15,7 +15,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, ErrorCode, Family, Model, Operation
 from .._protocols.cgi import CgiArg, CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -422,7 +422,7 @@ class ExternalIpDeviceInfoApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, CreateDeviceRequest):
-            kwargs = {**dict(zip(("id",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.create_device, ("id",), (request, *args), kwargs)
             request = None
         self._run(OPS.create_device, request, kwargs, request_options)
 
@@ -459,7 +459,7 @@ class ExternalIpDeviceInfoApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, UpdateDeviceRequest):
-            kwargs = {**dict(zip(("id",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.update_device, ("id",), (request, *args), kwargs)
             request = None
         self._run(OPS.update_device, request, kwargs, request_options)
 
@@ -572,7 +572,7 @@ class AsyncExternalIpDeviceInfoApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, CreateDeviceRequest):
-            kwargs = {**dict(zip(("id",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.create_device, ("id",), (request, *args), kwargs)
             request = None
         await self._run(OPS.create_device, request, kwargs, request_options)
 
@@ -609,7 +609,7 @@ class AsyncExternalIpDeviceInfoApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, UpdateDeviceRequest):
-            kwargs = {**dict(zip(("id",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.update_device, ("id",), (request, *args), kwargs)
             request = None
         await self._run(OPS.update_device, request, kwargs, request_options)
 

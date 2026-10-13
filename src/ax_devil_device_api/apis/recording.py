@@ -18,7 +18,7 @@ from .._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
 from .._runtime.driver import AsyncStreamResult, StreamResult
 from .._streams import Part
 from ..rtsp import RtspBinding, RtspUrl
-from ._base import AsyncApi, SyncApi
+from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
 # Models
@@ -558,7 +558,7 @@ class RecordingApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ListRecordingsRequest):
-            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.list_recordings, ("recordingid",), (request, *args), kwargs)
             request = None
         return self._run(OPS.list_recordings, request, kwargs, request_options)
 
@@ -624,7 +624,7 @@ class RecordingApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, RemoveRecordingsRequest):
-            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.remove_recordings, ("recordingid",), (request, *args), kwargs)
             request = None
         self._run(OPS.remove_recordings, request, kwargs, request_options)
 
@@ -658,7 +658,7 @@ class RecordingApi(SyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, PlayRecordingRequest):
-            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.play_recording, ("recordingid",), (request, *args), kwargs)
             request = None
         return self._run(OPS.play_recording, request, kwargs, request_options)
 
@@ -759,7 +759,7 @@ class AsyncRecordingApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, ListRecordingsRequest):
-            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.list_recordings, ("recordingid",), (request, *args), kwargs)
             request = None
         return await self._run(OPS.list_recordings, request, kwargs, request_options)
 
@@ -825,7 +825,7 @@ class AsyncRecordingApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, RemoveRecordingsRequest):
-            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.remove_recordings, ("recordingid",), (request, *args), kwargs)
             request = None
         await self._run(OPS.remove_recordings, request, kwargs, request_options)
 
@@ -859,7 +859,7 @@ class AsyncRecordingApi(AsyncApi):
         if request is MISSING:
             request = None
         elif args or not isinstance(request, PlayRecordingRequest):
-            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            kwargs = bind_positional(OPS.play_recording, ("recordingid",), (request, *args), kwargs)
             request = None
         return await self._run(OPS.play_recording, request, kwargs, request_options)
 

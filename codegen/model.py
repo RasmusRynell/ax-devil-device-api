@@ -103,6 +103,9 @@ class OpDef:
     overloaded: bool
     mapping_args: list[str]
     round_trip: RoundTrip | None
+    result_type: str | None = None
+    """What the runtime validates against when it differs from ``result``: the same expression with the top-level
+    constraints (``Annotated[int, Field(ge=0)]``), which the method signature leaves out."""
     params_field: str | None = None
     """jsonrpc: the single request field sent as the whole ``params``."""
     reply_map: str | None = None

@@ -100,7 +100,7 @@ def _render(name: str, value: Any, out: list[str], prefixes: frozenset[str] = fr
                 text = escape(_text(item)) if item is not None else ""
             elif isinstance(item, list):
                 children.extend((key, entry) for entry in item)
-            elif item is not None:
+            else:  # an explicit ``None`` (x-nullable) is an empty element
                 children.append((key, item))
     elif value is not None:
         text = escape(_text(value))

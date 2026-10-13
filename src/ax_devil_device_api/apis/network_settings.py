@@ -355,7 +355,7 @@ class UpdateSystemRequest(Model):
     def from_current(cls, settings: SystemSettings) -> UpdateSystemRequest:
         """A request that rewrites ``settings`` unchanged: copy it, edit fields, send it back."""
         data = settings.request_data()
-        return cls(**data)
+        return cls.from_response_data(data)
 
 
 class UpdatePortRequest(Model):
