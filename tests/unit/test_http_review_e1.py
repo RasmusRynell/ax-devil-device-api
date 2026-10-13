@@ -686,3 +686,84 @@ def test_proxy_with_an_injected_transport_is_a_configuration_error() -> None:
         Device("cam", proxy="http://proxy.local:8080", transport=httpx.MockTransport(lambda r: httpx.Response(200)))
     with pytest.raises(ConfigurationError, match="proxy"):
         AsyncDevice("cam", proxy="http://proxy.local:8080", transport=httpx.MockTransport(lambda r: httpx.Response(200)))
+
+
+def test_a_non_bundle_os_error_during_client_construction_is_reported_as_it_is(
+    monkeypatch: pytest.MonkeyPatch, bad_bundles: dict[str, str]
+) -> None:
+    """An SSLKEYLOGFILE-style failure must not be blamed on the CA bundle, and keeps its file name."""
+
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
+    from ax_devil_device_api.errors import ConfigurationError
+
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise PermissionError(13, "Permission denied", "/proc/keylog")
+
+    monkeypatch.setattr("httpx._transports.default.create_ssl_context", boom)
+    for verify in (True, bad_bundles["malformed"]):
+        config = ConnectionConfig("cam", verify=verify)
+        for build in (SyncTransport, AsyncTransport):
+            with pytest.raises(ConfigurationError) as info:
+                build(config)
+            message = str(info.value)
+            assert "could not build the HTTP client" in message and "/proc/keylog" in message
+            assert "CA bundle" not in message
+            assert isinstance(info.value.__cause__, PermissionError)
+
+
+# --- CA bundle problems surface as configuration errors ---------------------------------------------------------------
+
+
+@pytest.fixture
+def bad_bundles(tmp_path: Any) -> dict[str, str]:
+    garbage = tmp_path / "garbage.pem"
+    garbage.write_text("this is not a certificate\n")
+    return {"missing": str(tmp_path / "nope.pem"), "malformed": str(garbage)}
+
+
+@pytest.mark.parametrize("kind", ["missing", "malformed"])
+def test_unusable_ca_bundle_is_a_configuration_error_naming_the_path(kind: str, bad_bundles: dict[str, str]) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
+    from ax_devil_device_api.errors import ConfigurationError
+
+    path = bad_bundles[kind]
+    config = ConnectionConfig("cam", verify=path)
+    with pytest.raises(ConfigurationError, match="CA bundle") as info:
+        SyncTransport(config)
+    assert path in str(info.value) and info.value.__cause__ is not None
+    with pytest.raises(ConfigurationError, match="CA bundle") as info:
+        AsyncTransport(config)
+    assert path in str(info.value)
+
+
+def test_cli_reports_an_unusable_ca_bundle_as_json(bad_bundles: dict[str, str]) -> None:
+    from ax_devil_device_api.cli import main
+
+    out, err = io.StringIO(), io.StringIO()
+    code = main(
+        ["--host", "cam", "--user", "u", "--password", "p", "--ca-bundle", bad_bundles["missing"], "call", "mqtt_client", "get_client_status"],
+        out=out,
+        err=err,
+    )
+    error = json.loads(err.getvalue().splitlines()[-1])["error"]
+    assert code == 1 and error["type"] == "ConfigurationError" and bad_bundles["missing"] in error["message"]
+    assert "Traceback" not in err.getvalue()
+
+
+def test_a_request_time_tls_failure_is_still_a_tls_error() -> None:
+    import ssl
+
+    import httpx
+
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import SyncTransport
+    from ax_devil_device_api.errors import TlsError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed", request=request) from ssl.SSLError("certificate verify failed")
+
+    with SyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(handler)) as t:
+        with pytest.raises(TlsError):
+            t.send(Request("GET", "/x"))

@@ -82,11 +82,13 @@ def _check_proxy_with_transport(config: ConnectionConfig, transport: object | No
 
 def _client_error(error: Exception, config: ConnectionConfig | None = None) -> errors.ConfigurationError:
     if isinstance(error, OSError):
-        # Only client construction loads the CA bundle (a request-time TLS failure is a TlsError instead).
         verify = config.verify if config is not None else None
-        where = f" {verify!r}" if isinstance(verify, str) else ""
-        reason = error.strerror or str(error) or type(error).__name__
-        return errors.ConfigurationError(f"cannot load the CA bundle{where} given as verify: {reason}")
+        # The CA wording only when the error is about the verify path (or the SSL layer rejecting its contents);
+        # anything else (an SSLKEYLOGFILE that cannot be opened, say) is reported as it is, filename included.
+        about_bundle = isinstance(verify, str) and (isinstance(error, ssl.SSLError) or error.filename in (None, verify))
+        if about_bundle:
+            return errors.ConfigurationError(f"cannot load the CA bundle {verify!r} given as verify: {error}")
+        return errors.ConfigurationError(f"could not build the HTTP client: {error}")
     if isinstance(error, ImportError):
         return errors.ConfigurationError("SOCKS proxy support requires: pip install 'ax-devil-device-api[socks]'")
     return _invalid_url(error)
