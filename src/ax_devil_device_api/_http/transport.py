@@ -80,7 +80,13 @@ def _check_proxy_with_transport(config: ConnectionConfig, transport: object | No
         )
 
 
-def _client_error(error: Exception) -> errors.ConfigurationError:
+def _client_error(error: Exception, config: ConnectionConfig | None = None) -> errors.ConfigurationError:
+    if isinstance(error, OSError):
+        # Only client construction loads the CA bundle (a request-time TLS failure is a TlsError instead).
+        verify = config.verify if config is not None else None
+        where = f" {verify!r}" if isinstance(verify, str) else ""
+        reason = error.strerror or str(error) or type(error).__name__
+        return errors.ConfigurationError(f"cannot load the CA bundle{where} given as verify: {reason}")
     if isinstance(error, ImportError):
         return errors.ConfigurationError("SOCKS proxy support requires: pip install 'ax-devil-device-api[socks]'")
     return _invalid_url(error)
@@ -424,8 +430,8 @@ class SyncTransport:
         _check_proxy_with_transport(config, transport)
         try:
             self._client = httpx.Client(transport=transport, **_client_args(config))
-        except (httpx.InvalidURL, ValueError, ImportError) as error:
-            raise _client_error(error) from error
+        except (httpx.InvalidURL, ValueError, ImportError, OSError) as error:
+            raise _client_error(error, config) from error
         self._client.headers.pop("Accept", None)  # Accept is set only when a request asks for it
 
     def _send(self, request: Request, *, stream: bool) -> httpx.Response:
@@ -545,8 +551,8 @@ class AsyncTransport:
         _check_proxy_with_transport(config, transport)
         try:
             self._client = httpx.AsyncClient(transport=transport, **_client_args(config))
-        except (httpx.InvalidURL, ValueError, ImportError) as error:
-            raise _client_error(error) from error
+        except (httpx.InvalidURL, ValueError, ImportError, OSError) as error:
+            raise _client_error(error, config) from error
         self._client.headers.pop("Accept", None)
 
     def _semaphores(self) -> tuple[asyncio.Semaphore, asyncio.Semaphore]:
