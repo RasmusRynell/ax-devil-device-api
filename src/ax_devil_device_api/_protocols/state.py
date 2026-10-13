@@ -41,6 +41,11 @@ class DeviceState:
         """The cached fact, or ``None``."""
         return self._values.get(key)
 
+    def with_prefix(self, prefix: str) -> dict[str, Any]:
+        """Snapshot of every cached fact whose key starts with ``prefix``."""
+        with self._lock:
+            return {k: v for k, v in self._values.items() if k.startswith(prefix)}
+
     def set(self, key: str, value: Any, token: Token) -> bool:
         """Store ``value`` unless the fact was invalidated since ``token`` was taken."""
         with self._lock:

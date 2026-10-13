@@ -40,6 +40,7 @@ from ._protocols.state import DeviceState, Token
 from ._runtime.capabilities import (
     OPTIONAL_PROBES,
     PROBES,
+    PROPERTY_SCOPE_PREFIX,
     Capabilities,
     DeviceIdentity,
     SupportResult,
@@ -98,8 +99,11 @@ class _DeviceBase:
         # New firmware: every cached fact may be wrong now.
         self._state.set_or_clear(_IDENTITY, identity, token, lambda old, new: old.firmware_version != new.firmware_version)
 
-    @staticmethod
-    def _capabilities(values: dict[str, Any], errors: dict[str, str]) -> Capabilities:
+    def _capabilities(self, values: dict[str, Any], errors: dict[str, str]) -> Capabilities:
+        # Cached per-property scope probes (run by earlier supports() calls) belong in the snapshot,
+        # so decide_support(api.INFO, capabilities()) agrees with supports(api).
+        for key, found in self._state.with_prefix(PROPERTY_SCOPE_PREFIX).items():
+            values.setdefault(key, found)
         return Capabilities.from_probes(values, errors)
 
     def rtsp_url(self, stream: MediaStream | None = None, *, port: int = 554, path: str = MEDIA_PATH, include_credentials: bool = False) -> RtspUrl:

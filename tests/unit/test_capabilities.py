@@ -672,3 +672,67 @@ def test_param_discovery_never_queried_property_is_not_absent() -> None:
 
     info = _info(ParamDiscovery(EMBEDDED))
     assert decide_support(info, _caps(properties={"Properties.API.X": "1"})).status is Support.UNKNOWN
+
+
+def _base_failing_camera() -> MockCamera:
+    camera = MockCamera()
+    camera.cgi(PARAM, text=f"root.{EMBEDDED}=3.0\n", match={"action": "list", "group": EMBEDDED})
+    camera.cgi(PARAM, text="boom", status=500, match={"action": "list", "group": "Properties.API"})
+    return camera
+
+
+def test_failed_base_probe_keeps_successful_scoped_probe() -> None:
+    from ax_devil_device_api.apis.application_api import ApplicationApi
+
+    with _base_failing_camera().device() as dev:
+        result = dev.supports(ApplicationApi)
+        caps = dev.capabilities()
+
+    assert result.status is Support.YES
+    assert "properties" in caps.errors and caps.property_groups == {EMBEDDED}
+    assert caps.properties == {EMBEDDED: "3.0"}
+
+
+@pytest.mark.anyio
+async def test_async_failed_base_probe_keeps_successful_scoped_probe() -> None:
+    from ax_devil_device_api.apis.application_api import AsyncApplicationApi
+
+    async with _base_failing_camera().async_device() as dev:
+        assert (await dev.supports(AsyncApplicationApi)).status is Support.YES
+        caps = await dev.capabilities()
+    assert caps.properties == {EMBEDDED: "3.0"}
+
+
+def test_failed_base_probe_still_unknown_for_base_property() -> None:
+    from ax_devil_device_api._protocols.base import ParamDiscovery
+    from ax_devil_device_api._runtime.capabilities import decide_support
+
+    caps = _caps(properties={EMBEDDED: "3.0"}, property_groups=frozenset({EMBEDDED}), errors={"properties": "boom"})
+    assert decide_support(_info(ParamDiscovery("Properties.API.HTTP.Version")), caps).status is Support.UNKNOWN
+
+
+def test_capabilities_snapshot_includes_cached_scoped_properties() -> None:
+    from ax_devil_device_api._runtime.capabilities import decide_support
+    from ax_devil_device_api.apis.application_api import ApplicationApi
+
+    camera = _embedded_camera(f"root.{EMBEDDED}=3.0\n")
+    with camera.device() as dev:
+        assert dev.supports(ApplicationApi).status is Support.YES
+        caps = dev.capabilities()
+        before = count(camera, PARAM)
+        assert dev.capabilities().property_groups == caps.property_groups
+        assert count(camera, PARAM) == before  # lazy: no new requests
+
+    assert EMBEDDED in caps.property_groups and (caps.properties or {}).get(EMBEDDED) == "3.0"
+    assert decide_support(ApplicationApi.INFO, caps).status is Support.YES
+
+
+@pytest.mark.anyio
+async def test_async_capabilities_snapshot_includes_cached_scoped_properties() -> None:
+    from ax_devil_device_api._runtime.capabilities import decide_support
+    from ax_devil_device_api.apis.application_api import AsyncApplicationApi
+
+    async with _embedded_camera(f"root.{EMBEDDED}=3.0\n").async_device() as dev:
+        assert (await dev.supports(AsyncApplicationApi)).status is Support.YES
+        caps = await dev.capabilities()
+    assert decide_support(AsyncApplicationApi.INFO, caps).status is Support.YES

@@ -119,10 +119,11 @@ class Capabilities:
     def from_probes(cls, values: Mapping[str, Any], errors: Mapping[str, str]) -> Capabilities:
         """Assemble from probe results keyed like ``PROBES`` (plus ``properties:<name>`` scope probes)."""
         properties = values.get("properties")
-        groups = frozenset({BASE_PROPERTY_GROUP})
+        groups = frozenset({BASE_PROPERTY_GROUP}) if properties is not None else frozenset()
         extra = {k: v for k, v in values.items() if k.startswith(PROPERTY_SCOPE_PREFIX)}
-        if properties is not None and extra:
-            properties = dict(properties)
+        if extra:
+            # Each scope is merged on its own: a failed base probe must not discard a scope that worked.
+            properties = dict(properties or {})
             for found in extra.values():
                 properties.update(found)
             groups |= {k[len(PROPERTY_SCOPE_PREFIX):] for k in extra}
@@ -376,15 +377,17 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
             if method.version in caps.dca_apis.get(method.api, frozenset()):
                 return SupportResult(Support.YES, f"listed by /config/discover as {method.api} {method.version}", observed_at=caps.observed_at)
         elif isinstance(method, ParamDiscovery):
-            if caps.properties is None:
-                unknown.append(f"parameter probe failed: {caps.errors.get('properties')}")
-                continue
             name = _normalized(method.name)
-            value = caps.properties.get(name)
+            value = (caps.properties or {}).get(name)
             if value is not None and _param_matches(method, value):
                 return SupportResult(Support.YES, f"parameter {name}={value}", observed_at=caps.observed_at)
-            if value is None and not _is_queried(name, caps.property_groups):
-                reason = caps.errors.get(PROPERTY_SCOPE_PREFIX + name, "probe not run")
+            groups = caps.property_groups if caps.properties is not None else frozenset()
+            if value is None and not _is_queried(name, groups):
+                # Judge only the probe that covers this property: the base group or its own scope.
+                if _is_queried(name, frozenset({BASE_PROPERTY_GROUP})):
+                    reason = caps.errors.get("properties", "probe not run")
+                else:
+                    reason = caps.errors.get(PROPERTY_SCOPE_PREFIX + name, "probe not run")
                 unknown.append(f"parameter {name} was not queried: {reason}")
         elif isinstance(method, AcapDiscovery):
             if caps.applications is None:
