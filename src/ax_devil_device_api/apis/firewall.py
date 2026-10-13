@@ -42,7 +42,7 @@ class IPRange(Model):
 
 
 LimitAmount = Annotated[int, Field(ge=1, le=65535)]
-LimitPeriod = Literal["NEWCONNECTIONS"]
+LimitPeriod = Literal["NEWCONNECTIONS", "SECOND", "MINUTE"]
 LimitUnit = Literal["NEWCONNECTIONS", "PACKETS"]
 
 
@@ -329,7 +329,7 @@ class OPS:
         INFO,
         "get_pending_default_policy",
         DcaBinding("GET", f"{ROOT}/conf/rules/pendingDefaultPolicy"),
-        result=Policy,
+        result=Policy | None,
         access="admin",
         effect="read",
     )
@@ -466,7 +466,7 @@ class FirewallApi(SyncApi):
         """Get the active default firewall policy. Access: admin."""
         return self._run(OPS.get_active_default_policy, None, {}, request_options)
 
-    def get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy:
+    def get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy | None:
         """Get the pending default firewall policy set by set_rules, or null. Access: admin."""
         return self._run(OPS.get_pending_default_policy, None, {}, request_options)
 
@@ -607,7 +607,7 @@ class AsyncFirewallApi(AsyncApi):
         """Get the active default firewall policy. Access: admin."""
         return await self._run(OPS.get_active_default_policy, None, {}, request_options)
 
-    async def get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy:
+    async def get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy | None:
         """Get the pending default firewall policy set by set_rules, or null. Access: admin."""
         return await self._run(OPS.get_pending_default_policy, None, {}, request_options)
 

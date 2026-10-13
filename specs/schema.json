@@ -1207,7 +1207,10 @@
         "type": "object",
         "properties": {
           "description": {
-            "type": "string"
+            "type": "string",
+            "not": {
+              "pattern": ",\\s*kind:\\s*[a-z_]+\\s*$"
+            }
           },
           "message": {
             "type": "string",

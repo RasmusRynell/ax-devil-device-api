@@ -276,13 +276,13 @@ INFO = ApiInfo(
     discovery=(ApiDiscovery("radar-analytics2"),),
     docs=("https://developer.axis.com/vapix/radar/radar-configuration/",),
     errors={
-        1000: ErrorCode("Invalid parameter value., kind: invalid_argument"),
-        4000: ErrorCode("The provided input was not well-formed JSON., kind: invalid_argument"),
-        4001: ErrorCode("A mandatory input parameter was not found in the input., kind: invalid_argument"),
+        1000: ErrorCode("Invalid parameter value.", "invalid_argument"),
+        4000: ErrorCode("The provided input was not well-formed JSON.", "invalid_argument"),
+        4001: ErrorCode("A mandatory input parameter was not found in the input.", "invalid_argument"),
         4002: ErrorCode("The type of value of a provided JSON parameter was incorrect.", "invalid_argument"),
         4004: ErrorCode("The format of a provided JSON parameter was incorrect.", "invalid_argument"),
         7000: ErrorCode("The requested API version is not supported by this implementation.", "unsupported"),
-        8000: ErrorCode("Internal error., kind: internal"),
+        8000: ErrorCode("Internal error.", "internal"),
     },
 )
 

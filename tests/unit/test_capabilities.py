@@ -760,3 +760,19 @@ def test_failed_probes_run_once_for_many_apis() -> None:
     assert len(results) == len(entries)
     assert count(camera, DISCOVERY) == 1
     assert count(camera, "/config/discover") == 1
+
+
+def test_generic_http_version_marker_is_never_an_alternative_to_specific_entries() -> None:
+    """Discovery entries are any-of, so the generic ``Properties.API.HTTP.Version`` may only stand alone."""
+    from ax_devil_device_api._protocols.base import ParamDiscovery
+    from ax_devil_device_api.features import load_all
+
+    offenders = []
+    for entry in load_all():
+        marks = [m for m in entry.info.discovery if isinstance(m, ParamDiscovery) and m.name.endswith("API.HTTP.Version")]
+        if marks and len(entry.info.discovery) > 1:
+            offenders.append(entry.name)
+        for m in entry.info.discovery:
+            if isinstance(m, ParamDiscovery) and m.value is not None:
+                assert '"' not in m.value, f"{entry.name}: param.cgi values are decoded without quotes"
+    assert offenders == []

@@ -196,7 +196,7 @@ INFO = ApiInfo(
         ),
         103: ErrorCode("JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect.", "invalid_argument"),
         200: ErrorCode("JSON_INVALID_ERROR. The provided JSON input was invalid.", "invalid_argument"),
-        300: ErrorCode("PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument"),
+        300: ErrorCode("PARAM_INVALID_VALUE_ERROR. Invalid parameter value.", "invalid_argument"),
     },
 )
 
@@ -259,7 +259,7 @@ class OPS:
         JsonRpcBinding("saveCameraPanOffset", PATH),
         access="operator",
         effect="action",
-        errors={301: ErrorCode("INVALID_CONNECTION_ERROR. Invalid connection to the camera., kind: unavailable")},
+        errors={301: ErrorCode("INVALID_CONNECTION_ERROR. Invalid connection to the camera.", "unavailable")},
     )
     get_camera_tilt_offset = Operation(
         INFO,
@@ -284,7 +284,7 @@ class OPS:
         JsonRpcBinding("saveCameraTiltOffset", PATH),
         access="operator",
         effect="action",
-        errors={301: ErrorCode("INVALID_CONNECTION_ERROR. Invalid connection to the camera., kind: unavailable")},
+        errors={301: ErrorCode("INVALID_CONNECTION_ERROR. Invalid connection to the camera.", "unavailable")},
     )
     get_camera_zoom_degree = Operation(
         INFO,

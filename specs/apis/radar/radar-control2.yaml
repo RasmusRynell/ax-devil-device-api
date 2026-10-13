@@ -24,7 +24,7 @@ binding:
   params_placement: params
 
 errors:
-  1000: {description: "Internal error., kind: internal"}
+  1000: {description: "Internal error.", kind: internal}
   2000:
     description: The requested API version is not supported by this implementation.
     kind: unsupported
@@ -34,13 +34,13 @@ errors:
   2002:
     description: Conflicting input parameters, e.g. two profiles with the same uid.
     kind: invalid_argument
-  2003: {description: "A mandatory input parameter was not found in the input., kind: invalid_argument"}
-  2004: {description: "An input parameter has an incorrect type., kind: invalid_argument"}
-  2005: {description: "An unexpected parameter was passed., kind: invalid_argument"}
+  2003: {description: "A mandatory input parameter was not found in the input.", kind: invalid_argument}
+  2004: {description: "An input parameter has an incorrect type.", kind: invalid_argument}
+  2005: {description: "An unexpected parameter was passed.", kind: invalid_argument}
   8000:
     description: The requested method is not supported by this implementation.
     kind: unsupported
-  8003: {description: "The provided input was not well-formed JSON., kind: invalid_argument"}
+  8003: {description: "The provided input was not well-formed JSON.", kind: invalid_argument}
 
 types:
   Point:

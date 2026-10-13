@@ -38,7 +38,7 @@ errors:
   200:
     description: JSON_INVALID_ERROR. The provided JSON input was invalid.
     kind: invalid_argument
-  300: {description: "PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument"}
+  300: {description: "PARAM_INVALID_VALUE_ERROR. Invalid parameter value.", kind: invalid_argument}
 
 types:
   ConnectionState:
@@ -225,7 +225,7 @@ operations:
     effect: action
     binding: {method: saveCameraPanOffset}
     errors:
-      301: {description: "INVALID_CONNECTION_ERROR. Invalid connection to the camera., kind: unavailable"}
+      301: {description: "INVALID_CONNECTION_ERROR. Invalid connection to the camera.", kind: unavailable}
     examples:
       - title: Save the pan offset
         request: {params: {}}
@@ -269,7 +269,7 @@ operations:
     effect: action
     binding: {method: saveCameraTiltOffset}
     errors:
-      301: {description: "INVALID_CONNECTION_ERROR. Invalid connection to the camera., kind: unavailable"}
+      301: {description: "INVALID_CONNECTION_ERROR. Invalid connection to the camera.", kind: unavailable}
     examples:
       - title: Save the tilt offset
         request: {params: {}}

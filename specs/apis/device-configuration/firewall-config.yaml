@@ -64,7 +64,7 @@ types:
         $ref: '#/types/LimitUnit'
         description: Limit rate strategy indicating how to enforce the limit rate
   LimitAmount: {type: integer, minimum: 1, maximum: 65535, description: Limit unit amount type}
-  LimitPeriod: {type: string, enum: [NEWCONNECTIONS], description: Rate limit period type}
+  LimitPeriod: {type: string, enum: [NEWCONNECTIONS, SECOND, MINUTE], description: 'Rate limit period type. The docs table lists NEWCONNECTIONS only, but every documented limit rule uses SECOND or MINUTE'}
   LimitUnit: {type: string, enum: [NEWCONNECTIONS, PACKETS], description: Valid limit rule type}
   MAC:
     type: string
@@ -291,7 +291,6 @@ operations:
         rules: {$ref: '#/types/RuleList', description: Rules to set as active}
     examples:
     - title: Edit firewall rules
-      x-contract: {skip: "docs examples use limit periods SECOND and MINUTE, but the LimitPeriod table only allows NEWCONNECTIONS"}
       request:
         path: /conf/setRules
         body:
@@ -332,7 +331,6 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
     - title: Re-order firewall rules
-      x-contract: {skip: "docs examples use limit periods SECOND and MINUTE, but the LimitPeriod table only allows NEWCONNECTIONS"}
       request:
         path: /conf/setRules
         body:
@@ -373,7 +371,6 @@ operations:
         body: {status: success}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
     - title: Remove firewall rules
-      x-contract: {skip: "docs examples use limit periods SECOND and MINUTE, but the LimitPeriod table only allows NEWCONNECTIONS"}
       request:
         path: /conf/setRules
         body:
@@ -419,13 +416,20 @@ operations:
     summary: Get the pending default firewall policy set by set_rules, or null.
     effect: read
     binding: {method: GET, path: /conf/rules/pendingDefaultPolicy}
-    result: {$ref: '#/types/Policy'}
+    result:
+      oneOf: [{$ref: '#/types/Policy'}, {type: 'null'}]
     examples:
     - title: Get the pending default firewall policy
       request: {path: /conf/rules/pendingDefaultPolicy}
       response:
         status: 200
         body: {status: success, data: DROP}
+      source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
+    - title: No pending default firewall policy
+      request: {path: /conf/rules/pendingDefaultPolicy}
+      response:
+        status: 200
+        body: {status: success, data: null}
       source: https://developer.axis.com/vapix/device-configuration/firewall-configuration-api/
   get_brute_force_protection:
     summary: Get the brute force protection settings.

@@ -133,26 +133,24 @@ INFO = ApiInfo(
     ),
     docs=("https://developer.axis.com/vapix/radar/radar-image/",),
     errors={
-        1000: ErrorCode("PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument"),
-        2000: ErrorCode("RESOURCE_MEM_ERROR. Failed to allocate memory., kind: internal"),
-        3000: ErrorCode("UNSUPPORTED_API_VERSION. The requested API version is not supported., kind: unsupported"),
-        3001: ErrorCode("CGI_INVALID_PARAM_ERROR. A CGI parameter is missing or invalid., kind: invalid_argument"),
-        3002: ErrorCode("CGI_NOT_FOUND. The cgi name was not found., kind: not_found"),
-        4000: ErrorCode("JSON_INVALID_ERROR. The provided JSON input was invalid., kind: invalid_argument"),
+        1000: ErrorCode("PARAM_INVALID_VALUE_ERROR. Invalid parameter value.", "invalid_argument"),
+        2000: ErrorCode("RESOURCE_MEM_ERROR. Failed to allocate memory.", "internal"),
+        3000: ErrorCode("UNSUPPORTED_API_VERSION. The requested API version is not supported.", "unsupported"),
+        3001: ErrorCode("CGI_INVALID_PARAM_ERROR. A CGI parameter is missing or invalid.", "invalid_argument"),
+        3002: ErrorCode("CGI_NOT_FOUND. The cgi name was not found.", "not_found"),
+        4000: ErrorCode("JSON_INVALID_ERROR. The provided JSON input was invalid.", "invalid_argument"),
         4001: ErrorCode(
-            "JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input., kind: invalid_argument"
+            "JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input.", "invalid_argument"
         ),
-        4002: ErrorCode(
-            "JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect., kind: invalid_argument"
-        ),
-        4003: ErrorCode("JSON_METHOD_NOT_FOUND_ERROR. The JSON method was not found., kind: unsupported"),
-        4004: ErrorCode("JSON_FAIL_TO_LOAD_ERROR. Failed to load JSON from HTTP POST data., kind: invalid_argument"),
+        4002: ErrorCode("JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect.", "invalid_argument"),
+        4003: ErrorCode("JSON_METHOD_NOT_FOUND_ERROR. The JSON method was not found.", "unsupported"),
+        4004: ErrorCode("JSON_FAIL_TO_LOAD_ERROR. Failed to load JSON from HTTP POST data.", "invalid_argument"),
         6000: ErrorCode(
-            "CALIB_INVALID_STATE_ERROR. Can not perform command in current calibration state., kind: invalid_argument"
+            "CALIB_INVALID_STATE_ERROR. Can not perform command in current calibration state.", "invalid_argument"
         ),
-        8000: ErrorCode("INTERNAL_ERROR. Internal error., kind: internal"),
-        8001: ErrorCode("UNEXPECTED_ERROR. Unexpected error., kind: internal"),
-        8002: ErrorCode("GENERIC_ERROR. Generic error., kind: internal"),
+        8000: ErrorCode("INTERNAL_ERROR. Internal error.", "internal"),
+        8001: ErrorCode("UNEXPECTED_ERROR. Unexpected error.", "internal"),
+        8002: ErrorCode("GENERIC_ERROR. Generic error.", "internal"),
     },
 )
 
@@ -181,19 +179,16 @@ class OPS:
             ),
             6004: ErrorCode("CALIB_TOO_CLOSE_TO_RADAR_ERROR. The tracked object is too close to the radar."),
             6005: ErrorCode("CALIB_TOO_CLOSE_TO_POINT_ERROR. The tracked object is too close to the last point."),
-            6006: ErrorCode(
-                "CALIB_INVALID_SCALE_ERROR. Calibration resulted in invalid scale., kind: invalid_argument"
-            ),
+            6006: ErrorCode("CALIB_INVALID_SCALE_ERROR. Calibration resulted in invalid scale.", "invalid_argument"),
             6007: ErrorCode(
                 "CALIB_INVALID_POSITION_ERROR. The calculated radar direction (x, y) is too far outside of the image.",
                 "invalid_argument",
             ),
             6008: ErrorCode(
-                "CALIB_GENERAL_CALC_ERROR. The calibration calculation result is invalid so calibration should be done again., kind: invalid_argument"
+                "CALIB_GENERAL_CALC_ERROR. The calibration calculation result is invalid so calibration should be done again.",
+                "invalid_argument",
             ),
-            6009: ErrorCode(
-                "CALIB_POINT_INVALID. The calibration point is out of range -1 to 1., kind: invalid_argument"
-            ),
+            6009: ErrorCode("CALIB_POINT_INVALID. The calibration point is out of range -1 to 1.", "invalid_argument"),
             6010: ErrorCode(
                 "CALIB_OBJ_MOVING. The tracked object was moving when setting the calibration point. May indicate that the wrong object is being tracked."
             ),
@@ -335,7 +330,7 @@ class OPS:
         result=Filename,
         access="operator",
         effect="read",
-        errors={5002: ErrorCode("FILE_NOT_UPLOADED_ERROR. No image file uploaded to the radar., kind: not_found")},
+        errors={5002: ErrorCode("FILE_NOT_UPLOADED_ERROR. No image file uploaded to the radar.", "not_found")},
     )
 
 

@@ -330,15 +330,15 @@ INFO = ApiInfo(
     discovery=(ApiDiscovery("radar-control2"),),
     docs=("https://developer.axis.com/vapix/radar/radar-configuration/",),
     errors={
-        1000: ErrorCode("Internal error., kind: internal"),
+        1000: ErrorCode("Internal error.", "internal"),
         2000: ErrorCode("The requested API version is not supported by this implementation.", "unsupported"),
         2001: ErrorCode("The format of a provided JSON parameter was incorrect.", "invalid_argument"),
         2002: ErrorCode("Conflicting input parameters, e.g. two profiles with the same uid.", "invalid_argument"),
-        2003: ErrorCode("A mandatory input parameter was not found in the input., kind: invalid_argument"),
-        2004: ErrorCode("An input parameter has an incorrect type., kind: invalid_argument"),
-        2005: ErrorCode("An unexpected parameter was passed., kind: invalid_argument"),
+        2003: ErrorCode("A mandatory input parameter was not found in the input.", "invalid_argument"),
+        2004: ErrorCode("An input parameter has an incorrect type.", "invalid_argument"),
+        2005: ErrorCode("An unexpected parameter was passed.", "invalid_argument"),
         8000: ErrorCode("The requested method is not supported by this implementation.", "unsupported"),
-        8003: ErrorCode("The provided input was not well-formed JSON., kind: invalid_argument"),
+        8003: ErrorCode("The provided input was not well-formed JSON.", "invalid_argument"),
     },
 )
 

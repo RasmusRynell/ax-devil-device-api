@@ -24,9 +24,9 @@ binding:
   params_placement: params
 
 errors:
-  1000: {description: "Invalid parameter value., kind: invalid_argument"}
-  4000: {description: "The provided input was not well-formed JSON., kind: invalid_argument"}
-  4001: {description: "A mandatory input parameter was not found in the input., kind: invalid_argument"}
+  1000: {description: "Invalid parameter value.", kind: invalid_argument}
+  4000: {description: "The provided input was not well-formed JSON.", kind: invalid_argument}
+  4001: {description: "A mandatory input parameter was not found in the input.", kind: invalid_argument}
   4002:
     description: The type of value of a provided JSON parameter was incorrect.
     kind: invalid_argument
@@ -36,7 +36,7 @@ errors:
   7000:
     description: The requested API version is not supported by this implementation.
     kind: unsupported
-  8000: {description: "Internal error., kind: internal"}
+  8000: {description: "Internal error.", kind: internal}
 
 types:
   Point:

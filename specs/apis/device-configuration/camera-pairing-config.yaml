@@ -49,7 +49,7 @@ types:
   Username: {type: string, maxLength: 64, description: Username for the camera pairing}
   VideoChannels:
     type: array
-    items: {type: string}
+    items: {type: [string, 'null']}
     description: Array of strings representing video channel names on the paired device.
   CameraPairing:
     type: object
@@ -310,6 +310,6 @@ provenance:
   open_questions:
   - 'The docs examples show status "Paired" while the CameraPairingStatus enum is NOT_PAIRED, PAIRED, ERROR, CONNECTING; the enum is used. Source: https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-pairing-api/'
   - 'The docs give streamingProtocol no Datatype; the CameraPairingStreamingProtocol type (RTSP, SRTSP) is assumed, matching the description and examples.'
-  - 'videoChannels items are nullable in the docs; the spec models them as plain strings. selectedVideoChannel and videoChannels are not in the docs ADD required list or examples.'
+  - 'videoChannels items are nullable in the docs and modelled as string | null. selectedVideoChannel and videoChannels are not in the docs ADD required list or examples.'
   migrated_from: v1
   curated: true

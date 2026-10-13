@@ -151,6 +151,7 @@ class IdData(Model):
 class CredentialAccessProfile(Model):
     """A reference to an access profile, optionally restricted in time."""
 
+    __nullable__: ClassVar[frozenset[str]] = frozenset({"valid_from", "valid_to"})
     access_profile: ReferenceToken | None = Field(
         default=None, validation_alias="AccessProfile", serialization_alias="AccessProfile"
     )

@@ -212,6 +212,13 @@ def test_schema_catches_typos() -> None:
     assert validate(stray)
 
 
+def test_schema_rejects_kind_embedded_in_error_description() -> None:
+    ok = make_spec(errors={"1": {"description": "Invalid value.", "kind": "invalid_argument"}})
+    assert validate(ok) == []
+    bad = make_spec(errors={"1": {"description": "Invalid value., kind: invalid_argument"}})
+    assert validate(bad)
+
+
 # -- xml mapping ---------------------------------------------------------------
 
 

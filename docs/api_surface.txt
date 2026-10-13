@@ -505,7 +505,7 @@ airqualitymodbus.AsyncAirQualityModbusApi.update_configuration(self, sensor_id: 
 airqualitymodbus.Configuration(modbus_enable: bool | None [modbusEnable], modbus_port: ModbusPort | None [modbusPort], sensor_id: SensorId | None [sensorId])
 airqualitymodbus.ConfigurationSensorIdRequest(sensor_id: SensorId [sensorId])
 airqualitymodbus.ModbusPort = Annotated[int, Field(ge=1024, le=65535)]
-airqualitymodbus.SensorId = Annotated[str, Field(min_length=1, pattern=r"^[1-9]\d*|0$")]
+airqualitymodbus.SensorId = Annotated[str, Field(min_length=1, pattern='^[A-Za-z0-9][A-Za-z0-9_-]*$')]
 airqualitymodbus.SetConfigurationModbusEnableRequest(sensor_id: SensorId [sensorId], modbus_enable: bool [modbusEnable])
 airqualitymodbus.SetConfigurationModbusPortRequest(sensor_id: SensorId [sensorId], modbus_port: ModbusPort [modbusPort])
 airqualitymodbus.UpdateConfigurationRequest(sensor_id: SensorId [sensorId], modbus_enable: bool | None [modbusEnable], modbus_port: ModbusPort | None [modbusPort])
@@ -1381,7 +1381,7 @@ camera_pairing.SetCameraPairingStreamingProtocolRequest(id: ID, streaming_protoc
 camera_pairing.SetCameraPairingUsernameRequest(id: ID, username: Username)
 camera_pairing.SetCameraPairingVerifyCertificateRequest(id: ID, verify_certificate: bool [verifyCertificate])
 camera_pairing.Username = Annotated[str, Field(max_length=64)]
-camera_pairing.VideoChannels = list[str]
+camera_pairing.VideoChannels = list[str | None]
 capture_mode.AsyncCaptureModeApi.get_capture_modes(self, *, request_options: RequestOptions | None = None) -> list[ChannelCaptureModes]
 capture_mode.AsyncCaptureModeApi.set_capture_mode(self, *, channel: int, capture_mode_id: int, request_options: RequestOptions | None = None) -> None
 capture_mode.CaptureMode(capture_mode_id: int [captureModeId], enabled: bool, max_fps: float | None [maxFPS], description: str)
@@ -2691,7 +2691,7 @@ firewall.AsyncFirewallApi.get_active_default_policy(self, *, request_options: Re
 firewall.AsyncFirewallApi.get_all(self, *, request_options: RequestOptions | None = None) -> Firewall
 firewall.AsyncFirewallApi.get_brute_force_protection(self, *, request_options: RequestOptions | None = None) -> BruteForceProtection
 firewall.AsyncFirewallApi.get_conf(self, *, request_options: RequestOptions | None = None) -> Conf
-firewall.AsyncFirewallApi.get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy
+firewall.AsyncFirewallApi.get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy | None
 firewall.AsyncFirewallApi.get_rules(self, *, request_options: RequestOptions | None = None) -> Rules
 firewall.AsyncFirewallApi.set_activated(self, activated: bool, *, request_options: RequestOptions | None = None) -> None
 firewall.AsyncFirewallApi.set_brute_force_protection_attempts(self, attempts: AttemptsLimit, *, request_options: RequestOptions | None = None) -> None
@@ -2716,7 +2716,7 @@ firewall.FirewallApi.get_active_default_policy(self, *, request_options: Request
 firewall.FirewallApi.get_all(self, *, request_options: RequestOptions | None = None) -> Firewall
 firewall.FirewallApi.get_brute_force_protection(self, *, request_options: RequestOptions | None = None) -> BruteForceProtection
 firewall.FirewallApi.get_conf(self, *, request_options: RequestOptions | None = None) -> Conf
-firewall.FirewallApi.get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy
+firewall.FirewallApi.get_pending_default_policy(self, *, request_options: RequestOptions | None = None) -> Policy | None
 firewall.FirewallApi.get_rules(self, *, request_options: RequestOptions | None = None) -> Rules
 firewall.FirewallApi.set_activated(self, activated: bool, *, request_options: RequestOptions | None = None) -> None
 firewall.FirewallApi.set_brute_force_protection_attempts(self, attempts: AttemptsLimit, *, request_options: RequestOptions | None = None) -> None
@@ -2730,7 +2730,7 @@ firewall.FirewallApi.update_brute_force_protection(self, *, attempts: AttemptsLi
 firewall.IPRange(end: str, start: str)
 firewall.Limit(amount: LimitAmount, burst: LimitAmount | None, period: LimitPeriod, unit: LimitUnit)
 firewall.LimitAmount = Annotated[int, Field(ge=1, le=65535)]
-firewall.LimitPeriod = Literal['NEWCONNECTIONS']
+firewall.LimitPeriod = Literal['NEWCONNECTIONS', 'SECOND', 'MINUTE']
 firewall.LimitUnit = Literal['NEWCONNECTIONS', 'PACKETS']
 firewall.MAC = Annotated[str, Field(pattern='^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{2}[-]){5}([0-9A-Fa-f]{2})$')]
 firewall.NetworkPort(port_type: PortType [portType], port_num: Port [portNum])
@@ -5623,7 +5623,7 @@ remote_object_storage.AsyncRemoteObjectStorageApi.add_destination(self, /, *, id
 remote_object_storage.AsyncRemoteObjectStorageApi.add_destination(self, request: AddDestinationRequest, /, *, request_options: RequestOptions | None = None) -> None
 remote_object_storage.AsyncRemoteObjectStorageApi.get_all(self, *, request_options: RequestOptions | None = None) -> RemoteObjectStorage
 remote_object_storage.AsyncRemoteObjectStorageApi.get_destination(self, id: IdString, *, request_options: RequestOptions | None = None) -> Destination
-remote_object_storage.AsyncRemoteObjectStorageApi.get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration
+remote_object_storage.AsyncRemoteObjectStorageApi.get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration | None
 remote_object_storage.AsyncRemoteObjectStorageApi.list_destinations(self, *, request_options: RequestOptions | None = None) -> list[Destination]
 remote_object_storage.AsyncRemoteObjectStorageApi.remove_destination(self, id: IdString, *, request_options: RequestOptions | None = None) -> None
 remote_object_storage.AsyncRemoteObjectStorageApi.set_destination_authorization_server(self, id: IdString, authorization_server: AuthorizationServer | None, /, *, request_options: RequestOptions | None = None) -> None
@@ -5652,7 +5652,7 @@ remote_object_storage.RemoteObjectStorageApi.add_destination(self, /, *, id: IdS
 remote_object_storage.RemoteObjectStorageApi.add_destination(self, request: AddDestinationRequest, /, *, request_options: RequestOptions | None = None) -> None
 remote_object_storage.RemoteObjectStorageApi.get_all(self, *, request_options: RequestOptions | None = None) -> RemoteObjectStorage
 remote_object_storage.RemoteObjectStorageApi.get_destination(self, id: IdString, *, request_options: RequestOptions | None = None) -> Destination
-remote_object_storage.RemoteObjectStorageApi.get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration
+remote_object_storage.RemoteObjectStorageApi.get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration | None
 remote_object_storage.RemoteObjectStorageApi.list_destinations(self, *, request_options: RequestOptions | None = None) -> list[Destination]
 remote_object_storage.RemoteObjectStorageApi.remove_destination(self, id: IdString, *, request_options: RequestOptions | None = None) -> None
 remote_object_storage.RemoteObjectStorageApi.set_destination_authorization_server(self, id: IdString, authorization_server: AuthorizationServer | None, /, *, request_options: RequestOptions | None = None) -> None

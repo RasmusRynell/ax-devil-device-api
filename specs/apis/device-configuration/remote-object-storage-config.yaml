@@ -117,7 +117,8 @@ operations:
     summary: The failover configuration; None when failover is disabled.
     effect: read
     binding: {method: GET, path: /failover}
-    result: {$ref: "#/types/FailoverConfiguration"}
+    result:
+      oneOf: [{$ref: "#/types/FailoverConfiguration"}, {type: "null"}]
     examples:
       - title: Get failover configuration
         request: {path: /failover}

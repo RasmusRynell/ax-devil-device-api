@@ -214,7 +214,7 @@ class OPS:
         INFO,
         "get_failover",
         DcaBinding("GET", f"{ROOT}/failover"),
-        result=FailoverConfiguration,
+        result=FailoverConfiguration | None,
         access="admin",
         effect="read",
     )
@@ -324,7 +324,7 @@ class RemoteObjectStorageApi(SyncApi):
         """The failover configuration and all destinations. Access: admin."""
         return self._run(OPS.get_all, None, {}, request_options)
 
-    def get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration:
+    def get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration | None:
         """The failover configuration; None when failover is disabled. Access: admin."""
         return self._run(OPS.get_failover, None, {}, request_options)
 
@@ -515,7 +515,7 @@ class AsyncRemoteObjectStorageApi(AsyncApi):
         """The failover configuration and all destinations. Access: admin."""
         return await self._run(OPS.get_all, None, {}, request_options)
 
-    async def get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration:
+    async def get_failover(self, *, request_options: RequestOptions | None = None) -> FailoverConfiguration | None:
         """The failover configuration; None when failover is disabled. Access: admin."""
         return await self._run(OPS.get_failover, None, {}, request_options)
 

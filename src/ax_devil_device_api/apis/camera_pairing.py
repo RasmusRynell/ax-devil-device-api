@@ -29,7 +29,7 @@ ProductModel = Annotated[str, Field(max_length=64)]
 ProductName = Annotated[str, Field(max_length=64)]
 SelectedVideoChannel = Annotated[str, Field(max_length=64)]
 Username = Annotated[str, Field(max_length=64)]
-VideoChannels = list[str]
+VideoChannels = list[str | None]
 
 
 class Pairing(Model):

@@ -27,20 +27,20 @@ binding:
   params_placement: params
 
 errors:
-  1000: {description: "PARAM_INVALID_VALUE_ERROR. Invalid parameter value., kind: invalid_argument"}
-  2000: {description: "RESOURCE_MEM_ERROR. Failed to allocate memory., kind: internal"}
-  3000: {description: "UNSUPPORTED_API_VERSION. The requested API version is not supported., kind: unsupported"}
-  3001: {description: "CGI_INVALID_PARAM_ERROR. A CGI parameter is missing or invalid., kind: invalid_argument"}
-  3002: {description: "CGI_NOT_FOUND. The cgi name was not found., kind: not_found"}
-  4000: {description: "JSON_INVALID_ERROR. The provided JSON input was invalid., kind: invalid_argument"}
-  4001: {description: "JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input., kind: invalid_argument"}
-  4002: {description: "JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect., kind: invalid_argument"}
-  4003: {description: "JSON_METHOD_NOT_FOUND_ERROR. The JSON method was not found., kind: unsupported"}
-  4004: {description: "JSON_FAIL_TO_LOAD_ERROR. Failed to load JSON from HTTP POST data., kind: invalid_argument"}
-  6000: {description: "CALIB_INVALID_STATE_ERROR. Can not perform command in current calibration state., kind: invalid_argument"}
-  8000: {description: "INTERNAL_ERROR. Internal error., kind: internal"}
-  8001: {description: "UNEXPECTED_ERROR. Unexpected error., kind: internal"}
-  8002: {description: "GENERIC_ERROR. Generic error., kind: internal"}
+  1000: {description: "PARAM_INVALID_VALUE_ERROR. Invalid parameter value.", kind: invalid_argument}
+  2000: {description: "RESOURCE_MEM_ERROR. Failed to allocate memory.", kind: internal}
+  3000: {description: "UNSUPPORTED_API_VERSION. The requested API version is not supported.", kind: unsupported}
+  3001: {description: "CGI_INVALID_PARAM_ERROR. A CGI parameter is missing or invalid.", kind: invalid_argument}
+  3002: {description: "CGI_NOT_FOUND. The cgi name was not found.", kind: not_found}
+  4000: {description: "JSON_INVALID_ERROR. The provided JSON input was invalid.", kind: invalid_argument}
+  4001: {description: "JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input.", kind: invalid_argument}
+  4002: {description: "JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect.", kind: invalid_argument}
+  4003: {description: "JSON_METHOD_NOT_FOUND_ERROR. The JSON method was not found.", kind: unsupported}
+  4004: {description: "JSON_FAIL_TO_LOAD_ERROR. Failed to load JSON from HTTP POST data.", kind: invalid_argument}
+  6000: {description: "CALIB_INVALID_STATE_ERROR. Can not perform command in current calibration state.", kind: invalid_argument}
+  8000: {description: "INTERNAL_ERROR. Internal error.", kind: internal}
+  8001: {description: "UNEXPECTED_ERROR. Unexpected error.", kind: internal}
+  8002: {description: "GENERIC_ERROR. Generic error.", kind: internal}
 
 types:
   CalibrationState:
@@ -144,10 +144,10 @@ operations:
       6003: {description: CALIB_NOT_DETECTED_ERROR. The first calibration point was placed before tracking detected any object close to the radar unit.}
       6004: {description: CALIB_TOO_CLOSE_TO_RADAR_ERROR. The tracked object is too close to the radar.}
       6005: {description: CALIB_TOO_CLOSE_TO_POINT_ERROR. The tracked object is too close to the last point.}
-      6006: {description: "CALIB_INVALID_SCALE_ERROR. Calibration resulted in invalid scale., kind: invalid_argument"}
+      6006: {description: "CALIB_INVALID_SCALE_ERROR. Calibration resulted in invalid scale.", kind: invalid_argument}
       6007: {description: "CALIB_INVALID_POSITION_ERROR. The calculated radar direction (x, y) is too far outside of the image.", kind: invalid_argument}
-      6008: {description: "CALIB_GENERAL_CALC_ERROR. The calibration calculation result is invalid so calibration should be done again., kind: invalid_argument"}
-      6009: {description: "CALIB_POINT_INVALID. The calibration point is out of range -1 to 1., kind: invalid_argument"}
+      6008: {description: "CALIB_GENERAL_CALC_ERROR. The calibration calculation result is invalid so calibration should be done again.", kind: invalid_argument}
+      6009: {description: "CALIB_POINT_INVALID. The calibration point is out of range -1 to 1.", kind: invalid_argument}
       6010: {description: CALIB_OBJ_MOVING. The tracked object was moving when setting the calibration point. May indicate that the wrong object is being tracked.}
     examples:
       - title: Set a calibration point
@@ -370,7 +370,7 @@ operations:
     binding: {method: getFilename}
     result: {$ref: "#/types/Filename"}
     errors:
-      5002: {description: "FILE_NOT_UPLOADED_ERROR. No image file uploaded to the radar., kind: not_found"}
+      5002: {description: "FILE_NOT_UPLOADED_ERROR. No image file uploaded to the radar.", kind: not_found}
     examples:
       - title: Get the file name
         request: {params: {}}
