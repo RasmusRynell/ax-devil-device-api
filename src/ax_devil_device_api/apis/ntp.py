@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation, ParamDiscovery
+from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -118,7 +118,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0),),
-    discovery=(ApiDiscovery("ntp"), ParamDiscovery("Properties.API.HTTP.Version", "3")),
+    discovery=(ApiDiscovery("ntp"),),
     docs=("https://developer.axis.com/vapix/network-video/ntp-api/",),
     errors={
         1000: ErrorCode("Internal error", "internal"),

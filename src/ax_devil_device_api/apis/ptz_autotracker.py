@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation, ParamDiscovery
+from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -510,7 +510,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0),),
-    discovery=(ApiDiscovery("autotracking-2"), ParamDiscovery("Properties.API.HTTP.Version", "3")),
+    discovery=(ApiDiscovery("autotracking-2"),),
     docs=("https://developer.axis.com/vapix/network-video/ptz-autotracker-api/",),
     errors={
         1001: ErrorCode("The provided JSON input was invalid.", "invalid_argument"),

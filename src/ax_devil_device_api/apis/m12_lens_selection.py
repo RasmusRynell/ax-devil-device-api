@@ -67,7 +67,6 @@ INFO = ApiInfo(
     major=2,
     known_versions=(ApiVersion(2, 1),),
     discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
         ParamDiscovery("Properties.M12LensSelection.M12LensSelection", "yes"),
         ParamDiscovery("Properties.M12LensSelection.Version", "1.00"),
     ),

@@ -13,7 +13,6 @@ docs:
 access: admin
 discovery:
 - {api_discovery: user-management}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 requires:
   firmware: '5.00'
 

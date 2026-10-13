@@ -43,10 +43,12 @@ provenance: {...}                # completeness, open questions, verification
 
 ### Discovery entries
 
+Entries are alternatives (any-of): the first one that matches makes `Device.supports()` answer `YES`. Each entry must therefore identify the API on its own. Do not list a generic prerequisite such as `Properties.API.HTTP.Version=3` next to API-specific entries; it matches every device with VAPIX HTTP v3 and would turn the whole list into "yes". Use such a marker only as the sole entry of a core API that the documentation defines by it.
+
 - `api_discovery: <id>`: listed by API discovery (`apidiscovery.cgi`).
 - `dca: {api, version}`: listed by `/config/discover`.
-- `param: {name, value, compare}`: a `param.cgi` property. Without `value` the property only has to exist. `compare` is `"=="` (default) or `">="`; `">="` compares dotted numbers component by component (`1.20` >= `1.9`), and a value that is not a dotted number never matches.
-- `acap: {name}`: an ACAP application whose `Name` attribute (case-insensitive) appears in `/axis-cgi/applications/list.cgi`. Installed is enough; the application need not be running. The list needs an administrator account, so without one the answer is `UNKNOWN`, not `NO`.
+- `param: {name, value, compare}`: a `param.cgi` property. `value` is the decoded value without the surrounding quotes `param.cgi` may add (`yes`, not `"yes"`). Without `value` the property only has to exist. `compare` is `"=="` (default) or `">="`; `">="` compares dotted numbers component by component (`1.20` >= `1.9`), and a value that is not a dotted number never matches.
+- `acap: {name}`: an ACAP application whose name appears (the `Name` attribute, read as `name` too, compared case-insensitively) in `/axis-cgi/applications/list.cgi`. Installed is enough; the application need not be running. The list needs an administrator account, so without one the answer is `UNKNOWN`, not `NO`.
 - `service: {namespace}`: the web service namespace is listed by the Entry service (`GetServices` on `/vapix/services`, AXIS OS 5.60 and later). Use it for service APIs (SOAP, service JSON) that have no entry in API discovery. The probe runs only when an API asks for it, needs the same account as the service calls and answers `UNKNOWN` when it fails.
 
 ## Bindings

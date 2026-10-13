@@ -361,7 +361,7 @@ For DCA APIs, importing the device-served `openapi.json` / model to report diffe
 
 - `snapshot(dev, **options)` / `async_snapshot`: one JPEG via the generated `video_streaming.get_jpeg`.
 - `device_summary(dev)` / `async_device_summary`: identity plus discovery results as a `DeviceSummary` (failed probes are listed, not raised).
-- `api_support(dev)` / `supported_apis(dev)` (and async variants): `SupportResult` for every generated API, or the names the device positively offers.
+- `api_support(dev)` / `supported_apis(dev)` (and async variants): `SupportResult` for every generated API, or the names the device positively offers. All results come from one capability snapshot (`Device.supports_many`), so a failing probe runs once, not once per API.
 - `load_all()`, `load_api(name)`, `api_names()` (`features/registry.py`): the generated API modules as `ApiEntry` values (name, `ApiInfo`, operations, sync and async classes).
 
 `cli/` is the `ax-devil` command (argparse, no extra dependencies; entry point `ax_devil_device_api.cli:main`). Output is JSON on stdout, errors are JSON on stderr with exit code 1 (device or OS error) or 2 (usage or invalid parameters). Connection options (`--host`, `--user`, `--password`, `--port`, `--http`, `--insecure`, `--ca-bundle`, `--base-path`, `--timeout`) default to `$AX_DEVIL_HOST`, `$AX_DEVIL_USER` / `$CAM_USER` and `$AX_DEVIL_PASSWORD` / `$CAM_PASS`. Commands:

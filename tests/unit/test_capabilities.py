@@ -736,3 +736,27 @@ async def test_async_capabilities_snapshot_includes_cached_scoped_properties() -
         assert (await dev.supports(AsyncApplicationApi)).status is Support.YES
         caps = await dev.capabilities()
     assert decide_support(AsyncApplicationApi.INFO, caps).status is Support.YES
+
+
+def test_applications_probe_reads_lowercase_attribute_names() -> None:
+    from ax_devil_device_api._http.types import Headers, Response
+    from ax_devil_device_api._runtime.capabilities import applications_flow
+
+    flow = applications_flow(DeviceState())
+    request = next(flow)
+    xml = b'<reply result="ok"><application name="VMD3" version="3.1"/><application NAME="Foo"/></reply>'
+    with pytest.raises(StopIteration) as done:
+        flow.send(Response(200, Headers(), xml, request))
+    assert done.value.value == {"VMD3": "3.1", "Foo": ""}
+
+
+def test_failed_probes_run_once_for_many_apis() -> None:
+    from ax_devil_device_api.features import api_support, load_all
+
+    camera = MockCamera()  # every discovery endpoint fails
+    entries = load_all()
+    with camera.device() as dev:
+        results = api_support(dev, entries)
+    assert len(results) == len(entries)
+    assert count(camera, DISCOVERY) == 1
+    assert count(camera, "/config/discover") == 1

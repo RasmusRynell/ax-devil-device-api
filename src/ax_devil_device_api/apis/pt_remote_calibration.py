@@ -117,10 +117,7 @@ INFO = ApiInfo(
     id="pt-remote-calibration",
     name="Remote PT Coordinate Calibration API",
     family=Family.CGI,
-    discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.PTRemoteCalibration.PTRemoteCalibration", "yes"),
-    ),
+    discovery=(ParamDiscovery("Properties.PTRemoteCalibration.PTRemoteCalibration", "yes"),),
     docs=("https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/",),
     errors={
         10: ErrorCode("Error while processing the request."),

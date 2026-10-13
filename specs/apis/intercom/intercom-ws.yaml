@@ -12,8 +12,8 @@ docs:
 - https://developer.axis.com/vapix/intercom/intercom-service/
 access: admin
 discovery:
-- param: {name: Properties.API.Intercom.Intercom, value: '"yes"'}
-- param: {name: Properties.API.Intercom.Version, value: '"1.1"'}
+- param: {name: Properties.API.Intercom.Intercom, value: 'yes'}
+- param: {name: Properties.API.Intercom.Version, value: '1.1'}
 - {api_discovery: intercom-api}
 - {api_discovery: intercom-reader}
 

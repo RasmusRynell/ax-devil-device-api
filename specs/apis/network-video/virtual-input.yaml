@@ -13,7 +13,6 @@ docs:
 access: operator
 discovery:
 - param: {name: Properties.VirtualInput.VirtualInput, value: 'yes'}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 requires:
   firmware: '5.50'
 

@@ -14,9 +14,6 @@ docs:
 access: admin
 discovery:
 - api_discovery: network-settings
-- param:
-    name: Properties.API.HTTP.Version
-    value: '3'
 requires:
   firmware: '8.50'
 binding:

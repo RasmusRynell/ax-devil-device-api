@@ -13,7 +13,6 @@ docs:
 access: viewer
 discovery:
 - {api_discovery: serial-port}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.Serial.Serial, value: 'yes'}
 requires:
   firmware: '5.20'

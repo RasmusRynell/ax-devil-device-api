@@ -15,7 +15,7 @@ import sys
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, NoReturn, TextIO
 
 from pydantic import BaseModel, ValidationError
 
@@ -26,6 +26,7 @@ from .._streams import Part
 from ..errors import ApiError, DeviceError, HttpError
 from ..features import api_support, device_summary, load_all, load_api, snapshot
 from ..features.registry import ApiEntry
+from ..rtsp import RtspBinding
 
 ENV_HOST = "AX_DEVIL_HOST"
 ENV_USER = ("AX_DEVIL_USER", "CAM_USER")
@@ -38,6 +39,13 @@ class CliError(Exception):
         self.code = code
 
 
+class _Parser(argparse.ArgumentParser):
+    """Reports bad arguments as ``CliError`` so ``main`` can answer in JSON instead of argparse's usage text."""
+
+    def error(self, message: str) -> NoReturn:
+        raise CliError(f"{message} (see `{self.prog} --help`)")
+
+
 def _env(names: Sequence[str]) -> str | None:
     for name in names:
         if os.environ.get(name):
@@ -46,7 +54,7 @@ def _env(names: Sequence[str]) -> str | None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ax-devil", description="Call VAPIX APIs of an Axis device. Output is JSON.")
+    parser = _Parser(prog="ax-devil", description="Call VAPIX APIs of an Axis device. Output is JSON.")
     conn = parser.add_argument_group(
         "connection", f"host, user and password default to ${ENV_HOST}, ${ENV_USER[0]} (or $CAM_USER) and ${ENV_PASSWORD[0]} (or $CAM_PASS)"
     )
@@ -225,6 +233,10 @@ def _cmd_call(args: argparse.Namespace, out: TextIO) -> None:
         raise CliError(f"unknown operation {args.op!r} of {args.api}; see `ax-devil ops {args.api}`")
     params = parse_params(args.args, args.json_args)
     with make_device(args) as dev:
+        if isinstance(op.binding, RtspBinding):
+            # RTSP operations build a URL (no request); credentials are never put into it.
+            emit({"url": dev.rtsp_url_for(op, params).safe}, out)
+            return
         result = dev.invoke(op, **params)
         if isinstance(result, StreamResult):
             with result:
@@ -258,14 +270,14 @@ def _cmd_snapshot(args: argparse.Namespace, out: TextIO) -> None:
         Path(args.output).write_bytes(data)
         return
     buffer = getattr(out, "buffer", None)
-    if buffer is not None:
-        buffer.write(data)
-        buffer.flush()
-    elif sys.stdout.isatty():
+    # Judge the stream the bytes would reach before writing anything to it.
+    target = out if buffer is not None else sys.stdout
+    if target.isatty():
         raise CliError("refusing to write binary to a terminal: pass --output FILE")
-    else:
-        sys.stdout.buffer.write(data)
-        sys.stdout.buffer.flush()
+    if buffer is None:
+        buffer = sys.stdout.buffer
+    buffer.write(data)
+    buffer.flush()
 
 
 def _cmd_summary(args: argparse.Namespace, out: TextIO) -> None:
@@ -293,9 +305,9 @@ def _error_json(error: BaseException) -> dict[str, Any]:
 def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: TextIO | None = None) -> int:
     stdout: TextIO = out or sys.stdout
     stderr: TextIO = err or sys.stderr
-    args = build_parser().parse_args(argv)
-    run: Callable[[argparse.Namespace, TextIO], None] = args.run
     try:
+        args = build_parser().parse_args(argv)
+        run: Callable[[argparse.Namespace, TextIO], None] = args.run
         run(args, stdout)
     except CliError as error:
         stderr.write(json.dumps({"error": {"type": "UsageError", "message": str(error)}}) + "\n")

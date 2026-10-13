@@ -149,7 +149,6 @@ INFO = ApiInfo(
     known_versions=(ApiVersion(2, 0),),
     discovery=(
         ApiDiscovery("supervised-io"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
         ParamDiscovery("Properties.SupervisedIO.SupervisedIO", "yes"),
         ParamDiscovery("Properties.SupervisedIO.Version", "2.00"),
     ),

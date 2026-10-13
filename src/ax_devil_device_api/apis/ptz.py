@@ -337,7 +337,6 @@ INFO = ApiInfo(
     family=Family.CGI,
     discovery=(
         ApiDiscovery("ptz-control"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
         ParamDiscovery("Properties.API.PTZ.Presets.Version", "2.00"),
         ParamDiscovery("Properties.PTZ.PTZ", "yes"),
         ParamDiscovery("Properties.PTZ.DigitalPTZ", "yes"),

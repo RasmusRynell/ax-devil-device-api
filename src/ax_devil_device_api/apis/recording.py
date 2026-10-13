@@ -233,10 +233,7 @@ INFO = ApiInfo(
     id="recording",
     name="Recording API (Edge storage)",
     family=Family.CGI,
-    discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.LocalStorage.LocalStorage", "yes"),
-    ),
+    discovery=(ParamDiscovery("Properties.LocalStorage.LocalStorage", "yes"),),
     docs=("https://developer.axis.com/vapix/network-video/edge-storage-api/",),
 )
 

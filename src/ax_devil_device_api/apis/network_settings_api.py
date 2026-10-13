@@ -12,17 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import (
-    ApiDiscovery,
-    ApiInfo,
-    ApiVersion,
-    Applicability,
-    ErrorCode,
-    Family,
-    Model,
-    Operation,
-    ParamDiscovery,
-)
+from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, Applicability, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import GetSupportedVersions, JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -734,7 +724,7 @@ INFO = ApiInfo(
         ApiVersion(1, 27),
         ApiVersion(1, 29),
     ),
-    discovery=(ApiDiscovery("network-settings"), ParamDiscovery("Properties.API.HTTP.Version", "3")),
+    discovery=(ApiDiscovery("network-settings"),),
     docs=("https://developer.axis.com/vapix/network-video/network-settings-api/",),
     errors={
         1000: ErrorCode("Internal error.", "internal"),

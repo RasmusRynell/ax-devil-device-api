@@ -68,13 +68,16 @@ async def async_device_summary(dev: AsyncDevice) -> DeviceSummary:
 
 
 def api_support(dev: Device, entries: list[ApiEntry] | None = None) -> dict[str, SupportResult]:
-    """``SupportResult`` for every generated API (``dev.apis.<name>`` -> result). Runs the discovery probes once."""
-    return {e.name: dev.supports(e.sync_class) for e in (entries if entries is not None else load_all())}
+    """``SupportResult`` for every generated API (``dev.apis.<name>`` -> result). Uses one capability snapshot: a failing probe is run once, not once per API."""
+    entries = entries if entries is not None else load_all()
+    results = dev.supports_many([e.sync_class for e in entries])
+    return {e.name: results[e.sync_class] for e in entries}
 
 
 async def async_api_support(dev: AsyncDevice, entries: list[ApiEntry] | None = None) -> dict[str, SupportResult]:
-    await dev.capabilities()  # warm the cache once; supports() then only reads it
-    return {e.name: await dev.supports(e.async_class) for e in (entries if entries is not None else load_all())}
+    entries = entries if entries is not None else load_all()
+    results = await dev.supports_many([e.async_class for e in entries])
+    return {e.name: results[e.async_class] for e in entries}
 
 
 def supported_apis(dev: Device) -> list[str]:

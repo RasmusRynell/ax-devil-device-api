@@ -173,7 +173,6 @@ INFO = ApiInfo(
     name="Network share API",
     family=Family.CGI,
     discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
         ParamDiscovery("Properties.NetworkShare.NetworkShare", "yes"),
         ParamDiscovery("Properties.NetworkShare.CIFS", "yes"),
     ),

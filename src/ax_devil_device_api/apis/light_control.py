@@ -319,11 +319,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 2), ApiVersion(1, 7)),
-    discovery=(
-        ApiDiscovery("light-control"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.LightControl.LightControl2", "yes"),
-    ),
+    discovery=(ApiDiscovery("light-control"), ParamDiscovery("Properties.LightControl.LightControl2", "yes")),
     docs=("https://developer.axis.com/vapix/network-video/light-control/",),
     errors={
         1000: ErrorCode("PARAM_INVALID_VALUE_ERROR. Invalid parameter value.", "invalid_argument"),

@@ -150,11 +150,7 @@ INFO = ApiInfo(
     id="privacy-mask",
     name="Privacy mask API",
     family=Family.CGI,
-    discovery=(
-        ApiDiscovery("privacy-mask"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.PrivacyMask.PrivacyMask", "yes"),
-    ),
+    discovery=(ApiDiscovery("privacy-mask"), ParamDiscovery("Properties.PrivacyMask.PrivacyMask", "yes")),
     docs=("https://developer.axis.com/vapix/network-video/overlay-api/",),
 )
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from typing import Any, TypeVar
 
@@ -299,6 +299,12 @@ class Device(_DeviceBase):
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
         return decide_support(api.INFO, self._collect(extra_probes(api.INFO)))
 
+    def supports_many(self, apis: Iterable[type[SyncApi] | SyncApi]) -> dict[type[SyncApi] | SyncApi, SupportResult]:
+        """``supports`` for several APIs from ONE capability snapshot: a failing probe is run once, not once per API."""
+        apis = list(apis)
+        caps = self._collect(tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))))
+        return {a: decide_support(a.INFO, caps) for a in apis}
+
     # -- Lifecycle ----------------------------------------------------------
 
     def close(self) -> None:
@@ -444,6 +450,14 @@ class AsyncDevice(_DeviceBase):
     async def supports(self, api: type[AsyncApi] | AsyncApi) -> SupportResult:
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
         return decide_support(api.INFO, await self._collect(extra_probes(api.INFO)))
+
+    async def supports_many(
+        self, apis: Iterable[type[AsyncApi] | AsyncApi]
+    ) -> dict[type[AsyncApi] | AsyncApi, SupportResult]:
+        """``supports`` for several APIs from ONE capability snapshot: a failing probe is run once, not once per API."""
+        apis = list(apis)
+        caps = await self._collect(tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))))
+        return {a: decide_support(a.INFO, caps) for a in apis}
 
     async def aclose(self) -> None:
         await self._transport.aclose()

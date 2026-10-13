@@ -13,7 +13,6 @@ docs:
 access: operator
 discovery:
 - {api_discovery: radar-autotracking}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.Radar.Radar, value: 'yes'}
 requires:
   firmware: '7.10'

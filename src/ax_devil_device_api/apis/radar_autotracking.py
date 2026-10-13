@@ -185,11 +185,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0),),
-    discovery=(
-        ApiDiscovery("radar-autotracking"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.Radar.Radar", "yes"),
-    ),
+    discovery=(ApiDiscovery("radar-autotracking"), ParamDiscovery("Properties.Radar.Radar", "yes")),
     docs=("https://developer.axis.com/vapix/radar/radar-autotracking/",),
     errors={
         100: ErrorCode(

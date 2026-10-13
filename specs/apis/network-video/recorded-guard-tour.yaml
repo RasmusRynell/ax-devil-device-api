@@ -14,7 +14,6 @@ access: operator
 discovery:
 - {api_discovery: recorded-guard-tour}
 - param: {name: Properties.GuardTour.RecordedTour, value: 'yes'}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 
 binding: {path: /axis-cgi/recordedtour/getschemaversions.cgi}
 

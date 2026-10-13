@@ -14,7 +14,6 @@ docs:
 access: operator
 discovery:
 - {api_discovery: supervised-io}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.SupervisedIO.SupervisedIO, value: 'yes'}
 - param: {name: Properties.SupervisedIO.Version, value: '2.00'}
 requires:

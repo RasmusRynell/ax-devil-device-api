@@ -13,7 +13,6 @@ docs:
 - https://developer.axis.com/vapix/audio-systems/audio-api/
 access: viewer
 discovery:
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.Audio.Audio, value: 'yes'}
 - {api_discovery: audio-device-control}
 requires:

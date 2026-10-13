@@ -44,11 +44,7 @@ INFO = ApiInfo(
     id="ptz-control-queue",
     name="PTZ control queue (Queuing API)",
     family=Family.CGI,
-    discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.PTZ.PTZ", "yes"),
-        ParamDiscovery("Properties.PTZ.DigitalPTZ", "yes"),
-    ),
+    discovery=(ParamDiscovery("Properties.PTZ.PTZ", "yes"), ParamDiscovery("Properties.PTZ.DigitalPTZ", "yes")),
     docs=("https://developer.axis.com/vapix/network-video/pantiltzoom-api/",),
 )
 

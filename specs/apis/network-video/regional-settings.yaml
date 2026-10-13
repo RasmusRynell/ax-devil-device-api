@@ -13,7 +13,7 @@ docs:
 access: operator
 discovery:
 - {api_discovery: regional-settings}
-- param: {name: root.Properties.RegionalSettings.RegionalSettings, value: '"yes"'}
+- param: {name: root.Properties.RegionalSettings.RegionalSettings, value: 'yes'}
 requires:
   firmware: '9.20'
 

@@ -72,10 +72,7 @@ INFO = ApiInfo(
     id="virtual-input",
     name="Virtual input API",
     family=Family.CGI,
-    discovery=(
-        ParamDiscovery("Properties.VirtualInput.VirtualInput", "yes"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-    ),
+    discovery=(ParamDiscovery("Properties.VirtualInput.VirtualInput", "yes"),),
     docs=("https://developer.axis.com/vapix/network-video/input-and-outputs/",),
     errors={
         10: ErrorCode("Missing argument.", "invalid_argument"),

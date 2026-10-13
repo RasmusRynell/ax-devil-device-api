@@ -134,11 +134,7 @@ INFO = ApiInfo(
     id="recorded-guard-tour",
     name="Recorded tour API",
     family=Family.CGI,
-    discovery=(
-        ApiDiscovery("recorded-guard-tour"),
-        ParamDiscovery("Properties.GuardTour.RecordedTour", "yes"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-    ),
+    discovery=(ApiDiscovery("recorded-guard-tour"), ParamDiscovery("Properties.GuardTour.RecordedTour", "yes")),
     docs=("https://developer.axis.com/vapix/network-video/guard-tour-api/",),
     errors={
         10: ErrorCode("Invalid recorded tour ID.", "invalid_argument"),

@@ -12,7 +12,6 @@ docs:
   - https://developer.axis.com/vapix/network-video/edge-storage-api/
 access: admin
 discovery:
-  - param: {name: Properties.API.HTTP.Version, value: "3"}
   - param: {name: Properties.NetworkShare.NetworkShare, value: "yes"}
   - param: {name: Properties.NetworkShare.CIFS, value: "yes"}
 requires:

@@ -268,11 +268,7 @@ INFO = ApiInfo(
     id="serial-port",
     name="Serial port API",
     family=Family.CGI,
-    discovery=(
-        ApiDiscovery("serial-port"),
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.Serial.Serial", "yes"),
-    ),
+    discovery=(ApiDiscovery("serial-port"), ParamDiscovery("Properties.Serial.Serial", "yes")),
     docs=("https://developer.axis.com/vapix/network-video/serial-port-api/",),
 )
 

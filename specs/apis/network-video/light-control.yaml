@@ -15,9 +15,6 @@ access: admin
 discovery:
 - api_discovery: light-control
 - param:
-    name: Properties.API.HTTP.Version
-    value: '3'
-- param:
     name: Properties.LightControl.LightControl2
     value: 'yes'
 requires:

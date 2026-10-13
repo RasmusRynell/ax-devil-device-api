@@ -94,10 +94,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=2,
     known_versions=(ApiVersion(2, 1),),
-    discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.ClearView.ClearView", "yes"),
-    ),
+    discovery=(ParamDiscovery("Properties.ClearView.ClearView", "yes"),),
     docs=("https://developer.axis.com/vapix/network-video/clear-view/",),
     errors={
         1000: ErrorCode("Invalid parameter value.", "invalid_argument"),

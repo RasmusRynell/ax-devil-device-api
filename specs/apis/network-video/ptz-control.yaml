@@ -13,7 +13,6 @@ docs:
 access: viewer
 discovery:
 - {api_discovery: ptz-control}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.API.PTZ.Presets.Version, value: '2.00'}
 - param: {name: Properties.PTZ.PTZ, value: 'yes'}
 - param: {name: Properties.PTZ.DigitalPTZ, value: 'yes'}

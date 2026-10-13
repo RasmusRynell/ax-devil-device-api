@@ -137,10 +137,7 @@ INFO = ApiInfo(
     id="remote-camera-control",
     name="Remote camera control API",
     family=Family.CGI,
-    discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.RemoteCameraControl.VAPIX", "yes"),
-    ),
+    discovery=(ParamDiscovery("Properties.RemoteCameraControl.VAPIX", "yes"),),
     docs=("https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/",),
     errors={
         10: ErrorCode("Error while processing the request."),

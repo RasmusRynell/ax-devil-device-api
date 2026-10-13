@@ -12,7 +12,6 @@ docs:
 - https://developer.axis.com/vapix/network-video/pantiltzoom-api/
 access: viewer
 discovery:
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.PTZ.PTZ, value: 'yes'}
 - param: {name: Properties.PTZ.DigitalPTZ, value: 'yes'}
 requires:

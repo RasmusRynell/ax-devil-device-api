@@ -116,3 +116,35 @@ def test_snapshot_stdout_binary(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_snapshot_invalid_option(monkeypatch: pytest.MonkeyPatch) -> None:
     code, _, err = run(monkeypatch, MockCamera(), "snapshot", "--compression", "500", "-o", "/dev/null")
     assert code == 2 and "InvalidParameters" in err
+
+
+def test_argument_errors_are_json_on_injected_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
+    for argv in ([], ["--bogus"], ["call"], ["snapshot", "--color", "7"]):
+        code, out, err = run(monkeypatch, None, *argv)
+        assert code == 2 and out == ""
+        assert json.loads(err)["error"]["type"] == "UsageError"
+
+
+def test_snapshot_refuses_terminal_before_writing(monkeypatch: pytest.MonkeyPatch) -> None:
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/jpg/image.cgi", text=b"\xff\xd8jpeg", content_type="image/jpeg")
+    monkeypatch.setattr(cli, "make_device", lambda args: cam.device())
+
+    class Tty(io.BytesIO):
+        def isatty(self) -> bool:
+            return True
+
+    raw = Tty()
+    out = io.TextIOWrapper(raw, write_through=True)
+    err = io.StringIO()
+    assert cli.main(["snapshot"], out=out, err=err) == 2
+    assert raw.getvalue() == b"" and "terminal" in err.getvalue()
+
+
+def test_call_rtsp_operation_prints_url_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    cam = MockCamera()
+    code, out, _ = run(monkeypatch, cam, "call", "video_streaming_rtsp", "describe_url", "videocodec=h264")
+    assert code == 0
+    url = json.loads(out)["url"]
+    assert url.startswith("rtsp://") and "videocodec=h264" in url and "@" not in url
+    assert cam.requests == []

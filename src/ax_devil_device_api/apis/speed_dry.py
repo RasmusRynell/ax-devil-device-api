@@ -25,10 +25,7 @@ INFO = ApiInfo(
     id="speed-dry",
     name="Speed dry API",
     family=Family.CGI,
-    discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.SpeedDry.SpeedDry", "yes"),
-    ),
+    discovery=(ParamDiscovery("Properties.SpeedDry.SpeedDry", "yes"),),
     docs=("https://developer.axis.com/vapix/network-video/pantiltzoom-api/",),
 )
 

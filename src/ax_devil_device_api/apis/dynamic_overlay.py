@@ -274,7 +274,6 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 8)),
     discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
         ParamDiscovery("Properties.DynamicOverlay.DynamicOverlay", "yes"),
         ParamDiscovery("Properties.DynamicOverlay.Version", "1.00"),
     ),

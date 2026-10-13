@@ -100,3 +100,13 @@ def test_snapshot_rejects_invalid_option() -> None:
 
     with camera().device() as dev, pytest.raises(ValidationError):
         snapshot(dev, compression=101)
+
+
+@pytest.mark.anyio
+async def test_async_api_support_runs_failed_probes_once() -> None:
+    cam = MockCamera()
+    entries = [load_api(n) for n in api_names()]
+    async with cam.async_device() as dev:
+        results = await async_api_support(dev, entries)
+    assert len(results) == len(entries)
+    assert sum(1 for r in cam.requests if r.path == "/axis-cgi/apidiscovery.cgi") == 1

@@ -13,7 +13,6 @@ docs:
 access: admin
 discovery:
   - api_discovery: privacy-mask
-  - param: {name: Properties.API.HTTP.Version, value: "3"}
   - param: {name: Properties.PrivacyMask.PrivacyMask, value: "yes"}
 binding:
   path: /axis-cgi/privacymask.cgi

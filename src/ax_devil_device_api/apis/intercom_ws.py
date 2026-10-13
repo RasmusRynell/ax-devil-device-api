@@ -28,8 +28,8 @@ INFO = ApiInfo(
     name="Intercom service WebSocket",
     family=Family.WS,
     discovery=(
-        ParamDiscovery("Properties.API.Intercom.Intercom", '"yes"'),
-        ParamDiscovery("Properties.API.Intercom.Version", '"1.1"'),
+        ParamDiscovery("Properties.API.Intercom.Intercom", "yes"),
+        ParamDiscovery("Properties.API.Intercom.Version", "1.1"),
         ApiDiscovery("intercom-api"),
         ApiDiscovery("intercom-reader"),
     ),

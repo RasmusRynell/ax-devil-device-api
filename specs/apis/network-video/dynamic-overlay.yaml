@@ -13,9 +13,6 @@ docs:
 access: operator
 discovery:
 - param:
-    name: Properties.API.HTTP.Version
-    value: '3'
-- param:
     name: Properties.DynamicOverlay.DynamicOverlay
     value: 'yes'
 - param:

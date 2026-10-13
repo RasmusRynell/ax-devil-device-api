@@ -87,11 +87,7 @@ INFO = ApiInfo(
     id="audio-api",
     name="Audio API",
     family=Family.CGI,
-    discovery=(
-        ParamDiscovery("Properties.API.HTTP.Version", "3"),
-        ParamDiscovery("Properties.Audio.Audio", "yes"),
-        ApiDiscovery("audio-device-control"),
-    ),
+    discovery=(ParamDiscovery("Properties.Audio.Audio", "yes"), ApiDiscovery("audio-device-control")),
     docs=("https://developer.axis.com/vapix/audio-systems/audio-api/",),
     errors={
         400: ErrorCode(

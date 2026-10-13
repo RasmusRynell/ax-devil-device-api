@@ -15,7 +15,6 @@ docs:
 access: operator
 discovery:
 - {api_discovery: autotracking-2}
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 requires:
   firmware: '9.10'
 

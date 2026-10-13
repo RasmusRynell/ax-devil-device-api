@@ -259,6 +259,14 @@ def property_scope_flow(name: str) -> Callable[[DeviceState], CallFlow[dict[str,
     return flow
 
 
+def _attr(element: ET.Element, name: str) -> str:
+    """Attribute value by case-insensitive name: older devices answer ``name=``/``version=``."""
+    for key, value in element.attrib.items():
+        if key.casefold() == name.casefold():
+            return value
+    return ""
+
+
 def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     response = yield Request("POST", "/axis-cgi/applications/list.cgi", accept="text/xml")
     if not 200 <= response.status < 300:
@@ -270,9 +278,9 @@ def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     if root.get("result") not in (None, "ok"):
         raise ResponseFormatError("applications", "list", f"device answered result={root.get('result')!r}")
     return {
-        name: app.get("Version", "")
+        name: _attr(app, "Version")
         for app in root.iter()
-        if app.tag.rpartition("}")[2] == "application" and (name := app.get("Name"))
+        if app.tag.rpartition("}")[2] == "application" and (name := _attr(app, "Name"))
     }
 
 

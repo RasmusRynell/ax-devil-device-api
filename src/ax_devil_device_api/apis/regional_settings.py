@@ -49,7 +49,7 @@ INFO = ApiInfo(
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 1)),
     discovery=(
         ApiDiscovery("regional-settings"),
-        ParamDiscovery("root.Properties.RegionalSettings.RegionalSettings", '"yes"'),
+        ParamDiscovery("root.Properties.RegionalSettings.RegionalSettings", "yes"),
     ),
     docs=("https://developer.axis.com/vapix/network-video/regional-settings/",),
     errors={

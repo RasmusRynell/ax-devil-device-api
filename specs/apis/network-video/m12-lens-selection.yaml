@@ -13,7 +13,6 @@ docs:
 - https://developer.axis.com/vapix/network-video/m12-lens-selection/
 access: operator
 discovery:
-- param: {name: Properties.API.HTTP.Version, value: '3'}
 - param: {name: Properties.M12LensSelection.M12LensSelection, value: 'yes'}
 - param: {name: Properties.M12LensSelection.Version, value: '1.00'}
 requires:

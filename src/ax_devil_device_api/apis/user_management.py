@@ -12,7 +12,7 @@ from typing import Annotated, Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
+from .._protocols.base import ApiDiscovery, ApiInfo, ErrorCode, Family, Model, Operation
 from .._protocols.cgi import CgiArg, CgiBinding, Text, TextKv
 from ._base import AsyncApi, SyncApi
 
@@ -62,7 +62,7 @@ INFO = ApiInfo(
     id="user-management",
     name="Add, modify and delete user accounts (pwdgrp.cgi)",
     family=Family.CGI,
-    discovery=(ApiDiscovery("user-management"), ParamDiscovery("Properties.API.HTTP.Version", "3")),
+    discovery=(ApiDiscovery("user-management"),),
     docs=("https://developer.axis.com/vapix/network-video/system-settings/",),
     errors={
         "system_log": ErrorCode(
