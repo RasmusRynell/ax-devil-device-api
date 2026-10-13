@@ -299,3 +299,21 @@ async def test_async_stream_open_gives_up_after_the_attempts() -> None:
     with pytest.raises(ConnectTimeout):
         await run_async(transport, stream_flow(), Call(retry=FAST))
     assert transport.opens == 3
+
+
+def test_sync_failed_stream_open_emits_an_on_response_record() -> None:
+    observed: list[dict[str, Any]] = []
+    transport = FlakyStreams(5, ConnectTimeout("t"))
+    with pytest.raises(ConnectTimeout):
+        run_sync(transport, stream_flow(), Call(retry=FAST, on_response=observed.append))
+    assert [o["error"] for o in observed] == ["ConnectTimeout"] * 3
+    assert [o["attempt"] for o in observed] == [1, 2, 3]
+
+
+@pytest.mark.anyio
+async def test_async_failed_stream_open_emits_an_on_response_record() -> None:
+    observed: list[dict[str, Any]] = []
+    transport = FlakyAsyncStreams(5, ConnectTimeout("t"))
+    with pytest.raises(ConnectTimeout):
+        await run_async(transport, stream_flow(), Call(retry=FAST, on_response=observed.append))
+    assert [o["error"] for o in observed] == ["ConnectTimeout"] * 3
