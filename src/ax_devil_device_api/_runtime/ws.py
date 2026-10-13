@@ -194,15 +194,15 @@ class SessionLedger:
             if track is not None:
                 track.last_seen = time.time()
 
-    def end(self, key: Any, *, graceful: bool) -> None:
-        """A session ended. Graceful: stamp now. Abnormal: keep the last frame time."""
+    def end(self, key: Any, *, graceful: bool, at: float | None = None) -> None:
+        """A session ended. Graceful: stamp ``at`` (default now). Abnormal: keep the last frame time."""
         with self._lock:
             track = self._tracks.get(key)
             if track is None:
                 return
             track.active = max(0, track.active - 1)
             if graceful:
-                track.last_seen = time.time()
+                track.last_seen = time.time() if at is None else at
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +226,8 @@ class _Core:
         self._counter = 0
         self._ended = False
         self._reader_over: Callable[[], bool] | None = None
+        self.remote_close: tuple[int, float] | None = None
+        self.closing = False
 
     def begin(self) -> None:
         """Enter the gap ledger. Called once setup has succeeded, so a failed attempt leaves no trace."""
@@ -234,14 +236,36 @@ class _Core:
             self.gap = self.ledger.begin(self.spec.key)
             self.ledger.watch(self.spec.key, self.check_alive)
 
-    def watch_reader(self, is_over: Callable[[], bool]) -> None:
-        """``is_over`` tells whether the socket's background reader has terminated (close frame, network error)."""
-        self._reader_over = is_over
+    def watch_reader(self, raw: Any) -> None:
+        """Follow the socket's background reader: when it terminated, and the close frame it saw (code, time)."""
+        self._reader_over = lambda: bool(getattr(raw, "_should_close").is_set())  # noqa: B009 - private httpx-ws signal
+        connection = getattr(raw, "connection", None)
+        events = getattr(connection, "events", None)
+        if events is None:
+            return
+
+        def recording() -> Iterator[Any]:
+            for event in events():
+                if isinstance(event, wsproto.events.CloseConnection) and self.remote_close is None:
+                    self.remote_close = (event.code, time.time())
+                yield event
+
+        connection.events = recording  # type: ignore[union-attr, method-assign]
 
     def check_alive(self) -> None:
-        """End tracking if the reader terminated, whatever the reason (abnormal: the gap starts at the last frame)."""
-        if self._reader_over is not None and not self._ended and self._reader_over():
-            self.failed = self.failed or self.closed is None
+        """End tracking if the reader terminated, whatever the reason.
+
+        A close frame with a normal code (or our own ``close()``) ends the session normally, at the time the frame
+        arrived; anything else (network error, abnormal code) is abnormal: the gap starts at the last data frame.
+        """
+        if self._reader_over is None or self._ended or not self._reader_over():
+            return
+        if self.remote_close is not None and self.remote_close[0] in _NORMAL_CLOSE:
+            self.finish(user_exit_error=None, at=self.remote_close[1])
+        elif self.remote_close is None and self.closing:
+            self.finish(user_exit_error=None)
+        else:
+            self.failed = True
             self.finish(user_exit_error=None)
 
     def next_id(self) -> str:
@@ -332,7 +356,7 @@ class _Core:
         request_id = self.next_id()
         return request_id, codec.encode_request(method, params, request_id)
 
-    def finish(self, *, user_exit_error: BaseException | None) -> None:
+    def finish(self, *, user_exit_error: BaseException | None, at: float | None = None) -> None:
         if self._ended:
             return
         self._ended = True
@@ -340,7 +364,7 @@ class _Core:
             return
         self.ledger.unwatch(self.spec.key, self.check_alive)
         graceful = not self.failed and (user_exit_error is None or not isinstance(user_exit_error, TransportError))
-        self.ledger.end(self.spec.key, graceful=graceful)
+        self.ledger.end(self.spec.key, graceful=graceful, at=at)
 
 
 def refusal_error(spec: SessionSpec, response: Response) -> DeviceError:
@@ -391,7 +415,7 @@ class Session:
     def __init__(self, raw: httpx_ws.WebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
-        core.watch_reader(lambda: getattr(raw, "_should_close").is_set())
+        core.watch_reader(raw)
 
     @property
     def gap(self) -> Gap | None:
@@ -496,6 +520,7 @@ class Session:
                 yield found.item
 
     def close(self) -> None:
+        self._core.closing = True
         self._raw.close()
         self._core.finish(user_exit_error=None)  # closed: the session no longer counts as active in the gap ledger
 
@@ -569,7 +594,7 @@ class AsyncSession:
     def __init__(self, raw: httpx_ws.AsyncWebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
-        core.watch_reader(lambda: getattr(raw, "_should_close").is_set())
+        core.watch_reader(raw)
 
     @property
     def gap(self) -> Gap | None:
@@ -676,6 +701,7 @@ class AsyncSession:
                 yield found.item
 
     async def close(self) -> None:
+        self._core.closing = True
         await self._raw.close()
         self._core.finish(user_exit_error=None)  # closed: the session no longer counts as active in the gap ledger
 

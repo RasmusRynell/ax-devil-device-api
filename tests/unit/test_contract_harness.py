@@ -52,7 +52,7 @@ def test_build_dca_value_body_takes_any_json_type() -> None:
 
 def _soap_op(binding):
     return SimpleNamespace(
-        binding=binding, params=None, id="Op", api=SimpleNamespace(id="x"), error_code=lambda code, message=None: None
+        binding=binding, params=None, id="Op", api=SimpleNamespace(id="x"), error_code=lambda code, message=None, sub_code=None: None
     )
 
 

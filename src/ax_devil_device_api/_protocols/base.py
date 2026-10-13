@@ -243,7 +243,7 @@ class Model(BaseModel):
                 raise original  # no unknown enum value: some other constraint failed (for example an emptied list)
             if response:
                 return result
-            pairs = [(info.field_name, item) for item in new]
+            pairs = [(cls, info.field_name, item) for item in new]
             if collector is not None:
                 collector.update(pairs)
                 return result
@@ -716,11 +716,17 @@ class Operation(Generic[B]):
     errors: Mapping[int | str, ErrorCode] = field(default_factory=dict)
     support: SupportStatus = "docs-only"
 
-    def error_code(self, code: int | str | None, message: str | None = None) -> ErrorCode | None:
+    def error_code(self, code: int | str | None, message: str | None = None, sub_code: int | str | None = None) -> ErrorCode | None:
         """The documented error for ``code``; without a code (or when it is unknown), the one matching ``message``.
 
+        ``sub_code`` (``details.subCode``) selects a composite ``"<code>/subCode <n>"`` entry before the plain code.
         An exact key wins over a range key (``"9000-9999"``); the operation's table wins over the API's.
         """
+        if code is not None and sub_code is not None:  # "4004/subCode 202" is more specific than "4004"
+            for table in (self.errors, self.api.errors):
+                entry = table.get(f"{code}/subCode {sub_code}")
+                if entry is not None and entry.message is None and entry.message_prefix is None:
+                    return entry
         if code is not None:
             for table in (self.errors, self.api.errors):
                 entry = table.get(code)
@@ -752,11 +758,25 @@ def _code_number(code: int | str) -> int | None:
     return int(code) if code.strip().isdigit() else None
 
 
+def _sub_code(details: Any) -> int | str | None:
+    """``subCode`` of an error object (its own member, or inside its ``details``); of the first one in a list."""
+    if isinstance(details, list):
+        details = details[0] if details else None
+    if not isinstance(details, dict):
+        return None
+    for holder in (details, details.get("details")):
+        if isinstance(holder, dict):
+            value = holder.get("subCode", holder.get("subcode"))
+            if isinstance(value, (int, str)) and not isinstance(value, bool):
+                return value
+    return None
+
+
 def api_error(
     op: Operation[Any], code: int | str | None, message: str, *, http_status: int | None, details: Any
 ) -> ApiError:
     """Build the right ``ApiError`` subclass for a documented (or unknown) code."""
-    info = op.error_code(code, message)
+    info = op.error_code(code, message, _sub_code(details))
     kind = info.kind if info else None
     if kind is None and http_status == 403:
         kind = "access_denied"

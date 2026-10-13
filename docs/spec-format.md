@@ -422,7 +422,7 @@ errors:
   2105: {description: Authorization failure, kind: access_denied}
 ```
 
-`kind` is one of `access_denied`, `unavailable`, `invalid_argument`, `not_found`, `unsupported`, `internal`. It selects the error class at runtime, so set it whenever the meaning is clear. Operations may add their own `errors`. A key may also be a range of codes, `"9000-9999": {description: Reserved for license errors, kind: unavailable}`; an exact code wins over a range, and an operation's entry over the API's. A JSON-RPC error with `kind: unsupported` (like 2100, or 2000 where an API documents it so) also drops the cached API versions.
+`kind` is one of `access_denied`, `unavailable`, `invalid_argument`, `not_found`, `unsupported`, `internal`. It selects the error class at runtime, so set it whenever the meaning is clear. Operations may add their own `errors`. A key may also be a range of codes, `"9000-9999": {description: Reserved for license errors, kind: unavailable}`; a key `"4004/subCode 202"` matches an error whose `details.subCode` (or `subCode`) is 202 and wins over the plain `4004`; an exact code wins over a range, and an operation's entry over the API's. A JSON-RPC error with `kind: unsupported` (like 2100, or 2000 where an API documents it so) also drops the cached API versions.
 
 Some APIs report failures only as a message, with no code: classic CGIs answer `Error: account user name.` (HTTP 200). Such an error is matched by its text: give the entry `message` (the whole message) or `message_prefix` (its start, for messages that end with a variable part), and use any label as the key:
 
