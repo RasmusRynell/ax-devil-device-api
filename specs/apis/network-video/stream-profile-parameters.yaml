@@ -133,7 +133,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(streaming): the Motion JPEG request with ``streamprofile=<name>`` on /axis-cgi/mjpg/video.cgi (see video-streaming) and the RTSP request with ``streamprofile`` (BLOCKED(rtsp-url)) use these profiles but are not stream-profile operations.'
+  - The Motion JPEG request with ``streamprofile=<name>`` (get_mjpeg_stream in video-streaming) and the RTSP request with ``streamprofile`` (video-streaming-rtsp) use these profiles but are not stream-profile operations.
   - The profile group number sits inside the parameter name (StreamProfile.S#...), which the cgi binding cannot template; update_stream_profile takes full parameter names.
   - The percent-encoding of the Parameters value is ambiguous. The list reply shows the value stored percent-encoded (``videocodec%3dh264``) while the request URLs carry the same text; whether a client should encode it once more on the wire is not stated.
   - The combined add example in the docs misses the ``&`` between ``StreamProfile.S.Name=myprofile2`` and ``StreamProfile.S.Description`` (doc typo, corrected here); the update example has a literal space in ``%2520 profile`` (typo, corrected).

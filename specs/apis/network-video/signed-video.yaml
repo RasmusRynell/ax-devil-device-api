@@ -70,6 +70,17 @@ operations:
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/signed-video/#setup-signed-video-on-a-channel
 
+  stream_signed_video:
+    summary: Build the RTSP URL of a stream with video signing enabled or disabled for that stream.
+    effect: read
+    access: viewer
+    binding: {rtsp: {}}
+    params:
+      type: object
+      required: [videosigned]
+      properties:
+        videosigned: {type: boolean, description: "Enable (1) or disable (0) signed video for this stream."}
+
 sources:
 - url: https://developer.axis.com/vapix/network-video/signed-video/
   sha256_md: 0244b469c00df21acb8689763f58eb9c0e2e7a6bc65578a17ca90bfc7985956b
@@ -78,8 +89,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(rtsp-url): stream_signed_video: signing a single stream with the ``videosigned=1|0`` RTSP URL option; the format cannot build RTSP URLs yet.'
-  - The channel index sits inside the parameter name (Image.I#...), which the cgi binding cannot template; callers pass the full parameter name.
+  - The channel index sits inside the parameter name (Image.I#...), so set_signed_video takes the parameter map and get_signed_video the full parameter name.
   - AXIS OS minimum version not stated.
   - Update security level is Admin; list security level is given as "Operator, Viewer" (ambiguous whether viewer suffices).
   - Validation/verification of signed video (tools, formats) is not documented on this page.

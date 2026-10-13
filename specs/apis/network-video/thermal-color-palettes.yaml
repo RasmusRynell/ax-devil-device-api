@@ -153,6 +153,31 @@ operations:
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/thermal-imaging/#using-isotherm-palettes
 
+  get_mjpeg_stream_with_palette:
+    summary: Open a Motion JPEG stream that uses a given color palette.
+    description: >-
+      ``palette`` is a name returned by ``list_palettes``. Applicable if ``Properties.Image.Palette.StreamPalette`` is
+      ``yes`` or does not exist. Without ``palette`` the global palette is used. Use the result as a context manager.
+    effect: read
+    binding:
+      path: /axis-cgi/mjpg/video.cgi
+      method: GET
+      reply: {stream: {decoder: mjpeg}}
+    params:
+      type: object
+      properties:
+        palette: {type: string, description: "The palette name, for example Axis."}
+
+  get_rtsp_stream_with_palette:
+    summary: Build the RTSP URL of a stream that uses a given color palette.
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      properties:
+        videocodec: {type: string, description: "Video codec of the stream, for example h264."}
+        palette: {type: string, description: "The palette name, for example Axis."}
+
 sources:
 - url: https://developer.axis.com/vapix/network-video/thermal-imaging/
   sha256_md: 73f1394bae1b30679e93cf7bcd42a09115d0d19b6ba75396499fdff51312fa51
@@ -161,8 +186,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(streaming): per-stream palettes with the ``palette=<name>`` argument of an HTTP stream request (/axis-cgi/mjpg/video.cgi?palette=Axis); the format cannot express streaming replies yet. Snapshot requests with ``palette`` are in video-streaming.'
-  - 'BLOCKED(rtsp-url): per-stream palettes with the ``palette`` option of an RTSP URL (rtsp://<servername>/axis-media/media.amp?videocodec=h264&palette=Axis).'
   - The palette names are only reachable as ``PaletteName.value`` because the xml mapping reads scalar array items from element text, not from an attribute; a plain list of names needs a runtime change.
   - The Image.I0.Appearance.Palette parameter and Properties.Image.Palette.* (stream palettes supported if StreamPalette is yes or absent, global palettes if no) can be read with param.cgi action=list (see Parameter management); there is no dedicated operation.
   - Access levels for the palette parameter are not stated (securityLevel 7714 in the example); the update is assumed to need operator.

@@ -48,8 +48,7 @@ types:
         description: Compression level; higher values mean higher compression (lower quality, smaller image). Internally mapped and product dependent.
       color:
         type: integer
-        minimum: 0
-        maximum: 1
+        enum: [0, 1]
         description: '``0`` black and white, ``1`` color.'
       rotation:
         type: integer
@@ -57,16 +56,14 @@ types:
         description: Rotate the image clockwise. The alternatives are defined by ``Properties.Image.Rotation``; 90, 180 and 270 are product and release dependent. Not applicable to AVIF.
       mirror:
         type: integer
-        minimum: 0
-        maximum: 1
+        enum: [0, 1]
         description: '``0`` no horizontal mirroring, ``1`` mirror the image horizontally.'
       palette:
         type: string
         description: Thermal cameras only. The color palette to use, applicable if ``Properties.Image.Palette.StreamPalette`` is ``yes`` or does not exist. See thermal-color-palettes.
       squarepixel:
         type: integer
-        minimum: 0
-        maximum: 1
+        enum: [0, 1]
         description: '``1`` adjusts the aspect ratio to appear as intended (square pixel correction). Not applicable to AVIF.'
       overlays: {$ref: '#/types/Overlays'}
   JpegRequest:
@@ -82,6 +79,26 @@ types:
       textstring:
         type: string
         description: The text to display, for example ``My Camera``. Defined in the Image API URL options.
+  MjpegRequest:
+    type: object
+    description: The image request arguments plus the stream profile and the stream length. A value given after ``streamprofile`` overrides the saved one.
+    properties:
+      streamprofile:
+        type: string
+        description: Name of a saved stream profile (``StreamProfile.S#.Name``).
+      <<: *image_arguments
+      duration:
+        type: integer
+        minimum: 0
+        description: For how many seconds the video is generated and pushed to the client. ``0`` is unlimited.
+      nbrofframes:
+        type: integer
+        minimum: 0
+        description: How many frames the device generates and pushes. ``0`` is unlimited.
+      fps:
+        type: integer
+        minimum: 0
+        description: The frame rate. ``0`` is unlimited.
   ImageSize:
     type: object
     required: [image width, image height]
@@ -198,6 +215,17 @@ operations:
       request: {query: {text: '1', textstring: My Camera, camera: '2'}}
       response: {status: 200, content_type: image/jpeg, text: <JPEG image data>}
       source: https://developer.axis.com/vapix/network-video/video-streaming/#jpeg-image-snapshot
+  get_mjpeg_stream:
+    summary: Open a Motion JPEG stream.
+    description: >-
+      Returns a stream of ``multipart/x-mixed-replace`` parts, one JPEG per part. Arguments such as resolution and
+      compression are given in the request, or taken from a saved stream profile. Use the result as a context manager.
+    effect: read
+    binding:
+      path: /axis-cgi/mjpg/video.cgi
+      method: GET
+      reply: {stream: {decoder: mjpeg}}
+    params: {$ref: '#/types/MjpegRequest'}
   get_always_multicast_sdp:
     summary: Retrieve the Session Description Protocol (SDP) of the always-multicast stream of a video source.
     description: >-
@@ -240,8 +268,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(streaming): get_mjpeg_stream: /axis-cgi/mjpg/video.cgi (multipart/x-mixed-replace Motion JPEG) with the image arguments plus streamprofile, duration, nbrofframes and fps; the format cannot express streaming replies yet.'
-  - 'BLOCKED(rtsp-url): the RTSP section (media.amp URL options, DESCRIBE/SETUP/PLAY, RTSP over HTTP, source-specific multicast) is not a CGI API.'
+  - The RTSP section (media.amp URL options, DESCRIBE/SETUP/PLAY, RTSP over HTTP, source-specific multicast) is not a CGI API; the RTSP URL builders are in video-streaming-rtsp.
   - Stream profile parameters are in stream-profile-parameters, the scene profile in scene-profile.
   - The imagesize.cgi reply is shown both as "image width = 720" and "image width=<value>"; the text_kv codec trims the key but keeps the leading space of the value, which the integer fields tolerate.
   - Image errors of imagesize.cgi arrive as HTTP 200 with an HTML comment or plain message in the body, and the error behaviour of the other image CGIs is not documented; they surface as ResponseFormatError rather than an API error.
@@ -249,6 +276,5 @@ provenance:
   - text and textstring appear in a JPEG example but not in the Image request arguments table (see the Image API URL options); they are modelled on get_jpeg only.
   - The Bitmap section's "To check if the Axis product supports bitmap images, use" sentence is truncated in the docs (the example lists Properties.Image.Format).
   - The camera argument is documented as a string (``1 ...`` or ``quad``), modelled with a pattern.
-  - 'The color, mirror and squarepixel flags are 0/1 integers, modelled as 0 to 1 ranges, because the contract harness cannot send enum integers.'
   migrated_from: v1
   curated: true

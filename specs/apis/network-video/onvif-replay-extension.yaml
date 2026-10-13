@@ -94,6 +94,20 @@ operations:
         response: {status: 200, text: OK}
         source: https://developer.axis.com/vapix/network-video/onvif-replay-extension/#enable-or-disable-the-feature-by-default
 
+  stream_with_replay_extension:
+    summary: Build the RTSP URL of a stream that uses (or does not use) the ONVIF replay RTP header extension.
+    description: >-
+      ``onvifreplayext=1`` includes NTP timestamps in the RTP packets; ``0`` disables the extension when it is enabled
+      by default.
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      required: [onvifreplayext]
+      properties:
+        videocodec: {type: string, description: "Video codec of the stream, for example h264."}
+        onvifreplayext: {type: integer, enum: [0, 1], description: "1 enables the RTP header extension, 0 disables it."}
+
 sources:
   - url: https://developer.axis.com/vapix/network-video/onvif-replay-extension/
     sha256_md: 3d9cd420dc664901d50af7d686611165b9b99c34070ebd1f29ce97510916ead6
@@ -101,7 +115,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-    - 'BLOCKED(rtsp_url): stream_with_replay_extension: rtsp://<host>:554/axis-media/media.amp?videocodec=h264&onvifreplayext=1 (0 disables it when enabled by default)'
     - The response "Schema" blocks are pseudo-syntax ({ [ ... ] }); the actual response is plain text key=value.
     - Security levels of the param.cgi calls are not stated; Properties is read as viewer and Network.RTP as admin (as in the network settings docs).
   migrated_from: v1

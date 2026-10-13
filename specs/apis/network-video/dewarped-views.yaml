@@ -94,6 +94,36 @@ operations:
       properties:
         ImageSource.I0.CameraTiltOrientation: {type: integer, enum: [-90, 0, 90], x-python-name: camera_tilt_orientation}
 
+  get_mjpeg_stream:
+    summary: Open a Motion JPEG stream of one dewarped view mode.
+    description: >-
+      Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode (see
+      ``list_parameters`` with ``Properties.Image.I<n>``).
+    effect: read
+    binding: {path: /axis-cgi/mjpg/video.cgi, reply: {stream: {decoder: mjpeg}}}
+    params:
+      type: object
+      required: [camera, resolution]
+      properties:
+        camera: {type: integer, minimum: 1, description: 'View mode group number + 1.'}
+        resolution: {type: string, pattern: '^[0-9]+x[0-9]+$', description: 'A valid resolution of the view mode, e.g. 1600x600.'}
+    positional: [camera, resolution]
+
+  get_rtsp_stream:
+    summary: Build the RTSP URL of a stream from one dewarped view mode.
+    description: >-
+      Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode.
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      required: [camera, resolution]
+      properties:
+        videocodec: {type: string, description: "Video codec of the stream, for example h264."}
+        camera: {type: integer, minimum: 1, description: 'View mode group number + 1.'}
+        resolution: {type: string, pattern: '^[0-9]+x[0-9]+$', description: 'A valid resolution of the view mode, e.g. 800x600.'}
+    positional: [camera, resolution]
+
 sources:
 - url: https://developer.axis.com/vapix/network-video/dewarped-views/
   sha256_md: 54c7e361d6b1d0649b4091d135be31a04a63e1a15c5726b098559639074bd61b
@@ -102,8 +132,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(streaming reply): get_mjpeg_stream - /axis-cgi/mjpg/video.cgi?camera=<view group + 1>&resolution=<valid resolution>'
-  - 'BLOCKED(RTSP URL): get_rtsp_stream - rtsp://<servername>/axis-media/media.amp?videocodec=h264&camera=<view group + 1>&resolution=<valid resolution>'
   - The docs show action=list for the camera orientation request; set_camera_tilt_orientation uses param.cgi action=update (POST form, reply OK) as the general parameter API defines it, and get_camera_tilt_orientation uses the documented list request.
   - Security levels are not documented; the access column lists read/write for every view mode and the footnote only refers to Image.I<#>.Name.
   - AXIS OS requirement is not stated.

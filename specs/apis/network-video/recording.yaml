@@ -408,6 +408,43 @@ operations:
         source: {type: string, description: Remove recordings from this video source. Cannot be combined with recordingid or recordinggroupid.}
     positional: [recordingid]
 
+  play_recording:
+    summary: Play an MJPEG recording as a stream (deprecated since AXIS OS 10.2).
+    description: >-
+      The stream has the same format as the live view stream. Only MJPEG recordings can be played this way; use
+      ``play_recording_rtsp`` for other formats. Use the result as a context manager.
+    access: viewer
+    effect: read
+    binding:
+      path: /axis-cgi/record/play.cgi
+      method: GET
+      reply: {stream: {decoder: mjpeg}}
+    params:
+      type: object
+      required: [recordingid]
+      properties:
+        recordingid: {type: string, description: The ID of the recording to play.}
+        mediatype: {type: string, enum: [video, audio], description: 'What to play. Default: video.'}
+        rate: {type: string, pattern: '^(max|[0-9]+/[0-9]+)$', description: 'The playback rate: ``max`` (as fast as possible) or a fraction numerator/denominator of the original rate.'}
+        starttime: {type: string, description: Playback start time (UTC ISO 8601); playback starts at the frame closest to it. Default is the beginning.}
+        stoptime: {type: string, description: Playback stop time (UTC ISO 8601); playback stops at the frame closest to it. Default is the end.}
+    positional: [recordingid]
+  play_recording_rtsp:
+    summary: Build the RTSP URL for playing a recording in any media format.
+    description: >-
+      Send PLAY to the URL. A ``Range`` header (``npt``, ``clock`` or ``smpte``) selects the part to play; that header
+      is not part of the URL.
+    access: viewer
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      required: [recordingid]
+      properties:
+        recordingid: {type: string, description: The ID of the recording to play.}
+        pull: {type: boolean, description: 'Stream as fast as possible; only useful when tunneling RTSP over HTTP. Default: off.'}
+    positional: [recordingid]
+
 sources:
 - url: https://developer.axis.com/vapix/network-video/edge-storage-api/
   sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
@@ -416,8 +453,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - 'BLOCKED(streaming-reply): play_recording: /axis-cgi/record/play.cgi (deprecated MJPEG playback) streams a multipart reply.'
-  - 'BLOCKED(rtsp-url): play_recording_rtsp: playback with media.amp?recordingid=... over RTSP.'
   - The docs describe the list.cgi response as depending on listentity=recordingid, while the parameter table allows recording, eventid and source; the spec follows the table and omits the argument for recordings.
   - recordinggroupid is typed string with valid values Integer, and source is typed integer with valid values Quad or channel number.
   - The listconfiguration XSD names the elements continousrecordingconfiguration(s) (typo); the spec follows the documented sample reply.

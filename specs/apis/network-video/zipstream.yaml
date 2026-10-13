@@ -639,6 +639,25 @@ operations:
           </ZipStreamResponse>
       source: https://developer.axis.com/vapix/network-video/zipstream-technology/#list-available-zipstream-profiles
 
+  get_rtsp_stream_with_zipstream:
+    summary: Build the RTSP URL of a stream with Zipstream settings that apply to that stream only.
+    description: >-
+      The settings override the device-wide Zipstream settings (``set_strength``, ``set_gop``, ``set_fps_mode``,
+      ``set_min_fps``) for the requested stream. ``videozminfps`` is only relevant when ``videozfpsmode`` is
+      ``dynamic``.
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      properties:
+        videocodec: {type: string, description: "Video codec of the stream, for example h264."}
+        videozstrength: {$ref: '#/types/Strength'}
+        videozgopmode: {$ref: '#/types/GopMode'}
+        videozmaxgoplength: {type: integer, minimum: 1, description: The maximum GOP length for dynamic GOP mode.}
+        videokeyframeinterval: {type: integer, minimum: 1, description: "Overrides the default GOP length (Image.I#.MPEG.PCount); the minimum GOP length in dynamic mode."}
+        videozfpsmode: {$ref: '#/types/FpsMode'}
+        videozminfps: {type: integer, minimum: 0, description: The minimum dynamic frame rate; only with ``videozfpsmode=dynamic``.}
+
 sources:
 - url: https://developer.axis.com/vapix/network-video/zipstream-technology/
   sha256_md: b2188323edea247ecd01fed0b286b53c51930220db0a2a65372d0b4642f4cbf0
@@ -648,7 +667,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - BLOCKED(RTSP URLs): Zipstream in RTSP requests - the RTSP URL parameters videozstrength, videozgopmode, videozmaxgoplength, videokeyframeinterval, videozfpsmode and videozminfps on rtsp://<servername>/axis-media/media.amp (documented under Zipstream in RTSP requests; the RTSP API itself belongs to video streaming).
   - The error element carries Description in the docs and examples but ErrorDescription in zipstream1.xsd; the runtime reads both.
   - The listprofiles.cgi reference shows GeneralSuccess but its example returns ListProfilesSuccess (with a misspelled closing tag, corrected in the example here). XSD 1.2 has neither ListProfilesSuccess nor ListFpsModesSuccess.
   - 'setprofile.cgi: the argument table names the argument level but the example uses profilelevel; level is used and the example is skipped. The section intro says the call sets the profile to classic on all channels.'

@@ -48,6 +48,25 @@ operations:
         response: {status: 200, text: "port1=0\nport2=0"}
         source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
 
+  monitor_ports:
+    summary: Monitor ports and receive their state changes as a stream of lines.
+    description: >-
+      Returns a ``multipart/x-mixed-replace`` stream; each line is ``<port id><I|O>:<action>``, where the action
+      character is ``/`` or ``H`` for active and a backslash or ``L`` for inactive. Empty parts are sent every 15
+      seconds. Input and output ports must be monitored separately. Use the result as a context manager.
+    effect: read
+    binding:
+      method: GET
+      reply: {stream: {decoder: lines, encoding: utf-8}}
+    params:
+      type: object
+      required: [monitor]
+      properties:
+        monitor:
+          $ref: "#/types/PortIds"
+          x-style: csv
+    positional: [monitor]
+
   check_ports_active:
     summary: 'Whether ports are active as ``{"port3": "inactive"}``.'
     description: >-
@@ -198,7 +217,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-    - 'BLOCKED(streaming): monitor_ports: port.cgi?monitor=<ports> returns a multipart/x-mixed-replace stream of "<id><I|O>:<action char>" lines (/ or H active, \ or L inactive); empty parts every 15 s.'
     - The page also covers the General purpose I/O service (SOAP) and the Virtual input API; those belong to other specs and are not modelled here.
     - The identification says IOPort.In.Configurable=yes, which is probably IOPort.I#.Configurable.
     - The "Properties parameters" table (ManualTriggerNbr) does not give the full parameter group path.
