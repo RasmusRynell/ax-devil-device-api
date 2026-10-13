@@ -17,6 +17,7 @@ sends a cheap authenticated GET (``usergroup.cgi``) to verify the credentials, t
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
@@ -42,6 +43,10 @@ class Upload:
     size: int
     filename: str | None = None
     content_type: str | None = None
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+    """Held while the stream is read (in a worker thread for async calls): a cancelled call cannot stop a read that
+    is running, so a retry waits for it and then reuses the buffer instead of reading the one-shot stream twice."""
+    _failure: Exception | None = field(default=None, init=False, repr=False)
     _buffer: bytes | None = field(default=None, init=False, repr=False)
     """Content of a small upload, kept after the first read: the stream is one-shot, so a call that failed before
     the body was sent (no free slot, a failing hook, a connection error) can be repeated with the same source."""
@@ -49,6 +54,19 @@ class Upload:
     def __post_init__(self) -> None:
         if self.size < 0:
             raise ValueError("Upload size cannot be negative")
+
+    def _buffered(self) -> bytes:
+        """The whole content of a small upload, read once under the lock and kept; a failed read stays failed."""
+        with self._lock:
+            if self._buffer is None:
+                if self._failure is not None:
+                    raise ValueError(f"the upload stream already failed and cannot be read again: {self._failure}") from self._failure
+                try:
+                    self._buffer = b"".join(_read_exactly(self.stream, self.size))
+                except Exception as error:
+                    self._failure = error
+                    raise
+            return self._buffer
 
 
 @dataclass(frozen=True)
@@ -134,9 +152,7 @@ def _load(value: UploadSource) -> tuple[bytes | _PathChunks | _StreamChunks, int
         return value, len(value)
     if isinstance(value, Upload):
         if value.size <= INLINE_LIMIT:
-            if value._buffer is None:
-                value._buffer = b"".join(_read_exactly(value.stream, value.size))
-            return value._buffer, value.size
+            return value._buffered(), value.size
         return _StreamChunks(value.stream, value.size), value.size
     path = os.fspath(value)
     size = os.stat(path).st_size

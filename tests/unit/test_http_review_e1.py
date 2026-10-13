@@ -497,3 +497,38 @@ def test_cgi_http_503_is_unavailable_even_when_the_api_has_code_503() -> None:
     assert op.error_code(503) is not None
     with pytest.raises(Unavailable):
         _decode(op, Response(503, Headers(()), b"", Request("GET", "/axis-cgi/opticssetup.cgi")))
+
+
+class SlowStream(io.BytesIO):
+    def __init__(self, data: bytes, delay: float) -> None:
+        super().__init__(data)
+        self.delay = delay
+        self.reads = 0
+
+    def read(self, size: int | None = -1) -> bytes:
+        import time
+
+        self.reads += 1
+        time.sleep(self.delay)
+        return super().read(size)
+
+
+@pytest.mark.anyio
+async def test_cancelled_buffering_then_immediate_retry_reads_the_stream_once() -> None:
+    stream = SlowStream(b"PAYLOAD", 0.3)
+    upload = Upload(stream, 7)
+    transport = Recorder()
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(run_async(transport, multipart_flow(file_part("f", upload)), Call()), 0.05)
+    await run_async(transport, multipart_flow(file_part("f", upload)), Call())
+    body = transport.requests[-1].body
+    assert isinstance(body, MultipartBody) and body.files[0].content == b"PAYLOAD"
+    assert stream.reads == 1
+
+
+def test_a_failed_buffering_stays_failed_with_a_clear_error() -> None:
+    upload = Upload(io.BytesIO(b"abc"), 10)  # shorter than declared
+    with pytest.raises(ValueError, match="ended"):
+        file_part("f", upload).content.resolve()  # type: ignore[union-attr]
+    with pytest.raises(ValueError, match="already failed"):
+        file_part("f", upload).content.resolve()  # type: ignore[union-attr]
