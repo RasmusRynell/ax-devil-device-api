@@ -179,6 +179,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.NetworkShare.NetworkShare", "yes"),
         ParamDiscovery("Properties.NetworkShare.CIFS", "yes"),
     ),
+    requires_firmware="5.40",
     docs=("https://developer.axis.com/vapix/network-video/edge-storage-api/",),
     errors={
         10: ErrorCode("Error while processing the request.", "internal"),

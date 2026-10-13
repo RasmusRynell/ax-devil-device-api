@@ -286,6 +286,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 1), ApiVersion(1, 2), ApiVersion(1, 3)),
     discovery=(AcapDiscovery("MotionGuard"),),
+    requires_application="AXIS Motion Guard",
     docs=("https://developer.axis.com/vapix/applications/motion-guard/",),
     errors={
         1000: ErrorCode("Application error. The application failed to handle the request.", "internal"),

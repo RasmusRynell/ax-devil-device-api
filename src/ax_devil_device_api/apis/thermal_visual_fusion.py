@@ -81,6 +81,7 @@ INFO = ApiInfo(
     name="Thermal visual fusion configuration",
     family=Family.DCA,
     discovery=(DcaDiscovery("thermal-visual-fusion", "v1"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/thermal-visual-fusion-configuration-api/",),
 )
 

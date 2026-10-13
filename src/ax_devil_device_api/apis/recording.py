@@ -234,6 +234,7 @@ INFO = ApiInfo(
     name="Recording API (Edge storage)",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.LocalStorage.LocalStorage", "yes"),),
+    requires_firmware="5.40",
     docs=("https://developer.axis.com/vapix/network-video/edge-storage-api/",),
 )
 

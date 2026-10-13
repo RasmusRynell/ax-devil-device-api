@@ -39,7 +39,8 @@ def build_params(op: Operation[Any], request: Model | None, kwargs: dict[str, An
         if args:
             raise TypeError(f"{op.api.id}.{op.id} takes no arguments, got: {', '.join(sorted(args))}")
         return None
-    return op.params(**args)
+    # Pydantic does not revalidate pre-built nested models, so a mutated nested instance would pass construction.
+    return op.params(**args).revalidated()
 
 
 def bind_positional(op: Operation[Any], names: tuple[str, ...], values: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:

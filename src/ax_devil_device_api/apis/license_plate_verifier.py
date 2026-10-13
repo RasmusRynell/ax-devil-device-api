@@ -432,6 +432,7 @@ INFO = ApiInfo(
     name="License plate verifier API",
     family=Family.CGI,
     discovery=(AcapDiscovery("fflprapp"),),
+    requires_application="AXIS License Plate Verifier (ALPV, package fflprapp)",
     docs=("https://developer.axis.com/vapix/applications/license-plate-verifier-api/",),
 )
 

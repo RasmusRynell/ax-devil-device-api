@@ -98,6 +98,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.MemoryZones.MemoryZones", "yes"),
         ParamDiscovery("Properties.MemoryZones.Version", "0.1"),
     ),
+    requires_firmware="6.25",
     docs=("https://developer.axis.com/vapix/network-video/pantiltzoom-api/",),
     errors={
         501: ErrorCode("Other error.", "internal"),

@@ -51,6 +51,7 @@ INFO = ApiInfo(
         ApiDiscovery("regional-settings"),
         ParamDiscovery("root.Properties.RegionalSettings.RegionalSettings", "yes"),
     ),
+    requires_firmware="9.20",
     docs=("https://developer.axis.com/vapix/network-video/regional-settings/",),
     errors={
         1000: ErrorCode("Internal error.", "internal"),

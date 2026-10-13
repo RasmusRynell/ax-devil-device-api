@@ -121,6 +121,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.PTZ.DriverManagement", "yes"),
         ParamDiscovery("Properties.PTZ.EmbeddedDrivers", "yes"),
     ),
+    requires_firmware="5.20",
     docs=("https://developer.axis.com/vapix/network-video/pantiltzoom-api/",),
 )
 

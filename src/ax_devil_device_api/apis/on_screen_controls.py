@@ -218,6 +218,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.PackageManager.PackageManager", "yes"),
         ParamDiscovery("Properties.AddOnFramework.Version", "1.0"),
     ),
+    requires_firmware="7.10",
     docs=("https://developer.axis.com/vapix/network-video/on-screen-controls/",),
     errors={
         1001: ErrorCode("Out of memory.", "internal"),

@@ -160,6 +160,9 @@ INFO = ApiInfo(
     name="Video motion detection 2.1 API",
     family=Family.CGI,
     discovery=(AcapDiscovery("VideoMotionDetection"),),
+    status="deprecated",
+    requires_firmware="5.40",
+    requires_application="AXIS Video Motion Detection 2.1 (ACAP, package name VideoMotionDetection)",
     docs=("https://developer.axis.com/vapix/applications/video-motion-detection-2.1-api/",),
     errors={
         "bad_request": ErrorCode("Bad request. The request URL was not formatted correctly.", "invalid_argument"),

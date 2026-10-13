@@ -131,6 +131,8 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.Radar.Radar", "yes"),
         ParamDiscovery("Properties.AddOnFramework.AddOnFramework", "yes"),
     ),
+    requires_firmware="7.10",
+    requires_application="axis-rmd",
     docs=("https://developer.axis.com/vapix/radar/radar-image/",),
     errors={
         1000: ErrorCode("PARAM_INVALID_VALUE_ERROR. Invalid parameter value.", "invalid_argument"),

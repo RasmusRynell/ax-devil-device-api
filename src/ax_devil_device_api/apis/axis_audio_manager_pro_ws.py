@@ -44,6 +44,7 @@ INFO = ApiInfo(
     id="axis-audio-manager-pro-ws",
     name="AXIS Audio Manager Pro WebSocket audio",
     family=Family.WS,
+    requires_application="AXIS Audio Manager Pro (server software)",
     docs=("https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/",),
 )
 

@@ -55,6 +55,7 @@ INFO = ApiInfo(
     name="Overlay modifiers",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.OverlayModifiers.OverlayModifiers", "yes"),),
+    requires_firmware="5.1",
     docs=("https://developer.axis.com/vapix/network-video/overlay-api/",),
 )
 

@@ -53,6 +53,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0),),
+    requires_firmware="8.50",
     docs=("https://developer.axis.com/vapix/network-video/capture-mode/",),
     errors={
         2000: ErrorCode("Resource allocation failed. Check log for details.", "unavailable"),

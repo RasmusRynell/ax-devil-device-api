@@ -70,6 +70,7 @@ INFO = ApiInfo(
     id="queue-monitor",
     name="Queue monitor API",
     family=Family.CGI,
+    requires_application="Queue Monitor ACAP",
     docs=("https://developer.axis.com/vapix/applications/queue-monitor-api/",),
 )
 

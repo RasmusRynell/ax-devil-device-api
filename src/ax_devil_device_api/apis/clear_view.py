@@ -95,6 +95,7 @@ INFO = ApiInfo(
     major=2,
     known_versions=(ApiVersion(2, 1),),
     discovery=(ParamDiscovery("Properties.ClearView.ClearView", "yes"),),
+    requires_firmware="7.10",
     docs=("https://developer.axis.com/vapix/network-video/clear-view/",),
     errors={
         1000: ErrorCode("Invalid parameter value.", "invalid_argument"),

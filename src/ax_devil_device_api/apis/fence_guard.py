@@ -237,6 +237,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 1), ApiVersion(1, 2), ApiVersion(1, 3)),
     discovery=(AcapDiscovery("FenceGuard"),),
+    requires_application="AXIS Fence Guard",
     docs=("https://developer.axis.com/vapix/applications/fence-guard/",),
     errors={
         1000: ErrorCode(

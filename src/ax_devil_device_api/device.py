@@ -104,6 +104,9 @@ class _DeviceBase:
         # so decide_support(api.INFO, capabilities()) agrees with supports(api).
         for key, found in self._state.with_prefix(PROPERTY_SCOPE_PREFIX).items():
             values.setdefault(key, found)
+        known: DeviceIdentity | None = self._state.get(_IDENTITY)
+        if known is not None and known.firmware_version:
+            values.setdefault("firmware", known.firmware_version)
         return Capabilities.from_probes(values, errors)
 
     def rtsp_url(self, stream: MediaStream | None = None, *, port: int = 554, path: str = MEDIA_PATH, include_credentials: bool = False) -> RtspUrl:
@@ -281,10 +284,15 @@ class Device(_DeviceBase):
         """
         return self._collect(())
 
-    def _collect(self, extra: tuple[str, ...]) -> Capabilities:
+    def _collect(self, extra: tuple[str, ...], *, firmware: bool = False) -> Capabilities:
         probes = {**PROBES, **{k: OPTIONAL_PROBES[k] for k in extra}}
         values: dict[str, Any] = {}
         errors: dict[str, str] = {}
+        if firmware:  # an API with a minimum firmware: the identity is fetched once and cached
+            try:
+                values["firmware"] = self.identity().firmware_version
+            except Exception as error:  # noqa: BLE001 - reported in Capabilities.errors
+                errors["identity"] = probe_error(error)
         for key, make_flow in probes.items():
             try:
                 values[key] = self._cached(key, make_flow)
@@ -297,12 +305,15 @@ class Device(_DeviceBase):
 
     def supports(self, api: type[SyncApi] | SyncApi) -> SupportResult:
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
-        return decide_support(api.INFO, self._collect(extra_probes(api.INFO)))
+        return decide_support(api.INFO, self._collect(extra_probes(api.INFO), firmware=bool(api.INFO.requires_firmware)))
 
     def supports_many(self, apis: Iterable[type[SyncApi] | SyncApi]) -> dict[type[SyncApi] | SyncApi, SupportResult]:
         """``supports`` for several APIs from ONE capability snapshot: a failing probe is run once, not once per API."""
         apis = list(apis)
-        caps = self._collect(tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))))
+        caps = self._collect(
+            tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))),
+            firmware=any(a.INFO.requires_firmware for a in apis),
+        )
         return {a: decide_support(a.INFO, caps) for a in apis}
 
     # -- Lifecycle ----------------------------------------------------------
@@ -433,15 +444,22 @@ class AsyncDevice(_DeviceBase):
         """
         return await self._collect(())
 
-    async def _collect(self, extra: tuple[str, ...]) -> Capabilities:
+    async def _collect(self, extra: tuple[str, ...], *, firmware: bool = False) -> Capabilities:
         probes = {**PROBES, **{k: OPTIONAL_PROBES[k] for k in extra}}
         keys = list(probes)
+        fetched: dict[str, Any] = {}
+        failed: dict[str, str] = {}
+        if firmware:  # an API with a minimum firmware: the identity is fetched once and cached
+            try:
+                fetched["firmware"] = (await self.identity()).firmware_version
+            except Exception as error:  # noqa: BLE001 - reported in Capabilities.errors
+                failed["identity"] = probe_error(error)
         results = await asyncio.gather(*(self._cached(k, probes[k]) for k in keys), return_exceptions=True)
         for result in results:
             if isinstance(result, BaseException) and not isinstance(result, Exception):
                 raise result  # cancellation and friends
-        values = {k: r for k, r in zip(keys, results) if not isinstance(r, BaseException)}
-        errors = {k: probe_error(r) for k, r in zip(keys, results) if isinstance(r, Exception)}
+        values = {**fetched, **{k: r for k, r in zip(keys, results) if not isinstance(r, BaseException)}}
+        errors = {**failed, **{k: probe_error(r) for k, r in zip(keys, results) if isinstance(r, Exception)}}
         for key in OPTIONAL_PROBES.keys() - probes.keys():
             if (found := self._state.get(key)) is not None:
                 values[key] = found
@@ -449,14 +467,19 @@ class AsyncDevice(_DeviceBase):
 
     async def supports(self, api: type[AsyncApi] | AsyncApi) -> SupportResult:
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
-        return decide_support(api.INFO, await self._collect(extra_probes(api.INFO)))
+        return decide_support(
+            api.INFO, await self._collect(extra_probes(api.INFO), firmware=bool(api.INFO.requires_firmware))
+        )
 
     async def supports_many(
         self, apis: Iterable[type[AsyncApi] | AsyncApi]
     ) -> dict[type[AsyncApi] | AsyncApi, SupportResult]:
         """``supports`` for several APIs from ONE capability snapshot: a failing probe is run once, not once per API."""
         apis = list(apis)
-        caps = await self._collect(tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))))
+        caps = await self._collect(
+            tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))),
+            firmware=any(a.INFO.requires_firmware for a in apis),
+        )
         return {a: decide_support(a.INFO, caps) for a in apis}
 
     async def aclose(self) -> None:

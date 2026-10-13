@@ -895,6 +895,8 @@ def build_api(spec: LoadedSpec) -> ApiDef:
         access=access, discovery=discovery, binding=api_binding,
         errors={k: dict(v) for k, v in (data.get("errors") or {}).items()},
         types=[b.defs[n] for n in b.order], ops=ops, source=spec.rel,
+        status=data.get("status") or "released",
+        requires={k: str(v) for k, v in (data.get("requires") or {}).items() if v is not None and not k.startswith("x-")},
     )  # fmt: skip
 
 

@@ -113,6 +113,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0),),
     discovery=(ApiDiscovery("io-port-management"),),
+    requires_firmware="9.70",
     docs=("https://developer.axis.com/vapix/network-video/io-port-management/",),
     errors={
         1100: ErrorCode("Internal error.", "internal"),

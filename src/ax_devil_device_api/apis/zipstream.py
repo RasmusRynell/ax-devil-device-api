@@ -185,6 +185,7 @@ INFO = ApiInfo(
     name="Zipstream technology",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.ZipStream.ZipStream", "yes"),),
+    requires_firmware="5.80",
     docs=(
         "https://developer.axis.com/vapix/network-video/zipstream-technology/",
         "http://www.axis.com/vapix/http_cgi/zipstream1.xsd",

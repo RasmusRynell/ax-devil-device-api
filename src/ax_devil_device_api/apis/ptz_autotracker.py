@@ -511,6 +511,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0),),
     discovery=(ApiDiscovery("autotracking-2"),),
+    requires_firmware="9.10",
     docs=("https://developer.axis.com/vapix/network-video/ptz-autotracker-api/",),
     errors={
         1001: ErrorCode("The provided JSON input was invalid.", "invalid_argument"),

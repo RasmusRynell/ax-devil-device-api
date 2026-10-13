@@ -532,6 +532,7 @@ INFO = ApiInfo(
     name="Network settings API",
     family=Family.DCA,
     discovery=(DcaDiscovery("network-settings", "v2"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/network-settings-api/",),
 )
 

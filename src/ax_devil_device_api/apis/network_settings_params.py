@@ -52,6 +52,7 @@ INFO = ApiInfo(
     name="Network settings",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.API.HTTP.Version", "3"),),
+    requires_firmware="5.00",
     docs=("https://developer.axis.com/vapix/network-video/network-settings/",),
 )
 

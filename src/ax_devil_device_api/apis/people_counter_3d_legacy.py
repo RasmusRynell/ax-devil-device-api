@@ -78,6 +78,8 @@ INFO = ApiInfo(
     id="3d-people-counter-legacy",
     name="3D people counter API (Old version)",
     family=Family.CGI,
+    status="deprecated",
+    requires_application="AXIS 3D People Counter (legacy)",
     docs=("https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/",),
 )
 

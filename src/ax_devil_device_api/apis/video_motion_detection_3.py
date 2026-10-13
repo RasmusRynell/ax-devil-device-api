@@ -161,6 +161,9 @@ INFO = ApiInfo(
     name="Video motion detection 3 API",
     family=Family.CGI,
     discovery=(AcapDiscovery("VMD3"),),
+    status="deprecated",
+    requires_firmware="5.80",
+    requires_application="AXIS Video Motion Detection 3 (ACAP; vaconfig name VideoMotionDetection3, application name VMD3, package VideoMotionDetection3)",
     docs=("https://developer.axis.com/vapix/applications/video-motion-detection-3-api/",),
     errors={
         "bad_request": ErrorCode("Bad request. The request URL was not formatted correctly.", "invalid_argument"),

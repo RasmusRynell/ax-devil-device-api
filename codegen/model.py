@@ -142,3 +142,7 @@ class ApiDef:
     ops: list[OpDef]
     source: str
     support: str = "docs-only"
+    status: str = "released"
+    """The spec's lifecycle status (``released``, ``beta``, ``alpha``, ``deprecated``)."""
+    requires: dict[str, str] = field(default_factory=dict)
+    """The spec's ``requires`` block without null entries (``firmware``, ``application``)."""

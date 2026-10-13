@@ -43,6 +43,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.API.Metadata.Metadata", "yes"),
         ParamDiscovery("Properties.API.Metadata.Version", "1.00"),
     ),
+    requires_firmware="5.50",
     docs=("https://developer.axis.com/vapix/network-video/event-data-streaming/",),
 )
 

@@ -150,6 +150,7 @@ INFO = ApiInfo(
     name="Temperature alarm API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.TemperatureAlarm.TemperatureDetection", "yes"),),
+    requires_firmware="5.55",
     docs=("https://developer.axis.com/vapix/network-video/thermal-imaging/",),
     errors={
         10: ErrorCode("Error while processing the request."),

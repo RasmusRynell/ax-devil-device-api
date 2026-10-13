@@ -48,6 +48,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 1), ApiVersion(1, 4)),
     discovery=(ApiDiscovery("systemready"),),
+    requires_firmware="9.50",
     docs=("https://developer.axis.com/vapix/network-video/systemready-api/",),
     errors={
         1000: ErrorCode("Internal error. Refer to message field or logs.", "internal"),

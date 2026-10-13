@@ -102,6 +102,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0),),
     discovery=(ApiDiscovery("fwmgr"),),
+    requires_firmware="7.40",
     docs=("https://developer.axis.com/vapix/network-video/firmware-management-api/",),
     errors={
         400: ErrorCode("Message could not be parsed or contains unknown parameters or values.", "invalid_argument"),

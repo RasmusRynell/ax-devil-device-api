@@ -88,6 +88,7 @@ INFO = ApiInfo(
     id="p8815-2-3d-people-counter",
     name="P8815-2 3D people counter API",
     family=Family.CGI,
+    requires_application="AXIS 3D People Counter",
     docs=("https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/",),
 )
 

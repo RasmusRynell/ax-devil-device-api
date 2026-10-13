@@ -42,6 +42,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0),),
     discovery=(ApiDiscovery("customhttpheader"),),
+    requires_firmware="9.80",
     docs=("https://developer.axis.com/vapix/network-video/custom-http-header-api/",),
     errors={
         1100: ErrorCode("Internal error. Refer to message field or logs.", "internal"),

@@ -147,6 +147,7 @@ INFO = ApiInfo(
     name="Audio Multicast Controller",
     family=Family.DCA,
     discovery=(DcaDiscovery("audio-multicast-ctrl", "v1beta"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/audio-systems/audio-multicast-controller/",),
 )
 

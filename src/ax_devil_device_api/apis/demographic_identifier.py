@@ -106,6 +106,7 @@ INFO = ApiInfo(
     id="demographic-identifier",
     name="Demographic identifier API",
     family=Family.CGI,
+    requires_application="Demographic Identifier (Demographics ACAP)",
     docs=("https://developer.axis.com/vapix/applications/demographic-identifier-api/",),
 )
 

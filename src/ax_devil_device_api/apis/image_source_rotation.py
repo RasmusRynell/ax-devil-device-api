@@ -39,6 +39,7 @@ INFO = ApiInfo(
     name="Image source rotation",
     family=Family.CGI,
     discovery=(ParamDiscovery("ImageSource.I0.SourceRotation", "yes"),),
+    requires_firmware="8.40",
     docs=("https://developer.axis.com/vapix/network-video/image-source-rotation/",),
 )
 

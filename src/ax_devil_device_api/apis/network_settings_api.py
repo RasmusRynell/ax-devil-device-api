@@ -727,6 +727,7 @@ INFO = ApiInfo(
         ApiVersion(1, 29),
     ),
     discovery=(ApiDiscovery("network-settings"),),
+    requires_firmware="8.50",
     docs=("https://developer.axis.com/vapix/network-video/network-settings-api/",),
     errors={
         1000: ErrorCode("Internal error.", "internal"),

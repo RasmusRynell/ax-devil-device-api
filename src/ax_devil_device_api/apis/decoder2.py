@@ -315,6 +315,7 @@ INFO = ApiInfo(
     major=3,
     known_versions=(ApiVersion(3, 0),),
     discovery=(ApiDiscovery("decoder"),),
+    requires_firmware="12.2",
     docs=("https://developer.axis.com/vapix/network-video/decoder2-api/",),
     errors={
         1100: ErrorCode("Internal error.", "internal"),

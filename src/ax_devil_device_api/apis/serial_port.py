@@ -271,6 +271,7 @@ INFO = ApiInfo(
     name="Serial port API",
     family=Family.CGI,
     discovery=(ApiDiscovery("serial-port"), ParamDiscovery("Properties.Serial.Serial", "yes")),
+    requires_firmware="5.20",
     docs=("https://developer.axis.com/vapix/network-video/serial-port-api/",),
 )
 

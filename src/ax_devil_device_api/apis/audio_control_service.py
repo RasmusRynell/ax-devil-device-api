@@ -111,6 +111,7 @@ INFO = ApiInfo(
     name="Audio control service API",
     family=Family.SERVICE_JSON,
     discovery=(ParamDiscovery("Properties.API.AudioControl.Version", "1.0"),),
+    status="deprecated",
     docs=("https://developer.axis.com/vapix/audio-systems/audio-control-service-api/",),
 )
 

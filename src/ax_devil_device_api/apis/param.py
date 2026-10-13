@@ -41,6 +41,7 @@ INFO = ApiInfo(
     name="Param API",
     family=Family.DCA,
     discovery=(DcaDiscovery("param", "v2"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/param-api/",),
 )
 

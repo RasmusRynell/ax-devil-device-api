@@ -59,6 +59,7 @@ INFO = ApiInfo(
     name="Onvif Replay Extension",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.API.RTP.OnvifReplayExt", "yes"),),
+    requires_firmware="10.11",
     docs=("https://developer.axis.com/vapix/network-video/onvif-replay-extension/",),
 )
 

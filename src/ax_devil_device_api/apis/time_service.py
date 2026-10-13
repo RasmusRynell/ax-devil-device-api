@@ -126,6 +126,8 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 1)),
     discovery=(ApiDiscovery("time-service"),),
+    status="deprecated",
+    requires_firmware="9.30",
     docs=("https://developer.axis.com/vapix/network-video/time-api/",),
     errors={
         1000: ErrorCode("Internal error. Refer to message field or logs.", "internal"),

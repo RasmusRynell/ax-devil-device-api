@@ -286,6 +286,8 @@ INFO = ApiInfo(
     name="Light control service API",
     family=Family.SOAP,
     discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/light"),),
+    status="deprecated",
+    requires_firmware="5.40",
     docs=(
         "https://developer.axis.com/vapix/network-video/light-control/",
         "http://www.axis.com/vapix/ws/LightService.wsdl",

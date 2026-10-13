@@ -176,6 +176,7 @@ INFO = ApiInfo(
     id="axis-audio-manager-edge-api",
     name="AXIS Audio Manager Edge API",
     family=Family.REST,
+    requires_application="AXIS Audio Manager Edge",
     docs=("https://developer.axis.com/vapix/audio-systems/axis-audio-manager-edge-api/",),
     errors={
         400: ErrorCode("Bad Request. application/json error object (see envelope.error_schema).", "invalid_argument"),

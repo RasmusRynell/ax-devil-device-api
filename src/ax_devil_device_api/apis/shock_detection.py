@@ -74,6 +74,7 @@ INFO = ApiInfo(
     name="Shock detection API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.Tampering.ShockDetection", "yes"),),
+    requires_firmware="5.50",
     docs=("https://developer.axis.com/vapix/network-video/shock-detection-api/",),
     errors={
         10: ErrorCode("Error while processing the request."),

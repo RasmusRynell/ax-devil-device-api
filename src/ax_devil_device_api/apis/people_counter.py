@@ -120,6 +120,7 @@ INFO = ApiInfo(
     id="people-counter",
     name="People counter API",
     family=Family.CGI,
+    requires_application="AXIS People Counter",
     docs=("https://developer.axis.com/vapix/applications/people-counter-api/",),
 )
 

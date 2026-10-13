@@ -89,6 +89,7 @@ INFO = ApiInfo(
     name="Media clip API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.Audio.Audio", "yes"),),
+    requires_firmware="5.40",
     docs=("https://developer.axis.com/vapix/audio-systems/media-clip-api/",),
 )
 

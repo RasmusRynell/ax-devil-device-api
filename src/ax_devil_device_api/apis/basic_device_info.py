@@ -95,6 +95,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 2)),
     discovery=(ApiDiscovery("basic-device-info"), ParamDiscovery("BasicDeviceInfo.BasicDeviceInfo", "yes")),
+    requires_firmware="8.40",
     docs=("https://developer.axis.com/vapix/network-video/basic-device-information/",),
     errors={
         1000: ErrorCode("Invalid parameter with the value specified.", "invalid_argument"),

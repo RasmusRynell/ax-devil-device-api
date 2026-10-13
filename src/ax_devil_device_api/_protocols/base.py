@@ -216,34 +216,38 @@ class Model(BaseModel):
     def _tolerate_new_enum_values(cls, value: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo) -> Any:
         try:
             return handler(value)
-        except ValidationError:
+        except ValidationError as original:
             context = info.context or {}
             response = bool(context.get(RESPONSE_CONTEXT))
             collector = context.get(_ROUND_TRIP)
             allowed = context.get(_ALLOWED_VALUES)
-            if info.field_name is not None and (response or collector is not None or allowed is not None):
-                field = cls.model_fields[info.field_name]
-                annotation = Annotated[(field.annotation, *field.metadata)] if field.metadata else field.annotation
-                if response:
-                    coerced = _coerce_text(annotation, value)
-                    if coerced is not value:
-                        try:
-                            return handler(coerced)
-                        except ValidationError:
-                            value = coerced
-                if _is_new_enum_value(annotation, value):
-                    new = _unknown_items(annotation, value)
-                    if response:
-                        return value
-                    pairs = [(info.field_name, item) for item in new]
-                    if not pairs:
-                        raise  # no unknown enum value: some other constraint failed (for example an emptied list)
-                    if collector is not None:
-                        collector.update(pairs)
-                        return value
-                    if allowed is not None and all(pair in allowed for pair in pairs):
-                        return value
-            raise
+            if info.field_name is None or not (response or collector is not None or allowed is not None):
+                raise
+            field = cls.model_fields[info.field_name]
+            annotation = Annotated[(field.annotation, *field.metadata)] if field.metadata else field.annotation
+            if response:
+                coerced = _coerce_text(annotation, value)
+                if coerced is not value:
+                    try:
+                        return handler(coerced)
+                    except ValidationError:
+                        value = coerced
+            new: list[Any] = []
+            try:
+                result = lenient_value(annotation, value, context, new)
+            except (ValidationError, _NoMatch):
+                raise original from None
+            if not new:
+                raise original  # no unknown enum value: some other constraint failed (for example an emptied list)
+            if response:
+                return result
+            pairs = [(info.field_name, item) for item in new]
+            if collector is not None:
+                collector.update(pairs)
+                return result
+            if allowed is not None and all(pair in allowed for pair in pairs):
+                return result
+            raise original
 
     def __repr_args__(self) -> Iterable[tuple[str | None, Any]]:
         fields_set = self.model_fields_set
@@ -289,8 +293,9 @@ class Model(BaseModel):
         Runs under strict request rules, so a value that construction would reject raises ``ValidationError``.
         """
         data = _plain(self)
-        model = type(self).model_validate(data, context={_ALLOWED_VALUES: self._round_trip_values})
-        model._round_trip_values = self._round_trip_values
+        carried = self._round_trip_values | _nested_round_trip_values(self)  # a nested ``from_current`` model brings its own
+        model = type(self).model_validate(data, context={_ALLOWED_VALUES: carried})
+        model._round_trip_values = carried
         return model
 
     def to_wire(self) -> dict[str, Any]:
@@ -332,6 +337,20 @@ def _plain(value: Any) -> Any:
     return value
 
 
+def _nested_round_trip_values(value: Any) -> frozenset[Any]:
+    """The carried unknown enum values of every model inside ``value`` (nested models, lists, tuples and mappings)."""
+    if isinstance(value, Model):
+        found = set(value._round_trip_values)
+        for name in value.model_fields_set:
+            found |= _nested_round_trip_values(getattr(value, name))
+        return frozenset(found)
+    if isinstance(value, (list, tuple)):
+        return frozenset().union(*(_nested_round_trip_values(item) for item in value))
+    if isinstance(value, dict):
+        return frozenset().union(*(_nested_round_trip_values(item) for item in value.values()))
+    return frozenset()
+
+
 def not_sent() -> Any:
     """Default of a required read-only field: absent on a request model, which never sends it."""
     return None
@@ -363,42 +382,81 @@ def _literal_values(annotation: Any) -> tuple[Any, ...] | None:
     return None
 
 
-def _is_new_enum_value(annotation: Any, value: Any) -> bool:
-    """Whether ``value`` is an unknown member of an enum: same primitive type, new value.
+class _NoMatch(Exception):
+    """A value does not fit the annotation, even with unknown enum values allowed."""
 
-    ``list[Literal[...]]`` fields accept lists of such values. Nulls,
-    objects and values of another type are still rejected.
+
+def lenient_value(annotation: Any, value: Any, context: Mapping[str, Any], new: list[Any]) -> Any:
+    """Validate ``value`` against ``annotation``, accepting enum values the generated ``Literal`` does not list.
+
+    Works through ``Annotated``, unions, lists and mappings of any depth; every unknown member (same primitive
+    type as the listed ones, never ``null`` or an object) is appended to ``new``. ``const`` fields stay strict.
+    Anything that is not an enum position (models, scalars) is validated normally under ``context``, so a model
+    inside a mapping or list applies its own tolerance. Raises ``_NoMatch`` or ``ValidationError`` if ``value`` fits
+    nowhere.
     """
-    if get_origin(annotation) is Annotated:
+    origin = get_origin(annotation)
+    if origin is Annotated:
         base, *metadata = get_args(annotation)
-        return not any(m is CONST for m in metadata) and _is_new_enum_value(base, value)
-    if get_origin(annotation) in (Union, UnionType):
-        return any(_is_new_enum_value(arg, value) for arg in get_args(annotation) if arg is not type(None))
-    if get_origin(annotation) is list:
+        if any(m is CONST for m in metadata):
+            return _validate(annotation, value, context)
+        return lenient_value(base, value, context, new)
+    if origin in (Union, UnionType):
+        for arm in get_args(annotation):
+            if arm is type(None):
+                if value is None:
+                    return None
+                continue
+            found: list[Any] = []
+            try:
+                result = lenient_value(arm, value, context, found)
+            except (ValidationError, _NoMatch):
+                continue
+            new.extend(found)
+            return result
+        raise _NoMatch
+    if origin is list:
         (item,) = get_args(annotation) or (Any,)
-        return isinstance(value, list) and bool(value) and all(_is_new_enum_value(item, v) or _matches(item, v) for v in value)
-    values = _literal_values(annotation)
-    if not values or value is None:
-        return False
-    return type(value) in {type(v) for v in values}
+        if not isinstance(value, list):
+            raise _NoMatch
+        return [lenient_value(item, v, context, new) for v in value]
+    if origin in (dict, Mapping):
+        key, item = get_args(annotation) or (Any, Any)
+        if not isinstance(value, dict):
+            raise _NoMatch
+        return {lenient_value(key, k, context, new): lenient_value(item, v, context, new) for k, v in value.items()}
+    if origin is Literal:
+        values = get_args(annotation)
+        if context.get(RESPONSE_CONTEXT):
+            value = _coerce_text(annotation, value)
+        if value in values and type(value) in {type(v) for v in values}:
+            return value
+        if value is not None and type(value) in {type(v) for v in values}:
+            new.append(value)
+            return value
+        raise _NoMatch
+    return _validate(annotation, value, context)
 
 
-def _known_values(annotation: Any) -> tuple[Any, ...]:
-    """Every enum value the annotation lists (through ``Annotated``, unions and lists)."""
-    if get_origin(annotation) in (Annotated, list, Union, UnionType):
-        return tuple(v for arg in get_args(annotation) for v in _known_values(arg))
-    return _literal_values(annotation) or ()
+def _validate(annotation: Any, value: Any, context: Mapping[str, Any]) -> Any:
+    try:
+        checker = adapter(annotation)
+    except TypeError:  # unhashable annotation (metadata): not cached
+        checker = TypeAdapter(annotation)
+    return checker.validate_python(value, context=dict(context))
 
 
-def _unknown_items(annotation: Any, value: Any) -> list[Any]:
-    """The scalars of ``value`` (itself or its list items) that the annotation does not list."""
-    known = _known_values(annotation)
-    return [item for item in (value if isinstance(value, list) else [value]) if item not in known]
-
-
-def _matches(annotation: Any, value: Any) -> bool:
-    values = _literal_values(annotation)
-    return values is not None and value in values
+def _container(annotation: Any, kinds: tuple[Any, ...]) -> Any:
+    """The ``list[...]``/``dict[...]`` part of an annotation, looking through ``Annotated`` and unions (else ``None``)."""
+    origin = get_origin(annotation)
+    if origin in kinds:
+        return annotation
+    if origin in (Annotated, Union, UnionType):
+        for arg in get_args(annotation):
+            found = _container(arg, kinds)
+            if found is not None:
+                return found
+    return None
 
 
 _INT_TEXT = re.compile(r"[+-]?\d+")
@@ -411,9 +469,11 @@ def _coerce_text(annotation: Any, value: Any) -> Any:
     converted (also inside lists); everything else is returned unchanged.
     """
     if isinstance(value, list):
-        item = next((a for a in get_args(annotation) if get_origin(a) is list), annotation)
-        (inner,) = get_args(item) or (Any,)
+        (inner,) = get_args(_container(annotation, (list,))) or (Any,)
         return [_coerce_text(inner, v) for v in value]
+    if isinstance(value, dict):
+        inner = (get_args(_container(annotation, (dict, Mapping))) or (Any, Any))[1]
+        return {k: _coerce_text(inner, v) for k, v in value.items()}
     if isinstance(value, str) and _INT_TEXT.fullmatch(value.strip()):
         values = _literal_values(annotation)
         if values and any(isinstance(v, int) and not isinstance(v, bool) for v in values):
@@ -443,8 +503,13 @@ def parse_result(op: Operation[Any], data: Any) -> Any:
     try:
         return adapter(op.result).validate_python(data, context={RESPONSE_CONTEXT: True})
     except ValidationError as error:
-        if _is_new_enum_value(op.result, data):  # newer firmware may add an enum value to a scalar result too
-            return data
+        new: list[Any] = []
+        try:  # newer firmware may add an enum value anywhere in the result: a scalar, a list, a mapping, a union
+            tolerated = lenient_value(op.result, data, {RESPONSE_CONTEXT: True}, new)
+        except (ValidationError, _NoMatch):
+            tolerated = None
+        if new:
+            return tolerated
         raise ResponseFormatError(op.api.id, op.id, f"response does not match the documented shape: {error}") from error
 
 
@@ -556,6 +621,12 @@ class ApiInfo:
     docs: tuple[str, ...] = ()
     errors: Mapping[int | str, ErrorCode] = field(default_factory=dict)
     """API-wide error codes, from the spec's general error table."""
+    status: Literal["released", "beta", "alpha", "deprecated"] = "released"
+    """Lifecycle status of the documented API, from the spec."""
+    requires_firmware: str | None = None
+    """Minimum AXIS OS version (the spec's ``requires.firmware``): ``Device.supports`` answers ``NO`` below it."""
+    requires_application: str | None = None
+    """The application the spec's ``requires.application`` names (free text, informational; not checked)."""
 
 
 @dataclass(frozen=True)

@@ -73,6 +73,7 @@ INFO = ApiInfo(
     name="Isotherm API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.Isotherm.Isotherm", "yes"),),
+    requires_firmware="5.55",
     docs=("https://developer.axis.com/vapix/network-video/thermal-imaging/",),
 )
 

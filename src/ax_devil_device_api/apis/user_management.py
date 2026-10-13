@@ -65,6 +65,7 @@ INFO = ApiInfo(
     name="Add, modify and delete user accounts (pwdgrp.cgi)",
     family=Family.CGI,
     discovery=(ApiDiscovery("user-management"),),
+    requires_firmware="5.00",
     docs=("https://developer.axis.com/vapix/network-video/system-settings/",),
     errors={
         "system_log": ErrorCode(

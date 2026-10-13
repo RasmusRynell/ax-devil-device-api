@@ -206,6 +206,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.LocalStorage.LocalStorage", "yes"),
         ParamDiscovery("Properties.LocalStorage.Version", "1.00"),
     ),
+    requires_firmware="5.40",
     docs=("https://developer.axis.com/vapix/network-video/edge-storage-api/",),
 )
 

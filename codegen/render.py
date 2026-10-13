@@ -635,6 +635,12 @@ def info_code(api: ApiDef) -> list[str]:
             args.append(f"known_versions={tup(versions)}")
     if api.discovery:
         args.append(f"discovery={discovery_code(api)}")
+    if api.status != "released":
+        args.append(f"status={api.status!r}")
+    if api.requires.get("firmware"):
+        args.append(f"requires_firmware={api.requires['firmware']!r}")
+    if api.requires.get("application"):
+        args.append(f"requires_application={api.requires['application']!r}")
     if api.docs:
         args.append(f"docs={tup([repr(d) for d in api.docs])}")
     if api.errors:

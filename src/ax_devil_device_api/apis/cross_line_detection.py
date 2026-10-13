@@ -163,6 +163,8 @@ INFO = ApiInfo(
     name="Cross line detection 1.1 API",
     family=Family.CGI,
     discovery=(AcapDiscovery("CrossLineDetection"),),
+    requires_firmware="5.40",
+    requires_application="AXIS Cross Line Detection 1.1 (ACAP, package name CrossLineDetection)",
     docs=("https://developer.axis.com/vapix/applications/cross-line-detection-1.1-api/",),
     errors={
         "bad_request": ErrorCode("Bad request. The request URL was not formatted correctly.", "invalid_argument"),

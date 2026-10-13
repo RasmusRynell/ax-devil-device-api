@@ -248,6 +248,8 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 1), ApiVersion(1, 2), ApiVersion(1, 3)),
     discovery=(AcapDiscovery("vmd"),),
+    requires_firmware="6.50",
+    requires_application="AXIS Video Motion Detection 4 (VMD)",
     docs=("https://developer.axis.com/vapix/applications/video-motion-detection-4-api/",),
     errors={
         1000: ErrorCode("Application error. The application failed to handle the request.", "internal"),

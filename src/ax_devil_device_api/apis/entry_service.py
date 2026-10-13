@@ -66,6 +66,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.API.WebService.EntryService", "yes"),
         ServiceDiscovery("http://www.axis.com/vapix/ws/entry"),
     ),
+    requires_firmware="5.60",
     docs=("https://developer.axis.com/vapix/network-video/entry-service-api/",),
 )
 

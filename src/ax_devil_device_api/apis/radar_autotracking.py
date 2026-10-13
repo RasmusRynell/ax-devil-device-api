@@ -187,6 +187,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0),),
     discovery=(ApiDiscovery("radar-autotracking"), ParamDiscovery("Properties.Radar.Radar", "yes")),
+    requires_firmware="7.10",
     docs=("https://developer.axis.com/vapix/radar/radar-autotracking/",),
     errors={
         100: ErrorCode(

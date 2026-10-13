@@ -298,6 +298,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 1), ApiVersion(1, 2), ApiVersion(1, 3)),
     discovery=(AcapDiscovery("LoiteringGuard"),),
+    requires_application="AXIS Loitering Guard",
     docs=("https://developer.axis.com/vapix/applications/loitering-guard/",),
     errors={
         1000: ErrorCode("Application error. The application failed to handle the request.", "internal"),

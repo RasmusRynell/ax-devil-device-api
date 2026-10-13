@@ -100,6 +100,7 @@ INFO = ApiInfo(
     name="Device Data Hub WebSocket API",
     family=Family.WS,
     discovery=(ApiDiscovery("datahub-streaming-over-websocket"),),
+    requires_firmware="12.11",
     docs=(
         "https://developer.axis.com/vapix/device-data-hub/websocket/",
         "https://developer.axis.com/vapix/device-data-hub/topics/",

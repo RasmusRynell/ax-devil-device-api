@@ -70,6 +70,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.Geolocation.Geolocation", "yes"),
         ParamDiscovery("Properties.Geolocation.Version", "0.01"),
     ),
+    requires_firmware="6.25",
     docs=("https://developer.axis.com/vapix/network-video/geolocation-api/",),
 )
 

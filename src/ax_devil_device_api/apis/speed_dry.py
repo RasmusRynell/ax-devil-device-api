@@ -26,6 +26,7 @@ INFO = ApiInfo(
     name="Speed dry API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.SpeedDry.SpeedDry", "yes"),),
+    requires_firmware="5.65",
     docs=("https://developer.axis.com/vapix/network-video/pantiltzoom-api/",),
 )
 

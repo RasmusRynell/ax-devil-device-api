@@ -70,6 +70,8 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.M12LensSelection.M12LensSelection", "yes"),
         ParamDiscovery("Properties.M12LensSelection.Version", "1.00"),
     ),
+    status="deprecated",
+    requires_firmware="6.50",
     docs=("https://developer.axis.com/vapix/network-video/m12-lens-selection/",),
     errors={
         1000: ErrorCode("Invalid parameter value.", "invalid_argument"),

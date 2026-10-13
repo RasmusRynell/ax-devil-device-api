@@ -339,6 +339,7 @@ INFO = ApiInfo(
     name="Action service (VAPIX Action service API, action1)",
     family=Family.SOAP,
     discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/action1"),),
+    requires_firmware="5.50",
     docs=("https://developer.axis.com/vapix/network-video/event-and-action-services/",),
 )
 

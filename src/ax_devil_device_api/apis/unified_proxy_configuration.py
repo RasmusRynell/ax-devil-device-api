@@ -81,6 +81,7 @@ INFO = ApiInfo(
     name="Proxy Configuration API",
     family=Family.DCA,
     discovery=(DcaDiscovery("unified-proxy-configuration", "v1beta"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/",),
 )
 

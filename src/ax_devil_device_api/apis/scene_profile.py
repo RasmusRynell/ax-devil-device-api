@@ -49,6 +49,7 @@ INFO = ApiInfo(
     name="Scene profile API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.API.HTTP.Version", "3"),),
+    requires_firmware="6.25",
     docs=("https://developer.axis.com/vapix/network-video/video-streaming/",),
 )
 

@@ -152,6 +152,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.SupervisedIO.SupervisedIO", "yes"),
         ParamDiscovery("Properties.SupervisedIO.Version", "2.00"),
     ),
+    requires_firmware="7.10",
     docs=("https://developer.axis.com/vapix/network-video/supervised-io/",),
     errors={
         1100: ErrorCode("Internal error", "internal"),

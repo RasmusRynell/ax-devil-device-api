@@ -136,6 +136,7 @@ INFO = ApiInfo(
     name="Client credential grants configuration",
     family=Family.DCA,
     discovery=(DcaDiscovery("oauth-ccgrant", "v1"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/client-credential-grants-configuration/",),
 )
 

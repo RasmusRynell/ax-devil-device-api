@@ -180,6 +180,7 @@ INFO = ApiInfo(
     name="Network pairing",
     family=Family.DCA,
     discovery=(DcaDiscovery("networkpairing", "v1"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/network-pairing-api/",),
 )
 

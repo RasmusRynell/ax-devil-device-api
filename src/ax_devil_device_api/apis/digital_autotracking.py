@@ -160,6 +160,7 @@ INFO = ApiInfo(
     name="Digital autotracking API",
     family=Family.CGI,
     discovery=(AcapDiscovery("DigitalAutotracking"),),
+    requires_application="AXIS Digital Autotracking (package DigitalAutotracking, file AXISDigitalAutotracking.eap)",
     docs=("https://developer.axis.com/vapix/applications/digital-autotracking-api/",),
     errors={
         "bad_request": ErrorCode("Bad request. The request URL was not formatted correctly.", "invalid_argument"),

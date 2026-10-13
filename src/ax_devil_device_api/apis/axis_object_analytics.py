@@ -499,6 +499,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 2),),
     discovery=(AcapDiscovery("objectanalytics"),),
+    requires_application="AXIS Object Analytics",
     docs=("https://developer.axis.com/vapix/applications/axis-object-analytics-api/",),
     errors={
         1000: ErrorCode("An error occurred inside the application.", "internal"),

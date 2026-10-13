@@ -20,6 +20,7 @@ any other probe error is unknown.
 from __future__ import annotations
 
 import json
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
@@ -114,6 +115,8 @@ class Capabilities:
     """Web services listed by the Entry service: namespace -> ``XAddr``. ``None`` if the probe failed or was not run."""
     property_groups: frozenset[str] = frozenset({"Properties.API"})
     """``param.cgi`` groups that were actually listed. A property outside them was never asked for."""
+    firmware: str | None = None
+    """Firmware (AXIS OS) version from the device identity; ``None`` if it is not known (not fetched, or the request failed)."""
 
     @classmethod
     def from_probes(cls, values: Mapping[str, Any], errors: Mapping[str, str]) -> Capabilities:
@@ -136,6 +139,7 @@ class Capabilities:
             observed_at=datetime.now(UTC),
             applications=values.get("applications"),
             services=values.get("services"),
+            firmware=values.get("firmware"),
         )
 
 
@@ -360,7 +364,50 @@ def extra_probes(info: ApiInfo) -> tuple[str, ...]:
 
 
 def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
-    """Answer whether ``info`` is supported, from probe results alone."""
+    """Answer whether ``info`` is supported, from probe results alone.
+
+    A discovery match is only a ``YES`` if the device firmware also meets the API's ``requires.firmware``;
+    below it the answer is ``NO``, and with an unknown firmware it is ``UNKNOWN``.
+    """
+    result = _decide_discovery(info, caps)
+    minimum = info.requires_firmware
+    if minimum is None or result.status is not Support.YES:
+        return result
+    want = _firmware_key(minimum)
+    if want is None:
+        return result  # a minimum this client cannot read is not enforced
+    have = _firmware_key(caps.firmware) if caps.firmware else None
+    if have is None:
+        why = caps.errors.get("identity") or ("firmware version not known" if not caps.firmware else f"unreadable firmware {caps.firmware!r}")
+        return SupportResult(
+            Support.UNKNOWN, f"{info.id} needs firmware {minimum} or newer, and the device firmware is not known",
+            (f"device identity: {why}",), caps.observed_at,
+        )
+    if have < want:
+        return SupportResult(
+            Support.NO, f"device firmware {caps.firmware} is older than the {minimum} that {info.id} requires",
+            observed_at=caps.observed_at,
+        )
+    return result
+
+
+_FIRMWARE_PART = re.compile(r"\d+")
+
+
+def _firmware_key(text: str) -> tuple[int, ...] | None:
+    """Leading dotted numbers of a firmware version (``11.5``, ``10.12.213``, ``9.80.1.1``); ``None`` if there are none."""
+    parts: list[int] = []
+    for part in text.strip().split("."):
+        match = _FIRMWARE_PART.match(part)
+        if match is None:
+            break
+        parts.append(int(match.group()))
+        if match.end() != len(part):
+            break
+    return tuple(parts) or None
+
+
+def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
     if not info.discovery:
         return SupportResult(Support.UNKNOWN, f"{info.id} declares no discovery method", observed_at=caps.observed_at)
 

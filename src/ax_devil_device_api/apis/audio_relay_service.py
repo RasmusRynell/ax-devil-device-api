@@ -257,6 +257,7 @@ INFO = ApiInfo(
     name="Audio relay service API",
     family=Family.SERVICE_JSON,
     discovery=(ParamDiscovery("Properties.API.AudioRelay.Version", "1.2", ">="),),
+    status="deprecated",
     docs=("https://developer.axis.com/vapix/audio-systems/audio-relay-service-api/",),
 )
 

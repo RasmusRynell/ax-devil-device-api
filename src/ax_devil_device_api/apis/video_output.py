@@ -412,6 +412,7 @@ INFO = ApiInfo(
     name="Video output API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.VideoOutputControl.VideoOutputControl", "yes"),),
+    requires_firmware="6.10",
     docs=("https://developer.axis.com/vapix/network-video/video-output-api/",),
     errors={
         10: ErrorCode("Error while processing the request."),

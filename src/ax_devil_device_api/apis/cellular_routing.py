@@ -403,6 +403,7 @@ INFO = ApiInfo(
     name="Cellular routing API",
     family=Family.DCA,
     discovery=(DcaDiscovery("cellular-routing", "v1beta"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/cellular-routing-api/",),
 )
 

@@ -574,6 +574,7 @@ INFO = ApiInfo(
     id="axis-audio-manager-pro-api",
     name="AXIS Audio Manager Pro API",
     family=Family.REST,
+    requires_application="AXIS Audio Manager Pro (server software)",
     docs=("https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/",),
     errors={
         400: ErrorCode(

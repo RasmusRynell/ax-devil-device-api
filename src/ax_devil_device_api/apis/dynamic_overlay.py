@@ -277,6 +277,7 @@ INFO = ApiInfo(
         ParamDiscovery("Properties.DynamicOverlay.DynamicOverlay", "yes"),
         ParamDiscovery("Properties.DynamicOverlay.Version", "1.00"),
     ),
+    requires_firmware="7.10",
     docs=("https://developer.axis.com/vapix/network-video/overlay-api/",),
     errors={
         100: ErrorCode("The requested API version is not supported.", "unsupported"),

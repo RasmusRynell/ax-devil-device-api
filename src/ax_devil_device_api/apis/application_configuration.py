@@ -184,6 +184,8 @@ INFO = ApiInfo(
     name="Application configuration API",
     family=Family.CGI,
     discovery=(ParamDiscovery("Properties.EmbeddedDevelopment.Version", "1.00", ">="),),
+    status="deprecated",
+    requires_firmware="5.11",
     docs=("https://developer.axis.com/vapix/applications/application-configuration-api/",),
     errors={
         "bad_request": ErrorCode("Bad request. The request URL was not formatted correctly.", "invalid_argument"),

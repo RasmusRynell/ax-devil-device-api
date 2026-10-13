@@ -59,6 +59,7 @@ INFO = ApiInfo(
     major=1,
     known_versions=(ApiVersion(1, 0),),
     discovery=(ParamDiscovery("Properties.ApiDiscovery.ApiDiscovery", "yes"), ApiDiscovery("api-discovery")),
+    requires_firmware="8.50",
     docs=("https://developer.axis.com/vapix/network-video/api-discovery-service/",),
     errors={
         1000: ErrorCode("Invalid parameter value specified.", "invalid_argument"),

@@ -97,6 +97,7 @@ INFO = ApiInfo(
     name="mDNS-SD Configuration API",
     family=Family.DCA,
     discovery=(DcaDiscovery("mdnssd", "v2"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/mdns-sd-api/",),
     errors={100: ErrorCode("Invalid request. mDNS-SD is disabled during a discovery call.", "invalid_argument")},
 )

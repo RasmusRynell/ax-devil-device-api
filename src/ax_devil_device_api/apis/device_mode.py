@@ -66,6 +66,7 @@ INFO = ApiInfo(
     name="Device mode configuration",
     family=Family.DCA,
     discovery=(DcaDiscovery("device-mode", "v1"),),
+    status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/device-mode-configuration-api/",),
 )
 

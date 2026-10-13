@@ -38,6 +38,7 @@ INFO = ApiInfo(
     id="imaging-api",
     name="Imaging API",
     family=Family.CGI,
+    requires_firmware="5.00",
     docs=("https://developer.axis.com/vapix/network-video/imaging-api/",),
 )
 
