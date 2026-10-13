@@ -73,6 +73,24 @@ def test_limits() -> None:
         MixedReplaceDecoder("b", max_part_bytes=10).feed(b"--b\r\n\r\n" + b"y" * 50)
 
 
+@pytest.mark.parametrize("chunk", [None, 1, 2, 5, 7])
+@pytest.mark.parametrize("length", [True, False])
+def test_part_limit_independent_of_chunking(chunk: int | None, length: bool) -> None:
+    data = frame(b"123456789", boundary="b", length=length) + b"--b--\r\n"
+    decoder = MixedReplaceDecoder("b", max_part_bytes=3)
+    pieces = [data] if chunk is None else [data[i : i + chunk] for i in range(0, len(data), chunk)]
+    with pytest.raises(errors.ResponseFormatError):
+        for piece in pieces:
+            decoder.feed(piece)
+    ok = frame(b"123", boundary="b", length=length) + b"--b--\r\n"
+    pieces = [ok] if chunk is None else [ok[i : i + chunk] for i in range(0, len(ok), chunk)]
+    parts: list[Part] = []
+    decoder = MixedReplaceDecoder("b", max_part_bytes=3)
+    for piece in pieces:
+        parts += decoder.feed(piece)
+    assert [p.body for p in parts] == [b"123"]
+
+
 def test_random_chunking_property() -> None:
     rng = random.Random(7)
     bodies = [bytes(rng.randrange(256) for _ in range(rng.randrange(0, 3000))) for _ in range(20)]

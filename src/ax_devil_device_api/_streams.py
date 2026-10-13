@@ -163,10 +163,12 @@ class MixedReplaceDecoder:
             index = buf.find(b"\n" + self._delimiter, self._scanned)
             width = len(self._delimiter) + 1
         if index < 0:
-            if len(buf) > self._max:
+            if len(buf) > self._max + len(marker):  # a partial delimiter may be buffered after the body
                 raise ResponseFormatError(self._api, "stream", f"part exceeds the {self._max} byte limit")
             self._scanned = max(0, len(buf) - len(marker))
             return False, None
+        if index > self._max:
+            raise ResponseFormatError(self._api, "stream", f"part exceeds the {self._max} byte limit")
         body = bytes(buf[:index])
         del buf[: index + (width - len(self._delimiter))]  # keep the delimiter for the preamble step
         self._state = "preamble"
