@@ -49,7 +49,7 @@ operations:
     description: >-
       ``object_path`` is the group and parameter names joined by ``/``, for example ``Audio/MaxListeners``.
     effect: read
-    binding: {method: GET, path: "/{objectPath}"}
+    binding: {method: GET, path: "/{objectPath}", key_styles: {objectPath: path}}
     params:
       type: object
       x-name: ParamObjectPathRequest
@@ -63,21 +63,19 @@ operations:
         - {$ref: "#/types/ParamTree"}
     examples:
       - title: Example of retrieving a single parameter
-        request: {path: ""}
+        request: {path: /Audio/MaxListeners}
         response:
           status: 200
           body: {status: success, data: "5"}
         source: https://developer.axis.com/vapix/device-configuration/param-api/#get-parameters
-        x-contract: {skip: "The docs example shows a generic request envelope (operation/path), not the REST call; its path param.v2.Audio.MaxListeners does not map to a DCA request path."}
       - title: Group retrieval example
-        request: {path: ""}
+        request: {path: /Audio}
         response:
           status: 200
           body:
             status: success
             data: {DSCP: "0", MaxListeners: "5"}
         source: https://developer.axis.com/vapix/device-configuration/param-api/#get-parameters
-        x-contract: {skip: "The docs example shows a generic request envelope (operation/path), not the REST call."}
 
   export_all:
     summary: Export all writable parameters (the ones that can be imported).

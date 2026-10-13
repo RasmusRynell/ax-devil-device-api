@@ -50,7 +50,7 @@ class OPS:
     get_object = Operation(
         INFO,
         "get_object",
-        DcaBinding("GET", f"{ROOT}/{{objectPath}}"),
+        DcaBinding("GET", f"{ROOT}/{{objectPath}}", key_styles=(("objectPath", "path"),)),
         params=ParamObjectPathRequest,
         result=ParamValue | ParamTree,
         access="admin",

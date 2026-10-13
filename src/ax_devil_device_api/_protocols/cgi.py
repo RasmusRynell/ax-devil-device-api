@@ -204,6 +204,24 @@ class Xml:
     status_error: XmlStatusError | None = None
 
 
+FRAGMENT_ROOT = "fragment"
+"""Tag of the synthetic root that wraps a reply with several top-level elements."""
+
+_XML_DECLARATION = re.compile(rb"^\s*<\?xml[^>]*\?>")
+
+
+def _parse_xml(content: bytes) -> ET.Element:
+    """Parse a reply; several sibling top-level elements (a fragment) are wrapped in a synthetic ``fragment`` root."""
+    try:
+        return ET.fromstring(content)
+    except ET.ParseError as error:
+        body = _XML_DECLARATION.sub(b"", content, count=1)
+        try:
+            return ET.fromstring(b"<" + FRAGMENT_ROOT.encode() + b">" + body + b"</" + FRAGMENT_ROOT.encode() + b">")
+        except ET.ParseError:
+            raise error from None
+
+
 @dataclass(frozen=True)
 class Binary:
     """Opaque bytes. Optional checks on media type and leading file signature."""
@@ -407,7 +425,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
         if not response.content.strip() and op.result is None:
             return None
         try:
-            root = ET.fromstring(response.content)
+            root = _parse_xml(response.content)
         except ET.ParseError as error:
             _text_errors(op, text, response.status)
             raise ResponseFormatError(op.api.id, op.id, f"invalid XML: {error}") from error

@@ -50,7 +50,6 @@ operations:
           <entry value="vivid" niceValue="Vivid" />
           <entry value="traffic_overview" niceValue="Traffic Overview" />
           <entry value="license_plate" niceValue="License Plate" />
-      x-contract: {skip: "The documented reply is a fragment of several root-level entry elements, not a complete XML document."}
       source: https://developer.axis.com/vapix/network-video/video-streaming/#list-supported-scene-profiles
   set_scene_profile:
     summary: Change the scene profile of an image source.

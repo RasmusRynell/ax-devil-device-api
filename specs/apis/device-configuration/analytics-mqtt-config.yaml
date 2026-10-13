@@ -167,5 +167,7 @@ sources:
     retrieved_at: "2026-10-11"
 provenance:
   completeness: complete
+  open_questions:
+  - 'The docs example response of the publisher list shows the field as key, but the structure and property tables (and the other examples) name it data_source_key, which is the required property. The spec follows the tables.'
   migrated_from: v1
   curated: true

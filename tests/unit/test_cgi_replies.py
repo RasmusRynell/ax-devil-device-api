@@ -144,3 +144,21 @@ def test_float_query_minimal_form() -> None:
     assert dict(sink[0].url.params.items()) == {"pan": "10", "zoom": "-0.25"}
     call(op, "OK", Q(pan=1e-05, zoom=0.1), sink=sink)
     assert dict(sink[1].url.params.items()) == {"pan": "0.00001", "zoom": "0.1"}
+
+
+def test_xml_fragment_with_several_top_level_elements_is_wrapped() -> None:
+    import xml.etree.ElementTree as ET
+
+    op = Operation(INFO, "op", CgiBinding("/x.cgi", reply=Xml()), result=ET.Element)
+    root = call(op, '<?xml version="1.0"?>\n<entry value="a"/>\n<entry value="b"/>')
+    assert [e.get("value") for e in root] == ["a", "b"]
+    single = call(op, '<entry value="a"/>')
+    assert single.tag == "entry"
+
+
+def test_malformed_xml_still_raises() -> None:
+    from ax_devil_device_api.errors import ResponseFormatError
+
+    op = Operation(INFO, "op", CgiBinding("/x.cgi", reply=Xml()), result=None)
+    with pytest.raises(ResponseFormatError):
+        call(op, "<a><b></a>")

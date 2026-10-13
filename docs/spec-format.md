@@ -100,7 +100,7 @@ binding:
     stream: false
 ```
 
-Reply codecs: `text_ok` (body must be `OK`), `text`, `text_kv` (`key=value` lines; optional `strip_prefix`), `text_lines` (the non-blank lines as `list[str]`; optional `skip`, the number of leading lines to drop), `xml` (optional `error_elements`), `binary` (optional `media_types`, `signatures` as hex strings), `json`, `stream` (streamed body, see below).
+Reply codecs: `text_ok` (body must be `OK`), `text`, `text_kv` (`key=value` lines; optional `strip_prefix`), `text_lines` (the non-blank lines as `list[str]`; optional `skip`, the number of leading lines to drop), `xml` (optional `error_elements`; a reply with several top-level elements, as in a listing of `<entry .../>` lines, is wrapped in a synthetic `fragment` root), `binary` (optional `media_types`, `signatures` as hex strings), `json`, `stream` (streamed body, see below).
 
 `text_lines` is for replies that are lists rather than `key=value` maps. The result is `{type: array, items: {type: string}}`; plain-text error detection still applies:
 
