@@ -275,6 +275,6 @@ def datahub_setup(options: Mapping[str, Any]) -> list[tuple[str, JsonObject | No
     for sub in subscriptions:
         # Validated against the schema (strict request rules) and serialized with the wire names; a bad
         # mapping raises a ValidationError here instead of reaching the device.
-        model = sub.revalidated() if isinstance(sub, Subscription) else Subscription.model_validate(dict(sub))
+        model = sub.revalidated() if isinstance(sub, Subscription) else Subscription.model_validate(dict(sub)).revalidated()
         requests.append(("data-hub_v1:subscribe", model.to_wire()))
     return requests

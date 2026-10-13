@@ -507,9 +507,10 @@ def parse_result(op: Operation[Any], data: Any) -> Any:
         try:  # newer firmware may add an enum value anywhere in the result: a scalar, a list, a mapping, a union
             tolerated = lenient_value(op.result, data, {RESPONSE_CONTEXT: True}, new)
         except (ValidationError, _NoMatch):
-            tolerated = None
-        if new:
-            return tolerated
+            new = []  # the tolerant pass failed too: report the original error, never a placeholder
+        else:
+            if new:
+                return tolerated
         raise ResponseFormatError(op.api.id, op.id, f"response does not match the documented shape: {error}") from error
 
 

@@ -159,8 +159,23 @@ class SessionLedger:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._tracks: dict[Any, _Track] = {}
+        self._watchers: dict[Any, list[Callable[[], None]]] = {}
+
+    def watch(self, key: Any, check: Callable[[], None]) -> None:
+        """Register ``check`` for an active session; it ends the session's tracking if its reader has terminated."""
+        with self._lock:
+            self._watchers.setdefault(key, []).append(check)
+
+    def unwatch(self, key: Any, check: Callable[[], None]) -> None:
+        with self._lock:
+            if check in self._watchers.get(key, []):
+                self._watchers[key].remove(check)
 
     def begin(self, key: Any) -> Gap | None:
+        with self._lock:
+            checks = list(self._watchers.get(key, ()))
+        for check in checks:  # a session whose socket died is not "open", even if nobody has read the close yet
+            check()
         now = time.time()
         with self._lock:
             track = self._tracks.get(key)
@@ -210,12 +225,24 @@ class _Core:
         self.overflowed = False
         self._counter = 0
         self._ended = False
+        self._reader_over: Callable[[], bool] | None = None
 
     def begin(self) -> None:
         """Enter the gap ledger. Called once setup has succeeded, so a failed attempt leaves no trace."""
         if not self._begun and not self._ended:
             self._begun = True
             self.gap = self.ledger.begin(self.spec.key)
+            self.ledger.watch(self.spec.key, self.check_alive)
+
+    def watch_reader(self, is_over: Callable[[], bool]) -> None:
+        """``is_over`` tells whether the socket's background reader has terminated (close frame, network error)."""
+        self._reader_over = is_over
+
+    def check_alive(self) -> None:
+        """End tracking if the reader terminated, whatever the reason (abnormal: the gap starts at the last frame)."""
+        if self._reader_over is not None and not self._ended and self._reader_over():
+            self.failed = self.failed or self.closed is None
+            self.finish(user_exit_error=None)
 
     def next_id(self) -> str:
         self._counter += 1
@@ -311,6 +338,7 @@ class _Core:
         self._ended = True
         if not self._begun:
             return
+        self.ledger.unwatch(self.spec.key, self.check_alive)
         graceful = not self.failed and (user_exit_error is None or not isinstance(user_exit_error, TransportError))
         self.ledger.end(self.spec.key, graceful=graceful)
 
@@ -363,6 +391,7 @@ class Session:
     def __init__(self, raw: httpx_ws.WebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
+        core.watch_reader(lambda: getattr(raw, "_should_close").is_set())
 
     @property
     def gap(self) -> Gap | None:
@@ -385,6 +414,8 @@ class Session:
             else:
                 self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
+            self._core.check_alive()
+            self._core.finish(user_exit_error=None)  # the connection is closed: stop gap tracking
             raise self._core.closed or SessionClosed() from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
@@ -534,6 +565,7 @@ class AsyncSession:
     def __init__(self, raw: httpx_ws.AsyncWebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
+        core.watch_reader(lambda: getattr(raw, "_should_close").is_set())
 
     @property
     def gap(self) -> Gap | None:
@@ -556,6 +588,8 @@ class AsyncSession:
             else:
                 await self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
+            self._core.check_alive()
+            self._core.finish(user_exit_error=None)  # the connection is closed: stop gap tracking
             raise self._core.closed or SessionClosed() from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
