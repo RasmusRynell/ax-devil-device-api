@@ -484,3 +484,14 @@ def test_event_session_authorization_codes_are_access_denied() -> None:
     for code in (2105, 2106):
         error = api_error(codec, "events:configure", WsError(code, "denied"))
         assert isinstance(error, errors.AccessDenied) and error.kind == "access_denied"
+
+
+def test_token_is_redacted_in_hook_records_and_never_in_authorization() -> None:
+    camera = FakeWsCamera(handler=events_handler, token_digest=True)
+    records: list[Any] = []
+    with device(camera, on_request=records.append) as dev, dev.connect_session(EVENTS, heartbeat=QUICK, use_token=True):
+        pass
+    text = json.dumps(records, default=str)
+    assert camera.token not in text and "wssession" in text
+    assert all(camera.token not in (a or "") for a in camera.authorization)
+    assert camera.authorization[-1] is None
