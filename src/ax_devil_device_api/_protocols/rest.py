@@ -107,9 +107,9 @@ def _build(op: Operation[RestBinding], params: Model | None) -> Request:
 def _decode(op: Operation[RestBinding], response: Response) -> Any:
     status = response.status
     if not 200 <= status < 300:
-        if status != 401 and op.error_code(status) is not None:
+        if status not in (401, 403) and op.error_code(status) is not None:
             raise api_error(op, status, response.excerpt(), http_status=status, details=response.text)
-        raise http_error(op, response)
+        raise http_error(op, response, documented=True)
     if not response.content.strip():
         return None
     try:

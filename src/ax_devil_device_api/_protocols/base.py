@@ -809,12 +809,15 @@ def api_error(
     )
 
 
-def http_error(op: Operation[Any], response: Response) -> DeviceError:
+def http_error(op: Operation[Any], response: Response, *, documented: bool = False) -> DeviceError:
     """Build the error for a failure status that carried no API error envelope.
 
-    A status the operation (or API) documents wins over the generic mapping below."""
+    With ``documented=True`` (protocols whose error maps are keyed by HTTP status: cgi, rest) a status the
+    operation or API documents wins over the generic mapping below, except 401 and 403, which always keep
+    ``AuthError`` / ``AccessDenied``. In the other protocols the map is keyed by API error codes, so a number that
+    happens to equal an HTTP status must not be taken for it."""
     status = response.status
-    if status != 401 and op.error_code(status) is not None:
+    if documented and status not in (401, 403) and op.error_code(status) is not None:
         # The operation documents this status (for example a 404 that means "not found", not "unsupported").
         return api_error(op, status, response.excerpt(), http_status=status, details=response.text)
     if status == 401:

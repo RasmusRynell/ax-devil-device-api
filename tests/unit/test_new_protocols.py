@@ -16,7 +16,7 @@ from ax_devil_device_api._protocols.soap import SoapBinding
 from ax_devil_device_api._protocols.xmlmap import XmlField, XmlMap
 from ax_devil_device_api.device import AsyncDevice, Device
 from ax_devil_device_api.errors import (
-    ApiAccessDenied,
+    AccessDenied,
     ApiError,
     ApiUnavailable,
     AuthError,
@@ -453,7 +453,7 @@ def test_rest_403_documented_as_access_denied() -> None:
         binding=RestBinding("GET", "/x"),
         result=Thing,
     )
-    with connect(Recorder(httpx.Response(403, text="x"))) as dev, pytest.raises(ApiAccessDenied):
+    with connect(Recorder(httpx.Response(403, text="x"))) as dev, pytest.raises(AccessDenied):
         dev.invoke(op)
 
 

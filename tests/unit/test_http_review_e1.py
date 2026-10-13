@@ -322,14 +322,14 @@ def test_documented_404_is_an_api_error_not_not_supported() -> None:
     op = media_stream.OPS.get_media_stream
     request = Request("GET", "/axis-media/media.amp")
     response = Response(404, Headers(()), b"not here", request)
-    error = http_error(op, response)
+    error = http_error(op, response, documented=True)
     assert isinstance(error, ApiError) and error.kind == "not_found" and error.http_status == 404
     with pytest.raises(ApiError):
         _decode(op, response)
     # an operation that documents nothing for the status keeps the generic mapping
     undocumented = media_stream.OPS.get_media_stream
     assert isinstance(http_error(undocumented, Response(418, Headers(()), b"", request)), Exception)
-    assert not isinstance(http_error(op, response), NotSupported)
+    assert not isinstance(http_error(op, response, documented=True), NotSupported)
 
 
 # --- a reused one-shot upload source never silently sends an empty body ---------------------------------------------
@@ -398,3 +398,31 @@ async def test_async_reused_upload_after_a_failing_hook_or_pool_timeout_sends_th
         slots.release()
         assert await run_async(busy, _upload_flow(upload), Call()) == 200
     assert seen and b"PAYLOAD" in seen[-1]
+
+
+def test_api_code_keyed_protocols_keep_the_generic_http_mapping() -> None:
+    """Decoder code 403 means 'unsupported protocol' in the API, but an HTTP 403 is still access denied."""
+    from ax_devil_device_api._protocols.jsonrpc import _decode
+    from ax_devil_device_api.apis import decoder
+    from ax_devil_device_api.errors import AccessDenied
+
+    op = decoder.OPS.get_capabilities
+    assert op.error_code(403) is not None  # the collision this guards against
+    response = Response(403, Headers(()), b"forbidden", Request("POST", "/x"))
+    with pytest.raises(AccessDenied):
+        _decode(op, response)
+
+
+def test_http_keyed_protocols_use_documented_statuses_except_401_and_403() -> None:
+    from ax_devil_device_api._protocols.base import http_error
+    from ax_devil_device_api._protocols.rest import _decode
+    from ax_devil_device_api.apis import intercom_configuration
+    from ax_devil_device_api.errors import AccessDenied, ApiError, AuthError
+
+    op = intercom_configuration.OPS.update_configuration
+    request = Request("PATCH", "/x")
+    with pytest.raises(ApiError) as info:
+        _decode(op, Response(400, Headers(()), b"bad", request))
+    assert info.value.kind == "invalid_argument"
+    assert isinstance(http_error(op, Response(403, Headers(()), b"", request), documented=True), AccessDenied)
+    assert isinstance(http_error(op, Response(401, Headers(()), b"", request), documented=True), AuthError)
