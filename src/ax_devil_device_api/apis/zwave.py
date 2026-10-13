@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/z-wave-api/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -1740,6 +1740,7 @@ class GetAntiTheftUnlockStateResult(Model):
 
 
 class SetAntiTheftUnlockStateRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"code"})
     interface_descriptor: int = Field(validation_alias="interfaceDescriptor", serialization_alias="interfaceDescriptor")
     """The interface descriptor."""
     code: str = Field(pattern="^([0-9A-Fa-f]{2}){1,10}$")

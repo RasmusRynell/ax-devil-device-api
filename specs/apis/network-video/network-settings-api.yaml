@@ -713,6 +713,7 @@ types:
   WlanStationAuthParams:
     type: object
     description: WLAN station 802.1X authentication parameters.
+    x-masked: [password]
     properties:
       identity:
         type: string
@@ -2089,6 +2090,7 @@ operations:
       type: object
       required:
       - deviceName
+      x-masked: [password]
       properties:
         deviceName:
           type: string

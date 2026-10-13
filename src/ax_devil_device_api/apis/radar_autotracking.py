@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/radar/radar-autotracking/
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field
 
@@ -121,6 +121,7 @@ class Capabilities(Model):
 class SetCameraConnectionRequest(Model):
     """Arguments of ``set_camera_connection``. An empty ``ip`` disconnects from the camera."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     ip: str
     """The camera's IP address."""
     user: str

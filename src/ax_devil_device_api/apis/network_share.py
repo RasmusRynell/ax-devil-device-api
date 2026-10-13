@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/edge-storage-api/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, overload
+from typing import Annotated, Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -92,6 +92,7 @@ class ListSharesRequest(Model):
 
 
 class AddShareRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     schemaversion: XmlSchemaVersion | None = None
     nicename: str
     """User-friendly name for the share."""
@@ -114,6 +115,7 @@ class RemoveShareRequest(Model):
 
 
 class ModifyShareRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     schemaversion: XmlSchemaVersion | None = None
     shareid: str
     """Share ID of the network share to modify."""
@@ -144,6 +146,7 @@ class UnbindShareRequest(Model):
 
 
 class TestShareRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     schemaversion: XmlSchemaVersion | None = None
     address: str | None = None
     """IPv4 address or host name of the storage device."""

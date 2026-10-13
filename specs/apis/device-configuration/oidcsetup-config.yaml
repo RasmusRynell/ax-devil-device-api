@@ -54,6 +54,7 @@ types:
   UpdateAuthEntityRequest:
     type: object
     description: Arguments of ``update_auth_entity``. Only the given fields change.
+    x-masked: [OIDC_ClientSecret]
     properties:
       OIDC_AuthzAdminClaim: {$ref: "#/types/Claim", description: "Claim and value that corresponds to admin access."}
       OIDC_AuthzOperatorClaim: {$ref: "#/types/Claim", description: "Claim and value that corresponds to operator access."}
@@ -298,6 +299,7 @@ operations:
     params:
       type: object
       required: [OIDC_ClientSecret]
+      x-masked: [OIDC_ClientSecret]
       properties:
         OIDC_ClientSecret: {$ref: "#/types/ClientSecret"}
 

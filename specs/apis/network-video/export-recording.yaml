@@ -179,6 +179,7 @@ operations:
     params:
       type: object
       required: [recordingid, diskid, exportformat]
+      x-masked: [password]
       properties:
         recordingid: {type: string, x-python-name: recording_id, description: The Recording ID of the recording.}
         diskid: {type: string, x-python-name: disk_id, description: Disk ID of the disk where the recording is stored.}
@@ -255,6 +256,7 @@ operations:
     params:
       type: object
       required: [recordingid, diskid, externaldiskid, exportformat]
+      x-masked: [password]
       properties:
         recordingid: {type: string, x-python-name: recording_id, description: The Recording ID of the recording.}
         diskid: {type: string, x-python-name: disk_id, description: Disk ID of the disk where the recording is stored.}

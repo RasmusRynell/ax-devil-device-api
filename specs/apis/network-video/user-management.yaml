@@ -46,6 +46,7 @@ types:
   AddUserRequest:
     type: object
     required: [user, pwd, grp, sgrp]
+    x-masked: [pwd]
     properties:
       user: {$ref: '#/types/UserName'}
       pwd:
@@ -68,6 +69,7 @@ types:
   UpdateUserRequest:
     type: object
     required: [user]
+    x-masked: [pwd]
     properties:
       user: {$ref: '#/types/UserName'}
       pwd:

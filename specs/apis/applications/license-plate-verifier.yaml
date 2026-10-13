@@ -23,6 +23,7 @@ types:
   TwoNConfig:
     type: object
     description: 2N integration settings (<tn_config> XML).
+    x-masked: [password]
     properties:
       url:
         type: string
@@ -63,6 +64,7 @@ types:
   GenetecConfig:
     type: object
     description: Genetec integration settings (<gsc_config> XML).
+    x-masked: [password]
     properties:
       url:
         type: string
@@ -460,6 +462,7 @@ types:
   PushConfig:
     type: object
     description: One push profile (<cloud_config> XML).
+    x-masked: [password, x_auth_key]
     properties:
       url:
         type: string

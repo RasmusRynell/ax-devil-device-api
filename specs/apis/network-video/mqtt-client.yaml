@@ -101,6 +101,7 @@ types:
     type: object
     description: Arguments of ``configure_client``. Replaces the whole client configuration.
     required: [server, clientId]
+    x-masked: [password]
     properties:
       server: {$ref: "#/types/Server"}
       clientId: {type: string}

@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/decoder-api/
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import Field
 
@@ -56,6 +56,7 @@ class Pane(Model):
 class Stream(Model):
     """A video stream. The camera credentials are sent unencrypted; consider HTTPS."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     stream_id: int = Field(validation_alias="streamId", serialization_alias="streamId", ge=0)
     """Unique stream ID."""
     url: str

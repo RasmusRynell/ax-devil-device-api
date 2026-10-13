@@ -256,6 +256,7 @@ operations:
       type: object
       required:
       - port_manager
+      x-masked: ['PortManager.P{port_manager}.RemotePortServer.AuthenticationKey']
       properties:
         port_manager:
           type: integer
@@ -387,6 +388,7 @@ operations:
       type: object
       required:
       - remote_port
+      x-masked: ['RemotePort.R{remote_port}.AuthenticationKey']
       properties:
         remote_port:
           type: integer

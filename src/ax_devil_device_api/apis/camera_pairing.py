@@ -85,6 +85,7 @@ class CameraPairing(Model):
 class AddCameraPairingRequest(Model):
     """Arguments of ``add_camera_pairing``."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     address: Address
     """Address for the camera pairing."""
     username: Username
@@ -117,6 +118,7 @@ class SetCameraPairingDescriptionRequest(Model):
 
 
 class SetCameraPairingPasswordRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     id: ID
     password: Password
     """Password for the camera pairing."""

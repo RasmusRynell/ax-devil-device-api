@@ -117,6 +117,7 @@ types:
     type: object
     description: Arguments of ``add_pairing``. The remote device's certificate is pinned during pairing, and all features start enabled.
     required: [address, username, password]
+    x-masked: [password]
     properties:
       address:
         type: string

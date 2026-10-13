@@ -92,6 +92,7 @@ types:
     - streamingProtocol
     - verifyCertificate
     - description
+    x-masked: [password]
     properties:
       address: {$ref: '#/types/Address', description: Address for the camera pairing.}
       username: {$ref: '#/types/Username', description: Username for the camera pairing.}
@@ -231,6 +232,7 @@ operations:
     params:
       type: object
       required: [id, password]
+      x-masked: [password]
       properties:
         id: {$ref: '#/types/ID'}
         password: {$ref: '#/types/Password', description: Password for the camera pairing.}

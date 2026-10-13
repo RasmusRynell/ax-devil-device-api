@@ -152,7 +152,7 @@ binding:
 
 `{key}` placeholders name required `params` fields and are positional arguments, as in `dca`. `body: object` sends the remaining params as one JSON object, `body: value` with `body_field: body` sends the value of that one field as the whole body. Failures are signalled by the HTTP status, so `errors` are keyed by the integer status (`404: {description: Not found, kind: not_found}`); other failures use the generic HTTP errors, and 401 is always an authentication error.
 
-Every binding may set `auth` (`required`, `anonymous`, `if_challenged`) and `timeout` (seconds).
+Every binding may set `auth` (`required`, `anonymous`, `if_challenged`) and `timeout` (seconds). An operation that the docs list as anonymous or pre-authentication (`access: anonymous`) sets `auth: if_challenged`, so no stale credentials are sent first; for a `jsonrpc` API also on the version negotiation (`negotiation: {get_supported_versions: {key: apiVersions, auth: if_challenged}}`) and, when every operation is anonymous, on the API-level `binding`.
 
 ### Streamed replies (cgi)
 
@@ -445,7 +445,7 @@ Named schemas, using a JSON Schema subset: `type`, `properties`, `required`, `it
 - Optional fields become `X | None = None`.
 - Extensions:
   - `x-nullable: [field, ...]`: may be sent as explicit `null` (JSON `null`; an empty element in SOAP).
-  - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips at any depth (through nested models and lists); also redacted by name in `on_request` records, shown as `'*****'` in `repr`, and, when it is the `body_field` of a `body: value` DCA/REST operation, it marks the body `sensitive` (the same happens for a field whose name looks like a secret, such as `password`), so `on_request` records show only `<redacted>` for that body.
+  - `x-masked: [field, ...]`: masked by the device in responses (for example `*****`); dropped by round trips at any depth (through nested models and lists); also redacted by name in `on_request` records, shown as `'*****'` in `repr`, and, when it is the `body_field` of a `body: value` DCA/REST operation, it marks the body `sensitive` (the same happens for a field whose name looks like a secret, such as `password`), so `on_request` records show only `<redacted>` for that body. Mark every credential field, in request and response types and in inline operation `params`: passwords, passphrases, PINs and PUKs, pre-shared and private keys, SNMP communities, client secrets. A write-only secret is marked as well: dropping it from round trips is correct, because the device never returns it and `from_current` must not copy it.
   - `x-read-only: [field, ...]`: present in responses, never sent: omitted from request serialization at any depth, even when supplied. When a request type is shared with the response, read-only fields stay on the model but are not method arguments. A field that is also in `required` is required in responses only: a response without it raises `ResponseFormatError`, while a request model leaves it out (the attribute is `None` on a model you built yourself; type checkers still see the field type) and never sends it.
   - `x-python-name` on a property: overrides the derived name.
   - `x-style` on a property (cgi only): `plain`, `csv`, `axis_bool`, `spread`, `flag` (a boolean sent as the bare key when true).

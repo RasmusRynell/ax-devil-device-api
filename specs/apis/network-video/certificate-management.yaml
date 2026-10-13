@@ -131,6 +131,7 @@ operations:
           type: object
           x-name: CertificateWithPrivateKey
           required: ['tt:CertificateID']
+          x-masked: ['tt:PrivateKey']
           properties:
             'tt:CertificateID': {type: string}
             'tt:Certificate': {$ref: '#/types/CertificateData'}
@@ -186,6 +187,7 @@ operations:
           type: object
           x-name: Pkcs12Container
           required: ['acert:Id', 'acert:Certificate', 'acert:Password']
+          x-masked: ['acert:Password']
           properties:
             'acert:Id': {type: string}
             'acert:Certificate': {type: string, description: The PKCS#12 payload.}

@@ -122,6 +122,7 @@ types:
     type: object
     description: Arguments of ``set_camera_connection``. An empty ``ip`` disconnects from the camera.
     required: [ip, user, pass]
+    x-masked: [pass]
     properties:
       ip: {type: string, description: The camera's IP address.}
       user: {type: string, description: The username to log in to the camera.}

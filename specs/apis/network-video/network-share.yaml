@@ -147,6 +147,7 @@ operations:
     params:
       type: object
       required: [nicename, address, share]
+      x-masked: [pass]
       properties:
         schemaversion: {$ref: "#/types/XmlSchemaVersion"}
         nicename: {type: string, description: User-friendly name for the share.}
@@ -191,6 +192,7 @@ operations:
     params:
       type: object
       required: [shareid]
+      x-masked: [pass]
       properties:
         schemaversion: {$ref: "#/types/XmlSchemaVersion"}
         shareid: {type: string, description: Share ID of the network share to modify.}
@@ -254,6 +256,7 @@ operations:
     binding: {path: /axis-cgi/disks/networkshare/test.cgi, method: GET, reply: xml}
     params:
       type: object
+      x-masked: [pass]
       properties:
         schemaversion: {$ref: "#/types/XmlSchemaVersion"}
         address: {type: string, description: IPv4 address or host name of the storage device.}

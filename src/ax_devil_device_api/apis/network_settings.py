@@ -439,6 +439,7 @@ class SimSlotIdRequest(Model):
 
 
 class ChangeSimPinRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"newpin", "oldpin"})
     slot_id: SimSlotId = Field(validation_alias="slotId", serialization_alias="slotId")
     oldpin: SimPin
     """The existing SIM PIN."""
@@ -447,6 +448,7 @@ class ChangeSimPinRequest(Model):
 
 
 class SetSimProtectionRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"pin"})
     slot_id: SimSlotId = Field(validation_alias="slotId", serialization_alias="slotId")
     enable: bool
     """true if SIM PIN protection should be enabled, otherwise false."""
@@ -455,6 +457,7 @@ class SetSimProtectionRequest(Model):
 
 
 class UnblockSimRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"pin", "puk"})
     slot_id: SimSlotId = Field(validation_alias="slotId", serialization_alias="slotId")
     pin: SimPin
     """The new SIM PIN."""
@@ -463,6 +466,7 @@ class UnblockSimRequest(Model):
 
 
 class VerifySimPinRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"pin"})
     slot_id: SimSlotId = Field(validation_alias="slotId", serialization_alias="slotId")
     pin: SimPin
     """The SIM PIN."""
@@ -708,7 +712,7 @@ class OPS:
     verify_sim_pin = Operation(
         INFO,
         "verify_sim_pin",
-        DcaBinding("POST", f"{ROOT}/modem/sim/{{slotId}}/verifySimPin", body="value", body_field="pin"),
+        DcaBinding("POST", f"{ROOT}/modem/sim/{{slotId}}/verifySimPin", body="value", body_field="pin", sensitive=True),
         params=VerifySimPinRequest,
         access="admin",
         effect="action",

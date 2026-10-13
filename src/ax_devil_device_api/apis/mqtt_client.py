@@ -115,6 +115,7 @@ class ClientStatus(Model):
 class ConfigureClientRequest(Model):
     """Arguments of ``configure_client``. Replaces the whole client configuration."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     server: Server
     client_id: str = Field(validation_alias="clientId", serialization_alias="clientId")
     http_proxy: str | None = Field(

@@ -114,6 +114,7 @@ class Networkpairing(Model):
 class AddPairingRequest(Model):
     """Arguments of ``add_pairing``. The remote device's certificate is pinned during pairing, and all features start enabled."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     address: str
     """The network address of the remote device. Must be a FQDN DNS name, an IPv4 address (dotted quad notation), or an IPv6 address."""
     username: str

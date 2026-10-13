@@ -2156,11 +2156,11 @@ operations:
     params:
       type: object
       required: [interfaceDescriptor, code]
+      x-masked: [code]
       properties:
         interfaceDescriptor: {type: integer, description: The interface descriptor.}
         code:
           type: string
-          x-masked-input: true
           pattern: "^([0-9A-Fa-f]{2}){1,10}$"
           description: "The Magic Code as a hex string of 1-10 bytes, two characters per byte (0x01 0x02 0xFF is ``0102FF``)."
     positional: [interfaceDescriptor]

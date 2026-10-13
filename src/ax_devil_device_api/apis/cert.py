@@ -102,6 +102,7 @@ class InstallFromPkcs12Request(Model):
     """Arguments of ``install_from_pkcs12``."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"keystore"})
+    __masked__: ClassVar[frozenset[str]] = frozenset({"passphrase"})
     alias: Alias
     """New identifier for this certificate."""
     pkcs12: str
@@ -132,6 +133,7 @@ class UpdateCaCertificateRequest(Model):
 class AddCertificateRequest(Model):
     """Arguments of ``add_certificate``."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"private_key"})
     alias: Alias
     """Identifier for this certificate entry."""
     certificate: str

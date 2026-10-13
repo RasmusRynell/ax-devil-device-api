@@ -46,6 +46,7 @@ types:
     description: Credentials for accessing an audio peer at setup time. Password is never returned by GetAudioPeers
       (null).
     x-nullable: [Password]
+    x-masked: [Password]
     properties:
       User: {type: string, description: The user account name.}
       Password: {type: string, description: The un-encrypted password.}

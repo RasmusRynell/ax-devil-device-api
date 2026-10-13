@@ -48,6 +48,7 @@ types:
     type: object
     description: Arguments of ``update_user``.
     required: [username]
+    x-masked: [password]
     properties:
       username: {$ref: '#/types/UsernameType'}
       password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
@@ -56,6 +57,7 @@ types:
     type: object
     description: Arguments of ``add_user``.
     required: [username, password]
+    x-masked: [password]
     properties:
       comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
       password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
@@ -164,6 +166,7 @@ operations:
     params:
       type: object
       required: [username, password]
+      x-masked: [password]
       properties:
         username: {$ref: '#/types/UsernameType'}
         password: {$ref: '#/types/PasswordType', description: The password of the SSH user}

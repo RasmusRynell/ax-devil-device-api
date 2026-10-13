@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/radar/network-radar-pairing/
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import MISSING, Field
 
@@ -42,6 +42,7 @@ class RadarConnection(Model):
 
 
 class SetRadarConnectionRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     address: str
     """The IP address."""
     user: str

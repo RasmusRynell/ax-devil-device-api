@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/network-settings-api/
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -518,6 +518,7 @@ class WlanSwitchResult(Model):
 class WlanStationAuthParams(Model):
     """WLAN station 802.1X authentication parameters."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     identity: str | None = None
     """The EAP identity. Unchanged if omitted."""
     password: str | None = None
@@ -671,6 +672,7 @@ class SetIpv6AddressConfigurationRequest(Model):
 
 
 class SetWired8021xConfigurationRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     device_name: str = Field(validation_alias="deviceName", serialization_alias="deviceName")
     """The name of the network interface device; see get_network_info."""
     enabled: bool | None = None

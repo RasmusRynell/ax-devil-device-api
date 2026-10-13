@@ -94,6 +94,7 @@ types:
     description: Arguments of ``install_from_pkcs12``.
     required: [alias, pkcs12]
     x-nullable: [keystore]
+    x-masked: [passphrase]
     properties:
       alias: {$ref: '#/types/Alias', description: New identifier for this certificate.}
       pkcs12: {type: string, description: 'The raw data for the PKCS12 archive, base64-encoded.'}
@@ -117,6 +118,7 @@ types:
     type: object
     description: Arguments of ``add_certificate``.
     required: [alias, certificate, private_key]
+    x-masked: [private_key]
     properties:
       alias: {$ref: '#/types/Alias', description: Identifier for this certificate entry.}
       certificate: {type: string, description: The X.509 certificate in PEM format.}

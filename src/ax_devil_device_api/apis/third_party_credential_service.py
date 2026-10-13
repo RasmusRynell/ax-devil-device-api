@@ -120,6 +120,7 @@ class ProviderConfigurationInfo(Model):
 class HIDMobileOptions(Model):
     """HID Mobile Access options of a credential."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"invitation_code"})
     part_number_token: str | None = Field(
         default=None, validation_alias="PartNumberToken", serialization_alias="PartNumberToken"
     )

@@ -25,6 +25,7 @@ operations:
     params:
       type: object
       required: [id]
+      x-masked: [password]
       properties:
         id: {type: string, x-python-name: id, description: The unique external IP device identifier.}
         description: {type: string, description: The external IP device description.}
@@ -114,6 +115,7 @@ operations:
     params:
       type: object
       required: [id]
+      x-masked: [password]
       properties:
         id: {type: string, x-python-name: id, description: The unique external IP device identifier.}
         description: {type: string, description: The external IP device description.}

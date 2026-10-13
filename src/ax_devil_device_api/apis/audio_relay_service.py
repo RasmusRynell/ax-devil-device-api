@@ -43,6 +43,7 @@ class AudioPeerCredentials(Model):
     """Credentials for accessing an audio peer at setup time. Password is never returned by GetAudioPeers (null)."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"password"})
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     user: str | None = Field(default=None, validation_alias="User", serialization_alias="User")
     """The user account name."""
     password: str | None = Field(default=None, validation_alias="Password", serialization_alias="Password")

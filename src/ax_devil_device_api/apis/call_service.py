@@ -90,6 +90,7 @@ class STUNServer(Model):
 
 
 class TURNServer(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     server: str = Field(validation_alias="Server", serialization_alias="Server")
     """Address (URI) of the server."""
     username: str = Field(validation_alias="Username", serialization_alias="Username")
@@ -187,6 +188,7 @@ class SIPConfiguration(Model):
 
 
 class SIPProxy(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     server: str = Field(validation_alias="Server", serialization_alias="Server")
     """Address (URI) of the server."""
     username: str = Field(validation_alias="Username", serialization_alias="Username")
@@ -198,6 +200,7 @@ class SIPProxy(Model):
 class SIPAccount(Model):
     """AOR built as sip|sips:UserId[@Domain]. Registrar used for registration; if empty PublicDomain used; if both empty, not registered."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     user_id: str = Field(validation_alias="UserId", serialization_alias="UserId")
     """User name for registration in the SIP registrar; can be an extension. Mandatory."""
     password: str | None = Field(default=None, validation_alias="Password", serialization_alias="Password")

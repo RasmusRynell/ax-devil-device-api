@@ -82,6 +82,7 @@ types:
     type: object
     description: A video stream. The camera credentials are sent unencrypted; consider HTTPS.
     required: [streamId, url, videoCodec]
+    x-masked: [password]
     properties:
       streamId: {type: integer, minimum: 0, description: Unique stream ID.}
       url: {type: string, description: "Where the decoder can reach the video, for example ``rtsp://192.168.0.90/axis-media/media.amp?resolution=1920x1080``."}

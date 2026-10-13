@@ -50,6 +50,7 @@ class SnmpV1(Model):
 class Trap(Model):
     """Trap"""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"community"})
     auth_fail_enabled: bool | None = Field(
         default=None, validation_alias="authFailEnabled", serialization_alias="authFailEnabled"
     )
@@ -75,6 +76,7 @@ class Trap(Model):
 class SnmpV1V2Common(Model):
     """Entity that has common properties for snmp V1 and V2c"""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"read_community", "write_community"})
     address: TrapAddressType
     """Trap Address"""
     read_community: CommunityNameType = Field(validation_alias="readCommunity", serialization_alias="readCommunity")
@@ -158,6 +160,7 @@ class Snmp(Model):
 class UpdateTrapRequest(Model):
     """Arguments of ``update_trap``."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"community"})
     auth_fail_enabled: bool | None = Field(
         default=None, validation_alias="authFailEnabled", serialization_alias="authFailEnabled"
     )
@@ -181,7 +184,11 @@ class UpdateTrapRequest(Model):
 
     @classmethod
     def from_current(cls, trap: Trap) -> UpdateTrapRequest:
-        """A request that rewrites ``trap`` unchanged: copy it, edit fields, send it back."""
+        """A request that rewrites ``trap`` unchanged: copy it, edit fields, send it back.
+
+        Masked secrets (``community``) are never copied, at any depth; set a new value on the request when
+        the device needs one.
+        """
         data = trap.request_data()
         return cls.from_response_data(data)
 
@@ -189,6 +196,7 @@ class UpdateTrapRequest(Model):
 class UpdateSnmpV1V2CommonRequest(Model):
     """Arguments of ``update_snmp_v1_v2_common``."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"read_community", "write_community"})
     read_community: CommunityNameType | None = Field(
         default=None, validation_alias="readCommunity", serialization_alias="readCommunity"
     )
@@ -203,7 +211,11 @@ class UpdateSnmpV1V2CommonRequest(Model):
 
     @classmethod
     def from_current(cls, common: SnmpV1V2Common) -> UpdateSnmpV1V2CommonRequest:
-        """A request that rewrites ``common`` unchanged: copy it, edit fields, send it back."""
+        """A request that rewrites ``common`` unchanged: copy it, edit fields, send it back.
+
+        Masked secrets (``read_community``, ``write_community``, ``trap.community``) are never copied, at
+        any depth; set a new value on the request when the device needs one.
+        """
         data = common.request_data()
         return cls.from_response_data(data)
 
@@ -237,6 +249,7 @@ class UpdateSnmpV2Request(Model):
 class UpdateSnmpV3Request(Model):
     """Arguments of ``update_snmp_v3``."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"user_passwd"})
     enabled: bool | None = None
     """Status of V3 snmp support"""
     user_passwd: UserPasswdType | None = Field(
@@ -292,6 +305,7 @@ class UpdateUserRequest(Model):
     """Arguments of ``update_user``."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"encrypt_passphrase"})
+    __masked__: ClassVar[frozenset[str]] = frozenset({"auth_passphrase", "encrypt_passphrase"})
     username: UserNameType
     user_authentication: UserAuthenticationTypeEnum | None = Field(
         default=None, validation_alias="userAuthentication", serialization_alias="userAuthentication"
@@ -321,6 +335,7 @@ class AddUserRequest(Model):
     """Arguments of ``add_user``."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"encrypt_passphrase"})
+    __masked__: ClassVar[frozenset[str]] = frozenset({"auth_passphrase", "encrypt_passphrase"})
     username: UserNameType
     """User name"""
     user_authentication: UserAuthenticationTypeEnum = Field(
@@ -381,11 +396,13 @@ class SetSnmpV1V2CommonAddressRequest(Model):
 
 
 class SetSnmpV1V2CommonReadCommunityRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"read_community"})
     read_community: CommunityNameType = Field(validation_alias="readCommunity", serialization_alias="readCommunity")
     """Read Community string"""
 
 
 class SetSnmpV1V2CommonWriteCommunityRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"write_community"})
     write_community: CommunityNameType = Field(validation_alias="writeCommunity", serialization_alias="writeCommunity")
     """Write Community string"""
 
@@ -401,6 +418,7 @@ class SetTrapColdStartEnabledRequest(Model):
 
 
 class SetTrapCommunityRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"community"})
     community: CommunityNameType
     """Trap Community"""
 
@@ -438,6 +456,7 @@ class SetSnmpV3UserEncryptionRequest(Model):
 
 
 class SetSnmpV3UserPasswdRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"user_passwd"})
     user_passwd: UserPasswdType = Field(validation_alias="userPasswd", serialization_alias="userPasswd")
     """Initial password for the SNMPv3 "initial" user"""
 
@@ -458,12 +477,14 @@ class SetUserAccessRequest(Model):
 
 
 class SetUserAuthPassphraseRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"auth_passphrase"})
     username: UserNameType
     auth_passphrase: UserPasswdType = Field(validation_alias="authPassphrase", serialization_alias="authPassphrase")
     """Authentication passphrase"""
 
 
 class SetUserEncryptPassphraseRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"encrypt_passphrase"})
     username: UserNameType
     encrypt_passphrase: UserPasswdType = Field(
         validation_alias="encryptPassphrase", serialization_alias="encryptPassphrase"
@@ -636,7 +657,9 @@ class OPS:
     set_snmp_v1_v2_common_read_community = Operation(
         INFO,
         "set_snmp_v1_v2_common_read_community",
-        DcaBinding("PATCH", f"{ROOT}/snmpV1V2Common/readCommunity", body="value", body_field="readCommunity"),
+        DcaBinding(
+            "PATCH", f"{ROOT}/snmpV1V2Common/readCommunity", body="value", body_field="readCommunity", sensitive=True
+        ),
         params=SetSnmpV1V2CommonReadCommunityRequest,
         access="admin",
         effect="write",
@@ -645,7 +668,9 @@ class OPS:
     set_snmp_v1_v2_common_write_community = Operation(
         INFO,
         "set_snmp_v1_v2_common_write_community",
-        DcaBinding("PATCH", f"{ROOT}/snmpV1V2Common/writeCommunity", body="value", body_field="writeCommunity"),
+        DcaBinding(
+            "PATCH", f"{ROOT}/snmpV1V2Common/writeCommunity", body="value", body_field="writeCommunity", sensitive=True
+        ),
         params=SetSnmpV1V2CommonWriteCommunityRequest,
         access="admin",
         effect="write",
@@ -686,7 +711,9 @@ class OPS:
     set_trap_community = Operation(
         INFO,
         "set_trap_community",
-        DcaBinding("PATCH", f"{ROOT}/snmpV1V2Common/trap/community", body="value", body_field="community"),
+        DcaBinding(
+            "PATCH", f"{ROOT}/snmpV1V2Common/trap/community", body="value", body_field="community", sensitive=True
+        ),
         params=SetTrapCommunityRequest,
         access="admin",
         effect="write",

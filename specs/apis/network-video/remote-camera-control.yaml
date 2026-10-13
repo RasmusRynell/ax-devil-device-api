@@ -168,6 +168,7 @@ operations:
     params:
       type: object
       required: [schemaversion]
+      x-masked: [password]
       properties:
         schemaversion:
           type: string

@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/external-ip-device-informat
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -58,6 +58,7 @@ class SchemaVersions(Model):
 
 
 class CreateDeviceRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     id: str
     """The unique external IP device identifier."""
     description: str | None = None
@@ -79,6 +80,7 @@ class CreateDeviceRequest(Model):
 
 
 class UpdateDeviceRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     id: str
     """The unique external IP device identifier."""
     description: str | None = None

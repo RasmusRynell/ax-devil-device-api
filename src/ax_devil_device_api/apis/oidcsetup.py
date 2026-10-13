@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/openid-connect-setup
 
 from __future__ import annotations
 
-from typing import Annotated, Any, overload
+from typing import Annotated, Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -90,6 +90,7 @@ class Oidcsetup(Model):
 class UpdateAuthEntityRequest(Model):
     """Arguments of ``update_auth_entity``. Only the given fields change."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"oidc_client_secret"})
     oidc_authz_admin_claim: Claim | None = Field(
         default=None, validation_alias="OIDC_AuthzAdminClaim", serialization_alias="OIDC_AuthzAdminClaim"
     )
@@ -207,6 +208,7 @@ class SetClientIdRequest(Model):
 
 
 class SetClientSecretRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"oidc_client_secret"})
     oidc_client_secret: ClientSecret = Field(
         validation_alias="OIDC_ClientSecret", serialization_alias="OIDC_ClientSecret"
     )

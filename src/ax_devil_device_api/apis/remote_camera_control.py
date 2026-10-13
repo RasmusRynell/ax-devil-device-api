@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/integrating-axis-q6000-e/
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -100,6 +100,7 @@ class GetVapixParamsRequest(Model):
 
 
 class SetVapixParamsRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     schemaversion: str = Field(pattern=r"^[0-9]+(\.[0-9]+)?$")
     """The version of the XML schema to use for the response, in the form major[.minor]. The major version is required; if the minor version is omitted the latest minor version is used."""
     host: str | None = None

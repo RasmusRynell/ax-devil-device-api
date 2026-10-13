@@ -63,6 +63,7 @@ types:
     type: object
     description: Entity that has common properties for snmp V1 and V2c
     required: [address, readCommunity, writeCommunity]
+    x-masked: [readCommunity, writeCommunity]
     properties:
       address: {$ref: '#/types/TrapAddressType', description: Trap Address}
       readCommunity: {$ref: '#/types/CommunityNameType', description: Read Community string}
@@ -71,6 +72,7 @@ types:
   Trap:
     type: object
     description: Trap
+    x-masked: [community]
     properties:
       authFailEnabled: {type: boolean, description: Status of trap auth fail}
       coldStartEnabled: {type: boolean, description: Status of trap coldstart}
@@ -134,6 +136,7 @@ types:
   UpdateSnmpV1V2CommonRequest:
     type: object
     description: Arguments of ``update_snmp_v1_v2_common``.
+    x-masked: [readCommunity, writeCommunity]
     properties:
       readCommunity: {$ref: '#/types/CommunityNameType', description: Read Community string}
       writeCommunity: {$ref: '#/types/CommunityNameType', description: Write Community string}
@@ -142,6 +145,7 @@ types:
   UpdateTrapRequest:
     type: object
     description: Arguments of ``update_trap``.
+    x-masked: [community]
     properties:
       authFailEnabled: {type: boolean, description: Status of trap auth fail}
       coldStartEnabled: {type: boolean, description: Status of trap coldstart}
@@ -157,6 +161,7 @@ types:
   UpdateSnmpV3Request:
     type: object
     description: Arguments of ``update_snmp_v3``.
+    x-masked: [userPasswd]
     properties:
       enabled: {type: boolean, description: Status of V3 snmp support}
       userPasswd:
@@ -171,6 +176,7 @@ types:
     description: Arguments of ``update_user``.
     required: [username]
     x-nullable: [encryptPassphrase]
+    x-masked: [authPassphrase, encryptPassphrase]
     properties:
       username: {$ref: '#/types/UserNameType'}
       userAuthentication: {$ref: '#/types/UserAuthenticationTypeEnum', description: User authentication}
@@ -184,6 +190,7 @@ types:
     description: Arguments of ``add_user``.
     required: [username, userAuthentication, authPassphrase, securityLevel]
     x-nullable: [encryptPassphrase]
+    x-masked: [authPassphrase, encryptPassphrase]
     properties:
       username: {$ref: '#/types/UserNameType', description: User name}
       userAuthentication: {$ref: '#/types/UserAuthenticationTypeEnum', description: User authentication}
@@ -391,6 +398,7 @@ operations:
     params:
       type: object
       required: [readCommunity]
+      x-masked: [readCommunity]
       properties:
         readCommunity: {$ref: '#/types/CommunityNameType', description: Read Community string}
   set_snmp_v1_v2_common_write_community:
@@ -405,6 +413,7 @@ operations:
     params:
       type: object
       required: [writeCommunity]
+      x-masked: [writeCommunity]
       properties:
         writeCommunity: {$ref: '#/types/CommunityNameType', description: Write Community string}
   get_trap:
@@ -467,6 +476,7 @@ operations:
     params:
       type: object
       required: [community]
+      x-masked: [community]
       properties:
         community: {$ref: '#/types/CommunityNameType', description: Trap Community}
   set_trap_enabled:
@@ -593,6 +603,7 @@ operations:
     params:
       type: object
       required: [userPasswd]
+      x-masked: [userPasswd]
       properties:
         userPasswd:
           $ref: '#/types/UserPasswdType'
@@ -741,6 +752,7 @@ operations:
     params:
       type: object
       required: [username, authPassphrase]
+      x-masked: [authPassphrase]
       properties:
         username: {$ref: '#/types/UserNameType'}
         authPassphrase: {$ref: '#/types/UserPasswdType', description: Authentication passphrase}
@@ -756,6 +768,7 @@ operations:
     params:
       type: object
       required: [username, encryptPassphrase]
+      x-masked: [encryptPassphrase]
       properties:
         username: {$ref: '#/types/UserNameType'}
         encryptPassphrase: {$ref: '#/types/UserPasswdType', description: Encryption passphrase}

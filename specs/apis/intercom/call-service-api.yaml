@@ -114,6 +114,7 @@ types:
   TURNServer:
     type: object
     required: [Server, Username, Password]
+    x-masked: [Password]
     properties:
       Server: {type: string, description: Address (URI) of the server.}
       Username: {type: string, description: User name for the server.}
@@ -200,6 +201,7 @@ types:
   SIPProxy:
     type: object
     required: [Server, Username, Password]
+    x-masked: [Password]
     properties:
       Server: {type: string, description: Address (URI) of the server.}
       Username: {type: string, description: User name for the server.}
@@ -209,6 +211,7 @@ types:
     description: AOR built as sip|sips:UserId[@Domain]. Registrar used for registration; if empty PublicDomain used;
       if both empty, not registered.
     required: [UserId]
+    x-masked: [Password]
     properties:
       UserId:
         type: string

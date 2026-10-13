@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/system-settings/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, overload
+from typing import Annotated, Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -24,6 +24,7 @@ SecondaryGroups = Annotated[str, Field(pattern="^(viewer|operator|admin|ptz)(:(v
 
 
 class AddUserRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"pwd"})
     user: UserName
     pwd: str = Field(min_length=1, max_length=64)
     """The password for the account. It must contain one or more characters and comply with any configured passphrase policy."""
@@ -37,6 +38,7 @@ class AddUserRequest(Model):
 
 
 class UpdateUserRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"pwd"})
     user: UserName
     pwd: str | None = Field(default=None, min_length=1, max_length=64)
     """The new password. It must comply with any configured passphrase policy."""

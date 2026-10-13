@@ -78,6 +78,7 @@ operations:
     params:
       type: object
       required: [address, user, password]
+      x-masked: [password]
       properties:
         address: {type: string, description: The IP address.}
         user: {type: string, description: The user name.}

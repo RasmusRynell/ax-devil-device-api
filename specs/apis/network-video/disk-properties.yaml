@@ -72,7 +72,7 @@ operations:
     binding: {path: /axis-cgi/disks/properties/enablediskencryption.cgi, method: GET, query: {schemaversion: '1'},
       reply: xml}
     positional: [disk_id, passphrase]
-    params: {type: object, required: [diskid, passphrase], properties: {diskid: {type: string, x-python-name: disk_id,
+    params: {type: object, x-masked: [passphrase], required: [diskid, passphrase], properties: {diskid: {type: string, x-python-name: disk_id,
           description: The Disk ID of the disk to encrypt.}, passphrase: {type: string, maxLength: 512, description: The
             passphrase to encrypt with. At most 512 bytes.}}}
     errors:
@@ -137,7 +137,7 @@ operations:
     binding: {path: /axis-cgi/disks/properties/changediskpassphrase.cgi, method: GET, query: {schemaversion: '1'},
       reply: xml}
     positional: [disk_id]
-    params: {type: object, required: [diskid, newpassphrase, oldpassphrase], properties: {diskid: {type: string,
+    params: {type: object, x-masked: [newpassphrase, oldpassphrase], required: [diskid, newpassphrase, oldpassphrase], properties: {diskid: {type: string,
           x-python-name: disk_id, description: The Disk ID of the disk.}, newpassphrase: {type: string, maxLength: 512,
           x-python-name: new_passphrase, description: The new passphrase. At most 512 bytes.}, oldpassphrase: {
           type: string, x-python-name: old_passphrase, description: The current passphrase.}}}

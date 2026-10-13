@@ -8,7 +8,7 @@ Docs: https://developer.axis.com/vapix/network-video/serial-port-api/
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -106,6 +106,7 @@ class SetSerialPortRequest(Model):
 
 
 class SetPortManagerRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"remote_port_server_authentication_key"})
     port_manager: int = Field(ge=0)
     """Port manager index n of PortManager.P<n>; goes from 0 to the number of port managers minus 1."""
     port_enabled: Literal["yes", "no"] | None = Field(
@@ -229,6 +230,7 @@ class SetPortManagerRequest(Model):
 
 
 class SetRemotePortRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"authentication_key"})
     remote_port: int = Field(ge=0)
     """Remote port client index n of RemotePort.R<n>; starts at 0."""
     auto_conf: Literal["yes", "no"] | None = Field(

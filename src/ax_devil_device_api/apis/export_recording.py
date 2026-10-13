@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/edge-storage-api/
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -103,6 +103,7 @@ class GetPropertiesRequest(Model):
 
 
 class ExportRecordingRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     recording_id: str = Field(validation_alias="recordingid", serialization_alias="recordingid")
     """The Recording ID of the recording."""
     disk_id: str = Field(validation_alias="diskid", serialization_alias="diskid")
@@ -124,6 +125,7 @@ class ExportRecordingRequest(Model):
 
 
 class ExportToExternalRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     recording_id: str = Field(validation_alias="recordingid", serialization_alias="recordingid")
     """The Recording ID of the recording."""
     disk_id: str = Field(validation_alias="diskid", serialization_alias="diskid")

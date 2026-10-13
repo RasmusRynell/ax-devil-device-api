@@ -46,6 +46,7 @@ class EncryptionKey(Model):
 class EncryptionKeyInput(Model):
     """An encryption key to add or update."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"key"})
     token: ReferenceToken
     """A service-unique identifier of the encryption key. An existing token updates that key."""
     key: str = Field(validation_alias="Key", serialization_alias="Key", max_length=1024)

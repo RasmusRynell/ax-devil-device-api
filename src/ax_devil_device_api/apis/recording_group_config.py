@@ -34,6 +34,7 @@ Uuid = Annotated[
 class ContentEncryption(Model):
     """Fixed-key encryption: only the given key is used to encrypt recordings."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"key"})
     key: HexadecimalEncryptionKey128Bit | None = None
     key_id: Uuid | None = Field(default=None, validation_alias="keyId", serialization_alias="keyId")
 
@@ -285,7 +286,11 @@ class AddRecordingGroupRequest(Model):
 
     @classmethod
     def from_current(cls, group: RecordingGroup) -> AddRecordingGroupRequest:
-        """A request that rewrites ``group`` unchanged: copy it, edit fields, send it back."""
+        """A request that rewrites ``group`` unchanged: copy it, edit fields, send it back.
+
+        Masked secrets (``encryption.content_encryption.key``) are never copied, at any depth; set a new
+        value on the request when the device needs one.
+        """
         data = group.request_data()
         return cls.from_response_data(data)
 

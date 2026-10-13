@@ -640,6 +640,7 @@ operations:
     params:
       type: object
       required: [slotId, oldpin, newpin]
+      x-masked: [oldpin, newpin]
       properties:
         slotId: {$ref: '#/types/SimSlotId'}
         oldpin: {$ref: '#/types/SimPin', description: The existing SIM PIN.}
@@ -660,6 +661,7 @@ operations:
     params:
       type: object
       required: [slotId, enable, pin]
+      x-masked: [pin]
       properties:
         slotId: {$ref: '#/types/SimSlotId'}
         enable: {type: boolean, description: 'true if SIM PIN protection should be enabled, otherwise false.'}
@@ -681,6 +683,7 @@ operations:
     params:
       type: object
       required: [slotId, pin, puk]
+      x-masked: [pin, puk]
       properties:
         slotId: {$ref: '#/types/SimSlotId'}
         pin: {$ref: '#/types/SimPin', description: The new SIM PIN.}
@@ -701,6 +704,7 @@ operations:
     params:
       type: object
       required: [slotId, pin]
+      x-masked: [pin]
       properties:
         slotId: {$ref: '#/types/SimSlotId'}
         pin: {$ref: '#/types/SimPin', description: The SIM PIN.}

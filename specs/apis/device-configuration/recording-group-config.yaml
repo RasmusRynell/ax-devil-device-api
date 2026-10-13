@@ -29,6 +29,7 @@ types:
     description: Recording container format. streamOptions recordings use matroska, mp4 or cmaf; dataProducerOptions recordings use none or tar.
   ContentEncryption:
     type: object
+    x-masked: [key]
     properties:
       key:
         $ref: '#/types/HexadecimalEncryptionKey128Bit'

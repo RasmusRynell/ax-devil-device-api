@@ -8,7 +8,7 @@ Docs: https://developer.axis.com/vapix/intercom/intercom-service/
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -189,6 +189,7 @@ class RequestAccessConfiguration(Model):
 
 
 class IPAccessConfiguration(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     scheme: IPAccessScheme | None = Field(default=None, validation_alias="Scheme", serialization_alias="Scheme")
     """The scheme to use (optional)."""
     address: str | None = Field(default=None, validation_alias="Address", serialization_alias="Address")
@@ -223,6 +224,7 @@ DESFireCommMode = Literal["Auto", "Plain", "Plain_MACed", "Encrypted"]
 class DESFireEncryption(Model):
     """Only used if cardType=MIFARE_DESFire."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"key"})
     aid: str | None = Field(default=None, validation_alias="AID", serialization_alias="AID")
     """Application ID, 3 bytes little endian first. (format=hexBinary)"""
     key_format: KeyFormat | None = Field(default=None, validation_alias="keyFormat", serialization_alias="keyFormat")
@@ -238,6 +240,7 @@ class DESFireEncryption(Model):
 class MifareClassicEncryption(Model):
     """Only used if cardType=MIFARE_Classic. Sectors 0-31 have 4 blocks, 32-39 have 16 (4K cards); 16-byte blocks; total offset (+length) up to 4096 bytes."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"key_a", "key_b"})
     key_a_format: KeyFormat | None = Field(
         default=None, validation_alias="keyAFormat", serialization_alias="keyAFormat"
     )
@@ -264,6 +267,7 @@ class MifareClassicEncryption(Model):
 class MifareULEncryption(Model):
     """Ultralight C credentials only."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"key"})
     key_format: KeyFormat | None = Field(default=None, validation_alias="keyFormat", serialization_alias="keyFormat")
     key: str | None = None
     """Optional 16-byte key (Ultralight C only)."""

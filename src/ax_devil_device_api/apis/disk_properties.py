@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/edge-storage-api/
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import MISSING, Field
 
@@ -49,6 +49,7 @@ class SetRequiredFileSystemRequest(Model):
 
 
 class EnableDiskEncryptionRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"passphrase"})
     disk_id: str = Field(validation_alias="diskid", serialization_alias="diskid")
     """The Disk ID of the disk to encrypt."""
     passphrase: str = Field(max_length=512)
@@ -61,6 +62,7 @@ class DisableDiskEncryptionRequest(Model):
 
 
 class ChangeDiskPassphraseRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"new_passphrase", "old_passphrase"})
     disk_id: str = Field(validation_alias="diskid", serialization_alias="diskid")
     """The Disk ID of the disk."""
     new_passphrase: str = Field(validation_alias="newpassphrase", serialization_alias="newpassphrase", max_length=512)

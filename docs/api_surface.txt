@@ -529,7 +529,7 @@ airqualitymodbus_modbus_api.AsyncAirQualityModbusReleaseApi.update_configuration
 airqualitymodbus_modbus_api.Configuration(modbus_enable: bool | None [modbusEnable], modbus_port: ModbusPort | None [modbusPort], sensor_id: SensorId | None [sensorId])
 airqualitymodbus_modbus_api.ConfigurationSensorIdRequest(sensor_id: SensorId [sensorId])
 airqualitymodbus_modbus_api.ModbusPort = Annotated[int, Field(ge=1024, le=65535)]
-airqualitymodbus_modbus_api.SensorId = Annotated[str, Field(min_length=1, pattern=r"^[1-9]\d*|0$")]
+airqualitymodbus_modbus_api.SensorId = Annotated[str, Field(min_length=1, pattern='^[A-Za-z0-9][A-Za-z0-9_-]*$')]
 airqualitymodbus_modbus_api.SetConfigurationModbusEnableRequest(sensor_id: SensorId [sensorId], modbus_enable: bool [modbusEnable])
 airqualitymodbus_modbus_api.SetConfigurationModbusPortRequest(sensor_id: SensorId [sensorId], modbus_port: ModbusPort [modbusPort])
 airqualitymodbus_modbus_api.UpdateConfigurationRequest(sensor_id: SensorId [sensorId], modbus_enable: bool | None [modbusEnable], modbus_port: ModbusPort | None [modbusPort])

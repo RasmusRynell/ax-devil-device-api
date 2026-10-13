@@ -8,7 +8,7 @@ Docs: https://developer.axis.com/vapix/applications/license-plate-verifier-api/
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -25,6 +25,7 @@ from ._base import AsyncApi, SyncApi, bind_positional
 class TwoNConfig(Model):
     """2N integration settings (<tn_config> XML)."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     url: str | None = None
     """The 2N device URL."""
     user: str | None = None
@@ -43,6 +44,7 @@ class TwoNConfig(Model):
 class GenetecConfig(Model):
     """Genetec integration settings (<gsc_config> XML)."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     url: str | None = None
     user: str | None = None
     password: str | None = None
@@ -198,6 +200,7 @@ class Statistics(Model):
 class PushConfig(Model):
     """One push profile (<cloud_config> XML)."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password", "x_auth_key"})
     url: str | None = None
     """The target URL, base64 encoded, as <servername>:port/path. No path is present when TCP is used."""
     latitude: float | None = None

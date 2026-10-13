@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/certificate-management-api/
 
 from __future__ import annotations
 
-from typing import Any, overload
+from typing import Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -74,6 +74,7 @@ class DeleteCertificatesRequest(Model):
 
 
 class CertificateWithPrivateKey(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"private_key"})
     certificate_id: str = Field(validation_alias="tt:CertificateID", serialization_alias="tt:CertificateID")
     certificate: CertificateData | None = Field(
         default=None, validation_alias="tt:Certificate", serialization_alias="tt:Certificate"
@@ -101,6 +102,7 @@ class LoadCaCertificatesRequest(Model):
 
 
 class Pkcs12Container(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     id: str = Field(validation_alias="acert:Id", serialization_alias="acert:Id")
     certificate: str = Field(validation_alias="acert:Certificate", serialization_alias="acert:Certificate")
     """The PKCS#12 payload."""

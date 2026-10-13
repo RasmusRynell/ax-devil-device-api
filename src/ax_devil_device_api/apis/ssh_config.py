@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/ssh-management/
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from pydantic import MISSING, Field
 
@@ -42,6 +42,7 @@ class Ssh(Model):
 class UpdateUserRequest(Model):
     """Arguments of ``update_user``."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     username: UsernameType
     password: PasswordType | None = None
     """The password of the SSH user"""
@@ -52,6 +53,7 @@ class UpdateUserRequest(Model):
 class AddUserRequest(Model):
     """Arguments of ``add_user``."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     comment: CommentType | None = None
     """The full name or comment of the SSH user"""
     password: PasswordType
@@ -65,6 +67,7 @@ class UsernameRequest(Model):
 
 
 class SetUserPasswordRequest(Model):
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     username: UsernameType
     password: PasswordType
     """The password of the SSH user"""

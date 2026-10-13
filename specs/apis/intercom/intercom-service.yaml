@@ -170,6 +170,7 @@ types:
       AccessPointToken: {type: string}
   IPAccessConfiguration:
     type: object
+    x-masked: [Password]
     properties:
       Scheme: {type: string, description: Optional. IPAccessScheme.}
       Address: {type: string, description: 'Controller address, typically hostname[:port].'}
@@ -272,6 +273,7 @@ types:
   DESFireEncryption:
     type: object
     description: Only used if cardType=MIFARE_DESFire.
+    x-masked: [key]
     properties:
       AID: {type: string, description: 'Application ID, 3 bytes little endian first.'}
       keyFormat: {$ref: '#/types/KeyFormat'}
@@ -284,6 +286,7 @@ types:
     type: object
     description: Only used if cardType=MIFARE_Classic. Sectors 0-31 have 4 blocks, 32-39 have 16 (4K cards); 16-byte
       blocks; total offset (+length) up to 4096 bytes.
+    x-masked: [keyA, keyB]
     properties:
       keyAFormat: {$ref: '#/types/KeyFormat'}
       keyA: {type: string, description: Key A}
@@ -295,6 +298,7 @@ types:
   MifareULEncryption:
     type: object
     description: Ultralight C credentials only.
+    x-masked: [key]
     properties:
       keyFormat: {$ref: '#/types/KeyFormat'}
       key: {type: string, description: Optional 16-byte key (Ultralight C only).}
