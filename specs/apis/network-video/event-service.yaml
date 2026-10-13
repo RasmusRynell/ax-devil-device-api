@@ -16,7 +16,14 @@ access: admin
 requires:
   firmware: '5.50'
 
-binding: {namespace: 'http://www.axis.com/vapix/ws/event1'}
+binding:
+  namespace: http://www.axis.com/vapix/ws/event1
+  namespaces:
+    aev: http://www.axis.com/vapix/ws/event1
+    wstop: http://docs.oasis-open.org/wsn/t-1
+    wsnt: http://docs.oasis-open.org/wsn/b-2
+    tns1: http://www.onvif.org/ver10/topics
+    tnsaxis: http://www.axis.com/2009/event/topics
 
 types:
   NewScheduledEvent:
@@ -74,7 +81,7 @@ operations:
     result:
       type: object
       properties:
-        TopicSet: {description: 'wstop:TopicSet event topic tree (see notes).'}
+        wstop:TopicSet: {description: 'wstop:TopicSet event topic tree (see notes).'}
   add_scheduled_event:
     summary: Add a scheduled event.
     effect: write
@@ -148,8 +155,9 @@ provenance:
   - 'Media clip event topics are documented starting with tnsaxis:MediaClip (no tns1: root).'
   - 'Open casing event: Source instance "Not applicable" yet a value table (JunctionBox) is shown.'
   - Fault SOAP subcodes/reasons are not documented beyond WSDL fault element names.
-  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
-    documented examples for children in other namespaces'
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; prefixed element
+    names (declared in binding.namespaces) are the exception; check the documented examples for other children in
+    foreign namespaces'
   - 'migration: discovery: no discovery probe: Use the Entry service GetServices (AXIS OS 5.60+) and look for namespace
     http://www.axis.com/vapix/ws/event1; the returned Xaddr is the service address.'
   - 'migration: dropped-section: v1 section events not carried over'

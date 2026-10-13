@@ -16,7 +16,13 @@ access: admin
 requires:
   firmware: '5.50'
 
-binding: {namespace: 'http://www.axis.com/vapix/ws/action1'}
+binding:
+  namespace: http://www.axis.com/vapix/ws/action1
+  namespaces:
+    aa: http://www.axis.com/vapix/ws/action1
+    wsnt: http://docs.oasis-open.org/wsn/b-2
+    tns1: http://www.onvif.org/ver10/topics
+    tnsaxis: http://www.axis.com/2009/event/topics
 
 types:
   NewActionRule:
@@ -338,8 +344,9 @@ provenance:
   - Overlay text C# sample checks template token com.axis.action.fixed.set_overay (typo).
   - Send an MQTT message parameter names are capitalized in the table (Topic, QoS, Retained, Payload); actual wire
     names may be lowercase.
-  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
-    documented examples for children in other namespaces'
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; prefixed element
+    names (declared in binding.namespaces) are the exception; check the documented examples for other children in
+    foreign namespaces'
   - 'migration: discovery: no discovery probe: Entry service GetServices: namespace http://www.axis.com/vapix/ws/action1.'
   - 'migration: types-dropped: types not referenced by any migrated operation: ActivateLightActionParams, DayNightModeActionParams,
     FtpRecipientParams, HttpRecipientParams, HttpsRecipientParams, LedControlParams, NetworkShareRecipientParams,

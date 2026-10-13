@@ -17,7 +17,9 @@ access: admin
 requires:
   firmware: '5.40'
 
-binding: {namespace: 'http://www.axis.com/vapix/ws/light'}
+binding:
+  namespace: http://www.axis.com/vapix/ws/light
+  namespaces: {ali: 'http://www.axis.com/vapix/ws/light'}
 
 types:
   LightInformationList:
@@ -393,8 +395,9 @@ provenance:
   - GetNumberOfLeds exists in the WSDL but is not mentioned on the page.
   - Fault elements in WSDL have no documented content/descriptions.
   - Discovery method entry_service namespace only.
-  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
-    documented examples for children in other namespaces'
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; prefixed element
+    names (declared in binding.namespaces) are the exception; check the documented examples for other children in
+    foreign namespaces'
   - 'migration: discovery: no discovery probe: Namespace http://www.axis.com/vapix/ws/light. Use Entry service GetServices
     and look for this namespace; use the returned Xaddr.'
   - 'migration: dropped-section: v1 section notes not carried over'

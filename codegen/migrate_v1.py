@@ -2576,24 +2576,43 @@ def untype_objects(node):
             untype_objects(v)
 
 
-def strip_ns_prefixes(node):
-    """SOAP: element names are local names; ``wstop:TopicSet`` becomes ``TopicSet`` (the namespace is the binding's)."""
+def strip_ns_prefixes(node, keep=frozenset()):
+    """SOAP: drop namespace prefixes from element names, except those in ``keep`` (declared in the binding's ``namespaces``).
+
+    ``wstop:TopicSet`` stays prefixed when ``wstop`` is declared; with an undeclared prefix it becomes ``TopicSet``.
+    """
+    def local_or_kept(k):
+        base = k.lstrip("@")
+        prefix, sep, local = base.rpartition(":")
+        return k if not sep or prefix in keep else k[: len(k) - len(base)] + local
+
     if isinstance(node, dict):
         props = node.get("properties")
         if isinstance(props, dict) and any(":" in k for k in props):
             renamed = {}
             for k, v in props.items():
-                local = k.rsplit(":", 1)[-1]
-                renamed[local if local not in props or local == k else k] = v
+                new = local_or_kept(k)
+                renamed[new if new not in props or new == k else k] = v
             node["properties"] = renamed
             for key in ("required", "x-nullable"):
                 if isinstance(node.get(key), list):
-                    node[key] = [k.rsplit(":", 1)[-1] if k.rsplit(":", 1)[-1] in renamed else k for k in node[key]]
+                    node[key] = [local_or_kept(k) if local_or_kept(k) in renamed else k for k in node[key]]
         for v in node.values():
-            strip_ns_prefixes(v)
+            strip_ns_prefixes(v, keep)
     elif isinstance(node, list):
         for v in node:
-            strip_ns_prefixes(v)
+            strip_ns_prefixes(v, keep)
+
+
+SOAP_ENVELOPE_URIS = ("http://www.w3.org/2003/05/soap-envelope", "http://schemas.xmlsoap.org/wsdl/soap12/", "http://www.w3.org/2003/05/soap-encoding")
+
+
+def payload_namespaces(namespaces):
+    """The prefix -> URI map worth declaring on request elements: no reserved prefixes and no SOAP envelope namespaces."""
+    return {
+        p: u for p, u in (namespaces or {}).items()
+        if p not in ("env", "xml", "xmlns") and u not in SOAP_ENVELOPE_URIS and re.fullmatch(r"[A-Za-z_][\w.-]*", p)
+    }
 
 
 def service_result(op, ctx, notes, oid):
@@ -2804,14 +2823,18 @@ def convert_service(v1, section, ctxinfo, family):
                 del o["binding"]["namespace"]
         if inferred_action:
             notes.add("soap-action-inferred", "the SOAP action is not documented; derived as <namespace>/<operation> for: " + ", ".join(inferred_action))
-        notes.add("soap-namespaces", "request child elements are sent in the request element's namespace; check the documented examples for children in other namespaces")
+        notes.add("soap-namespaces", "request child elements are sent in the request element's namespace; prefixed element names (declared in binding.namespaces) are the exception; check the documented examples for other children in foreign namespaces")
+        declared = payload_namespaces(namespaces)
+        keep = frozenset(declared)
         untype_objects(types)
-        strip_ns_prefixes(types)
+        strip_ns_prefixes(types, keep)
         for o in ops_out.values():
             untype_objects(o.get("result"))
-            strip_ns_prefixes(o.get("result"))
-            strip_ns_prefixes(o.get("params"))
+            strip_ns_prefixes(o.get("result"), keep)
+            strip_ns_prefixes(o.get("params"), keep)
         binding = {"namespace": default_ns}
+        if declared:
+            binding["namespaces"] = declared
         if api_path != SOAP_PATH:
             binding["path"] = api_path
     else:

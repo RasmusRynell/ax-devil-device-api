@@ -17,7 +17,9 @@ discovery:
 requires:
   firmware: '5.60'
 
-binding: {namespace: 'http://www.axis.com/vapix/ws/entry'}
+binding:
+  namespace: http://www.axis.com/vapix/ws/entry
+  namespaces: {aentry: 'http://www.axis.com/vapix/ws/entry'}
 
 types:
   Version:
@@ -88,8 +90,9 @@ provenance:
   - Service endpoint URL and security level are not stated on the page; /vapix/services assumed from the generic
     web-service convention.
   - WSDL has no wsdl:service element; the endpoint address therefore isn't machine-specified.
-  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; check the
-    documented examples for children in other namespaces'
+  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; prefixed element
+    names (declared in binding.namespaces) are the exception; check the documented examples for other children in
+    foreign namespaces'
   - 'migration: dropped-section: v1 section notes not carried over'
   migrated_from: v1
   curated: false
