@@ -74,8 +74,12 @@ types:
       delayedPowerDownSupport: {type: boolean, description: Delayed power down mode supported.}
       powerProfileSupport: {type: boolean, description: Power profiles supported.}
       powerConsumerSupport: {type: boolean, description: Power consumers supported.}
-      powerStatusSupport: {type: boolean, description: Power status supported. Value is -1 if the parameter is not
-          available on the device.}
+      powerStatusSupport:
+        description: Power status supported. The device returns the integer -1 (instead of a boolean) when the parameter
+          is not available on the device, and the model keeps that -1.
+        oneOf:
+          - type: boolean
+          - const: -1
       powerConfigurationSupport: {type: boolean, description: Power configurations supported.}
       dynamicPowerModeSupport: {type: boolean, description: Dynamic power mode supported.}
       powerHistorySupport: {type: boolean, description: Power history supported.}

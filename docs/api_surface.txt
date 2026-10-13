@@ -943,15 +943,15 @@ axis_audio_manager_edge.AxisAudioManagerEdgeApi.offset_volume(self, volume_contr
 axis_audio_manager_edge.AxisAudioManagerEdgeApi.stop_audio_session(self, audio_session_id: str, *, request_options: RequestOptions | None = None) -> None
 axis_audio_manager_edge.AxisAudioManagerEdgeApi.toggle_mute(self, volume_controller_id: str, *, request_options: RequestOptions | None = None) -> ToggleMuteResult
 axis_audio_manager_edge.CreateOneshotAudioSessionRequest(file_ids: list[str] [fileIds], prio: Literal['high', 'medium', 'low'] | None, targets: list[str])
-axis_audio_manager_edge.CreateOneshotAudioSessionResult(type: Literal['oneShot'], targets: list[str] | None, prio: int | None, nice_name: str | None [niceName])
-axis_audio_manager_edge.DeviceTarget(type: Literal['device'], id: str, nice_name: str | None [niceName], status: TargetStatus | None, ip_address: str | None [ipAddress], serial_number: str | None [serialNumber])
+axis_audio_manager_edge.CreateOneshotAudioSessionResult(type: Annotated[Literal['oneShot'], CONST], targets: list[str] | None, prio: int | None, nice_name: str | None [niceName])
+axis_audio_manager_edge.DeviceTarget(type: Annotated[Literal['device'], CONST], id: str, nice_name: str | None [niceName], status: TargetStatus | None, ip_address: str | None [ipAddress], serial_number: str | None [serialNumber])
 axis_audio_manager_edge.GetAudioSessionRequest(audio_session_id: str [audioSessionId])
 axis_audio_manager_edge.GetTargetRequest(target_id: str [targetId])
 axis_audio_manager_edge.GetVolumeControllerRequest(volume_controller_id: str [volumeControllerId])
 axis_audio_manager_edge.ModifyVolumeControllerRequest(volume_controller_id: str [volumeControllerId], volume: float | None, muted: bool | None)
 axis_audio_manager_edge.OffsetVolumeRequest(volume_controller_id: str [volumeControllerId], volume_offset: float [volumeOffset])
 axis_audio_manager_edge.OffsetVolumeResult(volume: float)
-axis_audio_manager_edge.PhysicalZoneTarget(type: Literal['physicalZone'], id: str, nice_name: str | None [niceName], children: list[TargetRef] | None)
+axis_audio_manager_edge.PhysicalZoneTarget(type: Annotated[Literal['physicalZone'], CONST], id: str, nice_name: str | None [niceName], children: list[TargetRef] | None)
 axis_audio_manager_edge.StopAudioSessionRequest(audio_session_id: str [audioSessionId])
 axis_audio_manager_edge.Target = DeviceTarget | PhysicalZoneTarget
 axis_audio_manager_edge.TargetRef(type: str | None, id: str | None)
@@ -1033,7 +1033,7 @@ axis_audio_manager_pro.GetAudioSessionStatusRequest(audio_session_id: str [audio
 axis_audio_manager_pro.GetTargetRequest(target_id: str [targetId])
 axis_audio_manager_pro.GetVisualProfileRequest(visual_profile_id: int [visualProfileId])
 axis_audio_manager_pro.GetVolumeControllerRequest(volume_controller_id: str [volumeControllerId])
-axis_audio_manager_pro.HttpAudioSession(type: Literal['HTTP'], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], codec: HttpWsCodec | None, holdup: int | None)
+axis_audio_manager_pro.HttpAudioSession(type: Annotated[Literal['HTTP'], CONST], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], codec: HttpWsCodec | None, holdup: int | None)
 axis_audio_manager_pro.HttpWsCodec(bitrate: int | None, channel_layout: Literal['MONO', 'STEREO'] | None [channelLayout], codec: Literal['PCM', 'G711_ULAW', 'G711_ALAW', 'G722', 'G723', 'G726', 'G728', 'G729', 'GSM', 'MP2', 'MP3', 'AAC', 'OPUS', 'VORBIS', 'FLAC', 'WMA'] | None, sample_format: Literal['S8', 'S16', 'S24', 'S32', 'FLOAT', 'DOUBLE'] | None [sampleFormat], sample_rate: int | None [sampleRate])
 axis_audio_manager_pro.LightProfile(audio_sync: bool | None [audioSync], colors: Literal['RED', 'GREEN', 'BLUE', 'YELLOW', 'PURPLE', 'TURQUOISE', 'WHITE', 'PINK', 'AMBER'] | None, description: str | None, duration: int | None, id: int, intensity: int | None, name: str | None, pattern: Literal['OFF', 'STEADY', 'ALTERNATE', 'BLINK', 'PULSE', 'ROTATION'] | None, speed: int | None, type: Literal['AUDIO', 'SIGNALING'] | None)
 axis_audio_manager_pro.OffsetVolumeRequest(volume_controller_id: str [volumeControllerId], volume_offset: float [volumeOffset])
@@ -1042,10 +1042,10 @@ axis_audio_manager_pro.PagingConfiguration(duplex_device: DuplexDevice | None [d
 axis_audio_manager_pro.PlayAudioFilesByCustomIdRequest(custom_id: str [customId], body: PlayAudioFilesRequest)
 axis_audio_manager_pro.PlayAudioFilesRequest(custom_text: str | None [customText], file_ids: list[str] [fileIds], repeat: int | None, visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId])
 axis_audio_manager_pro.PlayAudioFilesRequestArgs(audio_session_id: str [audioSessionId], body: PlayAudioFilesRequest)
-axis_audio_manager_pro.RtpAudioSession(type: Literal['RTP'], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], codecs: list[RtpCodec] | None, multicast_group: str | None [multicastGroup], port: int | None)
+axis_audio_manager_pro.RtpAudioSession(type: Annotated[Literal['RTP'], CONST], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], codecs: list[RtpCodec] | None, multicast_group: str | None [multicastGroup], port: int | None)
 axis_audio_manager_pro.RtpCodec(audio_profile: Literal['g711aMono8kHz', 'g711uMono8kHz', 'g722Mono16kHz', 'l16Stereo48kHz', 'l16Mono48kHz', 'l16Stereo44kHz', 'l16Mono44kHz', 'l16Stereo32kHz', 'l16Mono32kHz', 'l16Stereo16kHz', 'l16Mono16kHz', 'mp2Stereo48kHz', 'opusStereo48kHz', 'opusMono48kHz'] | None [audioProfile], payload_type: int | None [payloadType])
 axis_audio_manager_pro.ServerInfo(api_versions: list[str] | None [apiVersions], license_until: str | None [licenseUntil], licensing_status: bool | None [licensingStatus], locale: str | None, server_ips: list[str] | None [serverIps], server_name: str | None [serverName], server_port: int | None [serverPort], server_version: str | None [serverVersion], site_id: str | None [siteId], site_name: str | None [siteName], time_zone: str | None [timeZone], trial_active: bool | None [trialActive])
-axis_audio_manager_pro.SipAudioSession(type: Literal['SIP'], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], duplex_device: DuplexDevice | None [duplexDevice], extension: str | None)
+axis_audio_manager_pro.SipAudioSession(type: Annotated[Literal['SIP'], CONST], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], duplex_device: DuplexDevice | None [duplexDevice], extension: str | None)
 axis_audio_manager_pro.StopAudioFilesByCustomIdRequest(custom_id: str [customId])
 axis_audio_manager_pro.StopAudioFilesRequest(audio_session_id: str [audioSessionId])
 axis_audio_manager_pro.Target(children: list[str] | None, enabled: bool | None, id: str, issues: TargetIssues | None, lowest_priority_available: Literal['LOW', 'MEDIUM', 'HIGH', 'NONE'] | None [lowestPriorityAvailable], nice_name: str | None [niceName], sources: list[TargetSourcesItem] | None, status: Literal['unmanaged', 'online', 'offline', 'playing', 'error: NO_LICENCE', 'error: FACTORY_DEFAULTS', 'error: UNAUTHORIZED', 'error: UNSUPPORTED_HOST_FW', 'error: UNSUPPORTED_TRANSPORT'] | None, type: Literal['physicalZone', 'site', 'device', 'destination', 'outputStream'])
@@ -1060,7 +1060,7 @@ axis_audio_manager_pro.VisualProfileDefaultCategoriesItem(category: Literal['ANY
 axis_audio_manager_pro.VisualProfileEnabled = Literal['DEFAULT', 'FALSE', 'TRUE']
 axis_audio_manager_pro.VolumeController(allow_mute: bool | None [allowMute], content_classes: list[VolumeControllerContentClassesItem] | None [contentClasses], id: str, max_negative_volume_offset: int | None [maxNegativeVolumeOffset], max_positive_volume_offset: int | None [maxPositiveVolumeOffset], muted: bool | None, nice_name: str | None [niceName], targets: list[str] | None, volume_offset: float | None [volumeOffset])
 axis_audio_manager_pro.VolumeControllerContentClassesItem(id: str | None, nice_name: str | None [niceName])
-axis_audio_manager_pro.WsAudioSession(type: Literal['WS'], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], codec: HttpWsCodec | None, duplex_device: DuplexDevice | None [duplexDevice], holdup: int | None)
+axis_audio_manager_pro.WsAudioSession(type: Annotated[Literal['WS'], CONST], custom_id: str | None [customId], custom_text: str | None [customText], id: str, prio: Literal['HIGH', 'MEDIUM', 'LOW'] | None, targets: list[str], visual_profile_enabled: VisualProfileEnabled | None [visualProfileEnabled], visual_profile_id: int | None [visualProfileId], codec: HttpWsCodec | None, duplex_device: DuplexDevice | None [duplexDevice], holdup: int | None)
 axis_audio_manager_pro_ws.AsyncAxisAudioManagerProWsApi.receive_audio(self, audio_session_id: str, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractAsyncContextManager[AsyncSession]
 axis_audio_manager_pro_ws.AsyncAxisAudioManagerProWsApi.send_audio(self, audio_session_id: str, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractAsyncContextManager[AsyncSession]
 axis_audio_manager_pro_ws.AsyncAxisAudioManagerProWsApi.send_receive_audio(self, audio_session_id: str, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractAsyncContextManager[AsyncSession]
@@ -2672,14 +2672,14 @@ fence_guard.FenceGuardApi.set_configuration(self, request: Configuration, /, *, 
 fence_guard.Filter(type: FilterType, data: list[int] | int, active: bool | None)
 fence_guard.FilterCapability(type: FilterType | None, min: list[int] | int | None, max: list[int] | int | None, default: list[int] | int | None, default_active: bool | None [defaultActive])
 fence_guard.FilterType = Literal['sizePercentage', 'sizePerspective', 'timeShortLivedLimit']
-fence_guard.PerspectiveBar(type: Literal['bar'], data: list[Point], height: int)
+fence_guard.PerspectiveBar(type: Annotated[Literal['bar'], CONST], data: list[Point], height: int)
 fence_guard.Point = list[Annotated[float, Field(ge=-1, le=1)]]
 fence_guard.PresetCapabilities(max_nbr_presets_per_profile: int | None [maxNbrPresetsPerProfile], default_preset: int | None [defaultPreset])
 fence_guard.Profile(name: str, uid: int, camera: int, alarm_overlay_enabled: bool | None [alarmOverlayEnabled], filters: list[Filter] | None, triggers: list[Trigger], presets: list[int], perspective: list[PerspectiveBar])
 fence_guard.ProfileCapabilities(min_nbr_profiles_per_camera: int | None [minNbrProfilesPerCamera], max_nbr_profiles_per_camera: int | None [maxNbrProfilesPerCamera], min_length_name: int | None [minLengthName], max_length_name: int | None [maxLengthName])
 fence_guard.SendAlarmEventRequest(profile: int)
-fence_guard.Trigger(type: Literal['fence'], data: list[Point], alarm_direction: Literal['leftToRight', 'rightToLeft', 'both'] [alarmDirection])
-fence_guard.TriggerCapability(type: Literal['fence'] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], valid_alarm_directions: list[str] | None [validAlarmDirections], default_instance: list[Point] | None [defaultInstance], default_alarm_direction: str | None [defaultAlarmDirection])
+fence_guard.Trigger(type: Annotated[Literal['fence'], CONST], data: list[Point], alarm_direction: Literal['leftToRight', 'rightToLeft', 'both'] [alarmDirection])
+fence_guard.TriggerCapability(type: Annotated[Literal['fence'], CONST] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], valid_alarm_directions: list[str] | None [validAlarmDirections], default_instance: list[Point] | None [defaultInstance], default_alarm_direction: str | None [defaultAlarmDirection])
 find_my_device.AsyncFindMyDeviceApi.find(self, *, duration: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 find_my_device.AsyncFindMyDeviceApi.stop(self, *, request_options: RequestOptions | None = None) -> None
 find_my_device.FindMyDeviceApi.find(self, *, duration: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
@@ -3308,7 +3308,7 @@ license_plate_verifier.AsyncLicensePlateVerifierApi.set_push_config(self, profil
 license_plate_verifier.AsyncLicensePlateVerifierApi.set_settings(self, configuration: str, *, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.AsyncLicensePlateVerifierApi.upload_list(self, *, command: Literal['new', 'upload', 'save'], list: str, data: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.DeletePlateRequest(plate: str, list: ListName)
-license_plate_verifier.DirectionConfig(api: Literal['setconfig'], config: Literal['roi'], roi: list[DirectionRoi])
+license_plate_verifier.DirectionConfig(api: Annotated[Literal['setconfig'], CONST], config: Annotated[Literal['roi'], CONST], roi: list[DirectionRoi])
 license_plate_verifier.DirectionCounts(in_: int | None [in], out: int | None, unknown: int | None [unk])
 license_plate_verifier.DirectionRoi(id: int, name: str, type: str, active: bool, angle: int, coordinates: list[Annotated[list[int], Field(min_length=2, max_length=2)]])
 license_plate_verifier.EventSearchResult(current_timestamp_us: int | None [currentTimestampUs], events: list[RecognitionEvent] | None [event])
@@ -3585,8 +3585,8 @@ loitering_guard.ConditionType = Literal['individual', 'group']
 loitering_guard.Configuration(cameras: list[Camera], profiles: list[Profile], configuration_status: int | None [configurationStatus])
 loitering_guard.Configuration.from_current(Configuration)
 loitering_guard.ConfigurationCapabilities(alarm_overlay: AlarmOverlayCapabilities | None [alarmOverlay], filters: list[FilterCapability] | None, triggers: list[TriggerCapability] | None, profiles: ProfileCapabilities | None, presets: PresetCapabilities | None)
-loitering_guard.DistanceSwayingObjectFilter(type: Literal['distanceSwayingObject'], data: int, active: bool | None)
-loitering_guard.ExcludeAreaFilter(type: Literal['excludeArea'], data: list[Point])
+loitering_guard.DistanceSwayingObjectFilter(type: Annotated[Literal['distanceSwayingObject'], CONST], data: int, active: bool | None)
+loitering_guard.ExcludeAreaFilter(type: Annotated[Literal['excludeArea'], CONST], data: list[Point])
 loitering_guard.Filter = SizePercentageFilter | SizePerspectiveFilter | DistanceSwayingObjectFilter | ExcludeAreaFilter
 loitering_guard.FilterCapability(type: Literal['sizePercentage', 'distanceSwayingObject', 'excludeArea'] | None, min: Any | None, max: Any | None, default: Any | None, default_active: bool | None [defaultActive], min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance])
 loitering_guard.LoiteringGuardApi.get_configuration(self, *, request_options: RequestOptions | None = None) -> Configuration
@@ -3594,16 +3594,16 @@ loitering_guard.LoiteringGuardApi.get_configuration_capabilities(self, *, reques
 loitering_guard.LoiteringGuardApi.send_alarm_event(self, profile: int, *, request_options: RequestOptions | None = None) -> None
 loitering_guard.LoiteringGuardApi.set_configuration(self, /, *, cameras: list[Camera], profiles: list[Profile], request_options: RequestOptions | None = None) -> None
 loitering_guard.LoiteringGuardApi.set_configuration(self, request: Configuration, /, *, request_options: RequestOptions | None = None) -> None
-loitering_guard.PerspectiveBar(type: Literal['bar'], data: list[Point], height: int | None)
+loitering_guard.PerspectiveBar(type: Annotated[Literal['bar'], CONST], data: list[Point], height: int | None)
 loitering_guard.Point = list[Annotated[float, Field(ge=-1, le=1)]]
 loitering_guard.PresetCapabilities(max_nbr_presets_per_profile: int | None [maxNbrPresetsPerProfile], default_preset: int | None [defaultPreset])
 loitering_guard.Profile(name: str | None, camera: int, uid: int, alarm_overlay_enabled: bool | None [alarmOverlayEnabled], filters: list[Filter] | None, triggers: list[Trigger] | None, presets: list[int] | None, perspective: list[PerspectiveBar] | None)
 loitering_guard.ProfileCapabilities(min_nbr_profiles_per_camera: int | None [minNbrProfilesPerCamera], max_nbr_profiles_per_camera: int | None [maxNbrProfilesPerCamera], min_length_name: int | None [minLengthName], max_length_name: int | None [maxLengthName])
 loitering_guard.SendAlarmEventRequest(profile: int)
-loitering_guard.SizePercentageFilter(type: Literal['sizePercentage'], data: list[Annotated[int, Field(ge=3, le=100)]], active: bool | None)
-loitering_guard.SizePerspectiveFilter(type: Literal['sizePerspective'], data: list[int], active: bool | None)
-loitering_guard.Trigger(type: Literal['loiteringArea'], data: list[Point], conditions: list[Condition] | None)
-loitering_guard.TriggerCapability(type: Literal['loiteringArea'] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance], conditions: list[ConditionCapability] | None)
+loitering_guard.SizePercentageFilter(type: Annotated[Literal['sizePercentage'], CONST], data: list[Annotated[int, Field(ge=3, le=100)]], active: bool | None)
+loitering_guard.SizePerspectiveFilter(type: Annotated[Literal['sizePerspective'], CONST], data: list[int], active: bool | None)
+loitering_guard.Trigger(type: Annotated[Literal['loiteringArea'], CONST], data: list[Point], conditions: list[Condition] | None)
+loitering_guard.TriggerCapability(type: Annotated[Literal['loiteringArea'], CONST] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance], conditions: list[ConditionCapability] | None)
 m12_lens_selection.AsyncM12LensSelectionApi.get_current_lenses(self, *, sensor_id: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> list[CurrentLens]
 m12_lens_selection.AsyncM12LensSelectionApi.get_supported_lenses(self, *, list_sensor_ids: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> list[Lens]
 m12_lens_selection.AsyncM12LensSelectionApi.set_current_lens(self, *, sensor_id: int, lens_id: int, request_options: RequestOptions | None = None) -> None
@@ -3694,8 +3694,8 @@ motion_guard.Camera(active: bool | None, id: int, rotation: Literal[0, 90, 180, 
 motion_guard.Configuration(cameras: list[Camera], profiles: list[Profile], configuration_status: int | None [configurationStatus])
 motion_guard.Configuration.from_current(Configuration)
 motion_guard.ConfigurationCapabilities(alarm_overlay: AlarmOverlayCapabilities | None [alarmOverlay], filters: list[FilterCapability] | None, triggers: list[TriggerCapability] | None, profiles: ProfileCapabilities | None, presets: PresetCapabilities | None)
-motion_guard.DistanceSwayingObjectFilter(type: Literal['distanceSwayingObject'], data: int, active: bool | None)
-motion_guard.ExcludeAreaFilter(type: Literal['excludeArea'], data: list[Point])
+motion_guard.DistanceSwayingObjectFilter(type: Annotated[Literal['distanceSwayingObject'], CONST], data: int, active: bool | None)
+motion_guard.ExcludeAreaFilter(type: Annotated[Literal['excludeArea'], CONST], data: list[Point])
 motion_guard.Filter = SizePercentageFilter | SizePerspectiveFilter | TimeShortLivedLimitFilter | DistanceSwayingObjectFilter | ExcludeAreaFilter
 motion_guard.FilterCapability(type: Literal['sizePercentage', 'timeShortLivedLimit', 'distanceSwayingObject', 'excludeArea'] | None, min: Any | None, max: Any | None, default: Any | None, default_active: bool | None [defaultActive], min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance])
 motion_guard.MotionGuardApi.get_configuration(self, *, request_options: RequestOptions | None = None) -> Configuration
@@ -3703,17 +3703,17 @@ motion_guard.MotionGuardApi.get_configuration_capabilities(self, *, request_opti
 motion_guard.MotionGuardApi.send_alarm_event(self, profile: int, *, request_options: RequestOptions | None = None) -> None
 motion_guard.MotionGuardApi.set_configuration(self, /, *, cameras: list[Camera], profiles: list[Profile], request_options: RequestOptions | None = None) -> None
 motion_guard.MotionGuardApi.set_configuration(self, request: Configuration, /, *, request_options: RequestOptions | None = None) -> None
-motion_guard.PerspectiveBar(type: Literal['bar'], data: list[Point], height: int | None)
+motion_guard.PerspectiveBar(type: Annotated[Literal['bar'], CONST], data: list[Point], height: int | None)
 motion_guard.Point = list[Annotated[float, Field(ge=-1, le=1)]]
 motion_guard.PresetCapabilities(max_nbr_presets_per_profile: int | None [maxNbrPresetsPerProfile], default_preset: int | None [defaultPreset])
 motion_guard.Profile(name: str | None, camera: int, uid: int, alarm_overlay_enabled: bool | None [alarmOverlayEnabled], filters: list[Filter] | None, triggers: list[Trigger] | None, presets: list[int] | None, perspective: list[PerspectiveBar] | None)
 motion_guard.ProfileCapabilities(min_nbr_profiles_per_camera: int | None [minNbrProfilesPerCamera], max_nbr_profiles_per_camera: int | None [maxNbrProfilesPerCamera], min_length_name: int | None [minLengthName], max_length_name: int | None [maxLengthName])
 motion_guard.SendAlarmEventRequest(profile: int)
-motion_guard.SizePercentageFilter(type: Literal['sizePercentage'], data: list[Annotated[int, Field(ge=3, le=100)]], active: bool | None)
-motion_guard.SizePerspectiveFilter(type: Literal['sizePerspective'], data: list[int], active: bool | None)
-motion_guard.TimeShortLivedLimitFilter(type: Literal['timeShortLivedLimit'], data: int, active: bool | None)
-motion_guard.Trigger(type: Literal['includeArea'], data: list[Point])
-motion_guard.TriggerCapability(type: Literal['includeArea'] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance])
+motion_guard.SizePercentageFilter(type: Annotated[Literal['sizePercentage'], CONST], data: list[Annotated[int, Field(ge=3, le=100)]], active: bool | None)
+motion_guard.SizePerspectiveFilter(type: Annotated[Literal['sizePerspective'], CONST], data: list[int], active: bool | None)
+motion_guard.TimeShortLivedLimitFilter(type: Annotated[Literal['timeShortLivedLimit'], CONST], data: int, active: bool | None)
+motion_guard.Trigger(type: Annotated[Literal['includeArea'], CONST], data: list[Point])
+motion_guard.TriggerCapability(type: Annotated[Literal['includeArea'], CONST] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance])
 mqtt_client.AnnouncementMessage(use_default: bool | None [useDefault], topic: str | None, message: str | None, retain: bool | None, qos: Literal[0, 1, 2] | None)
 mqtt_client.AsyncMqttClientApi.activate_client(self, *, request_options: RequestOptions | None = None) -> None
 mqtt_client.AsyncMqttClientApi.configure_client(self, /, *, server: Server, client_id: str, http_proxy: str | MISSING = MISSING, https_proxy: str | MISSING = MISSING, username: str | MISSING = MISSING, password: str | MISSING = MISSING, keep_existing_password: bool | MISSING = MISSING, keep_alive_interval: int | MISSING = MISSING, connect_timeout: int | MISSING = MISSING, clean_session: bool | MISSING = MISSING, auto_reconnect: bool | MISSING = MISSING, device_topic_prefix: str | MISSING = MISSING, last_will_testament: AnnouncementMessage | MISSING = MISSING, connect_message: AnnouncementMessage | MISSING = MISSING, disconnect_message: AnnouncementMessage | MISSING = MISSING, ssl: Ssl | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
@@ -4710,7 +4710,7 @@ power_settings.AsyncPowerSettingsApi.set_power_consumer(self, *, power_consumer:
 power_settings.AsyncPowerSettingsApi.set_power_profile(self, power_profile: str, *, request_options: RequestOptions | None = None) -> None
 power_settings.AsyncPowerSettingsApi.set_power_saving_mode(self, power_saving_mode: bool, *, request_options: RequestOptions | None = None) -> None
 power_settings.AsyncPowerSettingsApi.set_power_warning_overlay(self, enable: bool, *, request_options: RequestOptions | None = None) -> None
-power_settings.Capabilities(power_saving_support: bool | None [powerSavingSupport], delayed_power_down_support: bool | None [delayedPowerDownSupport], power_profile_support: bool | None [powerProfileSupport], power_consumer_support: bool | None [powerConsumerSupport], power_status_support: bool | None [powerStatusSupport], power_configuration_support: bool | None [powerConfigurationSupport], dynamic_power_mode_support: bool | None [dynamicPowerModeSupport], power_history_support: bool | None [powerHistorySupport], disable_power_warning_overlay_support: bool | None [disablePowerWarningOverlaySupport], io_port_power_support: bool | None [ioPortPowerSupport])
+power_settings.Capabilities(power_saving_support: bool | None [powerSavingSupport], delayed_power_down_support: bool | None [delayedPowerDownSupport], power_profile_support: bool | None [powerProfileSupport], power_consumer_support: bool | None [powerConsumerSupport], power_status_support: bool | Annotated[Literal[-1], CONST] | None [powerStatusSupport], power_configuration_support: bool | None [powerConfigurationSupport], dynamic_power_mode_support: bool | None [dynamicPowerModeSupport], power_history_support: bool | None [powerHistorySupport], disable_power_warning_overlay_support: bool | None [disablePowerWarningOverlaySupport], io_port_power_support: bool | None [ioPortPowerSupport])
 power_settings.DelayedPowerDownMode(delayed_power_down_mode: bool [delayedPowerDownMode], delay_time: int | None [delayTime])
 power_settings.DynamicPowerMode(dynamic_power_mode: bool [dynamicPowerMode])
 power_settings.GetPowerHistoryRequest(requested_time_span: int [requestedTimeSpan])
@@ -5292,16 +5292,16 @@ radar_control.Bound = float | list[float]
 radar_control.Channel(active: bool | None, id: int)
 radar_control.Configuration(channels: list[Channel], profiles: list[Profile], configuration_status: int | None [configurationStatus])
 radar_control.ConfigurationCapabilities(filters: list[FilterCapability] | None, triggers: list[TriggerCapability] | None, profiles: ProfileCapabilities | None, radar_profile: RadarProfileCapabilities | None [radarProfile])
-radar_control.CrossLineTrigger(type: Literal['crossLine'], alarm_direction: AlarmDirection | None [alarmDirection], data: list[Point] | None)
+radar_control.CrossLineTrigger(type: Annotated[Literal['crossLine'], CONST], alarm_direction: AlarmDirection | None [alarmDirection], data: list[Point] | None)
 radar_control.Enabled(enabled: bool)
-radar_control.ExcludeAreaFilter(type: Literal['excludeArea'], data: list[Point] | None, track_passing_objects: bool | None [trackPassingObjects])
+radar_control.ExcludeAreaFilter(type: Annotated[Literal['excludeArea'], CONST], data: list[Point] | None, track_passing_objects: bool | None [trackPassingObjects])
 radar_control.Filter = ObjectTypeFilter | TimeShortLivedLimitFilter | ExcludeAreaFilter | MinimumSpeedLimitFilter | MaximumSpeedLimitFilter
 radar_control.FilterCapability(type: Literal['excludeArea', 'objectType', 'timeShortLivedLimit', 'minimumSpeedLimit', 'maximumSpeedLimit'], min: Bound | None, max: Bound | None, default: float | list[str] | None, default_active: bool | None [defaultActive], min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], default_instance: list[Point] | None [defaultInstance], default_track_passing_objects: bool | None [defaultTrackPassingObjects])
-radar_control.IncludeAreaTrigger(type: Literal['includeArea'], data: list[Point] | None)
-radar_control.MaximumSpeedLimitFilter(type: Literal['maximumSpeedLimit'], active: bool | None, data: float | None)
-radar_control.MinimumSpeedLimitFilter(type: Literal['minimumSpeedLimit'], active: bool | None, data: float | None)
-radar_control.MultipleLineCrossLineTrigger(type: Literal['multipleLineCrossLine'], alarm_direction: AlarmDirection | None [alarmDirection], data: list[list[Point]] | None, crossing_time_limit: float | None [crossingTimeLimit])
-radar_control.ObjectTypeFilter(type: Literal['objectType'], active: bool | None, small: bool | None, human: bool | None, vehicle: bool | None, unknown: bool | None)
+radar_control.IncludeAreaTrigger(type: Annotated[Literal['includeArea'], CONST], data: list[Point] | None)
+radar_control.MaximumSpeedLimitFilter(type: Annotated[Literal['maximumSpeedLimit'], CONST], active: bool | None, data: float | None)
+radar_control.MinimumSpeedLimitFilter(type: Annotated[Literal['minimumSpeedLimit'], CONST], active: bool | None, data: float | None)
+radar_control.MultipleLineCrossLineTrigger(type: Annotated[Literal['multipleLineCrossLine'], CONST], alarm_direction: AlarmDirection | None [alarmDirection], data: list[list[Point]] | None, crossing_time_limit: float | None [crossingTimeLimit])
+radar_control.ObjectTypeFilter(type: Annotated[Literal['objectType'], CONST], active: bool | None, small: bool | None, human: bool | None, vehicle: bool | None, unknown: bool | None)
 radar_control.Point = list[Annotated[float, Field(ge=-1, le=1)]]
 radar_control.Profile(name: str | None, channel: int | None, uid: int, filters: list[Filter] | None, triggers: list[Trigger] | None, minimum_trigger_duration: float | None [minimumTriggerDuration])
 radar_control.ProfileCapabilities(min_nbr_profiles_per_channel: float | None [minNbrProfilesPerChannel], max_nbr_profiles_per_channel: float | None [maxNbrProfilesPerChannel], min_length_name: float | None [minLengthName], max_length_name: float | None [maxLengthName], min_minimum_trigger_duration: float | None [minMinimumTriggerDuration], max_minimum_trigger_duration: float | None [maxMinimumTriggerDuration], default_minimum_trigger_duration: float | None [defaultMinimumTriggerDuration])
@@ -5317,7 +5317,7 @@ radar_control.SendAlarmEventRequest(profile: int)
 radar_control.SetConfigurationRequest(channels: list[Channel], profiles: list[Profile])
 radar_control.SetConfigurationRequest.from_current(Configuration)
 radar_control.SetEnabledRequest(enabled: bool)
-radar_control.TimeShortLivedLimitFilter(type: Literal['timeShortLivedLimit'], active: bool | None, data: int | None)
+radar_control.TimeShortLivedLimitFilter(type: Annotated[Literal['timeShortLivedLimit'], CONST], active: bool | None, data: int | None)
 radar_control.Trigger = IncludeAreaTrigger | CrossLineTrigger | MultipleLineCrossLineTrigger
 radar_control.TriggerCapability(type: Literal['crossLine', 'multipleLineCrossLine', 'includeArea'], min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_lines: int | None [minNbrLines], max_nbr_lines: int | None [maxNbrLines], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], valid_alarm_directions: list[str] | None [validAlarmDirections], default_instance: list[Point | list[Point]] | None [defaultInstance], default_alarm_direction: str | None [defaultAlarmDirection], default_alarm_directions: str | None [defaultAlarmDirections], default_crossing_time_limit: float | None [defaultCrossingTimeLimit], min_crossing_time_limit: float | None [minCrossingTimeLimit], max_crossing_time_limit: float | None [maxCrossingTimeLimit])
 radar_image.AsyncRadarImageApi.abort_calibration(self, *, request_options: RequestOptions | None = None) -> None
@@ -6754,7 +6754,7 @@ time_service.AsyncTimeServiceApi.set_date_time(self, *, date_time: str, request_
 time_service.AsyncTimeServiceApi.set_posix_time_zone(self, *, posix_time_zone: str, enable_dst: bool, request_options: RequestOptions | None = None) -> SetPosixTimeZoneResult
 time_service.AsyncTimeServiceApi.set_time_zone(self, *, time_zone: str, request_options: RequestOptions | None = None) -> SetTimeZoneResult
 time_service.DateTimeInfo(date_time: str [dateTime], local_date_time: str [localDateTime], max_year_supported: int [maxYearSupported], time_zone: str | None [timeZone], posix_time_zone: str | None [posixTimeZone], dst_enabled: bool | None [dstEnabled], dhcp_time_zone: str | None [dhcpTimeZone], dhcp_time_zone_utilized: bool | None [dhcpTimeZoneUtilized])
-time_service.ResetTimeZoneResult(status: Literal['success'])
+time_service.ResetTimeZoneResult(status: Annotated[Literal['success'], CONST])
 time_service.SetDateTimeRequest(date_time: str [dateTime])
 time_service.SetDateTimeResult(date_time: str [dateTime])
 time_service.SetPosixTimeZoneRequest(posix_time_zone: str [posixTimeZone], enable_dst: bool [enableDst])
@@ -6924,8 +6924,8 @@ video_motion_detection_4.Camera(active: bool | None, id: int, rotation: Literal[
 video_motion_detection_4.Configuration(cameras: list[Camera], profiles: list[Profile], configuration_status: int | None [configurationStatus])
 video_motion_detection_4.Configuration.from_current(Configuration)
 video_motion_detection_4.ConfigurationCapabilities(alarm_overlay: AlarmOverlayCapabilities | None [alarmOverlay], filters: list[FilterCapability] | None, triggers: list[TriggerCapability] | None, profiles: ProfileCapabilities | None, presets: PresetCapabilities | None)
-video_motion_detection_4.DistanceSwayingObjectFilter(type: Literal['distanceSwayingObject'], data: int, active: bool | None)
-video_motion_detection_4.ExcludeAreaFilter(type: Literal['excludeArea'], data: list[Point])
+video_motion_detection_4.DistanceSwayingObjectFilter(type: Annotated[Literal['distanceSwayingObject'], CONST], data: int, active: bool | None)
+video_motion_detection_4.ExcludeAreaFilter(type: Annotated[Literal['excludeArea'], CONST], data: list[Point])
 video_motion_detection_4.Filter = SizePercentageFilter | TimeShortLivedLimitFilter | DistanceSwayingObjectFilter | ExcludeAreaFilter
 video_motion_detection_4.FilterCapability(type: Literal['sizePercentage', 'timeShortLivedLimit', 'distanceSwayingObject', 'excludeArea'] | None, min: Any | None, max: Any | None, default: Any | None, default_active: bool | None [defaultActive], min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance])
 video_motion_detection_4.Point = list[Annotated[float, Field(ge=-1, le=1)]]
@@ -6933,10 +6933,10 @@ video_motion_detection_4.PresetCapabilities(max_nbr_presets_per_profile: int | N
 video_motion_detection_4.Profile(name: str | None, camera: int, uid: int, filters: list[Filter] | None, triggers: list[Trigger] | None, presets: list[int] | None)
 video_motion_detection_4.ProfileCapabilities(min_nbr_profiles_per_camera: int | None [minNbrProfilesPerCamera], max_nbr_profiles_per_camera: int | None [maxNbrProfilesPerCamera], min_length_name: int | None [minLengthName], max_length_name: int | None [maxLengthName])
 video_motion_detection_4.SendAlarmEventRequest(profile: int)
-video_motion_detection_4.SizePercentageFilter(type: Literal['sizePercentage'], data: list[Annotated[int, Field(ge=3, le=100)]], active: bool | None)
-video_motion_detection_4.TimeShortLivedLimitFilter(type: Literal['timeShortLivedLimit'], data: int, active: bool | None)
-video_motion_detection_4.Trigger(type: Literal['includeArea'], data: list[Point])
-video_motion_detection_4.TriggerCapability(type: Literal['includeArea'] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance])
+video_motion_detection_4.SizePercentageFilter(type: Annotated[Literal['sizePercentage'], CONST], data: list[Annotated[int, Field(ge=3, le=100)]], active: bool | None)
+video_motion_detection_4.TimeShortLivedLimitFilter(type: Annotated[Literal['timeShortLivedLimit'], CONST], data: int, active: bool | None)
+video_motion_detection_4.Trigger(type: Annotated[Literal['includeArea'], CONST], data: list[Point])
+video_motion_detection_4.TriggerCapability(type: Annotated[Literal['includeArea'], CONST] | None, min: list[float] | None, max: list[float] | None, min_nbr_vertices: int | None [minNbrVertices], max_nbr_vertices: int | None [maxNbrVertices], min_nbr_instances: int | None [minNbrInstances], max_nbr_instances: int | None [maxNbrInstances], default_instance: list[Point] | None [defaultInstance])
 video_motion_detection_4.VideoMotionDetection4Api.get_configuration(self, *, request_options: RequestOptions | None = None) -> Configuration
 video_motion_detection_4.VideoMotionDetection4Api.get_configuration_capabilities(self, *, request_options: RequestOptions | None = None) -> ConfigurationCapabilities
 video_motion_detection_4.VideoMotionDetection4Api.send_alarm_event(self, profile: int, *, request_options: RequestOptions | None = None) -> None

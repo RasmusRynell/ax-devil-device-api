@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/network-video/power-settings/
 
 from __future__ import annotations
 
-from typing import ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
+from .._protocols.base import CONST, ApiDiscovery, ApiInfo, ApiVersion, ErrorCode, Family, Model, Operation
 from .._protocols.jsonrpc import JsonRpcBinding
 from ._base import AsyncApi, SyncApi
 
@@ -92,10 +92,10 @@ class Capabilities(Model):
         default=None, validation_alias="powerConsumerSupport", serialization_alias="powerConsumerSupport"
     )
     """Power consumers supported."""
-    power_status_support: bool | None = Field(
+    power_status_support: bool | Annotated[Literal[-1], CONST] | None = Field(
         default=None, validation_alias="powerStatusSupport", serialization_alias="powerStatusSupport"
     )
-    """Power status supported. Value is -1 if the parameter is not available on the device."""
+    """Power status supported. The device returns the integer -1 (instead of a boolean) when the parameter is not available on the device, and the model keeps that -1."""
     power_configuration_support: bool | None = Field(
         default=None, validation_alias="powerConfigurationSupport", serialization_alias="powerConfigurationSupport"
     )
