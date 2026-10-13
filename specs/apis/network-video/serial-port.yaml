@@ -240,7 +240,6 @@ operations:
         status: 200
         text: OK
       source: https://developer.axis.com/vapix/network-video/serial-port-api/#common-examples
-      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
   set_port_manager:
     summary: Change the settings of a port manager.
     description: Sets parameters of the group PortManager.P<n> and its sub-groups (SerialCGI, PTZServer, RemotePortServer, GenericTCPServer).
@@ -373,7 +372,6 @@ operations:
         status: 200
         text: OK
       source: https://developer.axis.com/vapix/network-video/serial-port-api/#common-examples
-      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
   set_remote_port:
     summary: Change the settings of a remote port client.
     description: Sets parameters of the group RemotePort.R<n>. The group does not exist on products without remote port support.
@@ -426,7 +424,6 @@ operations:
         status: 200
         text: OK
       source: https://developer.axis.com/vapix/network-video/serial-port-api/#common-examples
-      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/serial-port-api/

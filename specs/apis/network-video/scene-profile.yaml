@@ -79,7 +79,6 @@ operations:
       request: {query: {ImageSource.I0.SceneProfile: vivid}}
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/video-streaming/#change-scene-profiles
-      x-contract: {skip: "The contract harness cannot map the templated parameter name to an argument; the exchange is the documented request."}
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/video-streaming/

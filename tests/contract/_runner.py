@@ -18,6 +18,9 @@ from . import _special as special
 def _jsonrpc_response(spec, op, example, sent: h.Sent):
     response = example.get("response")
     method = sent.json.get("method") if isinstance(sent.json, dict) else None
+    multipart = getattr(op.binding, "multipart", None)
+    if method is None and multipart is not None and multipart.json_part is None:
+        method = op.binding.method  # files only: the CGI takes no envelope
     if method == "getSupportedVersions":
         negotiation = spec["binding"].get("negotiation") or {}
         key = ((negotiation.get("get_supported_versions") or {}) if isinstance(negotiation, dict) else {}).get("key", "apiVersions")
@@ -131,6 +134,7 @@ def run_example(spec: dict[str, Any], ops: Any, op_id: str, example: dict[str, A
                 model, expected_path, expected_query, expected_body = h.build_rest(op, request, spec["binding"].get("root", ""))
             else:
                 model, expected_args = h.build_cgi(op, request)
+                expected_path = h.cgi_path(op, request)[0]
         except Exception as error:  # noqa: BLE001
             if template:
                 pytest.skip(f"template example: request placeholders do not validate ({type(error).__name__})")
@@ -222,9 +226,13 @@ def run_example(spec: dict[str, Any], ops: Any, op_id: str, example: dict[str, A
         elif family == "dca":
             assert sent.method == op.binding.method and sent.path == expected_path
         else:
-            assert sent.method == op.binding.method and sent.path == op.binding.path
+            assert sent.method == op.binding.method and sent.path == expected_path
         return
-    if family == "jsonrpc":
+    files_only = getattr(getattr(op.binding, "multipart", None), "json_part", "") is None
+    if family == "jsonrpc" and files_only:
+        assert sent.path == op.binding.path and sent.json is None  # no envelope, only the files
+        h.check_sent_body(op, request, sent)
+    elif family == "jsonrpc":
         assert sent.path == op.binding.path
         assert sent.json["method"] == op.binding.method
         if getattr(op.binding, "params_placement", "params") == "top_level":
@@ -233,6 +241,8 @@ def run_example(spec: dict[str, Any], ops: Any, op_id: str, example: dict[str, A
             assert sent_args == (request.get("params") or {})
         else:
             assert sent.json.get("params", {}) == (request.get("params") if request.get("params") is not None else {})
+        if getattr(op.binding, "multipart", None) is not None:
+            h.check_sent_body(op, request, sent)
     elif family == "dca":
         assert sent.method == op.binding.method
         assert sent.path == expected_path
@@ -257,7 +267,7 @@ def run_example(spec: dict[str, Any], ops: Any, op_id: str, example: dict[str, A
         assert sent.json == (json.loads(json.dumps(expected_body)) if expected_body is not None else None)
     else:
         assert sent.method == op.binding.method
-        assert sent.path == op.binding.path
+        assert sent.path == expected_path
         assert {**sent.query, **(sent.form or {})} == expected_args
         if "form" in request:
             assert sent.form is not None

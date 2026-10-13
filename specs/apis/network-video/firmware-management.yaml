@@ -131,7 +131,6 @@ operations:
         data:
           firmwareVersion: 7.50.3
       source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
-      x-contract: {skip: "The contract harness cannot supply the file part of a multipart JSON-RPC request"}
     - title: Upgrade with a rollback timeout
       request:
         params:
@@ -140,7 +139,6 @@ operations:
         data:
           firmwareVersion: 7.50.3
       source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
-      x-contract: {skip: "The docs show this request as plain JSON without the firmware file; the real request is multipart, and the contract harness cannot supply the file part"}
     - title: Error 421
       request:
         params: {}
@@ -149,7 +147,6 @@ operations:
           code: 421
           message: Upgrade failed due to image not matching device.
       source: https://developer.axis.com/vapix/network-video/firmware-management-api/#upgrade-firmware
-      x-contract: {skip: "The contract harness cannot supply the file part of a multipart JSON-RPC request"}
   commit:
     summary: Commit the current firmware and stop a pending automatic rollback.
     description: Does nothing if the firmware is already committed.

@@ -87,7 +87,6 @@ operations:
           root.Image.I0.RateControl.Priority: quality
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/rate-control/#getting-and-setting-the-default-rate-control-parameters-for-image-view
-      x-contract: {skip: 'The contract harness cannot map templated argument names (root.Image.I{n}.RateControl.*) to an index.'}
     - title: Set the average bitrate parameters
       request:
         query:
@@ -97,7 +96,6 @@ operations:
           root.Image.I0.RateControl.ABR.RetentionTime: '30'
       response: {status: 200, text: OK}
       source: https://developer.axis.com/vapix/network-video/rate-control/#set-the-average-bitrate-parameters-in-axis-cgiparamcgi
-      x-contract: {skip: 'The contract harness cannot map templated argument names (root.Image.I{n}.RateControl.*) to an index.'}
   get_rtsp_stream_with_rate_control:
     summary: Build the RTSP URL of a stream with rate control settings that apply to that stream only.
     description: >-

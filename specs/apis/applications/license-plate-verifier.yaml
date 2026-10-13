@@ -1292,8 +1292,8 @@ operations:
       $ref: '#/types/PushConfig'
     examples:
     - title: Get the first push profile
-      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
       request:
+        path: /local/fflprapp/cloud.cgi
         query: {}
       response:
         status: 200
@@ -1345,8 +1345,8 @@ operations:
     positional: [profile, config]
     examples:
     - title: Update the first push profile
-      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
       request:
+        path: /local/fflprapp/cloud.cgi
         body: |
           <?xml version="1.0" encoding="utf-8" ?>
           <cloud_config>
@@ -1519,8 +1519,8 @@ operations:
       $ref: '#/types/PlateListContent'
     examples:
     - title: Get the allow list
-      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
       request:
+        path: /local/fflprapp/allow_list.cgi
         query: {}
       response:
         status: 200
@@ -1554,8 +1554,8 @@ operations:
     positional: [list_file, plates]
     examples:
     - title: Add a batch of plates
-      x-contract: {skip: 'the contract harness does not substitute {placeholders} in cgi paths'}
       request:
+        path: /local/fflprapp/block_list.cgi
         body: |
           <?xml version="1.0" encoding="utf-8" ?>
           <bw_list mode="block">

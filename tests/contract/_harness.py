@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import re
 import string
@@ -80,6 +81,10 @@ class Fake:
             if "multipart/form-data" in ctype:
                 parts = parse_multipart(ctype, request.content)
                 form = {p.name: p.content.decode("utf-8") for p in parts if not p.is_file}
+                # A multipart JSON-RPC call carries its envelope as a JSON part without a file name.
+                envelope = next((p for p in parts if p.filename is None and (p.content_type or "").startswith("application/json")), None)
+                if envelope is not None:
+                    body = json.loads(envelope.content)
             elif "json" in ctype:
                 body = json.loads(request.content)
             elif "x-www-form-urlencoded" in ctype:
@@ -124,7 +129,7 @@ def build_jsonrpc(op, request: dict) -> Any:
     if op.params is None:
         assert not params, f"{op.id} takes no params but example has {params}"
         return None
-    return op.params.model_validate(params)
+    return op.params.model_validate({**params, **upload_values(op, request)})
 
 
 def _template_regex(template: str, multi: frozenset[str] = frozenset()) -> tuple[re.Pattern[str], list[str]]:
@@ -198,6 +203,52 @@ def _numeric(value: Any) -> Any:
     return value
 
 
+def _model_field(op, placeholder: str) -> str:
+    """Python name of the params field a ``{placeholder}`` refers to (by Python or wire name)."""
+    for name, info in op.params.model_fields.items() if op.params is not None else ():
+        if placeholder in (name, info.serialization_alias, info.validation_alias, info.alias):
+            return name
+    raise AssertionError(f"{op.id}: placeholder {{{placeholder}}} is not a params field")
+
+
+def cgi_path(op, request: dict) -> tuple[str, dict[str, str]]:
+    """``(expected path, placeholder values)`` of a cgi example.
+
+    A path with ``{placeholders}`` takes the example's ``request.path`` (percent-decoded, as the
+    fake transport sees it); the placeholder values are read back from it. Without placeholders the
+    path is the binding's, and an example ``path`` is only compared.
+    """
+    template = op.binding.path
+    given = request.get("path")
+    if "{" not in template:
+        return (given if given is not None else template), {}
+    assert given is not None, f"{op.id}: the path {template!r} has placeholders, so the example needs request.path"
+    pattern, names = _template_regex(template)
+    match = pattern.match(given)
+    assert match, f"example path {given!r} does not match template {template!r}"
+    from urllib.parse import unquote
+
+    return given, {n: unquote(v) for n, v in zip(names, match.groups())}
+
+
+def _templated_wires(binding) -> list[tuple[Any, re.Pattern[str], list[str]]]:
+    """``(arg, regex, placeholder names)`` for every argument whose wire name has ``{placeholders}``."""
+    out = []
+    for arg in binding.args:
+        wire = arg.wire or arg.field
+        if "{" not in wire:
+            continue
+        names: list[str] = []
+        pattern = ""
+        for literal, name, _, _ in string.Formatter().parse(wire):
+            pattern += re.escape(literal)
+            if name:
+                names.append(name)
+                pattern += "([^.]+)"
+        out.append((arg, re.compile(pattern + r"\Z"), names))
+    return out
+
+
 def build_cgi(op, request: dict) -> tuple[Any, dict[str, str]]:
     """Return (model, expected full argument dict including fixed ones).
 
@@ -229,6 +280,22 @@ def build_cgi(op, request: dict) -> tuple[Any, dict[str, str]]:
     if op.params is None:
         return None, expected
     remaining = dict(args)
+    # Index arguments: placeholders of the path and of templated wire names (``Image.I{n}.Name``).
+    keys = {_model_field(op, name): value for name, value in cgi_path(op, request)[1].items()}
+    templated = _templated_wires(binding)
+    for key in list(remaining):
+        if any((arg.wire or arg.field) == key for arg in binding.args):
+            continue  # an exact wire name wins over a templated one
+        for arg, pattern, names in templated:
+            match = pattern.match(key)
+            if match is None:
+                continue
+            for name, value in zip(names, match.groups()):
+                field = _model_field(op, name)
+                assert keys.setdefault(field, value) == value, f"{key}: {name} is {value!r}, but another argument says {keys[field]!r}"
+            data[arg.field] = remaining.pop(key)
+            break
+    data.update(keys)
     spread = None
     for arg in binding.args:
         if arg.style == "spread":
@@ -306,12 +373,22 @@ def upload_values(op, request: dict) -> dict[str, Any]:
     """
     binding = op.binding
     values: dict[str, Any] = {}
-    if getattr(binding, "encoding", None) == "multipart":
+    multipart = getattr(binding, "multipart", None)  # jsonrpc: the files follow the envelope part
+    if getattr(binding, "encoding", None) == "multipart" or multipart is not None:
         by_name = {p["name"]: p for p in request.get("parts") or []}
-        for spec in binding.uploads:
+        for spec in binding.uploads if multipart is None else multipart.uploads:
             part = by_name.get(spec.part or spec.field)
+            if part is None and multipart is not None:
+                values[spec.field] = b"data"  # docs show the JSON message only; the file is filler
             if part is not None:
-                values[spec.field] = _part_content(part) or b"data"
+                content = _part_content(part) or b"data"
+                if part.get("filename"):
+                    # Bytes carry no file name (the runtime sends the spec's default, else the part name),
+                    # so an example that documents one is run with an Upload that names the file.
+                    from ax_devil_device_api import Upload
+
+                    content = Upload(io.BytesIO(content), len(content), filename=part["filename"])
+                values[spec.field] = content
     elif getattr(binding, "encoding", None) == "body" and "body" in request:
         field = binding.body_field
         is_upload = any(u.field == field for u in binding.uploads)
@@ -328,8 +405,9 @@ def check_sent_body(op, request: dict, sent: Sent) -> None:
         if expected_type is not None:
             assert media == expected_type.split(";", 1)[0].strip().lower(), f"content type {media!r}, expected {expected_type!r}"
         compare_body(media, request["body"], sent.raw)
-    if getattr(binding, "encoding", None) == "multipart" and "parts" in request:
-        got = [p for p in sent.parts if p.is_file]
+    if (getattr(binding, "encoding", None) == "multipart" or getattr(binding, "multipart", None) is not None) and "parts" in request:
+        # Files (and typed parts); the JSON-RPC envelope part has no file name.
+        got = [p for p in sent.parts if p.is_file and not (p.filename is None and (p.content_type or "").startswith("application/json") and getattr(binding, "multipart", None) is not None)]
         want = request["parts"]
         assert [p.name for p in got] == [p["name"] for p in want], f"parts {[p.name for p in got]}, expected {[p['name'] for p in want]}"
         for part, expected in zip(got, want):
@@ -346,7 +424,7 @@ def check_sent_body(op, request: dict, sent: Sent) -> None:
             assert key in sent.query or key in sent.rawquery.replace("=", "&").split("&"), f"{key} should be in the URL"
         for key in request["form"]:
             assert sent.form is not None and key in sent.form and key not in sent.query, f"{key} should be in the body only"
-    for key, value in list(op.binding.url_query) + list(request.get("query", {}).items()):
+    for key, value in list(getattr(binding, "url_query", ())) + list(request.get("query", {}).items()):
         if value is None and key in sent.rawquery:
             assert not re.search(rf"(?:^|&){re.escape(key)}=", sent.rawquery), f"bare key {key} was sent with a value"
 

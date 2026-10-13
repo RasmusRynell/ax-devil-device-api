@@ -95,7 +95,7 @@ def _stream(spec: dict[str, Any], ops: Any, op_id: str, example: dict[str, Any])
                     assert items == response["items"]
     assert len(fake.calls) == 1, f"expected one request, got {len(fake.calls)}"
     sent = fake.calls[0]
-    assert sent.method == op.binding.method and sent.path == op.binding.path
+    assert sent.method == op.binding.method and sent.path == h.cgi_path(op, request)[0]
     assert {**sent.query, **(sent.form or {})} == expected_args
     h.check_sent_body(op, request, sent)
 
