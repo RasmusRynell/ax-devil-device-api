@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/network-time-sync-ap
 
 from __future__ import annotations
 
-from typing import Any, overload
+from typing import Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -23,6 +23,9 @@ from ._base import AsyncApi, SyncApi
 class NtpClient(Model):
     """Client-specific configuration settings for the NTP protocol, such as polling intervals, server sources and synchronization status. Property types are inferred from the docs example."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {"advertised_servers", "synced", "time_offset", "time_to_next_sync"}
+    )
     advertised_servers: list[str] | None = Field(
         default=None, validation_alias="advertisedServers", serialization_alias="advertisedServers"
     )
@@ -84,7 +87,7 @@ class UpdateClientRequest(Model):
     @classmethod
     def from_current(cls, client: NtpClient) -> UpdateClientRequest:
         """A request that rewrites ``client`` unchanged: copy it, edit fields, send it back."""
-        data = client.request_data(exclude={"advertised_servers", "synced", "time_offset", "time_to_next_sync"})
+        data = client.request_data()
         return cls(**data)
 
 

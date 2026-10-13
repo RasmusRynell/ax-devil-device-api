@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/ntp-api/
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -23,6 +23,9 @@ from ._base import AsyncApi, SyncApi
 class NtpClient(Model):
     """State and configuration of the NTP client."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {"advertised_servers", "max_supported_static_servers", "synced", "time_offset", "time_to_next_sync"}
+    )
     enabled: bool | None = None
     """Enabled state of the NTP client. true: enabled and running; false: disabled and not running."""
     nts_enabled: bool | None = Field(default=None, validation_alias="NTSEnabled", serialization_alias="NTSEnabled")
@@ -100,9 +103,7 @@ class SetNtpClientConfigurationRequest(Model):
     @classmethod
     def from_current(cls, client: NtpClient) -> SetNtpClientConfigurationRequest:
         """A request that rewrites ``client`` unchanged: copy it, edit fields, send it back."""
-        data = client.request_data(
-            exclude={"advertised_servers", "max_supported_static_servers", "synced", "time_offset", "time_to_next_sync"}
-        )
+        data = client.request_data()
         return cls(**data)
 
 

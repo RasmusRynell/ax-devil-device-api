@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/physical-access-control/connection-servic
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -28,6 +28,9 @@ PeerConnectionState = Literal["Disconnected", "PairingFailed", "Connected"]
 class Peer(Model):
     """The configuration of a peer. When adding peers only ID and ExpectedAddress are given."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {"connection_state", "device_uuid", "last_known_address", "trust_state"}
+    )
     id: str | None = Field(default=None, validation_alias="ID", serialization_alias="ID")
     """MAC address in the form 000000000000 or 00:00:00:00:00:00. May be empty for pending peers."""
     expected_address: str | None = Field(

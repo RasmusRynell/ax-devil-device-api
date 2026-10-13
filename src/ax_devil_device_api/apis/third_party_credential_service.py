@@ -72,6 +72,8 @@ class HIDMobilePartNumberInfo(Model):
 class HIDMobileConfiguration(Model):
     """Configuration of the HID Mobile Access credential provider. An empty configuration disables the provider."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"client_secret", "proxy_password"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"part_numbers"})
     part_numbers: list[HIDMobilePartNumberInfo] | None = Field(
         default=None, validation_alias="PartNumbers", serialization_alias="PartNumbers"
     )

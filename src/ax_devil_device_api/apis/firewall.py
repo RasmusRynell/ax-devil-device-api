@@ -144,6 +144,9 @@ class Rules(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset(
         {"active_default_policy", "active_rules", "pending_rules", "test_time_left"}
     )
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {"active_default_policy", "active_rules", "pending_default_policy", "pending_rules", "test_time_left"}
+    )
     active_default_policy: Policy = Field(
         default_factory=not_sent, validation_alias="activeDefaultPolicy", serialization_alias="activeDefaultPolicy"
     )
@@ -169,6 +172,7 @@ class Rules(Model):
 class Conf(Model):
     """Firewall configuration"""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"rules"})
     brute_force_protection: BruteForceProtection | None = Field(
         default=None, validation_alias="bruteForceProtection", serialization_alias="bruteForceProtection"
     )

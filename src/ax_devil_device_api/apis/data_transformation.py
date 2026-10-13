@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/data-transformation/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, overload
+from typing import Annotated, Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -86,6 +86,7 @@ class AvailableTopics(Model):
 class Transform(Model):
     """A configured transform from an input topic to an output topic."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"statistics"})
     input_topic: Topic = Field(validation_alias="inputTopic", serialization_alias="inputTopic")
     jq_expression: JqExpression = Field(validation_alias="jqExpression", serialization_alias="jqExpression")
     output_topic: Topic = Field(validation_alias="outputTopic", serialization_alias="outputTopic")
@@ -125,7 +126,7 @@ class AddTransformRequest(Model):
     @classmethod
     def from_current(cls, transform: Transform) -> AddTransformRequest:
         """A request that rewrites ``transform`` unchanged: copy it, edit fields, send it back."""
-        data = transform.request_data(exclude={"statistics"})
+        data = transform.request_data()
         return cls(**data)
 
 

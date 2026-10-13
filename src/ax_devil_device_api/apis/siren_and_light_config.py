@@ -208,6 +208,23 @@ class Task(Model):
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"colors", "duration_left", "profile", "speed", "threshold"})
     __response_required__: ClassVar[frozenset[str]] = frozenset({"pattern", "priority", "task_id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {
+            "beam_shape_supported",
+            "colors",
+            "colors_supported",
+            "duration_left",
+            "duration_left_supported",
+            "pattern",
+            "priority",
+            "profile",
+            "profile_supported",
+            "speed",
+            "speed_supported",
+            "task_id",
+            "threshold_supported",
+        }
+    )
     beam_shape: NameString | None = Field(default=None, validation_alias="beamShape", serialization_alias="beamShape")
     """The beam shape of the pattern"""
     colors: ColorsArray | None = None
@@ -301,6 +318,17 @@ class ProfileFunction(Model):
         {"beam_shape_override", "colors", "duration", "speed", "threshold"}
     )
     __response_required__: ClassVar[frozenset[str]] = frozenset({"function_class"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {
+            "beam_shape_override_supported",
+            "colors_supported",
+            "duration_supported",
+            "function_class",
+            "pattern_available",
+            "speed_supported",
+            "threshold_supported",
+        }
+    )
     beam_shape_override: NameString | None = Field(
         default=None, validation_alias="beamShapeOverride", serialization_alias="beamShapeOverride"
     )
@@ -342,6 +370,7 @@ class Profile(Model):
     """The collection of siren and light profiles"""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"description"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"description_supported"})
     description: DescriptionString | None = None
     """Description of the profile"""
     profile: NameString

@@ -41,6 +41,7 @@ class AuthorizationServer(Model):
 class AzureDestination(Model):
     """Azure settings. Valid credentials are accountName with sharedKey (url may then be omitted), or a sas token. Unset fields are returned as empty strings."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"sas", "shared_key"})
     account_name: str | None = Field(default=None, validation_alias="accountName", serialization_alias="accountName")
     container: str | None = None
     sas: str | None = None
@@ -51,6 +52,7 @@ class AzureDestination(Model):
 class S3Destination(Model):
     """S3 settings. sessionToken may be empty when temporary credentials are not used. An empty region means us-east-1. Unset fields are returned as empty strings."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"access_key_id", "secret_access_key", "session_token"})
     access_key_id: str | None = Field(default=None, validation_alias="accessKeyId", serialization_alias="accessKeyId")
     bucket: str | None = None
     region: str | None = None
@@ -126,7 +128,12 @@ class AddDestinationRequest(Model):
 
     @classmethod
     def from_current(cls, destination: Destination) -> AddDestinationRequest:
-        """A request that rewrites ``destination`` unchanged: copy it, edit fields, send it back."""
+        """A request that rewrites ``destination`` unchanged: copy it, edit fields, send it back.
+
+        Masked secrets (``azure.sas``, ``azure.shared_key``, ``s3.access_key_id``, ``s3.secret_access_key``,
+        ``s3.session_token``) are never copied, at any depth; set a new value on the request when the device
+        needs one.
+        """
         data = destination.request_data()
         return cls(**data)
 

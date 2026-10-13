@@ -23,6 +23,9 @@ from pydantic import (
     ValidationInfo,
     ValidatorFunctionWrapHandler,
     field_validator,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    model_serializer,
     model_validator,
 )
 
@@ -39,6 +42,7 @@ from ..errors import (
     NotSupported,
     ResponseFormatError,
 )
+from .._http.debug import register_secret_names
 from .._http.types import Request, Response
 
 if TYPE_CHECKING:
@@ -92,6 +96,9 @@ def select_version(advertised: Iterable[ApiVersion], major: int, known: Iterable
 # ---------------------------------------------------------------------------
 # Models
 
+_FOR_REQUEST = "ax_devil_request"
+_DROP_MASKED = "ax_devil_drop_masked"
+
 RESPONSE_CONTEXT = "ax_devil_response"
 """Validation context key set while parsing device responses (unknown fields allowed)."""
 
@@ -119,13 +126,26 @@ class Model(BaseModel):
     """Required read-only fields (``required`` with ``x-read-only``): the device always returns them, so a response
     without one is rejected, while a request model leaves them out (``not_sent``) and never sends them."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset()
+    """Fields the device masks in responses (``x-masked``): never copied by ``from_current`` and redacted in debug hooks."""
+    __read_only__: ClassVar[frozenset[str]] = frozenset()
+    """Fields only present in responses (``x-read-only``): omitted from every request, at any depth."""
+
     model_config = ConfigDict(
+        hide_input_in_errors=True,
         populate_by_name=True,
         extra="ignore",
         serialize_by_alias=True,
         validate_by_alias=True,
         validate_by_name=True,
     )
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
+        super().__pydantic_init_subclass__(**kwargs)
+        if cls.__masked__:
+            wire = cls._wire_to_field()
+            register_secret_names(alias for alias, name in wire.items() if name in cls.__masked__)
 
     @classmethod
     def _wire_to_field(cls) -> dict[str, str]:
@@ -181,9 +201,27 @@ class Model(BaseModel):
         fields_set = self.model_fields_set
         return ((name, value) for name, value in super().__repr_args__() if name in fields_set or value is not None)
 
+    @model_serializer(mode="wrap")
+    def _omit_unsendable(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> Any:
+        data = handler(self)
+        context = info.context
+        if not isinstance(data, dict) or not isinstance(context, dict):
+            return data
+        drop: set[str] = set()
+        if context.get(_FOR_REQUEST):
+            drop |= self.__read_only__
+        if context.get(_DROP_MASKED):
+            drop |= self.__masked__ | self.__read_only__
+        for name in drop:
+            field_info = type(self).model_fields.get(name)
+            data.pop(name, None)
+            if field_info is not None and isinstance(field_info.serialization_alias, str):
+                data.pop(field_info.serialization_alias, None)
+        return data
+
     def to_wire(self) -> dict[str, Any]:
-        """Serialize for sending: aliases, set fields only, JSON-compatible values."""
-        return self.model_dump(mode="json", by_alias=True, exclude_unset=True)
+        """Serialize for sending: aliases, set fields only, read-only fields omitted at any depth."""
+        return self.model_dump(mode="json", by_alias=True, exclude_unset=True, context={_FOR_REQUEST: True})
 
     def set_fields(self) -> dict[str, Any]:
         """The explicitly set fields as ``{attribute: value}`` (nested models kept as models)."""
@@ -192,11 +230,19 @@ class Model(BaseModel):
     def request_data(self, *, exclude: Iterable[str] = ()) -> dict[str, Any]:
         """Set, non-null fields as plain data keyed by Python names, for building a request.
 
-        Nested models become dicts, so the request model re-validates them
-        under request rules. Nulls from a response mean "not configured" and
-        are dropped rather than sent back.
+        Masked and read-only fields are dropped at every depth (through nested
+        models and lists). Nested models become dicts, so the request model
+        re-validates them under request rules. Nulls from a response mean
+        "not configured" and are dropped rather than sent back.
         """
-        return self.model_dump(mode="python", by_alias=False, exclude_unset=True, exclude_none=True, exclude=set(exclude))
+        return self.model_dump(
+            mode="python",
+            by_alias=False,
+            exclude_unset=True,
+            exclude_none=True,
+            exclude=set(exclude),
+            context={_DROP_MASKED: True},
+        )
 
 
 def not_sent() -> Any:
@@ -449,6 +495,8 @@ def api_error(
     kind = info.kind if info else None
     if kind is None and http_status == 403:
         kind = "access_denied"
+    elif kind is None and http_status == 503:
+        kind = "unavailable"
     cls = {"access_denied": ApiAccessDenied, "unavailable": ApiUnavailable}.get(kind or "", ApiError)
     return cls(
         op.api.id,

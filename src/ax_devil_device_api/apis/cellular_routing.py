@@ -96,6 +96,7 @@ class MacLease(Model):
     """A MAC address for static leases. The first one decides which device gets all ports in ``PRIMARY_LAN_HOST`` mode and the first IP of the range."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"index"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"index"})
     index: ListIndex = Field(default_factory=not_sent)
     mac_address: MacAddress = Field(validation_alias="macAddress", serialization_alias="macAddress")
 
@@ -104,6 +105,7 @@ class DhcpLocalConfig(Model):
     """DHCP server configuration for a private LAN network (``LOCAL`` mode)."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"ip_prefix_length", "server_ip", "static_leases"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"ip_prefix_length", "server_ip", "static_leases"})
     ip_prefix_length: int = Field(
         default_factory=not_sent, validation_alias="ipPrefixLength", serialization_alias="ipPrefixLength"
     )
@@ -121,6 +123,9 @@ class DhcpPassthroughConfig(Model):
     """DHCP configuration that extends the cellular subnet to the LAN (``PASSTHROUGH`` mode). Before the cellular connection is up, ipRange may be empty."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset(
+        {"ip_prefix_length", "ip_prefix_length_override", "server_ip", "static_leases"}
+    )
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
         {"ip_prefix_length", "ip_prefix_length_override", "server_ip", "static_leases"}
     )
     ip_prefix_length: int = Field(
@@ -162,6 +167,7 @@ class DhcpServer(Model):
 class MainSettings(Model):
     """The main configuration of cellular routing."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"cellular_ipv4_info"})
     mode: MainMode
     cellular_ipv4_info: CellularIpv4Info | None = Field(
         default=None, validation_alias="cellularIpv4Info", serialization_alias="cellularIpv4Info"
@@ -172,6 +178,7 @@ class CellularHostDefaultPort(Model):
     """A default management port of the cellular host. It cannot be added or removed; only the source port can change."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"index", "name", "destination"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"destination", "index", "name"})
     index: ListIndex = Field(default_factory=not_sent)
     name: str = Field(default_factory=not_sent)
     """The protocol name of the port."""
@@ -183,6 +190,7 @@ class CellularHostPort(Model):
     """A custom port of the cellular host."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"index"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"index"})
     index: ListIndex = Field(default_factory=not_sent)
     name: str
     """The protocol name of the port."""
@@ -203,6 +211,7 @@ class LanHostPort(Model):
     """A custom port applied symmetrically to all LAN hosts."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"index"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"index"})
     index: ListIndex = Field(default_factory=not_sent)
     name: str
     """The protocol name of the port."""
@@ -213,6 +222,7 @@ class LanHost(Model):
     """Network ports for the hosts on the LAN DHCP server network."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"default_ports", "source_max_port"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"default_ports", "source_max_port"})
     default_ports: list[DestinationPort] = Field(
         default_factory=not_sent, validation_alias="defaultPorts", serialization_alias="defaultPorts"
     )
@@ -260,7 +270,7 @@ class AddMacLeaseRequest(Model):
     @classmethod
     def from_current(cls, lease: MacLease) -> AddMacLeaseRequest:
         """A request that rewrites ``lease`` unchanged: copy it, edit fields, send it back."""
-        data = lease.request_data(exclude={"index"})
+        data = lease.request_data()
         return cls(**data)
 
 
@@ -275,7 +285,7 @@ class AddCellularHostPortRequest(Model):
     @classmethod
     def from_current(cls, port: CellularHostPort) -> AddCellularHostPortRequest:
         """A request that rewrites ``port`` unchanged: copy it, edit fields, send it back."""
-        data = port.request_data(exclude={"index"})
+        data = port.request_data()
         return cls(**data)
 
 
@@ -289,7 +299,7 @@ class AddLanHostPortRequest(Model):
     @classmethod
     def from_current(cls, port: LanHostPort) -> AddLanHostPortRequest:
         """A request that rewrites ``port`` unchanged: copy it, edit fields, send it back."""
-        data = port.request_data(exclude={"index"})
+        data = port.request_data()
         return cls(**data)
 
 

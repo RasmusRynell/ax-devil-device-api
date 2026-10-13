@@ -91,6 +91,7 @@ class DuplexDevice(Model):
 
 class HttpAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["HTTP"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
@@ -117,6 +118,7 @@ class HttpAudioSession(Model):
 
 class RtpAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["RTP"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
@@ -146,6 +148,7 @@ class RtpAudioSession(Model):
 
 class SipAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["SIP"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
@@ -173,6 +176,7 @@ class SipAudioSession(Model):
 
 class WsAudioSession(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["WS"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""

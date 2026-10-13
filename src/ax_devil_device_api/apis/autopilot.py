@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/autopilot-api/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -82,6 +82,7 @@ ScenariosData = list[ScenarioData]
 class Calibration(Model):
     """Control the calibration process."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"channels_calibrated", "status"})
     channels_calibrated: ChannelsCalibrated | None = Field(
         default=None, validation_alias="channelsCalibrated", serialization_alias="channelsCalibrated"
     )
@@ -109,6 +110,7 @@ class ScenarioConfiguration(Model):
 class Autopilot(Model):
     """The whole API tree."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"in_solo_mode", "state"})
     enabled: bool | None = None
     """Turn on or off the Autopilot."""
     in_solo_mode: bool | None = Field(default=None, validation_alias="inSoloMode", serialization_alias="inSoloMode")

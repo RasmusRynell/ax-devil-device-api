@@ -45,6 +45,7 @@ class Profile(Model):
     __nullable__: ClassVar[frozenset[str]] = frozenset(
         {"ca_certificates", "certificate", "server", "services", "subject", "subject_alternative_names"}
     )
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"status"})
     ca_certificates: CertificateList | None = Field(
         default=None, validation_alias="caCertificates", serialization_alias="caCertificates"
     )
@@ -104,7 +105,7 @@ class UpdateProfileRequest(Model):
     @classmethod
     def from_current(cls, profile: Profile) -> UpdateProfileRequest:
         """A request that rewrites ``profile`` unchanged: copy it, edit fields, send it back."""
-        data = profile.request_data(exclude={"status"})
+        data = profile.request_data()
         return cls(**data)
 
 
@@ -136,7 +137,7 @@ class AddProfileRequest(Model):
     @classmethod
     def from_current(cls, profile: Profile) -> AddProfileRequest:
         """A request that rewrites ``profile`` unchanged: copy it, edit fields, send it back."""
-        data = profile.request_data(exclude={"status"})
+        data = profile.request_data()
         return cls(**data)
 
 

@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/input-and-outputs/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, overload
+from typing import Annotated, Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -65,6 +65,7 @@ class SupervisionRange(Model):
 class SupervisedInput(Model):
     """Configuration for a supervised input."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"analog_level", "capabilities"})
     triggers: list[SupervisionRange] = Field(validation_alias="Triggers", serialization_alias="Triggers")
     """User-defined ranges for the supervised input."""
     analog_level: int | None = Field(default=None, validation_alias="AnalogLevel", serialization_alias="AnalogLevel")
@@ -78,6 +79,7 @@ class SupervisedInput(Model):
 class Port(Model):
     """The configuration of a port. Only PortId and the fields to modify are needed when configuring a port."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"current_state", "supported_modes"})
     port_id: PortId = Field(validation_alias="PortId", serialization_alias="PortId")
     """The port identifier."""
     supported_modes: list[PortMode] | None = Field(

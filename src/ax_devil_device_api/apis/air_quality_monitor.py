@@ -41,6 +41,7 @@ class Configuration(Model):
     """Configuration of air quality monitor"""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"sensor_id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"sensor_id"})
     cloud_metadata_enable: bool | None = Field(
         default=None, validation_alias="cloudMetadataEnable", serialization_alias="cloudMetadataEnable"
     )
@@ -316,7 +317,7 @@ class UpdateConfigurationRequest(Model):
     @classmethod
     def from_current(cls, configuration: Configuration) -> UpdateConfigurationRequest:
         """A request that rewrites ``configuration`` unchanged: copy it, edit fields, send it back."""
-        data = configuration.request_data(exclude={"sensor_id"})
+        data = configuration.request_data()
         missing = [name for name in ("sensor_id",) if name not in data]
         if missing:
             raise ValueError(f"the current value has no {', '.join(missing)} to keep")

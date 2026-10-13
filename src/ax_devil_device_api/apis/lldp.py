@@ -104,6 +104,7 @@ class Neighbor(Model):
 class Lldp(Model):
     """The whole API tree."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"neighbors"})
     activated: bool | None = None
     """LLDP state"""
     neighbors: list[Neighbor] | None = None

@@ -95,6 +95,7 @@ class Netstats(Model):
     """Interface that retrieves network statistics"""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"sampling_interval"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"sampling_interval"})
     sampling_interval: int = Field(
         default_factory=not_sent, validation_alias="samplingInterval", serialization_alias="samplingInterval"
     )

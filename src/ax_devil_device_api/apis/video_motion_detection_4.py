@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/applications/video-motion-detection-4-api
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import Field
 
@@ -97,6 +97,7 @@ class Profile(Model):
 class Configuration(Model):
     """The complete application configuration. The same shape is read and written."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"configuration_status"})
     cameras: list[Camera]
     profiles: list[Profile]
     """To remove a profile, leave it out of the array."""
@@ -108,7 +109,7 @@ class Configuration(Model):
     @classmethod
     def from_current(cls, configuration: Configuration) -> Configuration:
         """A request that rewrites ``configuration`` unchanged: copy it, edit fields, send it back."""
-        data = configuration.request_data(exclude={"configuration_status"})
+        data = configuration.request_data()
         return cls(**data)
 
 

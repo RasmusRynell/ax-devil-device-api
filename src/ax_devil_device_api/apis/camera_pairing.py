@@ -36,6 +36,9 @@ class Pairing(Model):
     """A camera pairing. The password is never returned."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {"id", "product_model", "product_name", "status", "video_channels"}
+    )
     address: Address | None = None
     """Address for the camera pairing."""
     description: Description | None = None

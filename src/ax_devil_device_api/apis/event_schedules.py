@@ -26,6 +26,7 @@ class Schedule(Model):
     """Schedules"""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"schedule_type"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"schedule_type"})
     id: str
     """Unique identifier for a schedule. Automatically generated if not provided during add."""
     name: str

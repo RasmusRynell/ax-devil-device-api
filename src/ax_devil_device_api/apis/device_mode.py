@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/device-mode-configur
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from pydantic import Field
 
@@ -32,6 +32,7 @@ class AvailableMode(Model):
 class DeviceMode(Model):
     """The whole API tree."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"active_mode", "restart_required"})
     active_mode: ModeId | None = Field(default=None, validation_alias="activeMode", serialization_alias="activeMode")
     """The device mode that is currently active"""
     mode: ModeId | None = None

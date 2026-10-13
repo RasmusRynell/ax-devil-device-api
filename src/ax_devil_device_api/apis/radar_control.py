@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/radar/radar-configuration/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import Field
 
@@ -146,6 +146,7 @@ class Profile(Model):
 class Configuration(Model):
     """The radar event configuration as reported by the device."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"configuration_status"})
     channels: list[Channel]
     """One entry per VAPIX channel."""
     profiles: list[Profile]
@@ -167,7 +168,7 @@ class SetConfigurationRequest(Model):
     @classmethod
     def from_current(cls, configuration: Configuration) -> SetConfigurationRequest:
         """A request that rewrites ``configuration`` unchanged: copy it, edit fields, send it back."""
-        data = configuration.request_data(exclude={"configuration_status"})
+        data = configuration.request_data()
         return cls(**data)
 
 

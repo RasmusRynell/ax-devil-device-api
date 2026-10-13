@@ -7,6 +7,8 @@ Docs: https://developer.axis.com/vapix/device-configuration/user-management-v2-a
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from pydantic import Field
 
 from .._http.options import RequestOptions
@@ -33,6 +35,7 @@ PassphrasePolicyList = list[PassphrasePolicy]
 class PassphraseComplexity(Model):
     """Passphrase complexity"""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"policies"})
     policies: PassphrasePolicyList | None = None
     """Available passphrase complexity policies"""
     policy: str | None = None

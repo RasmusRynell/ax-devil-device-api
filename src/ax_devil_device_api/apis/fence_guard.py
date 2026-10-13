@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/applications/fence-guard/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import Field
 
@@ -96,6 +96,7 @@ class Profile(Model):
 class Configuration(Model):
     """The complete ACAP configuration, as read by get_configuration and written by set_configuration."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"configuration_status"})
     cameras: list[Camera]
     profiles: list[Profile]
     """To remove a profile, remove it from the array."""
@@ -107,7 +108,7 @@ class Configuration(Model):
     @classmethod
     def from_current(cls, configuration: Configuration) -> Configuration:
         """A request that rewrites ``configuration`` unchanged: copy it, edit fields, send it back."""
-        data = configuration.request_data(exclude={"configuration_status"})
+        data = configuration.request_data()
         return cls(**data)
 
 

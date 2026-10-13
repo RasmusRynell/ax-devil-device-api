@@ -191,7 +191,19 @@ def render_field(f: FieldDef) -> list[str]:
     return lines
 
 
-def render_from_current(td: TypeDef, source: TypeDef) -> list[str]:
+def masked_paths(td: TypeDef, types: dict[str, TypeDef], prefix: str = "", seen: tuple[str, ...] = ()) -> list[str]:
+    """Dotted Python paths of every masked field reachable from ``td`` (through nested models and lists)."""
+    if td.name in seen:
+        return []
+    out = [prefix + n for n in td.masked]
+    for f in td.fields:
+        nested = types.get(f.model_name) if f.model_name else None
+        if nested is not None and nested.kind == "model":
+            out += masked_paths(nested, types, f"{prefix}{f.py}.", (*seen, td.name))
+    return out
+
+
+def render_from_current(td: TypeDef, source: TypeDef, types: dict[str, TypeDef]) -> list[str]:
     rt = td.round_trip
     assert rt is not None
     param = last_word(source.name)
@@ -204,7 +216,6 @@ def render_from_current(td: TypeDef, source: TypeDef) -> list[str]:
         if src is not None and src.required and src.py not in exclude:
             continue
         needs.append(f.py)
-    exclude_text = f"exclude={{{', '.join(repr(n) for n in exclude)}}}" if exclude else ""
     lines = [
         "",
         "    @classmethod",
@@ -215,8 +226,16 @@ def render_from_current(td: TypeDef, source: TypeDef) -> list[str]:
         names = ", ".join(f"``{k}``" for k in rt.set_values)
         note = f"Masked and read-only fields are dropped and {names} is set, so stored secrets survive the round trip."
         intro += "\n\n" + "\n".join(textwrap.wrap(note, 100))
+    secrets = masked_paths(source, types)
+    if secrets:
+        names = ", ".join(f"``{n}``" for n in secrets)
+        note = (
+            f"Masked secrets ({names}) are never copied, at any depth; set a new value on the request when "
+            "the device needs one."
+        )
+        intro += "\n\n" + "\n".join(textwrap.wrap(note, 100))
     lines += docstring(intro, "        ")
-    lines.append(f"        data = {param}.request_data({exclude_text})")
+    lines.append(f"        data = {param}.request_data()")
     if needs:
         names = ", ".join(repr(n) for n in needs)
         lines += [
@@ -249,10 +268,16 @@ def render_type(td: TypeDef, types: dict[str, TypeDef]) -> list[str]:
     if td.response_required:
         names = ", ".join(repr(n) for n in td.response_required)
         body.append(f"    __response_required__: ClassVar[frozenset[str]] = frozenset({{{names}}})")
+    if td.masked:
+        names = ", ".join(repr(n) for n in td.masked)
+        body.append(f"    __masked__: ClassVar[frozenset[str]] = frozenset({{{names}}})")
+    if td.read_only:
+        names = ", ".join(repr(n) for n in td.read_only)
+        body.append(f"    __read_only__: ClassVar[frozenset[str]] = frozenset({{{names}}})")
     for f in td.fields:
         body += render_field(f)
     if td.round_trip:
-        body += render_from_current(td, types[td.round_trip.from_name])
+        body += render_from_current(td, types[td.round_trip.from_name], types)
     if not body:
         body = ["    pass"]
     return lines + body + [""]

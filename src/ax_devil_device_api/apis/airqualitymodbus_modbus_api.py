@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/environmental-sensor
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from pydantic import MISSING, Field
 
@@ -26,6 +26,7 @@ SensorId = Annotated[str, Field(min_length=1, pattern=r"^[1-9]\d*|0$")]
 class Configuration(Model):
     """Configuration of air quality Modbus"""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"sensor_id"})
     modbus_enable: bool | None = Field(
         default=None, validation_alias="modbusEnable", serialization_alias="modbusEnable"
     )

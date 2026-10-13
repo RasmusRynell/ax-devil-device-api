@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/mqtt-client-api/
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -65,6 +65,7 @@ class Ssl(Model):
 class ClientConfig(Model):
     """MQTT client settings as reported by the device. The password is masked."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"password"})
     server: Server
     client_id: str | None = Field(default=None, validation_alias="clientId", serialization_alias="clientId")
     http_proxy: str | None = Field(default=None, validation_alias="httpProxy", serialization_alias="httpProxy")
@@ -160,8 +161,11 @@ class ConfigureClientRequest(Model):
 
         Masked and read-only fields are dropped and ``keep_existing_password`` is set, so stored secrets
         survive the round trip.
+
+        Masked secrets (``password``) are never copied, at any depth; set a new value on the request when
+        the device needs one.
         """
-        data = config.request_data(exclude={"password"})
+        data = config.request_data()
         missing = [name for name in ("client_id",) if name not in data]
         if missing:
             raise ValueError(f"the current value has no {', '.join(missing)} to keep")

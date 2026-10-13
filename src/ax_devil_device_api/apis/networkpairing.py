@@ -30,6 +30,7 @@ class Capability(Model):
     """A capability of a feature on a paired device."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"name"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"name"})
     enabled: bool | None = None
     """The capability is administratively enabled on the host. Toggling it does not affect the remote device."""
     name: str = Field(default_factory=not_sent)
@@ -40,6 +41,7 @@ class Feature(Model):
     """A category of capabilities provided by a pairing."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"category"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"category"})
     category: str = Field(default_factory=not_sent)
     """The capability category name, for example SirenLight."""
     capabilities: list[Capability] | None = None
@@ -49,6 +51,9 @@ class Pairing(Model):
     """A configured pairing with a remote device. The password is never returned."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {"address", "connection_status", "features", "id", "model_name", "username"}
+    )
     id: PairingId = Field(default_factory=not_sent)
     """The pairing identifier."""
     address: str | None = None

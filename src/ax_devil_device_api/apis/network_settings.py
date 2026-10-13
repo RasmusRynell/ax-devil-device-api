@@ -102,6 +102,7 @@ class SystemSettings(Model):
     __response_required__: ClassVar[frozenset[str]] = frozenset(
         {"active_uplink", "hostname", "name_servers", "search_domains"}
     )
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"active_uplink", "hostname", "name_servers", "search_domains"})
     active_uplink: Uplink = Field(
         default_factory=not_sent, validation_alias="activeUplink", serialization_alias="activeUplink"
     )
@@ -142,6 +143,18 @@ class Wired(Model):
 
     __response_required__: ClassVar[frozenset[str]] = frozenset(
         {"link_mode", "mac_address", "max_mtu", "max_number_of_vlans", "min_mtu", "mtu", "supported_link_modes"}
+    )
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {
+            "link_mode",
+            "lower_state",
+            "mac_address",
+            "max_mtu",
+            "max_number_of_vlans",
+            "min_mtu",
+            "mtu",
+            "supported_link_modes",
+        }
     )
     link_mode: LinkMode = Field(default_factory=not_sent, validation_alias="linkMode", serialization_alias="linkMode")
     """The current link mode."""
@@ -251,6 +264,7 @@ class Modem(Model):
 class PortSecurity(Model):
     """Switch port security configurations."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"auth_state", "mac_sec_state"})
     auth_server_enabled: bool | None = Field(
         default=None, validation_alias="authServerEnabled", serialization_alias="authServerEnabled"
     )
@@ -271,6 +285,9 @@ class SwitchPort(Model):
     """Switch port configurations. security is left out when security_supported is false."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset(
+        {"lower_state", "port_id", "remote_addresses", "security_supported"}
+    )
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
         {"lower_state", "port_id", "remote_addresses", "security_supported"}
     )
     enabled: bool
@@ -301,6 +318,7 @@ class SwitchSettings(Model):
 class NetworkSettings(Model):
     """The whole API tree. Wired, modem and switch are only present when supported."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"modem_supported", "switch_supported", "wired_supported"})
     modem_supported: bool | None = None
     """Whether the device supports a cellular modem."""
     switch_supported: bool | None = None
@@ -336,7 +354,7 @@ class UpdateSystemRequest(Model):
     @classmethod
     def from_current(cls, settings: SystemSettings) -> UpdateSystemRequest:
         """A request that rewrites ``settings`` unchanged: copy it, edit fields, send it back."""
-        data = settings.request_data(exclude={"active_uplink", "hostname", "name_servers", "search_domains"})
+        data = settings.request_data()
         return cls(**data)
 
 

@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/power-settings/
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import MISSING, Field
 
@@ -23,6 +23,7 @@ from ._base import AsyncApi, SyncApi
 class PowerConsumer(Model):
     """A part of the device whose power use can be limited."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"adjustable_power", "type"})
     power_consumer: str = Field(validation_alias="powerConsumer", serialization_alias="powerConsumer")
     """Name of the power consumer."""
     type: str | None = None

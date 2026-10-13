@@ -114,6 +114,7 @@ class SnmpV3(Model):
     """V3 snmp support"""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"supported_encryption"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"supported_encryption"})
     enabled: bool
     """Status of V3 snmp support"""
     supported_encryption: SupportedEncryptionTypeArray = Field(
@@ -132,6 +133,7 @@ class SnmpV3(Model):
 class Snmp(Model):
     """The whole API tree."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"ntcip_supported"})
     dscp: DscpType
     """The DSCP value used for QoS"""
     enabled: bool

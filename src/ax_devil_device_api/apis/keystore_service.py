@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/physical-access-control/keystore-service/
 
 from __future__ import annotations
 
-from typing import Any, overload
+from typing import Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -25,6 +25,8 @@ ReferenceToken = str
 class EncryptionKey(Model):
     """An encryption key as returned by the device."""
 
+    __masked__: ClassVar[frozenset[str]] = frozenset({"key"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"modification_time"})
     token: ReferenceToken
     """A service-unique identifier of the encryption key."""
     key: str | None = Field(default=None, validation_alias="Key", serialization_alias="Key", max_length=1024)

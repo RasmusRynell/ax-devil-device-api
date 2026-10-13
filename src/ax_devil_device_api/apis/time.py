@@ -34,6 +34,7 @@ class TimeSettings(Model):
     """Handle date and time configuration."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"local_date_time", "max_supported_year"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"local_date_time", "max_supported_year"})
     date_time: str = Field(validation_alias="dateTime", serialization_alias="dateTime")
     """The system date and time in UTC. The format is in ISO 8601. The date should be between Unix time (`UTC 1970-01-01T00:00:00`) and the last second of the year declared in `maxSupportedYear`."""
     local_date_time: str = Field(
@@ -50,6 +51,7 @@ class Dhcp(Model):
     """Handle DHCP time zone configuration."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"time_zone"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"time_zone"})
     enabled: bool
     """Flag which enables the device to use DHCP time zone from the network."""
     time_zone: str | None = Field(default=None, validation_alias="timeZone", serialization_alias="timeZone")
@@ -60,6 +62,7 @@ class Iana(Model):
     """Handle IANA time zone configuration."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"posix_time_zone", "time_zone"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"posix_time_zone"})
     posix_time_zone: str | None = Field(
         default=None, validation_alias="posixTimeZone", serialization_alias="posixTimeZone"
     )
@@ -82,6 +85,7 @@ class TimeZone(Model):
     """Handle all settings related to time zones."""
 
     __response_required__: ClassVar[frozenset[str]] = frozenset({"active_time_zone"})
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"active_time_zone"})
     active_time_zone: str = Field(
         default_factory=not_sent, validation_alias="activeTimeZone", serialization_alias="activeTimeZone"
     )

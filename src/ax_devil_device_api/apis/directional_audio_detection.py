@@ -7,7 +7,7 @@ Docs: https://developer.axis.com/vapix/device-configuration/directional-audio-de
 
 from __future__ import annotations
 
-from typing import Annotated, Any, overload
+from typing import Annotated, Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
@@ -85,6 +85,7 @@ class FisheyeOverlay(Model):
 class DefaultTiltCalibration(Model):
     """Default tilt value to use when Directional Audio Detection event doesn't contain tilt value"""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"value"})
     value: DefaultTilt | None = None
     """The default tilt value"""
 
@@ -92,6 +93,7 @@ class DefaultTiltCalibration(Model):
 class PanOffsetCalibration(Model):
     """Pan offset to PTZ camera"""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"manually_calibrated", "pre_calibrated", "value"})
     manually_calibrated: bool | None = Field(
         default=None, validation_alias="manuallyCalibrated", serialization_alias="manuallyCalibrated"
     )
@@ -107,6 +109,7 @@ class PanOffsetCalibration(Model):
 class Calibration(Model):
     """Calibration of ptz control"""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"default_tilt", "pan_offset"})
     default_tilt: DefaultTiltCalibration | None = Field(
         default=None, validation_alias="defaultTilt", serialization_alias="defaultTilt"
     )
@@ -118,6 +121,7 @@ class Calibration(Model):
 class PtzControl(Model):
     """Entity for ptz control"""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset({"calibration"})
     enabled: bool | None = None
     """Turn ptz control on or off"""
     use_visual_objects: bool | None = Field(
@@ -130,6 +134,9 @@ class PtzControl(Model):
 class DirectionalAudioDetection(Model):
     """The whole API tree."""
 
+    __read_only__: ClassVar[frozenset[str]] = frozenset(
+        {"adm_supported", "audio_events", "fisheye_overlay_supported", "ptz_control_supported"}
+    )
     audio_events: list[AudioEventData] | None = Field(
         default=None, validation_alias="audioEvents", serialization_alias="audioEvents"
     )
