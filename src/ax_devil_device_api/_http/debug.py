@@ -6,7 +6,7 @@ import json
 import re
 import ssl
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 from .config import RequestHook, Verify
 from .types import FormBody, JsonBody, MultipartBody, RawBody, Request
@@ -22,9 +22,15 @@ _SECRET_KEY_RE_EXTRA = re.compile(
 )
 _URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>]+")
 _extra_secret_names: set[str] = set()
+_SECRET_NAMES = r"(?:password|passwd|pwd|secret|token|api[-_]?key|access[-_]?key|private[-_]?key|authorization|credential|client[-_]?secret|cookie)"
 _SECRET_TEXT_RE = re.compile(
-    r"(?i)(\b(?:password|passwd|pwd|secret|token|api[-_]?key|access[-_]?key|private[-_]?key|authorization|credential|client[-_]?secret)\b\s*[:=]\s*)([^,\s}]+)|\b(Bearer)\s+([^,\s}]+)"
+    rf"""(?ix)
+    (\b{_SECRET_NAMES}\b["']?\s*[:=]\s*)
+    (?:"[^"]*"|'[^']*'|(?:(?:Basic|Bearer|Digest)\s+)?[^,\s}}&"']+)
+    |\b(Bearer|Basic)\s+([A-Za-z0-9._~+/=-]{{8,}})
+    """
 )
+_SECRET_XML_RE = re.compile(rf"(?is)(<(?:[\w.-]+:)?[\w.-]*{_SECRET_NAMES}[\w.-]*(?:\s[^>]*)?>)[^<]+(</)")
 
 
 def register_secret_names(names: Any) -> None:
@@ -43,14 +49,33 @@ def _is_secret_key(key: Any) -> bool:
     )
 
 
-def _redact_text(text: str) -> str:
+_MAX_URL_DEPTH = 4
+
+
+def _redact_text(text: str, depth: int = 0) -> str:
     """Redact credentials in URLs embedded in free text, then ``key=value`` secrets."""
-    text = _URL_RE.sub(lambda m: redact_url(m.group(0)), text)
-    return _SECRET_TEXT_RE.sub(lambda m: f"{m.group(1) or m.group(3)}{_REDACTED}", text)
+    text = _URL_RE.sub(lambda m: redact_url(m.group(0), depth), text)
+    text = _SECRET_TEXT_RE.sub(lambda m: f"{m.group(1) or m.group(2) + ' '}{_REDACTED}", text)
+    return _SECRET_XML_RE.sub(lambda m: f"{m.group(1)}{_REDACTED}{m.group(2)}", text)
 
 
-def redact_url(url: str) -> str:
-    """Redact credentials and secret query parameters from a URL."""
+def _redact_query_value(value: str, depth: int) -> str:
+    """Redact a decoded query value, also looking through extra layers of percent-encoding."""
+    redacted = _redact_text(value, depth)
+    if redacted != value:
+        return redacted
+    unquoted = unquote(value)
+    if unquoted != value and depth < _MAX_URL_DEPTH:
+        again = _redact_query_value(unquoted, depth + 1)
+        if again != unquoted:
+            return again
+    return value
+
+
+def redact_url(url: str, _depth: int = 0) -> str:
+    """Redact credentials, secret query parameters and URLs/secrets nested in query values."""
+    if _depth >= _MAX_URL_DEPTH:
+        return _REDACTED
     try:
         parts = urlsplit(url)
         hostname = parts.hostname or ""
@@ -65,10 +90,11 @@ def redact_url(url: str) -> str:
     if port is not None:
         netloc = f"{netloc}:{port}"
     query = [
-        (key, _REDACTED if _is_secret_key(key) else value)
+        (key, _REDACTED if _is_secret_key(key) else _redact_query_value(value, _depth + 1))
         for key, value in parse_qsl(parts.query, keep_blank_values=True)
     ]
-    return urlunsplit((parts.scheme, netloc, parts.path, urlencode(query), parts.fragment))
+    fragment = _redact_text(parts.fragment, _depth + 1)
+    return urlunsplit((parts.scheme, netloc, parts.path, urlencode(query), fragment))
 
 
 def serialize(value: Any, key: Any = None) -> Any:
@@ -82,7 +108,7 @@ def serialize(value: Any, key: Any = None) -> Any:
             decoded = json.loads(value)
         except (TypeError, ValueError):
             return _redact_text(value)
-        if isinstance(decoded, (dict, list)):
+        if isinstance(decoded, (dict, list, str)):
             return json.dumps(serialize(decoded, key))
         return value
     if isinstance(value, bytes):

@@ -11,7 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 from ax_devil_device_api import cli
-from ax_devil_device_api._http.debug import serialize
+from ax_devil_device_api._http.debug import redact_url, serialize
 from ax_devil_device_api.apis.axis_audio_manager_pro import HttpAudioSession
 from ax_devil_device_api.apis.remote_object_storage import (
     AddDestinationRequest,
@@ -58,6 +58,65 @@ def test_serialize_redacts_urls_in_plain_and_nested_strings() -> None:
     text = json.dumps(out)
     assert "pw" not in text and ":b@" not in text
     assert "proxy:3128" in text
+
+
+def _hook_text(**kwargs: Any) -> str:
+    camera = MockCamera()
+    camera.rest("POST", DESTINATIONS, status=201)
+    events: list[dict[str, Any]] = []
+    with camera.device(on_request=events.append) as dev:
+        dev.apis.remote_object_storage.add_destination(id="d1", **kwargs)
+    return json.dumps(events)
+
+
+def _s3() -> S3Destination:
+    return S3Destination(access_key_id="AKIA", secret_access_key="x", session_token="y")
+
+
+def test_json_string_literal_description_is_redacted() -> None:
+    text = _hook_text(description='"rtsp://root:SECRET@camera/x"', s3=_s3())
+    assert "SECRET" not in text
+
+
+def test_serialize_redacts_every_json_value_shape() -> None:
+    nested = json.dumps(json.dumps({"u": "rtsp://a:SECRET@h/x", "l": ['"password=SECRET"']}))
+    for raw in ('"rtsp://a:SECRET@h"', '["rtsp://a:SECRET@h"]', nested, '"password=SECRET"'):
+        assert "SECRET" not in json.dumps(serialize(raw)), raw
+    assert serialize("123") == "123"
+    assert serialize("1e5") == "1e5"
+
+
+def test_credentials_in_url_query_values_are_redacted() -> None:
+    urls = [
+        "https://gateway/?target=rtsp%3A%2F%2Froot%3ASECRET%40camera",
+        "https://gateway/?u=https%253A%252F%252Fa%253ASECRET%2540h",
+        "https://gateway/?x=password%3DSECRET",
+        "https://gateway/?x=1#t=rtsp://a:SECRET@h",
+    ]
+    for url in urls:
+        assert "SECRET" not in redact_url(url), url
+    assert "gateway" in redact_url(urls[0])
+
+
+def test_request_hook_redacts_query_embedded_credentials() -> None:
+    text = _hook_text(description="https://gateway/?target=rtsp%3A%2F%2Froot%3ASECRET%40camera", s3=_s3())
+    assert "SECRET" not in text
+
+
+def test_free_text_secret_shapes_are_redacted() -> None:
+    samples = [
+        "Authorization: Basic QUJDREVGR0g=SECRET",
+        "Cookie: sid=SECRET",
+        "<a:Password>SECRET</a:Password>",
+        "<pwd>SECRET</pwd>",
+        'password="SECRET WORD"',
+        "password = 'SECRET'",
+        "Basic U0VDUkVUU0VDUkVU",
+    ]
+    for sample in samples:
+        out = serialize(sample)
+        assert "SECRET" not in out and "WORD" not in out and "U0VDUkVU" not in out, sample
+    assert serialize("a=1&password=x&y=2") == "a=1&password=<redacted>&y=2"
 
 
 def test_validation_error_hides_input_values() -> None:
