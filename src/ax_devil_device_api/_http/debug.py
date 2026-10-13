@@ -117,7 +117,8 @@ def _scrub_pairs(text: str) -> str:
 
 
 def _scrub_plain(text: str) -> str:
-    return _scrub_userinfo(_scrub_pairs(text))
+    # Userinfo first: a password may contain ``=`` or ``&``, which the keyed-pair scan would split.
+    return _scrub_pairs(_scrub_userinfo(text))
 
 
 def _scrub_text(text: str) -> str:

@@ -102,6 +102,19 @@ def test_overlapping_and_odd_userinfo_is_redacted_through_the_hook() -> None:
         assert not any(w in text for w in ("FIRST", "SECOND", "SECRET")), desc
 
 
+def test_userinfo_is_redacted_before_keyed_pairs() -> None:
+    enc = quote("rtsp://root:ABC=DEF@camera", safe="")
+    for desc in (
+        "password=x rtsp://root:ABC=DEF@camera",
+        "a=1&password=x&u=rtsp://root:ABC=DEF@camera",
+        "rtsp://a:AAA=BBB&CCC@h password=x rtsp://b:DDD=EEE@h token=y rtsp://c:FFF@h",
+        f"password=x {enc}",
+        f"a=1&token=x&u={enc}",
+    ):
+        text = _hook_text(description=desc)
+        assert not any(w in text for w in ("ABC", "DEF", "AAA", "BBB", "CCC", "DDD", "EEE", "FFF")), desc
+
+
 def test_markup_does_not_split_an_assignment_from_its_value() -> None:
     for desc in ("password=<ABC123>", "password=ABC<foo>123", "x=1&token=<a href='SECRET'>"):
         text = _hook_text(description=desc)
@@ -226,6 +239,8 @@ def _carriers(tok: str) -> list[tuple[str, Request, str]]:
     add("param-prefixed", Request("POST", "/x", body=JsonBody({"tt:Name": "Token", "tt:Value": tok})))
     add("param-json", Request("POST", "/x", body=JsonBody({"params": [{"Name": "password", "Value": tok}]})))
     add("userinfo-overlap", Request("POST", "/x", body=JsonBody({"d": f"rtsp://a:{tok}@h,rtsp://b:{tok}@h"})))
+    add("userinfo-eq", Request("POST", "/x", body=JsonBody({"d": f"password=x rtsp://root:A={tok}&B@camera"})))
+    add("userinfo-eq-enc", Request("GET", "/x", query=(("d", _enc(f"a=1&token=x&u=rtsp://r:A={tok}@h", 1)),)))
     add("userinfo-quote", Request("POST", "/x", body=JsonBody({"d": f"rtsp://u:a'{tok}@h"})))
     add("kv-markup", Request("POST", "/x", body=JsonBody({"d": f"password=<{tok}>x<y>{tok}"})))
     add("userinfo-text", Request("POST", "/x", body=JsonBody({"d": f"see {url} now"})))
