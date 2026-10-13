@@ -3,8 +3,6 @@
 For every camera: point its MQTT client at the broker, publish the scene
 description data source to a per-camera topic, and activate the client.
 Each camera's outcome is classified, so one bad camera never stops the rollout.
-
-Status: runs today (mqtt-client and analytics-mqtt are built).
 """
 
 import asyncio

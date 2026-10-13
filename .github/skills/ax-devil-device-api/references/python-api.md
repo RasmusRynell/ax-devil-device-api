@@ -1,8 +1,8 @@
 # ax-devil-device-api Python API reference
 
-Everything here exists in `src/ax_devil_device_api/`. Anything not listed is not implemented yet (other VAPIX APIs, WebSocket sessions, CLI).
+Everything here exists in `src/ax_devil_device_api/`. The API modules in `apis/` are generated from `specs/apis/`; the list of all names and signatures is `docs/api_surface.txt`.
 
-Public exports from `ax_devil_device_api`: `Device`, `AsyncDevice`, `Credentials`, `BearerToken`, `RequestOptions`, `RetryPolicy`, `NO_RETRY`, `Capabilities`, `DeviceIdentity`, `Support`, `SupportResult`, `MISSING`. Errors live in `ax_devil_device_api.errors`; test helpers in `ax_devil_device_api.testing`; API modules in `ax_devil_device_api.apis.<name>`.
+Public exports from `ax_devil_device_api`: `Device`, `AsyncDevice`, `Credentials`, `BearerToken`, `RequestOptions`, `RetryPolicy`, `NO_RETRY`, `Heartbeat`, `Upload`, `Capabilities`, `DeviceIdentity`, `Support`, `SupportResult`, `StreamResult`, `AsyncStreamResult`, `Part`, `Session`, `AsyncSession`, `Gap`, `EventFilter`, `EventNotification`, `TopicSample`, `MediaStream`, `RtspUrl`, `SessionClosed`, `MISSING`. Errors live in `ax_devil_device_api.errors`; test helpers in `ax_devil_device_api.testing`; API modules in `ax_devil_device_api.apis.<name>`.
 
 ## Device and AsyncDevice
 
@@ -54,13 +54,11 @@ elif result.status is Support.UNKNOWN:
 
 ## Available APIs
 
-| Attribute | Module | Family | Operations |
-|---|---|---|---|
-| `dev.apis.mqtt_client` | `apis.mqtt_client` | JSON-RPC | `configure_client`, `activate_client`, `deactivate_client`, `get_client_status` |
-| `dev.apis.analytics_mqtt` | `apis.analytics_mqtt` | Device Configuration REST | `get_all`, `list_data_sources`, `get_data_source(key)`, `list_publishers`, `get_publisher(id)`, `add_publisher`, `remove_publisher(id)` |
-| `dev.apis.parameter_management` | `apis.parameter_management` | classic `param.cgi` | `list`, `list_definitions`, `update`, `add`, `remove` |
+`dev.apis.<name>` exists for each of the 208 generated APIs. Find them with `ax-devil apis` (name, API id, title, family, operation count) and their operations with `ax-devil ops <name>`, or read `docs/api_surface.txt`. Examples: `mqtt_client` (JSON-RPC), `analytics_mqtt` (Device Configuration), `parameter_management` (classic `param.cgi`: `list`, `list_definitions`, `update`, `add`, `remove`), `video_streaming` (JPEG and MJPEG), `media_stream`, `event_streaming_ws`, `application_api`.
 
-Each module also holds the models, `INFO` (static API description) and `OPS` (operation descriptors with `effect`, `access`, `write`). The class names are `MqttClientApi`/`AsyncMqttClientApi`, `AnalyticsMqttApi`/`AsyncAnalyticsMqttApi`, `ParameterManagementApi`/`AsyncParameterManagementApi`. Method docstrings state the access level, whether a write replaces the whole configuration, and the version requirements. Operation `support` is `docs-only` for all three: none has been verified on hardware.
+Each module also holds the models, `INFO` (static API description: id, family, major version, discovery entries, error table) and `OPS` (operation descriptors with `effect`, `access`, `write`, `support`). Class names are `<Name>Api` / `Async<Name>Api`. Method docstrings state the access level, whether a write replaces the whole configuration, and version requirements. Operation `support` is `docs-only` for every operation: none has been verified on hardware.
+
+Families: `jsonrpc`, `dca`, `cgi`, `service_json`, `soap`, `rest`, `ws` (sessions), `rtsp` (URLs). Streams are a reply mode of `cgi`. `service_json` is used instead of SOAP wherever both exist.
 
 ## Calling methods: keywords or a request object
 
@@ -161,6 +159,80 @@ assert camera.calls("getClientStatus")
 
 Registration: `identity(...)`, `api_list({id: version})`, `dca_apis({name: [versions]})`, `jsonrpc(path, method, data=..., error=(code, message), status=200, versions=None)` (`getSupportedVersions` is answered automatically), `rest(method, path, data=..., error=...)`, `cgi(path, text=..., match=..., content_type=..., status=..., method=...)`, `route(method, path, handler)` for a raw httpx handler, `fail(path, httpx_error_class, times=None)` to inject transport failures. A later registration for the same route overrides earlier ones; unmatched requests get 404. Paths are matched as the device sees them, so include `base_path` if you set one. Inspect `camera.requests` (`RecordedRequest`: `method`, `path`, `query`, `json`, `form`). `camera.device(host="camera.test", **kwargs)` defaults to credentials `("root", "pass")`. See `examples/09_testing_your_code.py`.
 
-## Not available yet
+## Streams
 
-Other VAPIX APIs (media, network, SSH, PTZ, events, ...), streaming downloads, WebSocket event sessions and the command-line interface are planned. The old 0.x `Client`, `DeviceConfig` and feature clients no longer exist.
+Stream operations return `StreamResult[T]` (`AsyncStreamResult[T]` on `AsyncDevice`). Use it as a context manager and iterate it; leaving the block, an exception or cancellation closes the connection. `.response` has the status and headers. Items: `bytes` chunks, `Part` (`headers`, `body`, `content_type`) for MJPEG, `str` lines for line streams. Streams count against `max_streams`.
+
+```python
+with dev.apis.media_stream.get_media_stream(container="mp4", request_options=RequestOptions(timeout=120)) as stream:
+    for chunk in stream: out.write(chunk)
+async with adev.apis.media_stream.get_media_stream(container="mp4") as stream:
+    async for chunk in stream: out.write(chunk)
+```
+
+## Sessions (WebSocket)
+
+`connect(...)` on a session API returns a `Session` (`AsyncSession`): `session.notifications()` yields parsed `EventNotification` / `TopicSample`, iteration yields raw messages, `send`, `receive(timeout)`, `request(method, params)`. `connect` takes `heartbeat=Heartbeat(interval=20, timeout=20)` (ping-based; `Heartbeat(None)` disables it), `use_token=False` (authenticate through `wssession.cgi`) and `request_options`. The device closing with code 1000/1001 ends iteration normally (`receive()` raises `SessionClosed`); anything else raises `TransportError`. Events are not replayed: `session.gap` is a `Gap(start, end)` after a reconnect (`None` for the first session). Reconnecting is the application's job (`examples/05_event_watch.py`).
+
+```python
+from ax_devil_device_api import EventFilter
+with dev.apis.event_streaming_ws.connect([EventFilter(topic_filter="tns1:Device/tnsaxis:IO/Port")]) as session:
+    for event in session.notifications(): print(event.topic, event.data)
+```
+
+## Uploads
+
+Upload arguments are `UploadSource`: `bytes`, `pathlib.Path` (a `str` is rejected) or `Upload(stream, size, filename=None, content_type=None)`. Content up to 8 MiB is buffered and replayable. Larger content is streamed; with password credentials and no verified credential yet, the runtime first sends an authenticated `GET /axis-cgi/usergroup.cgi`, and a failure raises `AuthError` before the body is sent.
+
+## RTSP URLs
+
+The library builds RTSP URLs; it has no RTSP client (no `DESCRIBE`/`SETUP`/`GET_PARAMETER`, no RTSP-over-HTTP).
+
+```python
+from ax_devil_device_api import MediaStream
+url = dev.rtsp_url(MediaStream(videocodec="h264", resolution="1280x720", fps=15), include_credentials=True)
+str(url)    # rtsp://root:pass@host:554/axis-media/media.amp?...
+url.safe    # same without credentials; repr(url) never shows the password
+```
+
+Generated RTSP methods (for example `stream_casing_events_url`) take `port=None, include_credentials=False` and return an `RtspUrl` without any request.
+
+## Capabilities and discovery
+
+`dev.capabilities()` runs classic API discovery, `/config/discover` and the `param.cgi` `Properties.API` group. APIs may also be recognised by an installed ACAP application (`applications/list.cgi`, administrator) or by a web-service namespace listed by the Entry service (`GetServices`, administrator); those probes run on demand and a failed probe gives `UNKNOWN`, never `NO`. Fields: `classic_apis`, `dca_apis`, `properties`, `applications`, `services`, `errors`, `observed_at`.
+
+## Features
+
+`ax_devil_device_api.features` (async twins have an `async_` prefix): `snapshot(dev, resolution=..., camera=..., compression=..., ...) -> bytes`, `device_summary(dev) -> DeviceSummary` (`.to_dict()`), `api_support(dev) -> dict[str, SupportResult]`, `supported_apis(dev) -> list[str]`, `load_all()` / `load_api(name)` (`ApiEntry`: name, `info`, `operations`, sync and async classes).
+
+## Command line
+
+```bash
+ax-devil apis                          # no device needed
+ax-devil ops mqtt_client               # no device needed
+export AX_DEVIL_HOST=192.0.2.10 AX_DEVIL_USER=root AX_DEVIL_PASSWORD=pass   # or CAM_USER / CAM_PASS
+ax-devil summary
+ax-devil supported
+ax-devil call mqtt_client get_client_status
+ax-devil call parameter_management list group='["Brand.ProdNbr"]'
+ax-devil call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4
+ax-devil snapshot --resolution 640x480 -o snapshot.jpg
+```
+
+Connection options: `--host/-H`, `--user/-u`, `--password/-p` (prefer the environment), `--port`, `--http`, `--insecure/-k`, `--ca-bundle`, `--base-path`, `--timeout`. `call` takes `key=value` (JSON, else string), `--json '{...}'` or `--json @file`, `--output/-o FILE` for binary results and streams, `--limit N` for streams. Output is JSON on stdout; errors are JSON on stderr, exit code 1 for device or OS errors and 2 for usage or invalid parameters.
+
+## Specs and code generation
+
+`specs/apis/<section>/<id>.yaml` (format: `docs/spec-format.md`, schema: `specs/schema.json`) is the source of the generated `apis/*.py` and `docs/api_surface.txt`.
+
+```bash
+uv run python -m codegen validate    # schema validation (after patches)
+uv run python -m codegen generate    # write apis/*.py, apis/__init__.py, docs/api_surface.txt  (--only ID, --all)
+uv run python -m codegen check       # fails when generated files are stale; CI runs it
+```
+
+Edit specs, never generated files. Device-verified corrections go into `specs/patches/<id>.yaml`. Contract tests (`tests/contract`) run every example in every spec through the generated code. New behaviour a binding cannot express needs a runtime or codegen change.
+
+## Not supported
+
+RTSP session commands and RTSP-over-HTTP, the Google JSON WebSocket codec, STOMP, binary audio formats and multipart audio decoding (operations needing them appear as `BLOCKED` notes in the specs), and live conformance results (no operation is `verified`). The old 0.x `Client`, `DeviceConfig` and feature clients no longer exist.

@@ -8,8 +8,6 @@
   metrics or tracing.
 - Plain HTTP must be enabled explicitly with ``allow_http=True``.
 - Errors carry structured fields, not just a message.
-
-Status: runs today.
 """
 
 import json

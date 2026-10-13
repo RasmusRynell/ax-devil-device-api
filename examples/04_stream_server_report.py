@@ -1,13 +1,15 @@
-"""Download server reports from many cameras straight to disk.
+"""Record a short video clip from many cameras straight to disk.
 
-Server reports can be tens of megabytes. Streaming operations return a
-managed stream instead of bytes: the body is written chunk by chunk and the
-connection is released when the ``with`` block ends, even on error or
-Ctrl-C. Streams use their own per-camera slots, so a long download never
-blocks ordinary calls to the same camera.
+Streaming operations return a managed stream instead of bytes: the body is
+written chunk by chunk and the connection is released when the ``with`` block
+ends, even on error or Ctrl-C. Streams use their own per-camera slots
+(``max_streams``), so a long recording never blocks ordinary calls to the same
+camera.
 
-Status: target. ``system_settings`` is not generated yet; the operation and
-its ``mode`` values come from specs/apis/network-video/system-settings.yaml.
+A clip is cut after ``CLIP_BYTES`` bytes (a real service would also watch the
+clock). Only complete clips get their final name.
+
+    python 04_stream_server_report.py 10.20.0.11 10.20.0.12
 """
 
 import os
@@ -17,31 +19,38 @@ from pathlib import Path
 from ax_devil_device_api import Device, RequestOptions
 from ax_devil_device_api.errors import DeviceError
 
-OUT = Path("reports")
+OUT = Path("clips")
 CREDENTIALS = (os.environ["CAM_USER"], os.environ["CAM_PASS"])
+CLIP_BYTES = 8 * 1024 * 1024
 SLOW = RequestOptions(timeout=120)  # only this call waits longer; the device default stays 10 s
 
 
-def fetch(dev: Device) -> Path:
-    target = OUT / f"{dev.config.host}.zip"
-    partial = target.with_suffix(".zip.part")
-    with dev.apis.system_settings.server_report(mode="zip_with_image", request_options=SLOW) as stream:
-        total = stream.response.headers.get("content-length")
+def record(dev: Device) -> Path:
+    target = OUT / f"{dev.config.host}.mp4"
+    partial = target.with_suffix(".mp4.part")
+    with dev.apis.media_stream.get_media_stream(container="mp4", videocodec="h264", request_options=SLOW) as stream:
+        print(f"{dev.config.host}: {stream.response.media_type}")
+        written = 0
         with partial.open("wb") as f:
-            for chunk in stream:
+            for chunk in stream:  # leaving the loop early closes the connection
                 f.write(chunk)
-                if total:
-                    print(f"\r{dev.config.host}: {f.tell() * 100 // int(total)}%", end="")
-    partial.rename(target)  # only complete downloads get the final name
+                written += len(chunk)
+                if written >= CLIP_BYTES:
+                    break
+    partial.rename(target)  # only complete clips get the final name
     return target
 
 
-if __name__ == "__main__":
+def main(hosts: list[str]) -> None:
     OUT.mkdir(exist_ok=True)
-    for host in sys.argv[1:]:
+    for host in hosts:
         with Device(host, credentials=CREDENTIALS) as dev:
             try:
-                path = fetch(dev)
-                print(f"\r{host}: {path} ({path.stat().st_size // 1024} KiB)")
+                path = record(dev)
+                print(f"{host}: {path} ({path.stat().st_size // 1024} KiB)")
             except DeviceError as e:  # every library error derives from DeviceError
-                print(f"\r{host}: failed: {e}")
+                print(f"{host}: failed: {e}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

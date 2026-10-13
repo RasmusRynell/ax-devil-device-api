@@ -5,8 +5,8 @@ The client negotiates the API version once per camera; if ``min`` is set and
 the camera only speaks 1.0 or 1.1, the call fails with ``NotSupported``
 *before anything is sent*, so the code can fall back cleanly.
 
-Status: target. ``thermometry`` is not generated yet; names and fields come
-from specs/apis/network-video/thermometry.yaml. ``supports()`` runs today.
+``supports()`` tells whether the camera lists the API at all; the version
+check happens inside the call.
 """
 
 import os

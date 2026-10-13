@@ -11,8 +11,6 @@ are handled here:
 - ``configure_client`` replaces the whole configuration (fields left out go
   back to defaults), so changes start from the full current configuration.
 
-Status: runs today.
-
     python 08_clone_configuration.py 10.20.0.10 10.20.0.11 10.20.0.12
 """
 

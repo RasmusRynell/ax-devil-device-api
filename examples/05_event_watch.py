@@ -9,9 +9,9 @@ event API) is reported and left alone, without affecting the others.
 Events that happen while a session is down are lost; the session reports
 the gap so the application can resynchronize (e.g. re-read port states).
 
-Status: target. WebSocket sessions and ``event_streaming_ws`` are not built yet;
-the message names and filter fields come from
-specs/apis/network-video/event-streaming-over-websocket.yaml.
+Sessions come from the generated ``event_streaming_ws`` API. Liveness is a
+WebSocket ping (``Heartbeat``); the session ends with a ``TransportError`` when
+the camera stops answering.
 """
 
 import asyncio

@@ -14,8 +14,6 @@ trip. It copes with the camera's lifecycle by itself:
 
 What stays the application's job: how often to poll, how long to back off,
 and replacing the Device when the camera's address or password changes.
-
-Status: runs today.
 """
 
 import asyncio

@@ -3,8 +3,6 @@
 ``MockCamera`` answers the routes you register, records every request, and
 plugs into ``Device``/``AsyncDevice`` in place of the network. Run with
 ``pytest 09_testing_your_code.py``.
-
-Status: runs today.
 """
 
 import httpx

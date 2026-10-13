@@ -3,8 +3,6 @@
 Reads the parameter groups the baseline cares about, prints every value that
 differs, and (with --apply) writes only the drifted parameters back.
 
-Status: runs today (parameter-management is built).
-
     python 02_parameter_drift.py 10.20.0.17 baseline.json [--apply]
 """
 
