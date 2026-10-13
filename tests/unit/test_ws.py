@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import UTC
 from typing import Any
@@ -10,7 +11,7 @@ import pytest
 from ws_fake import FakeSocket, FakeWsCamera, events_handler, notify
 
 from ax_devil_device_api import AsyncDevice, Device, errors
-from ax_devil_device_api._http.options import Heartbeat
+from ax_devil_device_api._http.options import Heartbeat, RequestOptions
 from ax_devil_device_api._runtime import ws
 from ax_devil_device_api._runtime.ws import DATA_HUB, EVENTS, Gap, SessionLedger
 from ax_devil_device_api._runtime.ws_codecs import (
@@ -19,6 +20,8 @@ from ax_devil_device_api._runtime.ws_codecs import (
     EventNotification,
     EventsCodec,
     TopicSample,
+    WsError,
+    api_error,
 )
 
 FILTERS = [
@@ -404,3 +407,80 @@ async def test_async_send_failure_is_a_library_error_and_fails_the_session() -> 
             with pytest.raises(errors.ConnectionFailed):
                 await session.send("x")
             assert session._core.failed
+
+
+# -- review threads 32-38 ---------------------------------------------------
+
+
+@pytest.mark.parametrize("value", [".", ".."])
+def test_bind_rejects_dot_segments(value: str) -> None:
+    spec = ws.SessionSpec("audio", "/api/v1.2/audioSessions/{id}/ws/recv")
+    with pytest.raises(ValueError):
+        spec.bind({"id": value})
+    assert spec.bind({"id": "a.b"}).path.endswith("/a.b/ws/recv")
+    assert spec.bind({"id": "a/b"}).path.endswith("/a%2Fb/ws/recv")
+
+
+def test_fragmented_messages_are_reassembled() -> None:
+    camera = FakeWsCamera(handler=events_handler)
+    with device(camera) as dev, dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+        text = json.dumps(notify(state="1"))
+        camera.sockets[0].push_fragments(text[:20], text[20:50], text[50:])
+        assert session.receive(timeout=2)["method"] == "events:notify"
+    camera = FakeWsCamera()
+    with device(camera) as dev, dev.connect_session(ws.SessionSpec("audio", "/audio"), heartbeat=QUICK) as session:
+        camera.sockets[0].push_fragments(b"\x00\x01", b"\x02", b"\x03\x04")
+        assert session.receive(timeout=2) == b"\x00\x01\x02\x03\x04"
+
+
+@pytest.mark.anyio
+async def test_async_fragmented_messages_are_reassembled() -> None:
+    camera = FakeWsCamera(handler=events_handler)
+    async with adevice(camera) as dev, dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+        text = json.dumps(notify(state="1"))
+        camera.sockets[0].push_fragments(text[:30], text[30:])
+        assert (await session.receive(timeout=2))["method"] == "events:notify"
+
+
+def test_token_handshake_sends_no_authorization() -> None:
+    camera = FakeWsCamera(handler=events_handler, token_digest=True)
+    with device(camera) as dev, dev.connect_session(EVENTS, heartbeat=QUICK, use_token=True):
+        pass
+    assert camera.requests[-1].headers.get("upgrade") == "websocket"
+    assert camera.authorization[0] is None and camera.authorization[1] is not None  # the token request authenticated
+    assert camera.authorization[-1] is None
+
+
+def test_request_timeout_override_applies_to_setup() -> None:
+    camera = FakeWsCamera()  # never answers events:configure
+    with device(camera) as dev:
+        started = time.monotonic()
+        with pytest.raises(errors.ReadTimeout):
+            with dev.connect_session(EVENTS, heartbeat=QUICK, event_filter_list=FILTERS, request_options=RequestOptions(timeout=0.2)):
+                pass
+        assert time.monotonic() - started < 5
+
+
+def test_failed_setup_does_not_touch_the_gap_ledger() -> None:
+    camera = FakeWsCamera(handler=events_handler)
+    with device(camera) as dev:
+        with dev.connect_session(EVENTS, heartbeat=QUICK):
+            pass
+        track = dev._ledger._tracks[EVENTS.key]  # noqa: SLF001
+        before = track.last_seen
+        time.sleep(0.02)
+        camera.handler = None
+        with pytest.raises(errors.ReadTimeout):
+            with dev.connect_session(EVENTS, heartbeat=QUICK, event_filter_list=FILTERS, request_options=RequestOptions(timeout=0.1)):
+                pass
+        assert track.last_seen == before and track.active == 0
+        camera.handler = events_handler
+        with dev.connect_session(EVENTS, heartbeat=QUICK) as again:
+            assert again.gap is not None and abs(again.gap.start.timestamp() - before) < 1e-3
+
+
+def test_event_session_authorization_codes_are_access_denied() -> None:
+    codec = EventsCodec()
+    for code in (2105, 2106):
+        error = api_error(codec, "events:configure", WsError(code, "denied"))
+        assert isinstance(error, errors.AccessDenied) and error.kind == "access_denied"

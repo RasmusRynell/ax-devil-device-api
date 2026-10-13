@@ -61,6 +61,12 @@ class FakeSocket:
     def push_bytes(self, data: bytes) -> None:
         self._emit(self.conn.send(wsproto.events.BytesMessage(data)))
 
+    def push_fragments(self, *parts: str | bytes) -> None:
+        """One message split over several frames (text or binary)."""
+        event = wsproto.events.TextMessage if isinstance(parts[0], str) else wsproto.events.BytesMessage
+        for index, part in enumerate(parts):
+            self._emit(self.conn.send(event(part, message_finished=index == len(parts) - 1)))  # pyright: ignore[reportArgumentType]
+
     def close(self, code: int = 1000, reason: str = "") -> None:
         self._emit(self.conn.send(wsproto.events.CloseConnection(code, reason)))
 
@@ -119,9 +125,10 @@ DIGEST = 'Digest realm="AXIS_TEST", nonce="abc123", qop="auth", algorithm=MD5'
 class FakeWsCamera:
     """Answers WebSocket handshakes and records every HTTP request it sees."""
 
-    def __init__(self, *, handler: Handler | None = None, digest: bool = False, refuse: int | None = None) -> None:
+    def __init__(self, *, handler: Handler | None = None, digest: bool = False, token_digest: bool = False, refuse: int | None = None) -> None:
         self.handler = handler
         self.digest = digest
+        self.token_digest = token_digest
         self.refuse = refuse
         self.requests: list[httpx.Request] = []
         self.authorization: list[str | None] = []
@@ -135,6 +142,8 @@ class FakeWsCamera:
         self.requests.append(request)
         self.authorization.append(request.headers.get("authorization"))
         if request.url.path == "/axis-cgi/wssession.cgi":
+            if self.token_digest and "authorization" not in request.headers:
+                return httpx.Response(401, headers={"WWW-Authenticate": DIGEST}, text="unauthorized")
             return httpx.Response(200, text=self.token + "\n")
         if self.digest and "authorization" not in request.headers:
             return httpx.Response(401, headers={"WWW-Authenticate": DIGEST}, text="unauthorized")

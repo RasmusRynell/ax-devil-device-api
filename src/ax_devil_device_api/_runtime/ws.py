@@ -45,7 +45,7 @@ import wsproto.events
 import wsproto.utilities
 
 from .._http.options import DEFAULT_HEARTBEAT, Heartbeat
-from .._http.transport import AsyncTransport, SyncTransport, UpgradeRefused
+from .._http.transport import MAX_WS_MESSAGE_BYTES, AsyncTransport, SyncTransport, UpgradeRefused
 from .._http.types import Request, Response
 from .._protocols.base import CallFlow
 from ..errors import (
@@ -101,6 +101,9 @@ class SessionSpec:
 
     def bind(self, values: Mapping[str, Any]) -> SessionSpec:
         """A copy with the ``{name}`` placeholders of ``path`` filled in (percent-encoded, one path segment each)."""
+        for name, value in values.items():
+            if str(value) in (".", ".."):
+                raise ValueError(f"{self.api_id}: path parameter {name!r} must not be {str(value)!r} (dot segments change the endpoint)")
         try:
             path = self.path.format(**{name: quote(str(value), safe="") for name, value in values.items()})
         except KeyError as missing:
@@ -190,12 +193,21 @@ class _Core:
         self.ledger = ledger
         self.response = response
         self.default_timeout = default_timeout
-        self.gap: Gap | None = ledger.begin(spec.key)
+        self.gap: Gap | None = None
+        self._begun = False
+        self._parts: list[Any] = []
+        self._parts_size = 0
         self.pending: deque[Any] = deque()
         self.closed: SessionClosed | None = None
         self.failed = False
         self._counter = 0
         self._ended = False
+
+    def begin(self) -> None:
+        """Enter the gap ledger. Called once setup has succeeded, so a failed attempt leaves no trace."""
+        if not self._begun and not self._ended:
+            self._begun = True
+            self.gap = self.ledger.begin(self.spec.key)
 
     def next_id(self) -> str:
         self._counter += 1
@@ -203,18 +215,29 @@ class _Core:
 
     def decode(self, event: wsproto.events.Event) -> Any:
         """Turn a wsproto message into a Python value; ``None`` for non-message events."""
-        self.ledger.touch(self.spec.key)
-        if isinstance(event, wsproto.events.BytesMessage):
-            return bytes(event.data)
-        if isinstance(event, wsproto.events.TextMessage):
-            text = event.data
-            if self.spec.codec is None:
-                return text
-            try:
-                return json.loads(text)
-            except ValueError as error:
-                raise ResponseFormatError(self.spec.api_id, "receive", f"invalid JSON message: {error}") from error
-        return None
+        if not isinstance(event, (wsproto.events.BytesMessage, wsproto.events.TextMessage)):
+            return None
+        if self._begun:
+            self.ledger.touch(self.spec.key)
+        is_text = isinstance(event, wsproto.events.TextMessage)
+        self._parts.append(event.data if is_text else bytes(event.data))
+        self._parts_size += len(event.data)
+        if self._parts_size > MAX_WS_MESSAGE_BYTES:
+            self._parts.clear()
+            self._parts_size = 0
+            raise self._fail(ConnectionFailed(f"{self.spec.api_id}: fragmented message exceeds {MAX_WS_MESSAGE_BYTES} bytes"))
+        if not event.message_finished:
+            return None
+        parts, self._parts, self._parts_size = self._parts, [], 0
+        if not is_text:
+            return b"".join(parts)
+        text = "".join(parts)
+        if self.spec.codec is None:
+            return text
+        try:
+            return json.loads(text)
+        except ValueError as error:
+            raise ResponseFormatError(self.spec.api_id, "receive", f"invalid JSON message: {error}") from error
 
     def encode(self, message: Any) -> str | bytes:
         if isinstance(message, (bytes, bytearray)):
@@ -265,6 +288,8 @@ class _Core:
         if self._ended:
             return
         self._ended = True
+        if not self._begun:
+            return
         graceful = not self.failed and (user_exit_error is None or not isinstance(user_exit_error, TransportError))
         self.ledger.end(self.spec.key, graceful=graceful)
 
@@ -419,7 +444,7 @@ def connect_session(
     query = spec.query
     if use_token:
         query = (("wssession", run_sync(transport, _token_flow(spec), call)),) + query
-    request = call.prepare(Request("GET", spec.path, query=query))
+    request = call.prepare(Request("GET", spec.path, query=query, auth="anonymous" if use_token else "required"))
     attempt = 1
     stack = ExitStack()
     while True:
@@ -438,7 +463,7 @@ def connect_session(
             continue
         call.observe(request, response, None, started, attempt)
         break
-    core = _Core(spec, ledger, response, transport.config.timeout)
+    core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
     session = Session(raw, core)
     error: BaseException | None = None
     try:
@@ -446,6 +471,7 @@ def connect_session(
             try:
                 for method, params in setup:
                     session.request(method, params)
+                core.begin()
                 yield session
             except BaseException as exc:  # noqa: BLE001 - recorded, re-raised
                 error = exc
@@ -568,7 +594,7 @@ async def connect_session_async(
     query = spec.query
     if use_token:
         query = (("wssession", await run_async(transport, _token_flow(spec), call)),) + query
-    request = call.prepare(Request("GET", spec.path, query=query))
+    request = call.prepare(Request("GET", spec.path, query=query, auth="anonymous" if use_token else "required"))
     attempt = 1
     stack = AsyncExitStack()
     while True:
@@ -587,7 +613,7 @@ async def connect_session_async(
             continue
         call.observe(request, response, None, started, attempt)
         break
-    core = _Core(spec, ledger, response, transport.config.timeout)
+    core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
     session = AsyncSession(raw, core)
     error: BaseException | None = None
     try:
@@ -595,6 +621,7 @@ async def connect_session_async(
             try:
                 for method, params in setup:
                     await session.request(method, params)
+                core.begin()
                 yield session
             except BaseException as exc:  # noqa: BLE001 - recorded, re-raised
                 error = exc

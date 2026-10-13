@@ -103,6 +103,19 @@ class EventNotification:
     raw: Mapping[str, Any] = field(default_factory=dict, repr=False)
 
 
+_EVENTS_KINDS: dict[int | str, ErrorKind] = {
+    1100: "internal",
+    2100: "unsupported",
+    2101: "invalid_argument",
+    2102: "unsupported",
+    2103: "invalid_argument",
+    2104: "invalid_argument",
+    2105: "access_denied",
+    2106: "access_denied",
+    2107: "invalid_argument",
+}
+
+
 class EventsCodec:
     """JSON-RPC style messages of the event stream: ``context`` correlates, ``events:notify`` delivers."""
 
@@ -140,7 +153,7 @@ class EventsCodec:
         return Notification(EventNotification(topic, stamp, _mapping(body.get("source")), _mapping(body.get("key")), _mapping(body.get("data")), raw))
 
     def error_kind(self, code: int | str | None) -> ErrorKind | None:
-        return None
+        return None if code is None else _EVENTS_KINDS.get(code)
 
 
 def _ctx(message: Mapping[str, Any]) -> str | None:
