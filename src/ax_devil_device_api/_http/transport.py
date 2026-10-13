@@ -24,7 +24,7 @@ from .auth import AxisAuth
 from .config import ConnectionConfig
 from .multipart import encode_multipart
 from .options import Heartbeat
-from .types import FormBody, Headers, JsonBody, MultipartBody, RawBody, Request, Response
+from .types import DeferredContent, FormBody, Headers, JsonBody, MultipartBody, RawBody, Request, Response, has_deferred
 
 USER_AGENT = "ax-devil-device-api/1.0"
 
@@ -260,6 +260,8 @@ def _build(
     Lazy body iterators (which may own open files) are appended to ``opened`` so the
     caller can close them once the send is over, however it ended.
     """
+    if has_deferred(request):
+        raise TypeError("upload content is still deferred; the driver reads it (resolve_deferred) before sending")
     track = opened if opened is not None else []
     headers: list[tuple[str, str]] = []
     if request.accept is not None:
@@ -274,6 +276,7 @@ def _build(
         headers.append(("Content-Type", "application/x-www-form-urlencoded"))
     elif isinstance(body, RawBody):
         content = body.content
+        assert not isinstance(content, DeferredContent)  # has_deferred() above
         if not isinstance(content, (bytes, AsyncIterable)):
             content = _aiter(iter(content)) if isinstance(client, httpx.AsyncClient) else _closing(iter(content))
         if not isinstance(content, bytes):

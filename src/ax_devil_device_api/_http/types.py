@@ -6,9 +6,11 @@ values and parse ``Response`` values without doing I/O.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterable, Iterable, Mapping
-from dataclasses import dataclass, field
+from collections.abc import AsyncIterable, Callable, Iterable, Mapping
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
+
+from ..errors import ResponseFormatError
 
 AuthPolicy = Literal["required", "anonymous", "if_challenged"]
 """How a request authenticates.
@@ -19,6 +21,24 @@ AuthPolicy = Literal["required", "anonymous", "if_challenged"]
 - ``if_challenged``: like ``required`` but never sends a pre-emptive credential,
   so devices that allow anonymous access are used anonymously.
 """
+
+
+class DeferredContent:
+    """Upload content whose reading is postponed until the driver sends the request.
+
+    The flows are sans-IO, so they cannot read files or streams themselves. They hand over this
+    marker instead; the driver calls ``resolve_deferred`` (in a worker thread for async calls, so
+    no blocking read runs on the event loop) before the request reaches the transport.
+    ``load`` returns ``(content, size)``: ``bytes`` (replayable) or a chunk iterable (one-shot).
+    """
+
+    __slots__ = ("_load",)
+
+    def __init__(self, load: Callable[[], tuple[bytes | Iterable[bytes], int]]) -> None:
+        self._load = load
+
+    def resolve(self) -> tuple[bytes | Iterable[bytes], int]:
+        return self._load()
 
 
 @dataclass(frozen=True)
@@ -51,7 +71,7 @@ class RawBody:
     authentication challenge.
     """
 
-    content: bytes | Iterable[bytes] | AsyncIterable[bytes]
+    content: bytes | Iterable[bytes] | AsyncIterable[bytes] | DeferredContent
     content_type: str
     size: int | None = None
     """Byte count of a streamed ``content``; with it the request gets a ``Content-Length`` header."""
@@ -75,7 +95,7 @@ class FilePart:
 
     name: str
     filename: str | None
-    content: bytes | Iterable[bytes]
+    content: bytes | Iterable[bytes] | DeferredContent
     content_type: str = "application/octet-stream"
     size: int | None = None
 
@@ -133,6 +153,33 @@ class Request:
     @property
     def replayable(self) -> bool:
         return self.body is None or self.body.replayable
+
+
+def has_deferred(request: Request) -> bool:
+    """Whether ``request`` still carries upload content that has to be read (see ``DeferredContent``)."""
+    body = request.body
+    if isinstance(body, RawBody):
+        return isinstance(body.content, DeferredContent)
+    if isinstance(body, MultipartBody):
+        return any(isinstance(part.content, DeferredContent) for part in body.files)
+    return False
+
+
+def resolve_deferred(request: Request) -> Request:
+    """``request`` with every ``DeferredContent`` read. Blocking: async callers run it in a thread."""
+    body = request.body
+    if isinstance(body, RawBody) and isinstance(body.content, DeferredContent):
+        content, size = body.content.resolve()
+        return replace(request, body=replace(body, content=content, size=size))
+    if isinstance(body, MultipartBody) and any(isinstance(part.content, DeferredContent) for part in body.files):
+        files = []
+        for part in body.files:
+            if isinstance(part.content, DeferredContent):
+                content, size = part.content.resolve()
+                part = replace(part, content=content, size=size)
+            files.append(part)
+        return replace(request, body=replace(body, files=tuple(files)))
+    return request
 
 
 class Headers(Mapping[str, str]):
@@ -198,10 +245,21 @@ class Response:
             key, _, value = part.strip().partition("=")
             if key.lower() == "charset" and value:
                 charset = value.strip('"')
-        return self.content.decode(charset, errors="replace")
+        try:
+            return self.content.decode(charset, errors="replace")
+        except (LookupError, UnicodeError):
+            # An unknown (or non-text) charset label is a malformed response, not a programming error.
+            raise ResponseFormatError(
+                "http", f"{self.request.method} {self.request.path}", f"unsupported response charset {charset!r}"
+            ) from None
 
     def excerpt(self, limit: int = 200) -> str:
-        text = self.text.strip()
+        """The start of the body for error messages; never raises (an unusable charset falls back to UTF-8)."""
+        try:
+            text = self.text
+        except ResponseFormatError:
+            text = self.content.decode("utf-8", errors="replace")
+        text = text.strip()
         return text if len(text) <= limit else text[:limit] + "…"
 
 

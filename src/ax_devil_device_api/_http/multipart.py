@@ -11,7 +11,7 @@ import secrets
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from .types import FilePart, MultipartBody
+from .types import DeferredContent, FilePart, MultipartBody
 
 
 @dataclass(frozen=True)
@@ -89,6 +89,7 @@ def encode_multipart(body: MultipartBody) -> EncodedMultipart:
             if isinstance(part.content, bytes):
                 yield part.content
             else:
+                assert not isinstance(part.content, DeferredContent)  # the driver resolves it before sending
                 iterator = iter(part.content)
                 try:
                     yield from iterator

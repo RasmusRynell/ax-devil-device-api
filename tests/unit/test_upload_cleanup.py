@@ -12,7 +12,7 @@ from ax_devil_device_api import errors
 from ax_devil_device_api._http import upload
 from ax_devil_device_api._http.config import ConnectionConfig
 from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
-from ax_devil_device_api._http.types import MultipartBody, RawBody, Request
+from ax_devil_device_api._http.types import MultipartBody, RawBody, Request, resolve_deferred
 
 
 def _open_fds() -> int:
@@ -22,8 +22,10 @@ def _open_fds() -> int:
 def _request(path: str, kind: str) -> Request:
     part = upload.file_part("file", __import__("pathlib").Path(path))
     if kind == "raw":
-        return Request("POST", "/up", body=RawBody(part.content, "application/octet-stream", size=part.size))
-    return Request("POST", "/up", body=MultipartBody(files=(part,)))
+        request = Request("POST", "/up", body=RawBody(part.content, "application/octet-stream", size=part.size))
+    else:
+        request = Request("POST", "/up", body=MultipartBody(files=(part,)))
+    return resolve_deferred(request)  # what the driver does before the transport sees it
 
 
 @pytest.fixture

@@ -19,7 +19,15 @@ _SECRET_KEY_RE = re.compile(
     r"|secret[-_]?access)",
     re.IGNORECASE,
 )
-_SECRET_EXACT = {"sas", "sig", "psk", "signature", "sastoken", "sas_token", "wssession"}
+_SECRET_EXACT = {
+    "sas", "sig", "psk", "signature", "sastoken", "sas_token", "wssession",
+    "pin", "puk", "oldpin", "newpin", "confirmpin", "simpin", "pincode", "oldpuk", "newpuk", "simpuk", "pukcode",
+    "passphrase", "passcode", "community", "apikey", "otp",
+}
+# Short or common words that only count as a whole name segment (``sim_pin``, ``SimPIN``, ``pin-code``), never
+# as a substring: ``spinning`` and ``community_center_id`` must not match.
+_SECRET_SEGMENTS = frozenset({"pin", "puk", "psk", "community", "passphrase", "passcode", "otp"})
+_SEGMENT_SPLIT_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
 # Headers whose whole value is dropped by name (no content parsing). Any name matching the secret set is dropped too.
 _SENSITIVE_HEADERS = frozenset({"authorization", "proxy-authorization", "cookie", "set-cookie"})
 _extra_secret_names: set[str] = set()
@@ -40,7 +48,9 @@ def _is_secret_key(key: Any) -> bool:
     """Return whether a mapping key, header, element or attribute name identifies a secret."""
     text = str(key)
     lowered = text.lower()
-    return bool(_SECRET_KEY_RE.search(text) or lowered in _SECRET_EXACT or lowered in _extra_secret_names)
+    if _SECRET_KEY_RE.search(text) or lowered in _SECRET_EXACT or lowered in _extra_secret_names:
+        return True
+    return any(segment.lower() in _SECRET_SEGMENTS for segment in _SEGMENT_SPLIT_RE.findall(text))
 
 
 def is_secret_name(name: str) -> bool:
@@ -49,10 +59,10 @@ def is_secret_name(name: str) -> bool:
 
 
 def _text_has_secret_name(text: str) -> bool:
-    """Whether free text names a secret (substring match, or an exact/registered whole token)."""
+    """Whether free text names a secret (substring match, or a whole token that names a secret)."""
     if _SECRET_KEY_RE.search(text):
         return True
-    return any(t.lower() in _SECRET_EXACT or t.lower() in _extra_secret_names for t in _TOKEN_RE.findall(text))
+    return any(_is_secret_key(token) for token in _TOKEN_RE.findall(text))
 
 
 def _scrub_userinfo(text: str) -> str:

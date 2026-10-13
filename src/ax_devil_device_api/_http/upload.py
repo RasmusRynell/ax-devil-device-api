@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 
 from pydantic import PlainValidator
 
-from .types import FilePart
+from .types import DeferredContent, FilePart
 
 CHUNK_SIZE = 64 * 1024
 INLINE_LIMIT = 8 * 1024 * 1024
@@ -108,26 +108,56 @@ def _read_exactly(stream: BinaryIO, size: int) -> Iterator[bytes]:
 
 
 def resolve_upload(value: UploadSource, *, filename: str | None, content_type: str | None) -> tuple[bytes | _PathChunks | _StreamChunks, int, str | None, str | None]:
-    """``(content, size, filename, content_type)`` of an upload argument; given names win over the defaults."""
+    """``(content, size, filename, content_type)`` of an upload argument; given names win over the defaults.
+
+    Blocking: it stats and reads files and streams. Flows use ``deferred_upload`` instead.
+    """
+    name, ctype = _names(value, filename, content_type)
+    content, size = _load(value)
+    return content, size, name, ctype
+
+
+def _names(value: UploadSource, filename: str | None, content_type: str | None) -> tuple[str | None, str | None]:
+    """File name and content type of an upload argument (no I/O)."""
     if isinstance(value, bytes):
-        return value, len(value), filename, content_type
+        return filename, content_type
     if isinstance(value, Upload):
-        name, ctype = value.filename or filename, value.content_type or content_type
+        return value.filename or filename, value.content_type or content_type
+    return os.path.basename(os.fspath(value)) or filename, content_type
+
+
+def _load(value: UploadSource) -> tuple[bytes | _PathChunks | _StreamChunks, int]:
+    if isinstance(value, bytes):
+        return value, len(value)
+    if isinstance(value, Upload):
         if value.size <= INLINE_LIMIT:
-            return b"".join(_read_exactly(value.stream, value.size)), value.size, name, ctype
-        return _StreamChunks(value.stream, value.size), value.size, name, ctype
+            return b"".join(_read_exactly(value.stream, value.size)), value.size
+        return _StreamChunks(value.stream, value.size), value.size
     path = os.fspath(value)
     size = os.stat(path).st_size
-    name = os.path.basename(path) or filename
     if size <= INLINE_LIMIT:
         with open(path, "rb") as handle:
-            return b"".join(_read_exactly(handle, size)), size, name, content_type
-    return _PathChunks(value, size), size, name, content_type
+            return b"".join(_read_exactly(handle, size)), size
+    return _PathChunks(value, size), size
+
+
+def deferred_upload(
+    value: UploadSource, *, filename: str | None, content_type: str | None,
+) -> tuple[bytes | DeferredContent, str | None, str | None]:
+    """``(content, filename, content_type)`` without touching the file or stream.
+
+    ``bytes`` are returned as they are. Anything else becomes a ``DeferredContent`` that the driver
+    reads just before sending (off the event loop for async calls), so building a request never blocks.
+    """
+    name, ctype = _names(value, filename, content_type)
+    if isinstance(value, bytes):
+        return value, name, ctype
+    return DeferredContent(lambda: _load(value)), name, ctype
 
 
 def file_part(
     part: str, value: UploadSource, *, filename: str | None = None, content_type: str | None = None,
 ) -> FilePart:
-    """A multipart file part for an upload argument (always with its size)."""
-    content, size, name, ctype = resolve_upload(value, filename=filename, content_type=content_type)
-    return FilePart(part, name or part, content, ctype or "application/octet-stream", size=size)
+    """A multipart file part for an upload argument; its content is read when the request is sent."""
+    content, name, ctype = deferred_upload(value, filename=filename, content_type=content_type)
+    return FilePart(part, name or part, content, ctype or "application/octet-stream", size=len(content) if isinstance(content, bytes) else None)

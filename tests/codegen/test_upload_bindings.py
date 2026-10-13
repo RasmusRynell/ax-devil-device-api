@@ -176,7 +176,9 @@ def test_large_uploads_are_streamed_and_small_ones_replayable(tmp_path: Path, mo
 
     for limit in (10, 10_000):
         monkeypatch.setattr(upload, "INLINE_LIMIT", limit)
-        request = _build(op, module.UploadDriverRequest(driver=path), {})
+        from ax_devil_device_api._http.types import resolve_deferred
+
+        request = resolve_deferred(_build(op, module.UploadDriverRequest(driver=path), {}))
         seen.append(request.replayable)
         if limit == 10:
             assert b"".join(request.body.content) == b"x" * 1000 and request.body.size == 1000  # type: ignore[union-attr]
