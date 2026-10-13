@@ -226,7 +226,7 @@ class _Core:
         self._counter = 0
         self._ended = False
         self._reader_over: Callable[[], bool] | None = None
-        self.remote_close: tuple[int, float] | None = None
+        self._raw: Any = None
         self.closing = False
 
     def begin(self) -> None:
@@ -237,20 +237,14 @@ class _Core:
             self.ledger.watch(self.spec.key, self.check_alive)
 
     def watch_reader(self, raw: Any) -> None:
-        """Follow the socket's background reader: when it terminated, and the close frame it saw (code, time)."""
-        self._reader_over = lambda: bool(getattr(raw, "_should_close").is_set())  # noqa: B009 - private httpx-ws signal
-        connection = getattr(raw, "connection", None)
-        events = getattr(connection, "events", None)
-        if events is None:
-            return
+        """Follow the socket's background reader: when it terminated (a private httpx-ws signal)."""
+        self._raw = raw
+        self._reader_over = lambda: bool(getattr(raw, "_should_close").is_set())  # noqa: B009
 
-        def recording() -> Iterator[Any]:
-            for event in events():
-                if isinstance(event, wsproto.events.CloseConnection) and self.remote_close is None:
-                    self.remote_close = (event.code, time.time())
-                yield event
-
-        connection.events = recording  # type: ignore[union-attr, method-assign]
+    @property
+    def remote_close(self) -> tuple[int, float] | None:
+        """``(code, arrival time)`` of the device's close frame, as recorded by the transport's connection wrapper."""
+        return getattr(getattr(self._raw, "connection", None), "remote_close", None)
 
     def check_alive(self) -> None:
         """End tracking if the reader terminated, whatever the reason.
@@ -260,9 +254,9 @@ class _Core:
         """
         if self._reader_over is None or self._ended or not self._reader_over():
             return
-        if self.remote_close is not None and self.remote_close[0] in _NORMAL_CLOSE:
-            self.finish(user_exit_error=None, at=self.remote_close[1])
-        elif self.remote_close is None and self.closing:
+        if self.remote_close is None and self.closing:
+            self.finish(user_exit_error=None)
+        elif self.remote_close is not None and self.remote_close[0] in _NORMAL_CLOSE:
             self.finish(user_exit_error=None)
         else:
             self.failed = True
@@ -364,6 +358,9 @@ class _Core:
             return
         self.ledger.unwatch(self.spec.key, self.check_alive)
         graceful = not self.failed and (user_exit_error is None or not isinstance(user_exit_error, TransportError))
+        closed = self.remote_close
+        if at is None and graceful and closed is not None and closed[0] in _NORMAL_CLOSE:
+            at = closed[1]  # a normal close ends the session when the frame arrived, not when we got around to it
         self.ledger.end(self.spec.key, graceful=graceful, at=at)
 
 

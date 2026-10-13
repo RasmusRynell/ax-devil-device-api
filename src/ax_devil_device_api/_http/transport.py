@@ -7,6 +7,7 @@ import base64
 import secrets
 import ssl
 import threading
+import time
 from collections.abc import AsyncIterable, AsyncIterator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
@@ -218,6 +219,9 @@ class _SizeGuard:
         self._inner = inner
         self._limit = limit
         self._size = 0
+        self.remote_close: tuple[int, float] | None = None
+        """``(code, arrival time)`` of the close frame the device sent. Recorded here, in the reader, before the
+        session layer sees the event, so the time is that of the frame however late it is consumed."""
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
@@ -233,7 +237,13 @@ class _SizeGuard:
                     return
                 if event.message_finished:
                     self._size = 0
+            if isinstance(event, wsproto.events.CloseConnection) and self.remote_close is None:
+                self.remote_close = (event.code, _clock())
             yield event
+
+
+def _clock() -> float:
+    return time.time()
 
 
 def _guard(session: Any) -> None:
