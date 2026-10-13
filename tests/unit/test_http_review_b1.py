@@ -16,7 +16,7 @@ import pytest
 from ax_devil_device_api._http.config import BearerToken, ConnectionConfig
 from ax_devil_device_api._http.options import RetryPolicy
 from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
-from ax_devil_device_api._http.types import Headers, RawBody, Request, Response
+from ax_devil_device_api._http.types import FilePart, Headers, MultipartBody, RawBody, Request, Response
 from ax_devil_device_api._protocols.base import BytesDecoder, CallFlow
 from ax_devil_device_api._runtime.driver import Call, run_async, run_sync
 from ax_devil_device_api.errors import ConfigurationError, ConnectTimeout, PoolTimeout, ReadTimeout
@@ -317,3 +317,47 @@ async def test_async_failed_stream_open_emits_an_on_response_record() -> None:
     with pytest.raises(ConnectTimeout):
         await run_async(transport, stream_flow(), Call(retry=FAST, on_response=observed.append))
     assert [o["error"] for o in observed] == ["ConnectTimeout"] * 3
+
+
+class _SlowFile:
+    """A file-like chunk iterator whose reads block; records when it is closed."""
+
+    def __init__(self, delay: float) -> None:
+        self.delay = delay
+        self.started = threading.Event()
+        self.closed = threading.Event()
+        self.reads = 0
+
+    def __iter__(self) -> _SlowFile:
+        return self
+
+    def __next__(self) -> bytes:
+        self.started.set()
+        time.sleep(self.delay)
+        self.reads += 1
+        return b"x"
+
+    def close(self) -> None:
+        self.closed.set()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("kind", ["multipart", "raw"])
+async def test_cancelling_an_upload_during_a_worker_read_propagates_and_closes_the_file(kind: str) -> None:
+    slow = _SlowFile(0.4)
+    if kind == "multipart":
+        body: Any = MultipartBody(files=(FilePart("f", "f.bin", slow, size=3),))
+    else:
+        body = RawBody(slow, "application/octet-stream", size=3)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200)
+
+    async with AsyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(handler)) as t:
+        task = asyncio.create_task(t.send(Request("POST", "/up", body=body)))
+        await asyncio.to_thread(slow.started.wait, 2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        # The in-flight read is still running; the file is closed once it returns.
+        assert await asyncio.to_thread(slow.closed.wait, 3)

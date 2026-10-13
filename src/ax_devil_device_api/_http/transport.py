@@ -8,7 +8,8 @@ import secrets
 import ssl
 import threading
 from collections.abc import AsyncIterable, AsyncIterator, Iterator
-from contextlib import asynccontextmanager, contextmanager, suppress
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import replace
 from typing import Any
 from urllib.parse import quote_plus, urlencode
@@ -121,18 +122,58 @@ def _is_tls(error: BaseException) -> bool:
 _DONE = object()
 
 
-async def _aiter(chunks: Iterator[bytes]) -> AsyncIterator[bytes]:
-    """Async view of a blocking chunk iterator; every read runs in a worker thread, off the event loop."""
-    try:
-        while True:
-            chunk = await asyncio.to_thread(next, chunks, _DONE)
-            if chunk is _DONE:
+class _ThreadReads:
+    """Async view of a blocking chunk iterator; every read runs in a worker thread, off the event loop.
+
+    A cancelled caller cannot stop a read that is already running, and a generator cannot be closed
+    while it runs. ``aclose`` therefore never touches a running iterator: it closes it from the worker
+    thread as soon as the in-flight read returns, so cancellation propagates and the source is still
+    closed (a library-owned file does not stay open).
+    """
+
+    def __init__(self, chunks: Iterator[bytes]) -> None:
+        self._chunks = chunks
+        self._executor: ThreadPoolExecutor | None = None
+        self._pending: Future[Any] | None = None
+        self._closed = False
+        self._lock = threading.Lock()
+
+    def __aiter__(self) -> _ThreadReads:
+        return self
+
+    async def __anext__(self) -> bytes:
+        if self._closed:
+            raise StopAsyncIteration
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ax-upload-read")
+        future = self._executor.submit(next, self._chunks, _DONE)
+        self._pending = future
+        chunk = await asyncio.wrap_future(future)
+        if chunk is _DONE:
+            raise StopAsyncIteration
+        return chunk
+
+    async def aclose(self) -> None:
+        with self._lock:
+            if self._closed:
                 return
-            yield chunk  # type: ignore[misc]
-    finally:
-        # A cancelled read may still be running in its thread; the generator then cannot be closed here.
-        with suppress(ValueError):
-            _close(chunks)
+            self._closed = True
+            pending = self._pending
+            if pending is not None and not pending.done():
+                pending.add_done_callback(lambda _: self._finish())
+                return
+        self._finish()
+
+    def _finish(self) -> None:
+        try:
+            _close(self._chunks)
+        finally:
+            if self._executor is not None:
+                self._executor.shutdown(wait=False)
+
+
+def _aiter(chunks: Iterator[bytes]) -> _ThreadReads:
+    return _ThreadReads(chunks)
 
 
 def _closing(chunks: Iterator[bytes]) -> Iterator[bytes]:
@@ -209,10 +250,9 @@ def _build(
             kwargs["content"] = encoded.content
         else:
             # httpx's async client needs an async iterable; the sync one a sync iterable.
-            track.append(encoded.content)
+            # The async wrapper owns closing the iterator (deferred while a worker read is in flight).
             kwargs["content"] = _aiter(encoded.content) if isinstance(client, httpx.AsyncClient) else encoded.content
-            if isinstance(client, httpx.AsyncClient):
-                track.append(kwargs["content"])
+            track.append(kwargs["content"])
             if encoded.length is not None:
                 headers.append(("Content-Length", str(encoded.length)))
     if request.timeout is not None:
@@ -276,9 +316,9 @@ class SyncTransport:
         probe = _preflight_request(request) if self._auth.uses_password else None
         if probe is not None:
             _emit(self.config, probe)
-            status = self._send_once(probe, stream=False).status_code
-            if self._auth.needs_verification:
-                raise _preflight_failure(status)
+            reply = self._send_once(probe, stream=False)
+            if not reply.is_success or self._auth.needs_verification:
+                raise _preflight_failure(reply.status_code)
         return self._send_once(request, stream=stream)
 
     def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
@@ -392,9 +432,9 @@ class AsyncTransport:
         probe = _preflight_request(request) if self._auth.uses_password else None
         if probe is not None:
             _emit(self.config, probe)
-            status = (await self._send_once(probe, stream=False)).status_code
-            if self._auth.needs_verification:
-                raise _preflight_failure(status)
+            reply = await self._send_once(probe, stream=False)
+            if not reply.is_success or self._auth.needs_verification:
+                raise _preflight_failure(reply.status_code)
         return await self._send_once(request, stream=stream)
 
     async def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:

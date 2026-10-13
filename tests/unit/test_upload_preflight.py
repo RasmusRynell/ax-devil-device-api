@@ -157,3 +157,28 @@ async def test_async_wrong_password_fails_before_the_body_is_sent() -> None:
         with pytest.raises(AuthError):
             await t.send(upload())
     assert ("POST", "/up") not in cam.paths
+
+
+@pytest.mark.parametrize("status", [403, 500])
+def test_failed_preflight_with_cached_credentials_does_not_send_the_body(status: int) -> None:
+    cam = Camera()
+    with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        t.send(Request("GET", "/other"))  # credentials are now verified
+        cam.preflight_status = status
+        cam.seen.clear()
+        with pytest.raises(AuthError, match=f"HTTP {status}"):
+            t.send(upload())
+    assert ("POST", "/up") not in cam.paths
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status", [403, 500])
+async def test_async_failed_preflight_with_cached_credentials_does_not_send_the_body(status: int) -> None:
+    cam = Camera()
+    async with AsyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        await t.send(Request("GET", "/other"))
+        cam.preflight_status = status
+        cam.seen.clear()
+        with pytest.raises(AuthError, match=f"HTTP {status}"):
+            await t.send(upload())
+    assert ("POST", "/up") not in cam.paths
