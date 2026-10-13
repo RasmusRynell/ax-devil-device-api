@@ -400,7 +400,9 @@ def lenient_value(annotation: Any, value: Any, context: Mapping[str, Any], new: 
         base, *metadata = get_args(annotation)
         if any(m is CONST for m in metadata):
             return _validate(annotation, value, context)
-        return lenient_value(base, value, context, new)
+        result = lenient_value(base, value, context, new)
+        # Only the enum values are lenient: every other constraint (length, range, pattern) still applies.
+        return _validate(Annotated[(_widen(base), *metadata)], result, context)
     if origin in (Union, UnionType):
         for arm in get_args(annotation):
             if arm is type(None):
@@ -436,6 +438,27 @@ def lenient_value(annotation: Any, value: Any, context: Mapping[str, Any], new: 
             return value
         raise _NoMatch
     return _validate(annotation, value, context)
+
+
+def _widen(annotation: Any) -> Any:
+    """``annotation`` with every (non-``const``) ``Literal`` replaced by the types of its values."""
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        base, *metadata = get_args(annotation)
+        if any(m is CONST for m in metadata):
+            return annotation
+        return Annotated[(_widen(base), *metadata)]
+    if origin in (Union, UnionType):
+        return Union[tuple(_widen(arg) for arg in get_args(annotation))]  # noqa: UP007
+    if origin is list:
+        return list[_widen(get_args(annotation)[0])] if get_args(annotation) else annotation
+    if origin in (dict, Mapping) and len(get_args(annotation)) == 2:
+        key, item = get_args(annotation)
+        return dict[_widen(key), _widen(item)]
+    if origin is Literal:
+        kinds = tuple(dict.fromkeys(type(v) for v in get_args(annotation)))
+        return Union[kinds]  # noqa: UP007
+    return annotation
 
 
 def _validate(annotation: Any, value: Any, context: Mapping[str, Any]) -> Any:
