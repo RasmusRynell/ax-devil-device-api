@@ -454,7 +454,15 @@ class AsyncDevice(_DeviceBase):
                 fetched["firmware"] = (await self.identity()).firmware_version
             except Exception as error:  # noqa: BLE001 - reported in Capabilities.errors
                 failed["identity"] = probe_error(error)
-        results = await asyncio.gather(*(self._cached(k, probes[k]) for k in keys), return_exceptions=True)
+        # At most max_concurrency probes at a time: a probe's timeout must start when it can be sent,
+        # not while it waits for a request slot behind the others (that would turn into a spurious PoolTimeout).
+        gate = asyncio.Semaphore(max(1, self.config.max_concurrency))
+
+        async def bounded(key: str) -> Any:
+            async with gate:
+                return await self._cached(key, probes[key])
+
+        results = await asyncio.gather(*(bounded(k) for k in keys), return_exceptions=True)
         for result in results:
             if isinstance(result, BaseException) and not isinstance(result, Exception):
                 raise result  # cancellation and friends
