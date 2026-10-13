@@ -182,3 +182,63 @@ async def test_async_failed_preflight_with_cached_credentials_does_not_send_the_
         with pytest.raises(AuthError, match=f"HTTP {status}"):
             await t.send(upload())
     assert ("POST", "/up") not in cam.paths
+
+
+class FlakyPreflight(Camera):
+    """Refuses the first connection to the preflight path, then behaves like the camera."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.refused = False
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path == PREFLIGHT_PATH and not self.refused:
+            self.refused = True
+            raise httpx.ConnectError("refused", request=request)
+        return super().__call__(request)
+
+
+def _one_shot_flow(request: Request):  # type: ignore[no-untyped-def]
+    response = yield request
+    return response.status
+
+
+def test_transient_preflight_failure_is_retried_and_the_upload_sent_once() -> None:
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api._runtime.driver import Call, run_sync
+
+    cam = FlakyPreflight()
+    call = Call(label=("a", "b"), retry=RetryPolicy(backoff=0))
+    with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        assert run_sync(t, _one_shot_flow(upload()), call) == 200
+    assert [p for p in cam.paths if p[0] == "POST"] == [("POST", "/up")]
+
+
+@pytest.mark.anyio
+async def test_async_transient_preflight_failure_is_retried_and_the_upload_sent_once() -> None:
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api._runtime.driver import Call, run_async
+
+    cam = FlakyPreflight()
+    call = Call(label=("a", "b"), retry=RetryPolicy(backoff=0))
+    async with AsyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        assert await run_async(t, _one_shot_flow(upload()), call) == 200
+    assert [p for p in cam.paths if p[0] == "POST"] == [("POST", "/up")]
+
+
+def test_a_failure_while_sending_the_body_is_still_not_retried() -> None:
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api._runtime.driver import Call, run_sync
+    from ax_devil_device_api.errors import TransportError
+
+    class BodyFails(Camera):
+        def __call__(self, request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                raise httpx.ConnectError("refused", request=request)
+            return super().__call__(request)
+
+    cam = BodyFails()
+    call = Call(label=("a", "b"), retry=RetryPolicy(backoff=0))
+    with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        with pytest.raises(TransportError):
+            run_sync(t, _one_shot_flow(upload()), call)

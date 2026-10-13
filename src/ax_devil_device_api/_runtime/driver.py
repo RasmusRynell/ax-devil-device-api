@@ -146,16 +146,19 @@ class Call:
 
     def should_retry(self, request: Request, error: TransportError, attempt: int) -> bool:
         policy = self.retry
-        if attempt >= policy.attempts or not request.replayable:
+        # A failed credentials preflight is its own replayable read-only GET; the one-shot body behind it was
+        # never touched, so it is judged as such, not by the outer request.
+        preflight = error.during_preflight
+        if attempt >= policy.attempts or not (request.replayable or preflight):
             # A streamed body may be partly consumed even if nothing reached the device.
             return False
         if not error.request_sent:
             return policy.retry_unsent
-        effect = self.op.effect if self.op is not None else "unknown"
+        effect = "read" if preflight else (self.op.effect if self.op is not None else "unknown")
         return (
             policy.retry_reads
             and effect == "read"
-            and not request.stream
+            and (preflight or not request.stream)
             and isinstance(error, (ReadTimeout, ConnectionFailed))
         )
 

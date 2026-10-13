@@ -358,7 +358,11 @@ class SyncTransport:
         probe = _preflight_request(request) if self._auth.uses_password else None
         if probe is not None:
             _emit(self.config, probe)
-            reply = self._send_once(probe, stream=False)
+            try:
+                reply = self._send_once(probe, stream=False)
+            except errors.TransportError as error:
+                error.during_preflight = True
+                raise
             if not reply.is_success or self._auth.needs_verification:
                 raise _preflight_failure(reply.status_code)
         return self._send_once(request, stream=stream)
@@ -475,7 +479,11 @@ class AsyncTransport:
         probe = _preflight_request(request) if self._auth.uses_password else None
         if probe is not None:
             _emit(self.config, probe)
-            reply = await self._send_once(probe, stream=False)
+            try:
+                reply = await self._send_once(probe, stream=False)
+            except errors.TransportError as error:
+                error.during_preflight = True
+                raise
             if not reply.is_success or self._auth.needs_verification:
                 raise _preflight_failure(reply.status_code)
         return await self._send_once(request, stream=stream)
