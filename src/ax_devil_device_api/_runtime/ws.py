@@ -394,6 +394,20 @@ class _Core:
         self.terminate("abnormal_remote", error.code)
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: device closed the session with code {error.code}: {error.reason}"))
 
+    def send_refused(self) -> DeviceError:
+        """The error for a send the protocol layer refused: the connection is closed.
+
+        A close frame the transport already stamped is mapped like one the app received (a real ``TransportError``
+        for an abnormal code); only without any close, or after a normal one, is it ``SessionClosed``.
+        """
+        if self.closed is not None:
+            return self.closed
+        stamped = self.remote_close
+        if stamped is not None:
+            return self.on_disconnect(httpx_ws.WebSocketDisconnect(stamped[0], ""))
+        self.terminate("send_failure")
+        return SessionClosed()
+
     def on_network_error(self) -> DeviceError:
         self.terminate("network")
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: connection lost (network error or heartbeat timeout)"))
@@ -512,8 +526,7 @@ class Session:
             else:
                 self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
-            self._core.terminate("send_failure")
-            raise self._core.closed or SessionClosed() from error
+            raise self._core.send_refused() from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
 
@@ -697,8 +710,7 @@ class AsyncSession:
             else:
                 await self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
-            self._core.terminate("send_failure")
-            raise self._core.closed or SessionClosed() from error
+            raise self._core.send_refused() from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
 
