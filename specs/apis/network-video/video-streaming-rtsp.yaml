@@ -54,7 +54,12 @@ operations:
           sprop-parameter-sets=Z0IAKeKQFgJNgScFAQXh4kRU,aM48gA==
       source: https://developer.axis.com/vapix/network-video/video-streaming/#always-multicast
   describe_url:
-    summary: Request an SDP description of the media stream(s).
+    summary: Build the RTSP URL of a media stream (the URL of DESCRIBE, SETUP and PLAY).
+    description: 'The same URL is used by the RTSP commands DESCRIBE, SETUP (with /trackID=n) and PLAY; sending them,
+      and the other commands (OPTIONS, PAUSE, TEARDOWN, SET_PARAMETER Renew-Stream, GET_PARAMETER) and tunnelling
+      RTSP over HTTP, is the job of an RTSP client. Parameters are sent in field order, so the video options after
+      streamprofile override the values saved in the stream profile. The video URL options of the Image API
+      (camera, fps, compression, ...) are also accepted by the device but are not listed here.'
     effect: read
     binding:
       rtsp: {}
@@ -65,6 +70,13 @@ operations:
           type: string
           description: Name of a saved stream profile (StreamProfile.S#.Name). Values can be overridden by parameters
             after it.
+        videocodec:
+          type: string
+          enum: [av1, h264, h265, jpeg]
+          description: 'Video format (Image API URL option); av1 is platform dependent, h265 product dependent. Default: h264 for RTSP.'
+        resolution:
+          type: string
+          description: Resolution of the stream (Image API URL option), for example 640x480.
         recordingid: {type: string, description: Name of a saved recording.}
         audio:
           type: integer
@@ -116,6 +128,11 @@ operations:
           enum: [generic, digital]
           description: 'Coordinate space for zoom positions; only with ptz=all|position. Values: generic: http://www.onvif.org/ver10/tptz/ZoomSpaces/PositionGenericSpace;
             digital: http://www.onvif.org/ver10/tptz/ZoomSpaces/NormalizedDigitalPosition'
+    examples:
+    - title: DESCRIBE a 640x480 H.264 stream
+      request: {params: {videocodec: h264, resolution: 640x480}}
+      response: {url: 'rtsp://camera.test:554/axis-media/media.amp?videocodec=h264&resolution=640x480'}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#rtsp-describe
   ssm_describe_url:
     summary: 'Source-specific multicast (SSM): SDP includes a=source-filter; SETUP with Transport: RTP/AVP;multicast;
       tracks addressed as /stream=<n>.'
@@ -129,6 +146,11 @@ operations:
       type: object
       properties:
         audio: {type: integer, enum: [0, 1]}
+    examples:
+    - title: Source-specific multicast URL
+      request: {}
+      response: {url: 'rtsp://camera.test:554/axis-media/ssm/media.amp'}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#source-specific-multicast
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/video-streaming/
@@ -140,30 +162,21 @@ provenance:
   open_questions:
   - Example 5 SETUP URL 'rtsp:///<servername>//axis-media/...' contains extra slashes (doc typo).
   - 'audio default: RTSP URL table says 1; metadata table says configurable via Audio.A0.Enabled.'
-  - Video URL options (videocodec, resolution, fps, ...) are defined on the Image API page and are not duplicated
+  - Only videocodec and resolution of the Image API video URL options are modelled (the docs examples use them); the rest are defined on the Image API page and are not duplicated
     here.
   - SSM DESCRIBE/SETUP responses lack the RTSP status line; 'a=range:npt=now-a=control:...' lines are concatenated
     in the doc.
   - Always multicast SDP response content type not stated.
   - SET_PARAMETER note says 'See example 2 below' but refers to Example 11.
   - Renew-Stream is a body parameter; schema param 'in' has no text/parameters body location, so 'in' is omitted.
-  - 'migration: op-skipped: rtsp_over_http_get: a request body, tunnelling headers or a path argument; uploads and
-    RTSP-over-HTTP are not stream replies'
-  - 'migration: op-skipped: rtsp_over_http_post: a request body, tunnelling headers or a path argument; uploads
-    and RTSP-over-HTTP are not stream replies'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: op-skipped: options: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not
-    a URL; RTSP clients drive these'
-  - 'migration: op-skipped: setup: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not a
-    URL; RTSP clients drive these'
-  - 'migration: op-skipped: play: the same URL as an earlier operation (its parameters are a subset)'
-  - 'migration: op-skipped: pause: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not a
-    URL; RTSP clients drive these'
-  - 'migration: op-skipped: teardown: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...), not
-    a URL; RTSP clients drive these'
-  - 'migration: op-skipped: set_parameter_renew_stream: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER
-    ...), not a URL; RTSP clients drive these'
-  - 'migration: op-skipped: get_parameter: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER ...),
-    not a URL; RTSP clients drive these'
+  - 'BLOCKED(RTSP session command): RTSP over HTTP (GET channel) needs an RTSP client driving a session; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): RTSP over HTTP (POST channel) needs an RTSP client driving a session; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): RTSP OPTIONS needs an RTSP client driving a session; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): RTSP SETUP needs an RTSP client driving a session; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): RTSP PLAY (same URL as describe_url; needs an RTSP client)'
+  - 'BLOCKED(RTSP session command): RTSP PAUSE needs an RTSP client driving a session; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): RTSP TEARDOWN needs an RTSP client driving a session; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): RTSP SET_PARAMETER Renew-Stream needs an RTSP client driving a session; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): RTSP GET_PARAMETER needs an RTSP client driving a session; the library only builds URLs'
   migrated_from: v1
-  curated: false
+  curated: true

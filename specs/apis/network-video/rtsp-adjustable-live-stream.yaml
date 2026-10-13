@@ -14,13 +14,14 @@ docs:
 - https://developer.axis.com/vapix/network-video/rtsp-adjustable-live-stream/
 access: viewer
 discovery:
-- param: {name: Properties.API.RTSP.AdjustableStreamSettings, value: <one or more settings>}
+- param: {name: Properties.API.RTSP.AdjustableStreamSettings}
 
 binding: {path: /axis-cgi/param.cgi}
 
 operations:
   get_adjustable_stream_settings_property:
     summary: Retrieve the supported adjustable stream settings via param.cgi.
+    description: The feature is supported if the property exists and lists one or more settings.
     effect: read
     binding:
       method: GET
@@ -31,7 +32,7 @@ operations:
       type: object
       additionalProperties: {type: string}
     examples:
-    - title: get_adjustable_stream_settings_property
+    - title: Read the adjustable stream settings property
       request:
         query: {}
       response:
@@ -39,7 +40,14 @@ operations:
         text: root.Properties.API.RTSP.AdjustableStreamSettings="compression,fps,videokeyframeinterval,videomaxbitrate,videozstrength"
       source: https://developer.axis.com/vapix/network-video/rtsp-adjustable-live-stream/#propertiesapirtspadjustablestreamsettings
   open_adjustable_stream_url:
-    summary: Request a video stream with adjustable live stream enabled.
+    summary: Build the RTSP URL of a live stream with adjustable live stream enabled.
+    description: 'Open the URL with an RTSP client. While the stream runs, the client can send GET_PARAMETER
+      Adjustable-Stream-Settings to list the settings it may change and SET_PARAMETER Adjustable-Stream-Configuration
+      (for example "fps=30,compression=30,videomaxbitrate=100000") to apply them; supported settings are compression,
+      fps, videokeyframeinterval, videomaxbitrate and videozstrength, and they behave like the URL options of the
+      Video streaming API. Both RTSP methods must be driven by the RTSP client; they are not operations of this
+      library. Values above those used when the stream was started are not recommended, as some players cannot
+      handle them.'
     effect: read
     binding:
       rtsp:
@@ -50,6 +58,11 @@ operations:
         videozprofile:
           type: string
           description: videozprofile=storage is incompatible with this API; 400 Bad Request is returned if used.
+    examples:
+    - title: Request a video stream with the default settings and the adjustable live stream enabled
+      request: {}
+      response: {url: 'rtsp://camera.test:554/axis-media/media.amp?adjustablelivestream=1'}
+      source: https://developer.axis.com/vapix/network-video/rtsp-adjustable-live-stream/#adjust-the-stream-quality
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/rtsp-adjustable-live-stream/
@@ -62,13 +75,7 @@ provenance:
   - Request body syntax shows 'Adjustable-Stream-Settings' without a colon, the example uses 'Adjustable-Stream-Settings:'.
   - Value ranges for each adjustable setting not stated here (refers to the Video streaming API).
   - AXIS OS minimum version not stated.
-  - 'migration: discovery: discovery method other dropped'
-  - 'migration: types-dropped: types not referenced by any migrated operation: AdjustableSetting'
-  - 'migration: dropped-section: v1 section param_cgi_groups not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
-  - 'migration: op-skipped: get_adjustable_stream_settings: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER
-    ...), not a URL; RTSP clients drive these'
-  - 'migration: op-skipped: set_adjustable_stream_configuration: an RTSP command or session request (DESCRIBE/SETUP/GET_PARAMETER
-    ...), not a URL; RTSP clients drive these'
+  - 'BLOCKED(RTSP session command): GET_PARAMETER Adjustable-Stream-Settings must be sent by an RTSP client on a running stream; the library only builds URLs'
+  - 'BLOCKED(RTSP session command): SET_PARAMETER Adjustable-Stream-Configuration must be sent by an RTSP client on a running stream; the library only builds URLs'
   migrated_from: v1
-  curated: false
+  curated: true

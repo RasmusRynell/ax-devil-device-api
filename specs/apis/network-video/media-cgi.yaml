@@ -21,6 +21,10 @@ operations:
   get_media_stream:
     summary: Fetch a media stream packaged in a specific container format.
     effect: read
+    description: 'Returns the media as a stream of byte chunks (Matroska by default, or MP4 with container=mp4);
+      iterate the result inside a with block and write the chunks to a file or hand them to a player. The content
+      type is video/x-matroska, video/mp4, audio/x-matroska or audio/mp4 followed by codecs=<codecs> (RFC 6381);
+      the response also carries the Video-Metadata-Transform and Video-Sensor-Transform headers.'
     binding: {method: GET, reply: stream}
     params:
       type: object
@@ -140,6 +144,15 @@ operations:
           type: integer
           description: 'The Zipstream maximum GOP length. Default: Image.I#.MPEG.ZMaxGopLength.'
         videozstrength: {type: string, description: 'The Zipstream strength. Default: Image.I#.MPEG.ZStrength.'}
+    examples:
+    - title: Download a live media clip with the default settings
+      request: {query: {}}
+      response:
+        status: 200
+        content_type: video/x-matroska; codecs=avc1.4d0029
+        text: matroska-bytes
+        items: [matroska-bytes]
+      source: https://developer.axis.com/vapix/network-video/media-stream-over-http/#download-a-playable-file
     errors:
       400: {description: Bad Request}
       401: {description: Unauthorized, kind: access_denied}
@@ -161,6 +174,5 @@ provenance:
   - camera valid values "1..." and "quad" — upper bound product dependent.
   - AXIS OS minimum not stated.
   - Syntax line "?<argument>=<data>[&=<data>...]" is missing the argument name in the repeated part (doc typo).
-  - 'migration: dropped-section: v1 section notes not carried over'
   migrated_from: v1
-  curated: false
+  curated: true
