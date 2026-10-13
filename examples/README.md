@@ -5,7 +5,7 @@
 | `01_fleet_mqtt_rollout.py` | Configure MQTT + analytics publishing on 50 cameras concurrently | async, per-device error classification incl. `AccessDenied` |
 | `02_parameter_drift.py` | Compare `param.cgi` values to a baseline, fix drift | sync, classic CGI, dry run |
 | `03_version_aware_thermal.py` | Thermal isotherms on a mixed-firmware fleet | `supports()` → `SupportResult`, field-level version gating, fallback |
-| `04_stream_server_report.py` | Record a video clip from each camera straight to disk | streaming results, per-call timeout, early exit, partial files |
+| `04_record_clips.py` | Record a video clip from each camera straight to disk | streaming results, per-call timeout, early exit, partial files |
 | `05_event_watch.py` | Watch I/O and PTZ events on several cameras | WebSocket sessions, backoff, isolated failures, gap reporting |
 | `06_debugging_and_lab_setups.py` | Bench camera over HTTP with request logging | logging, `on_request`/`on_response`, error fields, local validation, identity, capabilities |
 | `07_long_running_service.py` | Monitor cameras for weeks | one long-lived `AsyncDevice` per camera, health checks, firmware-change detection, credential rotation |

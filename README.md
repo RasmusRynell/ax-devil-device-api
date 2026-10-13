@@ -316,7 +316,7 @@ Scenario-driven scripts in [`examples/`](examples/README.md). All read credentia
 | `01_fleet_mqtt_rollout.py` | Configure MQTT and analytics publishing on 50 cameras concurrently |
 | `02_parameter_drift.py` | Compare `param.cgi` values to a baseline and fix drift |
 | `03_version_aware_thermal.py` | Thermal isotherms on a mixed-firmware fleet |
-| `04_stream_server_report.py` | Record video clips from many cameras straight to disk |
+| `04_record_clips.py` | Record video clips from many cameras straight to disk |
 | `05_event_watch.py` | Watch I/O and PTZ events over WebSocket on several cameras |
 | `06_debugging_and_lab_setups.py` | Bench camera over HTTP with request logging and error inspection |
 | `07_long_running_service.py` | Monitor cameras for weeks with one `AsyncDevice` each |

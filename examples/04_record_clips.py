@@ -9,7 +9,7 @@ camera.
 A clip is cut after ``CLIP_BYTES`` bytes (a real service would also watch the
 clock). Only complete clips get their final name.
 
-    python 04_stream_server_report.py 10.20.0.11 10.20.0.12
+    python 04_record_clips.py 10.20.0.11 10.20.0.12
 """
 
 import os
