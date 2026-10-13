@@ -7,12 +7,15 @@ Docs: https://developer.axis.com/vapix/network-video/thermal-imaging/
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import CgiArg, CgiBinding, TextOk, Xml
+from .._protocols.cgi import CgiArg, CgiBinding, Stream, TextOk, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
+from .._runtime.driver import AsyncStreamResult, StreamResult
+from .._streams import Part
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -44,6 +47,18 @@ class SetGlobalPaletteRequest(Model):
         validation_alias="Image.I0.Appearance.Palette", serialization_alias="Image.I0.Appearance.Palette"
     )
     """The palette name, as listed by ``list_palettes``."""
+
+
+class GetMjpegStreamWithPaletteRequest(Model):
+    palette: str | None = None
+    """The palette name, for example Axis."""
+
+
+class GetRtspStreamWithPaletteRequest(Model):
+    videocodec: str | None = None
+    """Video codec of the stream, for example h264."""
+    palette: str | None = None
+    """The palette name, for example Axis."""
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +123,22 @@ class OPS:
         effect="write",
         write="patch",
     )
+    get_mjpeg_stream_with_palette = Operation(
+        INFO,
+        "get_mjpeg_stream_with_palette",
+        CgiBinding("/axis-cgi/mjpg/video.cgi", args=(CgiArg("palette"),), reply=Stream("mjpeg"), stream=True),
+        params=GetMjpegStreamWithPaletteRequest,
+        access="viewer",
+        effect="read",
+    )
+    get_rtsp_stream_with_palette = Operation(
+        INFO,
+        "get_rtsp_stream_with_palette",
+        RtspBinding(),
+        params=GetRtspStreamWithPaletteRequest,
+        access="viewer",
+        effect="read",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +171,39 @@ class ThermalColorPalettesApi(SyncApi):
         """
         self._run(OPS.set_global_palette, None, {"palette": palette}, request_options)
 
+    def get_mjpeg_stream_with_palette(
+        self, *, palette: str | MISSING = MISSING, request_options: RequestOptions | None = None
+    ) -> StreamResult[Part]:
+        """Open a Motion JPEG stream that uses a given color palette.
+
+        ``palette`` is a name returned by ``list_palettes``. Applicable if
+        ``Properties.Image.Palette.StreamPalette`` is ``yes`` or does not exist. Without ``palette`` the
+        global palette is used. Use the result as a context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return self._run(OPS.get_mjpeg_stream_with_palette, None, {"palette": palette}, request_options)
+
+    def get_rtsp_stream_with_palette(
+        self,
+        *,
+        videocodec: str | MISSING = MISSING,
+        palette: str | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream that uses a given color palette.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream_with_palette,
+            {"videocodec": videocodec, "palette": palette},
+            port=port,
+            include_credentials=include_credentials,
+        )
+
 
 class AsyncThermalColorPalettesApi(AsyncApi):
     """Thermal imaging color palettes (``thermal-color-palettes``)."""
@@ -166,3 +230,36 @@ class AsyncThermalColorPalettesApi(AsyncApi):
         Changes only the fields given. Access: operator.
         """
         await self._run(OPS.set_global_palette, None, {"palette": palette}, request_options)
+
+    async def get_mjpeg_stream_with_palette(
+        self, *, palette: str | MISSING = MISSING, request_options: RequestOptions | None = None
+    ) -> AsyncStreamResult[Part]:
+        """Open a Motion JPEG stream that uses a given color palette.
+
+        ``palette`` is a name returned by ``list_palettes``. Applicable if
+        ``Properties.Image.Palette.StreamPalette`` is ``yes`` or does not exist. Without ``palette`` the
+        global palette is used. Use the result as a context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return await self._run(OPS.get_mjpeg_stream_with_palette, None, {"palette": palette}, request_options)
+
+    def get_rtsp_stream_with_palette(
+        self,
+        *,
+        videocodec: str | MISSING = MISSING,
+        palette: str | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream that uses a given color palette.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream_with_palette,
+            {"videocodec": videocodec, "palette": palette},
+            port=port,
+            include_credentials=include_credentials,
+        )

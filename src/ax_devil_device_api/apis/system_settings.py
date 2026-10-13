@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
+from .._http.upload import UploadSource, UploadSpec
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import Binary, CgiArg, CgiBinding, Text
 from ._base import AsyncApi, SyncApi
@@ -28,6 +29,13 @@ class ServerReportRequest(Model):
 class SystemLogRequest(Model):
     text: str | None = Field(default=None, pattern="^[A-Za-z0-9]+$")
     """Only log entries that contain this text are returned. Available on AXIS OS 11.11.45 and later."""
+
+
+class FirmwareUpgradeRequest(Model):
+    firmware: UploadSource = Field(exclude=True, repr=False)
+    """The AXIS OS file, as bytes, a Path or an Upload(stream, size)."""
+    type: Literal["normal", "factorydefault"] | None = None
+    """The upgrade type: normal (restore old settings) or factorydefault (all parameters set to defaults). Default: 'normal'."""
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +91,22 @@ class OPS:
         result=str,
         access="admin",
         effect="read",
+    )
+    firmware_upgrade = Operation(
+        INFO,
+        "firmware_upgrade",
+        CgiBinding(
+            "/axis-cgi/firmwareupgrade.cgi",
+            method="POST",
+            encoding="multipart",
+            args=(CgiArg("type", place="query"),),
+            uploads=(UploadSpec("firmware", part="file", content_type="application/octet-stream"),),
+            reply=Text(),
+        ),
+        params=FirmwareUpgradeRequest,
+        result=str,
+        access="admin",
+        effect="action",
     )
 
 
@@ -156,6 +180,23 @@ class SystemSettingsApi(SyncApi):
         """
         return self._run(OPS.access_log, None, {}, request_options)
 
+    def firmware_upgrade(
+        self,
+        firmware: UploadSource,
+        *,
+        type: Literal["normal", "factorydefault"] | MISSING = MISSING,
+        request_options: RequestOptions | None = None,
+    ) -> str:
+        """Upgrade the AXIS OS from an uploaded firmware file; the product restarts automatically.
+
+        Superseded by ``upgrade`` in the Firmware management API. ``type=normal`` upgrades and restores the
+        old settings, ``factorydefault`` sets all parameters to their default values. The docs do not show a
+        success reply.
+
+        Access: admin.
+        """
+        return self._run(OPS.firmware_upgrade, None, {"firmware": firmware, "type": type}, request_options)
+
 
 class AsyncSystemSettingsApi(AsyncApi):
     """System settings (``system-settings``)."""
@@ -222,3 +263,20 @@ class AsyncSystemSettingsApi(AsyncApi):
         Access: admin.
         """
         return await self._run(OPS.access_log, None, {}, request_options)
+
+    async def firmware_upgrade(
+        self,
+        firmware: UploadSource,
+        *,
+        type: Literal["normal", "factorydefault"] | MISSING = MISSING,
+        request_options: RequestOptions | None = None,
+    ) -> str:
+        """Upgrade the AXIS OS from an uploaded firmware file; the product restarts automatically.
+
+        Superseded by ``upgrade`` in the Firmware management API. ``type=normal`` upgrades and restores the
+        old settings, ``factorydefault`` sets all parameters to their default values. The docs do not show a
+        success reply.
+
+        Access: admin.
+        """
+        return await self._run(OPS.firmware_upgrade, None, {"firmware": firmware, "type": type}, request_options)

@@ -15,6 +15,7 @@ from pydantic import Field
 from .._http.options import RequestOptions
 from .._protocols.base import ApiDiscovery, ApiInfo, Family, Model, Operation
 from .._protocols.cgi import CgiArg, CgiBinding, TextKv, TextOk
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -28,6 +29,11 @@ class GetSignedVideoRequest(Model):
 
 class SetSignedVideoRequest(Model):
     parameters: dict[str, Literal["yes", "no"]]
+
+
+class StreamSignedVideoRequest(Model):
+    videosigned: bool
+    """Enable (1) or disable (0) signed video for this stream."""
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +77,9 @@ class OPS:
         effect="write",
         write="patch",
     )
+    stream_signed_video = Operation(
+        INFO, "stream_signed_video", RtspBinding(), params=StreamSignedVideoRequest, access="viewer", effect="read"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +114,17 @@ class SignedVideoApi(SyncApi):
         """
         self._run(OPS.set_signed_video, None, {"parameters": dict(parameters)}, request_options)
 
+    def stream_signed_video(
+        self, *, videosigned: bool, port: int | None = None, include_credentials: bool = False
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with video signing enabled or disabled for that stream.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.stream_signed_video, {"videosigned": videosigned}, port=port, include_credentials=include_credentials
+        )
+
 
 class AsyncSignedVideoApi(AsyncApi):
     """Signed Video (``signed-video``)."""
@@ -133,3 +153,14 @@ class AsyncSignedVideoApi(AsyncApi):
         Changes only the fields given. Access: admin.
         """
         await self._run(OPS.set_signed_video, None, {"parameters": dict(parameters)}, request_options)
+
+    def stream_signed_video(
+        self, *, videosigned: bool, port: int | None = None, include_credentials: bool = False
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with video signing enabled or disabled for that stream.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.stream_signed_video, {"videosigned": videosigned}, port=port, include_credentials=include_credentials
+        )

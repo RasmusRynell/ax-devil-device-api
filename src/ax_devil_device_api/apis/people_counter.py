@@ -8,6 +8,7 @@ Docs: https://developer.axis.com/vapix/applications/people-counter-api/
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
 from pydantic import MISSING, Field
@@ -94,6 +95,11 @@ class HistoricalDataRequest(Model):
     """Default: '15m'."""
 
 
+class SetParamsRequest(Model):
+    values: dict[str, str]
+    """Parameter names mapped to their new values, for example Counter.Height to 280."""
+
+
 class ResetOccupancyRequest(Model):
     occ: int | None = None
     """Occupancy value to reset to; documented only as the placeholder [value]."""
@@ -122,7 +128,7 @@ class OPS:
     get_live_sum = Operation(
         INFO,
         "get_live_sum",
-        CgiBinding(PATH, fixed_query=(("live-sum.json", ""),), reply=JsonReply()),
+        CgiBinding(PATH, fixed_query=(("live-sum.json", None),), reply=JsonReply()),
         result=LiveSum,
         access="admin",
         effect="read",
@@ -130,7 +136,7 @@ class OPS:
     list_available_days = Operation(
         INFO,
         "list_available_days",
-        CgiBinding(PATH, fixed_query=(("list-cnt.json", ""),), reply=JsonReply()),
+        CgiBinding(PATH, fixed_query=(("list-cnt.json", None),), reply=JsonReply()),
         result=DayList,
         access="admin",
         effect="read",
@@ -138,7 +144,7 @@ class OPS:
     export_cnt = Operation(
         INFO,
         "export_cnt",
-        CgiBinding(PATH, fixed_query=(("export-cnt", ""),), args=(CgiArg("date"),), reply=Binary()),
+        CgiBinding(PATH, fixed_query=(("export-cnt", None),), args=(CgiArg("date"),), reply=Binary()),
         params=ExportCntRequest,
         result=bytes,
         access="admin",
@@ -147,7 +153,7 @@ class OPS:
     export_csv = Operation(
         INFO,
         "export_csv",
-        CgiBinding(PATH, fixed_query=(("export-csv", ""),), args=(CgiArg("date"), CgiArg("res")), reply=Text()),
+        CgiBinding(PATH, fixed_query=(("export-csv", None),), args=(CgiArg("date"), CgiArg("res")), reply=Text()),
         params=HistoricalDataRequest,
         result=str,
         access="admin",
@@ -156,7 +162,7 @@ class OPS:
     export_json = Operation(
         INFO,
         "export_json",
-        CgiBinding(PATH, fixed_query=(("export-json", ""),), args=(CgiArg("date"), CgiArg("res")), reply=JsonReply()),
+        CgiBinding(PATH, fixed_query=(("export-json", None),), args=(CgiArg("date"), CgiArg("res")), reply=JsonReply()),
         params=HistoricalDataRequest,
         result=Any,
         access="admin",
@@ -165,7 +171,7 @@ class OPS:
     export_xml = Operation(
         INFO,
         "export_xml",
-        CgiBinding(PATH, fixed_query=(("export-xml", ""),), args=(CgiArg("date"), CgiArg("res")), reply=Xml()),
+        CgiBinding(PATH, fixed_query=(("export-xml", None),), args=(CgiArg("date"), CgiArg("res")), reply=Xml()),
         params=HistoricalDataRequest,
         result=ET.Element,
         access="admin",
@@ -174,7 +180,7 @@ class OPS:
     clear_data = Operation(
         INFO,
         "clear_data",
-        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("clear-data", ""),), reply=TextOk()),
+        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("clear-data", None),), reply=TextOk()),
         access="operator",
         effect="write",
         write="delete",
@@ -182,7 +188,7 @@ class OPS:
     get_count_position = Operation(
         INFO,
         "get_count_position",
-        CgiBinding(PATH, fixed_query=(("cntpos.json", ""),), reply=JsonReply()),
+        CgiBinding(PATH, fixed_query=(("cntpos.json", None),), reply=JsonReply()),
         result=CountPosition,
         access="admin",
         effect="read",
@@ -190,7 +196,7 @@ class OPS:
     show_logs = Operation(
         INFO,
         "show_logs",
-        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("show-logs", ""),), reply=Text()),
+        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("show-logs", None),), reply=Text()),
         result=str,
         access="operator",
         effect="read",
@@ -198,7 +204,7 @@ class OPS:
     generate_logs = Operation(
         INFO,
         "generate_logs",
-        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("generate-logs", ""),), reply=Binary()),
+        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("generate-logs", None),), reply=Binary()),
         result=bytes,
         access="operator",
         effect="read",
@@ -206,15 +212,31 @@ class OPS:
     get_params = Operation(
         INFO,
         "get_params",
-        CgiBinding(PATH, fixed_query=(("params.json", ""),), reply=JsonReply()),
+        CgiBinding(PATH, fixed_query=(("params.json", None),), reply=JsonReply()),
         result=dict[str, Any],
         access="admin",
         effect="read",
     )
+    set_params = Operation(
+        INFO,
+        "set_params",
+        CgiBinding(
+            "/local/tvpc/.apioperator",
+            method="POST",
+            encoding="form",
+            url_query=(("setparams", None),),
+            args=(CgiArg("values", style="spread"),),
+            reply=TextOk(),
+        ),
+        params=SetParamsRequest,
+        access="operator",
+        effect="write",
+        write="patch",
+    )
     get_live_occupancy = Operation(
         INFO,
         "get_live_occupancy",
-        CgiBinding("/tvpc/.api", fixed_query=(("live-occupancy.json", ""),), reply=JsonReply()),
+        CgiBinding("/tvpc/.api", fixed_query=(("live-occupancy.json", None),), reply=JsonReply()),
         result=Any,
         access="admin",
         effect="read",
@@ -222,7 +244,7 @@ class OPS:
     reset_occupancy = Operation(
         INFO,
         "reset_occupancy",
-        CgiBinding("/tvpc/.api", fixed_query=(("occupancy-reset", ""),), args=(CgiArg("occ"),), reply=Text()),
+        CgiBinding("/tvpc/.api", fixed_query=(("occupancy-reset", None),), args=(CgiArg("occ"),), reply=Text()),
         params=ResetOccupancyRequest,
         access="admin",
         effect="action",
@@ -231,7 +253,7 @@ class OPS:
         INFO,
         "occupancy_export_csv",
         CgiBinding(
-            PATH, fixed_query=(("occupancy-export-csv", ""),), args=(CgiArg("date"), CgiArg("res")), reply=Text()
+            PATH, fixed_query=(("occupancy-export-csv", None),), args=(CgiArg("date"), CgiArg("res")), reply=Text()
         ),
         params=OccupancyExportRequest,
         result=str,
@@ -242,7 +264,10 @@ class OPS:
         INFO,
         "occupancy_export_json",
         CgiBinding(
-            PATH, fixed_query=(("occupancy-export-json", ""),), args=(CgiArg("date"), CgiArg("res")), reply=JsonReply()
+            PATH,
+            fixed_query=(("occupancy-export-json", None),),
+            args=(CgiArg("date"), CgiArg("res")),
+            reply=JsonReply(),
         ),
         params=OccupancyExportRequest,
         result=OccupancyExport,
@@ -253,7 +278,7 @@ class OPS:
         INFO,
         "occupancy_export_xml",
         CgiBinding(
-            PATH, fixed_query=(("occupancy-export-xml", ""),), args=(CgiArg("date"), CgiArg("res")), reply=Xml()
+            PATH, fixed_query=(("occupancy-export-xml", None),), args=(CgiArg("date"), CgiArg("res")), reply=Xml()
         ),
         params=OccupancyExportRequest,
         result=ET.Element,
@@ -357,6 +382,18 @@ class PeopleCounterApi(SyncApi):
     def get_params(self, *, request_options: RequestOptions | None = None) -> dict[str, Any]:
         """List the people counter parameters. Access: admin."""
         return self._run(OPS.get_params, None, {}, request_options)
+
+    def set_params(self, values: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None:
+        """Set people counter parameters.
+
+        Posts the parameters to the operator endpoint. The keys are parameter names (for example
+        Counter.Height) and the values are sent as form fields next to the setparams marker (AXIS OS 5.60
+        and later). Older AXIS OS versions expect pairs p1=<name>&v1=<value> instead, which this operation
+        does not send.
+
+        Changes only the fields given. Access: operator.
+        """
+        self._run(OPS.set_params, None, {"values": dict(values)}, request_options)
 
     def get_live_occupancy(self, *, request_options: RequestOptions | None = None) -> Any:
         """Request real-time occupancy data.
@@ -494,6 +531,18 @@ class AsyncPeopleCounterApi(AsyncApi):
     async def get_params(self, *, request_options: RequestOptions | None = None) -> dict[str, Any]:
         """List the people counter parameters. Access: admin."""
         return await self._run(OPS.get_params, None, {}, request_options)
+
+    async def set_params(self, values: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None:
+        """Set people counter parameters.
+
+        Posts the parameters to the operator endpoint. The keys are parameter names (for example
+        Counter.Height) and the values are sent as form fields next to the setparams marker (AXIS OS 5.60
+        and later). Older AXIS OS versions expect pairs p1=<name>&v1=<value> instead, which this operation
+        does not send.
+
+        Changes only the fields given. Access: operator.
+        """
+        await self._run(OPS.set_params, None, {"values": dict(values)}, request_options)
 
     async def get_live_occupancy(self, *, request_options: RequestOptions | None = None) -> Any:
         """Request real-time occupancy data.

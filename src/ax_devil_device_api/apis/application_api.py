@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
+from .._http.upload import UploadSource, UploadSpec
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, TextOk, Xml
 from .._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
@@ -124,6 +125,18 @@ class AcapInfo(Model):
         default=None, validation_alias="supportedSdks", serialization_alias="supportedSdks"
     )
     """SDKs whose applications are able to run on the device, for example ``acap3``, ``acap4-cv``, ``acap4-native``."""
+
+
+class UploadApplicationRequest(Model):
+    package: UploadSource = Field(exclude=True, repr=False)
+    """The application package (.eap), as bytes, a Path or an Upload(stream, size)."""
+
+
+class UploadLicenseKeyRequest(Model):
+    package: str
+    """The name of the application package to which the license key belongs."""
+    license_key: UploadSource = Field(exclude=True, repr=False)
+    """The license key file, as bytes, a Path or an Upload(stream, size)."""
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +382,85 @@ class OPS:
         access="admin",
         effect="read",
     )
+    upload_application = Operation(
+        INFO,
+        "upload_application",
+        CgiBinding(
+            "/axis-cgi/applications/upload.cgi",
+            method="POST",
+            encoding="multipart",
+            uploads=(UploadSpec("package", part="file", content_type="application/octet-stream"),),
+            reply=TextOk(),
+        ),
+        params=UploadApplicationRequest,
+        access="admin",
+        effect="write",
+        write="create",
+        errors={
+            2: ErrorCode(
+                "Verification failed. The signature of the application package is either missing or invalid.",
+                "invalid_argument",
+            ),
+            3: ErrorCode(
+                "Application package too large. The package file is too large or the disk is full.", "invalid_argument"
+            ),
+            5: ErrorCode(
+                "Application package not compatible with the Axis device. See the system log for more information.",
+                "unsupported",
+            ),
+            12: ErrorCode("Upload currently unavailable. An application package upload is ongoing.", "unavailable"),
+            13: ErrorCode(
+                "Installation failed. The application package requires a user or group that is not allowed.",
+                "invalid_argument",
+            ),
+            14: ErrorCode(
+                "Application package already exists in the application store but with a different letter case.",
+                "invalid_argument",
+            ),
+            27: ErrorCode(
+                "Upgrade not allowed. The vendor ID of the package must be the same as the vendor ID of the application it replaces.",
+                "invalid_argument",
+            ),
+            29: ErrorCode("Invalid manifest.json or package.conf file.", "invalid_argument"),
+            51: ErrorCode(
+                "Serial number in Developer Mode does not match the device serial number.", "invalid_argument"
+            ),
+            52: ErrorCode(
+                "Developer Mode application upgrade not allowed. The vendor ID for Developer Mode has changed.",
+                "invalid_argument",
+            ),
+            53: ErrorCode("Application vendor ID does not match the Developer Mode vendor ID.", "invalid_argument"),
+            54: ErrorCode(
+                "Developer Mode application does not allow the application's manifest contents.", "invalid_argument"
+            ),
+        },
+    )
+    upload_license_key = Operation(
+        INFO,
+        "upload_license_key",
+        CgiBinding(
+            "/axis-cgi/applications/license.cgi",
+            method="POST",
+            encoding="multipart",
+            url_query=(("action", "uploadlicensekey"),),
+            args=(CgiArg("package", place="query"),),
+            uploads=(UploadSpec("license_key", part="file", content_type="application/octet-stream"),),
+            reply=TextOk(),
+        ),
+        params=UploadLicenseKeyRequest,
+        access="admin",
+        effect="write",
+        write="create",
+        errors={
+            21: ErrorCode("Invalid license key file.", "invalid_argument"),
+            22: ErrorCode("File upload failed. See the system log for more information.", "internal"),
+            24: ErrorCode("The application is not installed.", "not_found"),
+            25: ErrorCode("The key's application ID does not match the installed application.", "invalid_argument"),
+            26: ErrorCode("The license key cannot be used with this version of the application.", "unsupported"),
+            30: ErrorCode("Wrong serial number.", "invalid_argument"),
+            31: ErrorCode("The license key has expired.", "invalid_argument"),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -444,6 +536,30 @@ class ApplicationApi(SyncApi):
         """
         return self._run(OPS.get_info, None, {}, request_options)
 
+    def upload_application(self, package: UploadSource, *, request_options: RequestOptions | None = None) -> None:
+        """Upload and install an ACAP application package (.eap).
+
+        The application is installed but not started. If an application with the same name exists, the
+        upload upgrades it: data and parameters are kept, the version is not compared and a running
+        application is restarted. A failed or interrupted upgrade removes both versions. Installing a signed
+        application needs about twice the size of the package in free RAM.
+
+        Access: admin.
+        """
+        self._run(OPS.upload_application, None, {"package": package}, request_options)
+
+    def upload_license_key(
+        self, package: str, license_key: UploadSource, *, request_options: RequestOptions | None = None
+    ) -> None:
+        """Upload and install a license key for an application.
+
+        The docs name the action and the package parameter but not how the key file is sent; it is sent as a
+        multipart file part named file, as for upload.cgi.
+
+        Access: admin.
+        """
+        self._run(OPS.upload_license_key, None, {"package": package, "license_key": license_key}, request_options)
+
 
 class AsyncApplicationApi(AsyncApi):
     """Application API (``application-api``)."""
@@ -515,3 +631,27 @@ class AsyncApplicationApi(AsyncApi):
         Access: admin.
         """
         return await self._run(OPS.get_info, None, {}, request_options)
+
+    async def upload_application(self, package: UploadSource, *, request_options: RequestOptions | None = None) -> None:
+        """Upload and install an ACAP application package (.eap).
+
+        The application is installed but not started. If an application with the same name exists, the
+        upload upgrades it: data and parameters are kept, the version is not compared and a running
+        application is restarted. A failed or interrupted upgrade removes both versions. Installing a signed
+        application needs about twice the size of the package in free RAM.
+
+        Access: admin.
+        """
+        await self._run(OPS.upload_application, None, {"package": package}, request_options)
+
+    async def upload_license_key(
+        self, package: str, license_key: UploadSource, *, request_options: RequestOptions | None = None
+    ) -> None:
+        """Upload and install a license key for an application.
+
+        The docs name the action and the package parameter but not how the key file is sent; it is sent as a
+        multipart file part named file, as for upload.cgi.
+
+        Access: admin.
+        """
+        await self._run(OPS.upload_license_key, None, {"package": package, "license_key": license_key}, request_options)

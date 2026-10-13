@@ -9,12 +9,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -155,6 +156,22 @@ class ApplicationList(Model):
 class GetConfigurationRequest(Model):
     name: str
     """Application name."""
+
+
+class ModifyConfigurationRequest(Model):
+    name: str
+    """The application name."""
+    config: str
+    """The <config version="1.0"> XML document holding the <application> configuration."""
+
+
+class GetRtspStreamWithEventTopicFilterRequest(Model):
+    video: bool | None = None
+    """Whether video is available in the stream."""
+    event: Literal["on", "off"] | None = None
+    """Whether event metadata is included in the stream."""
+    eventtopic: str | None = None
+    """The event topic filter to include."""
 
 
 # ---------------------------------------------------------------------------
@@ -364,6 +381,32 @@ class OPS:
         access="admin",
         effect="read",
     )
+    modify_configuration = Operation(
+        INFO,
+        "modify_configuration",
+        CgiBinding(
+            PATH,
+            method="POST",
+            encoding="body",
+            fixed_query=(("action", "modify"),),
+            content_type="text/xml",
+            args=(CgiArg("name"),),
+            body_field="config",
+            reply=Xml(status_error=XmlStatusError(attribute="result", value="error")),
+        ),
+        params=ModifyConfigurationRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    get_rtsp_stream_with_event_topic_filter = Operation(
+        INFO,
+        "get_rtsp_stream_with_event_topic_filter",
+        RtspBinding(),
+        params=GetRtspStreamWithEventTopicFilterRequest,
+        access="admin",
+        effect="read",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +438,43 @@ class ApplicationConfigurationApi(SyncApi):
         """
         return self._run(OPS.list_applications, None, {}, request_options)
 
+    def modify_configuration(self, name: str, config: str, *, request_options: RequestOptions | None = None) -> None:
+        """Modify the configuration of an application.
+
+        Obsolete; removed in AXIS OS 12.0. Posts the application's <config version="1.0"> XML. The device
+        answers with a failure reply only if the request failed.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        self._run(OPS.modify_configuration, None, {"name": name, "config": config}, request_options)
+
+    def get_rtsp_stream_with_event_topic_filter(
+        self,
+        *,
+        video: bool | MISSING = MISSING,
+        event: Literal["on", "off"] | MISSING = MISSING,
+        eventtopic: str | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with an event topic filter.
+
+        Builds the URL only. Event topic filters: AXIS Video Motion Detection 3
+        ``onvif:RuleEngine/axis:VMD3//.``, Video Motion Detection 2.1
+        ``onvif:RuleEngine/axis:VideoMotionDetection//motion``, Digital Autotracking
+        ``onvif:RuleEngine/axis:DigitalAutotracking/tracking//.``, Cross Line Detection 1.1
+        ``onvif:RuleEngine/axis:CrossLineDetection//.``. For more arguments see the RTSP URL parameters of
+        the Video streaming API.
+
+        Builds the URL only; no request is made. Access: admin.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream_with_event_topic_filter,
+            {"video": video, "event": event, "eventtopic": eventtopic},
+            port=port,
+            include_credentials=include_credentials,
+        )
+
 
 class AsyncApplicationConfigurationApi(AsyncApi):
     """Application configuration API (``application-configuration-api``)."""
@@ -420,3 +500,42 @@ class AsyncApplicationConfigurationApi(AsyncApi):
         Access: admin.
         """
         return await self._run(OPS.list_applications, None, {}, request_options)
+
+    async def modify_configuration(
+        self, name: str, config: str, *, request_options: RequestOptions | None = None
+    ) -> None:
+        """Modify the configuration of an application.
+
+        Obsolete; removed in AXIS OS 12.0. Posts the application's <config version="1.0"> XML. The device
+        answers with a failure reply only if the request failed.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        await self._run(OPS.modify_configuration, None, {"name": name, "config": config}, request_options)
+
+    def get_rtsp_stream_with_event_topic_filter(
+        self,
+        *,
+        video: bool | MISSING = MISSING,
+        event: Literal["on", "off"] | MISSING = MISSING,
+        eventtopic: str | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with an event topic filter.
+
+        Builds the URL only. Event topic filters: AXIS Video Motion Detection 3
+        ``onvif:RuleEngine/axis:VMD3//.``, Video Motion Detection 2.1
+        ``onvif:RuleEngine/axis:VideoMotionDetection//motion``, Digital Autotracking
+        ``onvif:RuleEngine/axis:DigitalAutotracking/tracking//.``, Cross Line Detection 1.1
+        ``onvif:RuleEngine/axis:CrossLineDetection//.``. For more arguments see the RTSP URL parameters of
+        the Video streaming API.
+
+        Builds the URL only; no request is made. Access: admin.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream_with_event_topic_filter,
+            {"video": video, "event": event, "eventtopic": eventtopic},
+            port=port,
+            include_credentials=include_credentials,
+        )

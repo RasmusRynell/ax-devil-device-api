@@ -8,9 +8,8 @@ Docs: https://developer.axis.com/vapix/network-video/video-streaming/
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping
 
-from pydantic import MISSING
+from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
@@ -31,7 +30,13 @@ class ListSceneProfilesRequest(Model):
 
 
 class SetSceneProfileRequest(Model):
-    parameters: dict[str, str]
+    image_source: int = Field(ge=0)
+    """Image source index n of ImageSource.I<n>.SceneProfile, 0 for the first."""
+    profile: str = Field(
+        validation_alias="ImageSource.I{image_source}.SceneProfile",
+        serialization_alias="ImageSource.I{image_source}.SceneProfile",
+    )
+    """Scene profile: forensic, vivid, traffic_overview, indoor, outdoor or license_plate (product dependent; the obsolete profile0, profile1 and profile2 are replaced by forensic, vivid and traffic_overview)."""
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +72,10 @@ class OPS:
         INFO,
         "set_scene_profile",
         CgiBinding(
-            PATH, fixed_query=(("action", "update"),), args=(CgiArg("parameters", style="spread"),), reply=TextOk()
+            PATH,
+            fixed_query=(("action", "update"),),
+            args=(CgiArg("profile", wire="ImageSource.I{image_source}.SceneProfile"),),
+            reply=TextOk(),
         ),
         params=SetSceneProfileRequest,
         access="operator",
@@ -108,18 +116,18 @@ class SceneProfileApi(SyncApi):
         )
 
     def set_scene_profile(
-        self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None
+        self, image_source: int, profile: str, *, request_options: RequestOptions | None = None
     ) -> None:
-        """Change the scene profile, e.g. ``{"ImageSource.I0.SceneProfile": "vivid"}``.
+        """Change the scene profile of an image source.
 
-        The key is the parameter name ImageSource.I<n>.SceneProfile and the value one of forensic, vivid,
-        traffic_overview, indoor, outdoor or license_plate (product dependent). The device answers 200 OK
-        and changes nothing when the value is invalid. All streams are affected. The obsolete profile0,
-        profile1 and profile2 are replaced by forensic, vivid and traffic_overview.
+        Sets ImageSource.I<n>.SceneProfile; the value is one of forensic, vivid, traffic_overview, indoor,
+        outdoor or license_plate (product dependent). The device answers 200 OK and changes nothing when the
+        value is invalid. All streams are affected. The obsolete profile0, profile1 and profile2 are
+        replaced by forensic, vivid and traffic_overview.
 
         Changes only the fields given. Access: operator.
         """
-        self._run(OPS.set_scene_profile, None, {"parameters": dict(parameters)}, request_options)
+        self._run(OPS.set_scene_profile, None, {"image_source": image_source, "profile": profile}, request_options)
 
 
 class AsyncSceneProfileApi(AsyncApi):
@@ -150,15 +158,17 @@ class AsyncSceneProfileApi(AsyncApi):
         )
 
     async def set_scene_profile(
-        self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None
+        self, image_source: int, profile: str, *, request_options: RequestOptions | None = None
     ) -> None:
-        """Change the scene profile, e.g. ``{"ImageSource.I0.SceneProfile": "vivid"}``.
+        """Change the scene profile of an image source.
 
-        The key is the parameter name ImageSource.I<n>.SceneProfile and the value one of forensic, vivid,
-        traffic_overview, indoor, outdoor or license_plate (product dependent). The device answers 200 OK
-        and changes nothing when the value is invalid. All streams are affected. The obsolete profile0,
-        profile1 and profile2 are replaced by forensic, vivid and traffic_overview.
+        Sets ImageSource.I<n>.SceneProfile; the value is one of forensic, vivid, traffic_overview, indoor,
+        outdoor or license_plate (product dependent). The device answers 200 OK and changes nothing when the
+        value is invalid. All streams are affected. The obsolete profile0, profile1 and profile2 are
+        replaced by forensic, vivid and traffic_overview.
 
         Changes only the fields given. Access: operator.
         """
-        await self._run(OPS.set_scene_profile, None, {"parameters": dict(parameters)}, request_options)
+        await self._run(
+            OPS.set_scene_profile, None, {"image_source": image_source, "profile": profile}, request_options
+        )

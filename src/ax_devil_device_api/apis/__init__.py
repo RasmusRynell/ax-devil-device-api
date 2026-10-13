@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from .data_transformation import AsyncDataTransformationApi, DataTransformationApi
     from .daynight import AsyncDayNightApi, DayNightApi
     from .decoder import AsyncDecoderApi, DecoderApi
+    from .decoder2 import AsyncDecoder2Api, Decoder2Api
     from .demographic_identifier import AsyncDemographicIdentifierApi, DemographicIdentifierApi
     from .device_mode import AsyncDeviceModeApi, DeviceModeApi
     from .dewarped_views import AsyncDewarpedViewsApi, DewarpedViewsApi
@@ -67,6 +68,7 @@ if TYPE_CHECKING:
     from .fence_guard import AsyncFenceGuardApi, FenceGuardApi
     from .find_my_device import AsyncFindMyDeviceApi, FindMyDeviceApi
     from .firewall import AsyncFirewallApi, FirewallApi
+    from .firmware_management import AsyncFirmwareManagementApi, FirmwareManagementApi
     from .focus_recall import AsyncFocusRecallApi, FocusRecallApi
     from .geolocation import AsyncGeolocationApi, GeolocationApi
     from .gpio_service import AsyncGpioServiceApi, GpioServiceApi
@@ -101,6 +103,7 @@ if TYPE_CHECKING:
     from .network_settings_api import AsyncNetworkSettingsApi, NetworkSettingsApi
     from .network_settings_params import AsyncNetworkSettingsParamsApi, NetworkSettingsParamsApi
     from .network_share import AsyncNetworkShareApi, NetworkShareApi
+    from .network_time_sync import AsyncNetworkTimeSyncApi, NetworkTimeSyncApi
     from .networkpairing import AsyncNetworkpairingApi, NetworkpairingApi
     from .ntp import AsyncNtpApi, NtpApi
     from .nvr_poe import AsyncNvrPoeApi, NvrPoeApi
@@ -438,6 +441,12 @@ class Apis:
         return self._device.api(DecoderApi)
 
     @cached_property
+    def decoder2(self) -> Decoder2Api:
+        from .decoder2 import Decoder2Api
+
+        return self._device.api(Decoder2Api)
+
+    @cached_property
     def demographic_identifier(self) -> DemographicIdentifierApi:
         from .demographic_identifier import DemographicIdentifierApi
 
@@ -550,6 +559,12 @@ class Apis:
         from .firewall import FirewallApi
 
         return self._device.api(FirewallApi)
+
+    @cached_property
+    def firmware_management(self) -> FirmwareManagementApi:
+        from .firmware_management import FirmwareManagementApi
+
+        return self._device.api(FirmwareManagementApi)
 
     @cached_property
     def focus_recall(self) -> FocusRecallApi:
@@ -754,6 +769,12 @@ class Apis:
         from .network_share import NetworkShareApi
 
         return self._device.api(NetworkShareApi)
+
+    @cached_property
+    def network_time_sync(self) -> NetworkTimeSyncApi:
+        from .network_time_sync import NetworkTimeSyncApi
+
+        return self._device.api(NetworkTimeSyncApi)
 
     @cached_property
     def networkpairing(self) -> NetworkpairingApi:
@@ -1561,6 +1582,12 @@ class AsyncApis:
         return self._device.api(AsyncDecoderApi)
 
     @cached_property
+    def decoder2(self) -> AsyncDecoder2Api:
+        from .decoder2 import AsyncDecoder2Api
+
+        return self._device.api(AsyncDecoder2Api)
+
+    @cached_property
     def demographic_identifier(self) -> AsyncDemographicIdentifierApi:
         from .demographic_identifier import AsyncDemographicIdentifierApi
 
@@ -1673,6 +1700,12 @@ class AsyncApis:
         from .firewall import AsyncFirewallApi
 
         return self._device.api(AsyncFirewallApi)
+
+    @cached_property
+    def firmware_management(self) -> AsyncFirmwareManagementApi:
+        from .firmware_management import AsyncFirmwareManagementApi
+
+        return self._device.api(AsyncFirmwareManagementApi)
 
     @cached_property
     def focus_recall(self) -> AsyncFocusRecallApi:
@@ -1877,6 +1910,12 @@ class AsyncApis:
         from .network_share import AsyncNetworkShareApi
 
         return self._device.api(AsyncNetworkShareApi)
+
+    @cached_property
+    def network_time_sync(self) -> AsyncNetworkTimeSyncApi:
+        from .network_time_sync import AsyncNetworkTimeSyncApi
+
+        return self._device.api(AsyncNetworkTimeSyncApi)
 
     @cached_property
     def networkpairing(self) -> AsyncNetworkpairingApi:

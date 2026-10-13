@@ -8,7 +8,7 @@ Docs: https://developer.axis.com/vapix/applications/license-plate-verifier-api/
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from typing import Any, Literal, overload
+from typing import Annotated, Any, Literal, overload
 
 from pydantic import MISSING, Field
 
@@ -195,6 +195,124 @@ class Statistics(Model):
     counts: VehicleCounts | None = Field(default=None, validation_alias="vcount", serialization_alias="vcount")
 
 
+class PushConfig(Model):
+    """One push profile (<cloud_config> XML)."""
+
+    url: str | None = None
+    """The target URL, base64 encoded, as <servername>:port/path. No path is present when TCP is used."""
+    latitude: float | None = None
+    """The camera latitude."""
+    longitude: float | None = None
+    """The camera longitude."""
+    sensor_provider_id: str | None = Field(
+        default=None, validation_alias="sensorProviderID", serialization_alias="sensorProviderID"
+    )
+    """The camera identifier sent with all requests, to tell cameras apart."""
+    protocol: Literal[1, 8, 16] | None = None
+    """The protocol: HTTP = 1, TCP = 8, FTP = 16."""
+    enable: bool | None = None
+    skip_image_in_post: bool | None = None
+    """True sends the JSON packet without images."""
+    event_new: bool | None = None
+    """Send NEW events."""
+    event_update: bool | None = None
+    """Send UPDATE events."""
+    event_lost: bool | None = None
+    """Send LOST events."""
+    use_multipart: bool | None = None
+    """True sends multipart/form-data, false sends application/json."""
+    use_event_buffer: bool | None = None
+    """Re-send events from a buffer if the target URL is not accessible."""
+    user: str | None = None
+    password: str | None = None
+    http_auth_type: int | None = None
+    """Undocumented."""
+    send_second_image: bool | None = None
+    """Send a second image of the license plate type."""
+    second_image_type: int | None = None
+    """Undocumented."""
+    path_template: str | None = None
+    """The custom path for FTP."""
+    x_auth_key: str | None = None
+    """The Auth-Header."""
+
+
+PushProfile = Literal["cloud", "cloud2", "cloud3"]
+ListFile = Literal["allow_list", "block_list", "custom_list"]
+
+
+class PlateListContent(Model):
+    """A list as returned by its CGI (<bw_list mode="..."> XML)."""
+
+    mode: str | None = None
+    """The list mode (allow, block or custom)."""
+    plates: list[str] | None = None
+    """The entries, as 'PLATE,MM-DD-YYYY,description'."""
+
+
+class HeartbeatDataSystem(Model):
+    timestamp: bool | None = None
+
+
+class HeartbeatDataIdentify(Model):
+    platform: bool | None = None
+    version: bool | None = None
+    ip_address: bool | None = Field(default=None, validation_alias="ipAddress", serialization_alias="ipAddress")
+    mac_address: bool | None = Field(default=None, validation_alias="macAddress", serialization_alias="macAddress")
+    os_version: bool | None = Field(default=None, validation_alias="osVersion", serialization_alias="osVersion")
+    anpr_version: bool | None = Field(default=None, validation_alias="anprVersion", serialization_alias="anprVersion")
+
+
+class HeartbeatDataAlpv(Model):
+    version: bool | None = None
+    device_id: bool | None = Field(default=None, validation_alias="device_ID", serialization_alias="device_ID")
+    num_frames: bool | None = Field(default=None, validation_alias="numFrames", serialization_alias="numFrames")
+    num_frames_avg: bool | None = Field(
+        default=None, validation_alias="numFramesAvg", serialization_alias="numFramesAvg"
+    )
+    numberof_reads: bool | None = Field(
+        default=None, validation_alias="numberofReads", serialization_alias="numberofReads"
+    )
+
+
+class HeartbeatDataServices(Model):
+    available_memory: bool | None = Field(
+        default=None, validation_alias="Available Memory", serialization_alias="Available Memory"
+    )
+
+
+class HeartbeatData(Model):
+    """Which fields the heartbeat message includes. Sections are objects of booleans."""
+
+    system: HeartbeatDataSystem | None = None
+    identify: HeartbeatDataIdentify | None = None
+    alpv: HeartbeatDataAlpv | None = Field(default=None, validation_alias="ALPV", serialization_alias="ALPV")
+    services: HeartbeatDataServices | None = None
+
+
+class DirectionRoi(Model):
+    id: int
+    name: str
+    """For example roi1."""
+    type: str
+    """For example polygon."""
+    active: bool
+    angle: int = Field(ge=0, le=360000)
+    """The car direction angle, documented as <0-360000> (unit not stated)."""
+    coordinates: list[Annotated[list[int], Field(min_length=2, max_length=2)]]
+    """Corner points [x, y]."""
+
+
+class DirectionConfig(Model):
+    """The body of config_json.cgi for changing the ROI direction angle."""
+
+    api: Literal["setconfig"]
+    """Default: 'setconfig'."""
+    config: Literal["roi"]
+    """Default: 'roi'."""
+    roi: list[DirectionRoi]
+
+
 class AddPlateRequest(Model):
     plate: str
     """Plate text with date and description: <plate text>,<plate date>,<description>, for example AA12DD,12-12-2023,Plate_description."""
@@ -247,6 +365,58 @@ class SearchEventsRequest(Model):
 class GetStatisticsRequest(Model):
     limit: int | None = None
     """The example uses limit=0 to get statistics only."""
+
+
+class Set2nConfigRequest(Model):
+    config: str
+    """The <tn_config> XML document (url, user, password, enable, https, accessPoint, event_on_direction)."""
+
+
+class SetGenetecConfigRequest(Model):
+    config: str
+    """The <gsc_config> XML document (url, user, password, enable, cameraID)."""
+
+
+class SetSettingsRequest(Model):
+    configuration: str
+    """The <configuration> XML document."""
+
+
+class GetPushConfigRequest(Model):
+    profile: PushProfile
+
+
+class SetPushConfigRequest(Model):
+    profile: PushProfile
+    config: str
+    """The <cloud_config> XML document."""
+
+
+class SetHeartbeatConfigRequest(Model):
+    config: str
+    """The <hb_config> XML document: url (base64), user, password (base64), period (5, 10, 30, 60 or 1440 minutes), enable, x_auth_key, http_auth_type."""
+
+
+class SetHeartbeatDataRequest(Model):
+    data: HeartbeatData
+
+
+class SetDirectionRequest(Model):
+    config: DirectionConfig
+
+
+class SetListSettingsRequest(Model):
+    settings: ListSettings
+
+
+class GetListRequest(Model):
+    list_file: ListFile
+
+
+class AddPlatesRequest(Model):
+    list_file: ListFile
+    plates: str
+    """The <bw_list mode="allow|block|custom"> XML document with one <s> element per plate."""
 
 
 # ---------------------------------------------------------------------------
@@ -530,6 +700,201 @@ class OPS:
         access="admin",
         effect="read",
     )
+    set_2n_config = Operation(
+        INFO,
+        "set_2n_config",
+        CgiBinding(
+            "/local/fflprapp/config_2n.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/xml",
+            body_field="config",
+            reply=Text(),
+        ),
+        params=Set2nConfigRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    set_genetec_config = Operation(
+        INFO,
+        "set_genetec_config",
+        CgiBinding(
+            "/local/fflprapp/config_gsc.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/xml",
+            body_field="config",
+            reply=Text(),
+        ),
+        params=SetGenetecConfigRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    set_settings = Operation(
+        INFO,
+        "set_settings",
+        CgiBinding(
+            "/local/fflprapp/config.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/xml",
+            body_field="configuration",
+            reply=Text(),
+        ),
+        params=SetSettingsRequest,
+        access="admin",
+        effect="write",
+        write="patch",
+    )
+    get_push_config = Operation(
+        INFO,
+        "get_push_config",
+        CgiBinding(
+            "/local/fflprapp/{profile}.cgi",
+            reply=Xml(
+                map=XmlMap(
+                    fields=(
+                        XmlField("url", source="child"),
+                        XmlField("latitude", source="child"),
+                        XmlField("longitude", source="child"),
+                        XmlField("sensorProviderID", source="child"),
+                        XmlField("protocol", source="child"),
+                        XmlField("enable", source="child"),
+                        XmlField("skip_image_in_post", source="child"),
+                        XmlField("event_new", source="child"),
+                        XmlField("event_update", source="child"),
+                        XmlField("event_lost", source="child"),
+                        XmlField("use_multipart", source="child"),
+                        XmlField("use_event_buffer", source="child"),
+                        XmlField("user", source="child"),
+                        XmlField("password", source="child"),
+                        XmlField("http_auth_type", source="child"),
+                        XmlField("send_second_image", source="child"),
+                        XmlField("second_image_type", source="child"),
+                        XmlField("path_template", source="child"),
+                        XmlField("x_auth_key", source="child"),
+                    ),
+                    root=".",
+                )
+            ),
+        ),
+        params=GetPushConfigRequest,
+        result=PushConfig,
+        access="admin",
+        effect="read",
+    )
+    set_push_config = Operation(
+        INFO,
+        "set_push_config",
+        CgiBinding(
+            "/local/fflprapp/{profile}.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/xml",
+            body_field="config",
+            reply=Text(),
+        ),
+        params=SetPushConfigRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    set_heartbeat_config = Operation(
+        INFO,
+        "set_heartbeat_config",
+        CgiBinding(
+            "/local/fflprapp/config_hb.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/xml",
+            body_field="config",
+            reply=Text(),
+        ),
+        params=SetHeartbeatConfigRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    set_heartbeat_data = Operation(
+        INFO,
+        "set_heartbeat_data",
+        CgiBinding(
+            "/local/fflprapp/config_hb_data.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/json",
+            body_field="data",
+            reply=Text(),
+        ),
+        params=SetHeartbeatDataRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    set_direction = Operation(
+        INFO,
+        "set_direction",
+        CgiBinding(
+            "/local/fflprapp/config_json.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/json",
+            body_field="config",
+            reply=Text(),
+        ),
+        params=SetDirectionRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    set_list_settings = Operation(
+        INFO,
+        "set_list_settings",
+        CgiBinding(
+            "/local/fflprapp/list_mgmt.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/json",
+            body_field="settings",
+            reply=Text(),
+        ),
+        params=SetListSettingsRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    get_list = Operation(
+        INFO,
+        "get_list",
+        CgiBinding(
+            "/local/fflprapp/{list_file}.cgi",
+            reply=Xml(
+                map=XmlMap(fields=(XmlField("mode"), XmlField("plates", source="path", name="s", many=True)), root=".")
+            ),
+        ),
+        params=GetListRequest,
+        result=PlateListContent,
+        access="admin",
+        effect="read",
+    )
+    add_plates = Operation(
+        INFO,
+        "add_plates",
+        CgiBinding(
+            "/local/fflprapp/{list_file}.cgi",
+            method="POST",
+            encoding="body",
+            content_type="application/xml",
+            body_field="plates",
+            reply=Text(),
+        ),
+        params=AddPlatesRequest,
+        access="admin",
+        effect="write",
+        write="create",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -657,6 +1022,122 @@ class LicensePlateVerifierApi(SyncApi):
         """
         return self._run(OPS.get_statistics, None, {"limit": limit}, request_options)
 
+    def set_2n_config(self, config: str, *, request_options: RequestOptions | None = None) -> None:
+        """Configure the 2N integration.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        self._run(OPS.set_2n_config, None, {"config": config}, request_options)
+
+    def set_genetec_config(self, config: str, *, request_options: RequestOptions | None = None) -> None:
+        """Configure the Genetec integration.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        self._run(OPS.set_genetec_config, None, {"config": config}, request_options)
+
+    def set_settings(self, configuration: str, *, request_options: RequestOptions | None = None) -> None:
+        """Set the ALPV settings, for example the Area of Interest.
+
+        Posts a <configuration> XML document. Whether elements left out keep their current values is not
+        documented.
+
+        Changes only the fields given. Access: admin.
+        """
+        self._run(OPS.set_settings, None, {"configuration": configuration}, request_options)
+
+    def get_push_config(self, profile: PushProfile, *, request_options: RequestOptions | None = None) -> PushConfig:
+        """Get the configuration of a push event profile. Access: admin."""
+        return self._run(OPS.get_push_config, None, {"profile": profile}, request_options)
+
+    def set_push_config(
+        self, profile: PushProfile, config: str, *, request_options: RequestOptions | None = None
+    ) -> None:
+        """Update the configuration of a push event profile.
+
+        The device answers with the stored <cloud_config> (shown for HTTP and FTP in the docs).
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        self._run(OPS.set_push_config, None, {"profile": profile, "config": config}, request_options)
+
+    def set_heartbeat_config(self, config: str, *, request_options: RequestOptions | None = None) -> None:
+        """Configure the heartbeat service.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        self._run(OPS.set_heartbeat_config, None, {"config": config}, request_options)
+
+    @overload
+    def set_heartbeat_data(
+        self, request: SetHeartbeatDataRequest, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    @overload
+    def set_heartbeat_data(self, data: HeartbeatData, /, *, request_options: RequestOptions | None = None) -> None: ...
+    def set_heartbeat_data(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> None:
+        """Choose the fields of the heartbeat message.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, SetHeartbeatDataRequest):
+            kwargs = {**dict(zip(("data",), (request, *args), strict=False)), **kwargs}
+            request = None
+        self._run(OPS.set_heartbeat_data, request, kwargs, request_options)
+
+    @overload
+    def set_direction(
+        self, request: SetDirectionRequest, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    @overload
+    def set_direction(self, config: DirectionConfig, /, *, request_options: RequestOptions | None = None) -> None: ...
+    def set_direction(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> None:
+        """Change the car direction angle of the regions of interest.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, SetDirectionRequest):
+            kwargs = {**dict(zip(("config",), (request, *args), strict=False)), **kwargs}
+            request = None
+        self._run(OPS.set_direction, request, kwargs, request_options)
+
+    @overload
+    def set_list_settings(
+        self, request: SetListSettingsRequest, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    @overload
+    def set_list_settings(
+        self, settings: ListSettings, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    def set_list_settings(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> None:
+        """Change the list settings, including list names (rename lists).
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, SetListSettingsRequest):
+            kwargs = {**dict(zip(("settings",), (request, *args), strict=False)), **kwargs}
+            request = None
+        self._run(OPS.set_list_settings, request, kwargs, request_options)
+
+    def get_list(self, list_file: ListFile, *, request_options: RequestOptions | None = None) -> PlateListContent:
+        """Get the entries of the allow, block or custom list. Access: admin."""
+        return self._run(OPS.get_list, None, {"list_file": list_file}, request_options)
+
+    def add_plates(self, list_file: ListFile, plates: str, *, request_options: RequestOptions | None = None) -> None:
+        """Add a batch of plates to the allow, block or custom list. Access: admin."""
+        self._run(OPS.add_plates, None, {"list_file": list_file, "plates": plates}, request_options)
+
 
 class AsyncLicensePlateVerifierApi(AsyncApi):
     """License plate verifier API (``license-plate-verifier``)."""
@@ -778,3 +1259,127 @@ class AsyncLicensePlateVerifierApi(AsyncApi):
         Access: admin.
         """
         return await self._run(OPS.get_statistics, None, {"limit": limit}, request_options)
+
+    async def set_2n_config(self, config: str, *, request_options: RequestOptions | None = None) -> None:
+        """Configure the 2N integration.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        await self._run(OPS.set_2n_config, None, {"config": config}, request_options)
+
+    async def set_genetec_config(self, config: str, *, request_options: RequestOptions | None = None) -> None:
+        """Configure the Genetec integration.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        await self._run(OPS.set_genetec_config, None, {"config": config}, request_options)
+
+    async def set_settings(self, configuration: str, *, request_options: RequestOptions | None = None) -> None:
+        """Set the ALPV settings, for example the Area of Interest.
+
+        Posts a <configuration> XML document. Whether elements left out keep their current values is not
+        documented.
+
+        Changes only the fields given. Access: admin.
+        """
+        await self._run(OPS.set_settings, None, {"configuration": configuration}, request_options)
+
+    async def get_push_config(
+        self, profile: PushProfile, *, request_options: RequestOptions | None = None
+    ) -> PushConfig:
+        """Get the configuration of a push event profile. Access: admin."""
+        return await self._run(OPS.get_push_config, None, {"profile": profile}, request_options)
+
+    async def set_push_config(
+        self, profile: PushProfile, config: str, *, request_options: RequestOptions | None = None
+    ) -> None:
+        """Update the configuration of a push event profile.
+
+        The device answers with the stored <cloud_config> (shown for HTTP and FTP in the docs).
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        await self._run(OPS.set_push_config, None, {"profile": profile, "config": config}, request_options)
+
+    async def set_heartbeat_config(self, config: str, *, request_options: RequestOptions | None = None) -> None:
+        """Configure the heartbeat service.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        await self._run(OPS.set_heartbeat_config, None, {"config": config}, request_options)
+
+    @overload
+    async def set_heartbeat_data(
+        self, request: SetHeartbeatDataRequest, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    @overload
+    async def set_heartbeat_data(
+        self, data: HeartbeatData, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    async def set_heartbeat_data(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> None:
+        """Choose the fields of the heartbeat message.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, SetHeartbeatDataRequest):
+            kwargs = {**dict(zip(("data",), (request, *args), strict=False)), **kwargs}
+            request = None
+        await self._run(OPS.set_heartbeat_data, request, kwargs, request_options)
+
+    @overload
+    async def set_direction(
+        self, request: SetDirectionRequest, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    @overload
+    async def set_direction(
+        self, config: DirectionConfig, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    async def set_direction(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> None:
+        """Change the car direction angle of the regions of interest.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, SetDirectionRequest):
+            kwargs = {**dict(zip(("config",), (request, *args), strict=False)), **kwargs}
+            request = None
+        await self._run(OPS.set_direction, request, kwargs, request_options)
+
+    @overload
+    async def set_list_settings(
+        self, request: SetListSettingsRequest, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    @overload
+    async def set_list_settings(
+        self, settings: ListSettings, /, *, request_options: RequestOptions | None = None
+    ) -> None: ...
+    async def set_list_settings(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> None:
+        """Change the list settings, including list names (rename lists).
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, SetListSettingsRequest):
+            kwargs = {**dict(zip(("settings",), (request, *args), strict=False)), **kwargs}
+            request = None
+        await self._run(OPS.set_list_settings, request, kwargs, request_options)
+
+    async def get_list(self, list_file: ListFile, *, request_options: RequestOptions | None = None) -> PlateListContent:
+        """Get the entries of the allow, block or custom list. Access: admin."""
+        return await self._run(OPS.get_list, None, {"list_file": list_file}, request_options)
+
+    async def add_plates(
+        self, list_file: ListFile, plates: str, *, request_options: RequestOptions | None = None
+    ) -> None:
+        """Add a batch of plates to the allow, block or custom list. Access: admin."""
+        await self._run(OPS.add_plates, None, {"list_file": list_file, "plates": plates}, request_options)

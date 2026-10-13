@@ -529,6 +529,8 @@ application_api.ApplicationApi.restart_application(self, package: str, *, return
 application_api.ApplicationApi.set_application_config(self, name: ConfigName, value: bool, *, request_options: RequestOptions | None = None) -> ConfigValue
 application_api.ApplicationApi.start_application(self, package: str, *, returnpage: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 application_api.ApplicationApi.stop_application(self, package: str, *, returnpage: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+application_api.ApplicationApi.upload_application(self, package: UploadSource, *, request_options: RequestOptions | None = None) -> None
+application_api.ApplicationApi.upload_license_key(self, package: str, license_key: UploadSource, *, request_options: RequestOptions | None = None) -> None
 application_api.ApplicationList(applications: list[InstalledApplication])
 application_api.ApplicationResource(name: str, used: Literal['Yes', 'No'])
 application_api.ApplicationStatus = Literal['Running', 'Stopped', 'Idle']
@@ -541,6 +543,8 @@ application_api.AsyncApplicationApi.restart_application(self, package: str, *, r
 application_api.AsyncApplicationApi.set_application_config(self, name: ConfigName, value: bool, *, request_options: RequestOptions | None = None) -> ConfigValue
 application_api.AsyncApplicationApi.start_application(self, package: str, *, returnpage: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 application_api.AsyncApplicationApi.stop_application(self, package: str, *, returnpage: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+application_api.AsyncApplicationApi.upload_application(self, package: UploadSource, *, request_options: RequestOptions | None = None) -> None
+application_api.AsyncApplicationApi.upload_license_key(self, package: str, license_key: UploadSource, *, request_options: RequestOptions | None = None) -> None
 application_api.CompatibleOsVersionRange(min: str | None, max: str | None)
 application_api.ConfigName = Literal['AllowUnsigned', 'AllowRoot']
 application_api.ConfigNameRequest(name: ConfigName)
@@ -550,19 +554,27 @@ application_api.LicensePackageRequest(package: str)
 application_api.LicenseStatus = Literal['Valid', 'Invalid', 'Missing', 'Custom', 'None']
 application_api.PackageRequest(package: str, returnpage: str | None)
 application_api.SetConfigRequest(name: ConfigName, value: bool)
+application_api.UploadApplicationRequest(package: UploadSource)
+application_api.UploadLicenseKeyRequest(package: str, license_key: UploadSource)
 application_configuration.Application(name: str, nicename: str | None, rule_engine: RuleEngine | None [ruleEngine])
 application_configuration.ApplicationConfig(version: str | None, application: Application | None)
 application_configuration.ApplicationConfigurationApi.get_configuration(self, name: str, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+application_configuration.ApplicationConfigurationApi.get_rtsp_stream_with_event_topic_filter(self, *, video: bool | MISSING = MISSING, event: Literal['on', 'off'] | MISSING = MISSING, eventtopic: str | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 application_configuration.ApplicationConfigurationApi.list_applications(self, *, request_options: RequestOptions | None = None) -> ApplicationList
+application_configuration.ApplicationConfigurationApi.modify_configuration(self, name: str, config: str, *, request_options: RequestOptions | None = None) -> None
 application_configuration.ApplicationList(applications: list[InstalledApplication] | None)
 application_configuration.AsyncApplicationConfigurationApi.get_configuration(self, name: str, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+application_configuration.AsyncApplicationConfigurationApi.get_rtsp_stream_with_event_topic_filter(self, *, video: bool | MISSING = MISSING, event: Literal['on', 'off'] | MISSING = MISSING, eventtopic: str | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 application_configuration.AsyncApplicationConfigurationApi.list_applications(self, *, request_options: RequestOptions | None = None) -> ApplicationList
+application_configuration.AsyncApplicationConfigurationApi.modify_configuration(self, name: str, config: str, *, request_options: RequestOptions | None = None) -> None
 application_configuration.Event(name: str, nicename: str | None, attributes: list[EventAttribute] | None [attr])
 application_configuration.EventAttribute(key: str | None, nicename: str | None, tag: Literal['source', 'data', 'property-state'] | None, value: str | None)
 application_configuration.GetConfigurationRequest(name: str)
+application_configuration.GetRtspStreamWithEventTopicFilterRequest(video: bool | None, event: Literal['on', 'off'] | None, eventtopic: str | None)
 application_configuration.InstalledApplication(name: str)
 application_configuration.IntValue(value: int)
 application_configuration.Library(name: str | None)
+application_configuration.ModifyConfigurationRequest(name: str, config: str)
 application_configuration.MoteOption(name: str, value: Literal['true', 'false'])
 application_configuration.NameValue(name: str | None, value: str | None)
 application_configuration.NamedObject(name: str, data: NamedObjectData | None)
@@ -1463,12 +1475,18 @@ coordinate_conversion.Space(name: str)
 coordinate_conversion.SpaceNameRequest(name: str)
 cross_line_detection.Application(name: str, nicename: str | None, rule_engine: RuleEngine | None [ruleEngine])
 cross_line_detection.ApplicationConfig(version: str | None, application: Application | None)
+cross_line_detection.AsyncCrossLineDetectionApi.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 cross_line_detection.AsyncCrossLineDetectionApi.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+cross_line_detection.AsyncCrossLineDetectionApi.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
+cross_line_detection.CrossLineDetectionApi.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 cross_line_detection.CrossLineDetectionApi.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+cross_line_detection.CrossLineDetectionApi.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
 cross_line_detection.Event(name: str, nicename: str | None, attributes: list[EventAttribute] | None [attr])
 cross_line_detection.EventAttribute(key: str | None, nicename: str | None, tag: Literal['source', 'data', 'property-state'] | None, value: str | None)
+cross_line_detection.EventStreamUrlRequest(video: int | None)
 cross_line_detection.IntValue(value: int)
 cross_line_detection.Library(name: str | None)
+cross_line_detection.ModifyConfigurationRequest(configuration: str)
 cross_line_detection.MoteOption(name: str, value: Literal['true', 'false'])
 cross_line_detection.NameValue(name: str | None, value: str | None)
 cross_line_detection.NamedObject(name: str, data: NamedObjectData | None)
@@ -1622,6 +1640,86 @@ decoder.Segment(stream: int, pane: int)
 decoder.SetViewConfigurationRequest(panes: list[Pane], streams: list[Stream], views: list[View])
 decoder.Stream(stream_id: int [streamId], url: str, video_codec: str [videoCodec], audio_codec: str | None [audioCodec], username: str | None, password: str | None)
 decoder.View(view_id: int [viewId], duration: int | None, segments: list[Segment])
+decoder2.AsyncDecoder2Api.delete_media_sources(self, *, ids: list[int], request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.delete_sequence(self, *, id: int, force_sw_decoder: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.get_camera_capabilities(self, *, external_ip_device_info_id: str, request_options: RequestOptions | None = None) -> CameraCapabilities
+decoder2.AsyncDecoder2Api.get_current_position(self, *, request_options: RequestOptions | None = None) -> CurrentPosition
+decoder2.AsyncDecoder2Api.get_decoder_capabilities(self, *, request_options: RequestOptions | None = None) -> DecoderCapabilities
+decoder2.AsyncDecoder2Api.get_media_sources(self, *, request_options: RequestOptions | None = None) -> MediaSourceList
+decoder2.AsyncDecoder2Api.get_sequence(self, *, id: int, request_options: RequestOptions | None = None) -> Sequence
+decoder2.AsyncDecoder2Api.get_unsecure_connection_allowed(self, *, request_options: RequestOptions | None = None) -> UnsecureConnectionAllowed
+decoder2.AsyncDecoder2Api.list_sequences(self, *, request_options: RequestOptions | None = None) -> SequenceList
+decoder2.AsyncDecoder2Api.pause_sequence(self, *, resume_timeout: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.play_media_source(self, /, *, high_resolution_id: int, medium_resolution_id: int, low_resolution_id: int, resume_timeout: int | MISSING = MISSING, priority: Priority, combine_media_sources: bool, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.play_media_source(self, request: PlayMediaSourceRequest, /, *, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.play_next_view(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.play_previous_view(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.play_sequence(self, *, id: int, view_index: int | MISSING = MISSING, resume_timeout: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.play_view(self, *, view_index: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.resume_sequence(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.set_media_sources(self, /, *, media_sources: list[MediaSource], request_options: RequestOptions | None = None) -> MediaSourceIds
+decoder2.AsyncDecoder2Api.set_media_sources(self, request: SetMediaSourcesRequest, /, *, request_options: RequestOptions | None = None) -> MediaSourceIds
+decoder2.AsyncDecoder2Api.set_sequence(self, /, *, id: int | MISSING = MISSING, name: str | MISSING = MISSING, views: list[View], request_options: RequestOptions | None = None) -> SequenceId
+decoder2.AsyncDecoder2Api.set_sequence(self, request: SetSequenceRequest, /, *, request_options: RequestOptions | None = None) -> SequenceId
+decoder2.AsyncDecoder2Api.set_unsecure_connection_allowed(self, *, unsecure_connection_allowed: bool, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.stop_media_source(self, *, high_resolution_id: int, request_options: RequestOptions | None = None) -> None
+decoder2.AsyncDecoder2Api.stop_sequence(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.AudioSource(audio_source_index: str | None [audioSourceIndex], enabled: str | None, codec: str | None, input_type: str | None [inputType], name: str | None)
+decoder2.CameraCapabilities(codec: list[str] | None, audio_sources: list[AudioSource] | None [audioSources], video_sources: list[VideoSource] | None [videoSources])
+decoder2.CurrentPosition(sequence_id: int [sequenceId], sequence_index: int [sequenceIndex], current_view_time: int [currentViewTime])
+decoder2.Decoder2Api.delete_media_sources(self, *, ids: list[int], request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.delete_sequence(self, *, id: int, force_sw_decoder: bool | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.get_camera_capabilities(self, *, external_ip_device_info_id: str, request_options: RequestOptions | None = None) -> CameraCapabilities
+decoder2.Decoder2Api.get_current_position(self, *, request_options: RequestOptions | None = None) -> CurrentPosition
+decoder2.Decoder2Api.get_decoder_capabilities(self, *, request_options: RequestOptions | None = None) -> DecoderCapabilities
+decoder2.Decoder2Api.get_media_sources(self, *, request_options: RequestOptions | None = None) -> MediaSourceList
+decoder2.Decoder2Api.get_sequence(self, *, id: int, request_options: RequestOptions | None = None) -> Sequence
+decoder2.Decoder2Api.get_unsecure_connection_allowed(self, *, request_options: RequestOptions | None = None) -> UnsecureConnectionAllowed
+decoder2.Decoder2Api.list_sequences(self, *, request_options: RequestOptions | None = None) -> SequenceList
+decoder2.Decoder2Api.pause_sequence(self, *, resume_timeout: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.play_media_source(self, /, *, high_resolution_id: int, medium_resolution_id: int, low_resolution_id: int, resume_timeout: int | MISSING = MISSING, priority: Priority, combine_media_sources: bool, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.play_media_source(self, request: PlayMediaSourceRequest, /, *, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.play_next_view(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.play_previous_view(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.play_sequence(self, *, id: int, view_index: int | MISSING = MISSING, resume_timeout: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.play_view(self, *, view_index: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.resume_sequence(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.set_media_sources(self, /, *, media_sources: list[MediaSource], request_options: RequestOptions | None = None) -> MediaSourceIds
+decoder2.Decoder2Api.set_media_sources(self, request: SetMediaSourcesRequest, /, *, request_options: RequestOptions | None = None) -> MediaSourceIds
+decoder2.Decoder2Api.set_sequence(self, /, *, id: int | MISSING = MISSING, name: str | MISSING = MISSING, views: list[View], request_options: RequestOptions | None = None) -> SequenceId
+decoder2.Decoder2Api.set_sequence(self, request: SetSequenceRequest, /, *, request_options: RequestOptions | None = None) -> SequenceId
+decoder2.Decoder2Api.set_unsecure_connection_allowed(self, *, unsecure_connection_allowed: bool, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.stop_media_source(self, *, high_resolution_id: int, request_options: RequestOptions | None = None) -> None
+decoder2.Decoder2Api.stop_sequence(self, *, request_options: RequestOptions | None = None) -> None
+decoder2.DecoderCapabilities(resolutions: list[str] | None, max_vpu_instances: int | None [maxVPUInstances], max_streams: int | None [maxStreams], streaming_protocols: list[str] | None [streamingProtocols], audio_coding_formats: list[str] | None [audioCodingFormats], video_coding_formats: list[str] | None [videoCodingFormats], image_coding_formats: list[str] | None [imageCodingFormats], media_types: list[str] | None [mediaTypes])
+decoder2.DeleteMediaSourcesRequest(ids: list[int])
+decoder2.DeleteSequenceRequest(id: int, force_sw_decoder: bool | None [forceSWDecoder])
+decoder2.FileSource(file_id: str | None [fileId])
+decoder2.GetCameraCapabilitiesRequest(external_ip_device_info_id: str [externalIPDeviceInfoId])
+decoder2.Manufacturer = Literal['com.axis.camera', 'other']
+decoder2.MediaSource(media_source_id: int | None [mediaSourceId], name: str | None, description: str | None, has_audio: bool | None [hasAudio], media_source_type: MediaSourceType [mediaSourceType], stream: StreamSource | None, file: FileSource | None)
+decoder2.MediaSourceIds(ids: list[int])
+decoder2.MediaSourceList(media_sources: list[MediaSource] [mediaSources])
+decoder2.MediaSourceType = Literal['stream', 'file']
+decoder2.Pane(left: float, right: float, top: float, bottom: float)
+decoder2.PauseSequenceRequest(resume_timeout: int | None [resumeTimeout])
+decoder2.PlayMediaSourceRequest(high_resolution_id: int [highResolutionId], medium_resolution_id: int [mediumResolutionId], low_resolution_id: int [lowResolutionId], resume_timeout: int | None [resumeTimeout], priority: Priority, combine_media_sources: bool [combineMediaSources])
+decoder2.PlaySequenceRequest(id: int, view_index: int | None [viewIndex], resume_timeout: int | None [resumeTimeout])
+decoder2.PlayViewRequest(view_index: int | None [viewIndex])
+decoder2.PlaybackEndAction = Literal['triggerError', 'triggerFreezePlayback', 'triggerNextView', 'triggerRestartPlayback']
+decoder2.Priority = Literal['high', 'medium', 'low']
+decoder2.Segment(media_source_id: int [mediaSourceId], action_on_playback_end: PlaybackEndAction | None [actionOnPlaybackEnd], pane: Pane)
+decoder2.Sequence(id: int | None, name: str | None, views: list[View])
+decoder2.SequenceId(id: int)
+decoder2.SequenceList(sequences: list[SequenceSummary])
+decoder2.SequenceSummary(id: int, name: str | None, duration: int | None)
+decoder2.SetMediaSourcesRequest(media_sources: list[MediaSource] [mediaSources])
+decoder2.SetSequenceRequest(id: int | None, name: str | None, views: list[View])
+decoder2.StopMediaSourceRequest(high_resolution_id: int [highResolutionId])
+decoder2.StreamSource(external_ip_device_info_id: str | None [externalIPDeviceInfoId], manufacturer: Manufacturer | None, external_ip_device_stream_parameters: str | None [externalIPDeviceStreamParameters], video_uri: str | None [videoUri])
+decoder2.UnsecureConnectionAllowed(unsecure_connection_allowed: bool [UnsecureConnectionAllowed])
+decoder2.VideoSource(image_group_index: str | None [imageGroupIndex], name: str | None, source: str | None, enabled: str | None, max_fps: str | None [maxFPS], resolution: list[str] | None)
+decoder2.View(duration: int | None, segments: list[Segment])
 demographic_identifier.AsyncDemographicIdentifierApi.get_ended_tracks(self, *, time: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> EndedTracksResult
 demographic_identifier.AsyncDemographicIdentifierApi.get_fps(self, *, request_options: RequestOptions | None = None) -> Fps
 demographic_identifier.AsyncDemographicIdentifierApi.get_live_and_ended_tracks(self, *, time: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> LiveAndEndedTracksResult
@@ -1667,21 +1765,33 @@ device_mode.DeviceModeApi.set_mode(self, mode: ModeId, *, request_options: Reque
 device_mode.ModeId = Annotated[str, Field(min_length=2, max_length=32, pattern='^[a-z][a-z0-9-]*$')]
 device_mode.SetModeRequest(mode: ModeId)
 dewarped_views.AsyncDewarpedViewsApi.get_camera_tilt_orientation(self, *, request_options: RequestOptions | None = None) -> dict[str, str]
+dewarped_views.AsyncDewarpedViewsApi.get_mjpeg_stream(self, camera: int, resolution: str, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[Part]
+dewarped_views.AsyncDewarpedViewsApi.get_rtsp_stream(self, camera: int, resolution: str, *, videocodec: str | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 dewarped_views.AsyncDewarpedViewsApi.list_parameters(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
 dewarped_views.AsyncDewarpedViewsApi.set_camera_tilt_orientation(self, camera_tilt_orientation: Literal[-90, 0, 90], *, request_options: RequestOptions | None = None) -> None
 dewarped_views.DewarpedViewsApi.get_camera_tilt_orientation(self, *, request_options: RequestOptions | None = None) -> dict[str, str]
+dewarped_views.DewarpedViewsApi.get_mjpeg_stream(self, camera: int, resolution: str, *, request_options: RequestOptions | None = None) -> StreamResult[Part]
+dewarped_views.DewarpedViewsApi.get_rtsp_stream(self, camera: int, resolution: str, *, videocodec: str | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 dewarped_views.DewarpedViewsApi.list_parameters(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
 dewarped_views.DewarpedViewsApi.set_camera_tilt_orientation(self, camera_tilt_orientation: Literal[-90, 0, 90], *, request_options: RequestOptions | None = None) -> None
+dewarped_views.GetMjpegStreamRequest(camera: int, resolution: str)
+dewarped_views.GetRtspStreamRequest(videocodec: str | None, camera: int, resolution: str)
 dewarped_views.ListParametersRequest(group: str)
 dewarped_views.SetCameraTiltOrientationRequest(camera_tilt_orientation: Literal[-90, 0, 90] [ImageSource.I0.CameraTiltOrientation])
 digital_autotracking.Application(name: str, nicename: str | None, rule_engine: RuleEngine | None [ruleEngine])
 digital_autotracking.ApplicationConfig(version: str | None, application: Application | None)
+digital_autotracking.AsyncDigitalAutotrackingApi.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 digital_autotracking.AsyncDigitalAutotrackingApi.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+digital_autotracking.AsyncDigitalAutotrackingApi.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
+digital_autotracking.DigitalAutotrackingApi.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 digital_autotracking.DigitalAutotrackingApi.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+digital_autotracking.DigitalAutotrackingApi.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
 digital_autotracking.Event(name: str, nicename: str | None, attributes: list[EventAttribute] | None [attr])
 digital_autotracking.EventAttribute(key: str | None, nicename: str | None, tag: Literal['source', 'data', 'property-state'] | None, value: str | None)
+digital_autotracking.EventStreamUrlRequest(video: int | None)
 digital_autotracking.IntValue(value: int)
 digital_autotracking.Library(name: str | None)
+digital_autotracking.ModifyConfigurationRequest(configuration: str)
 digital_autotracking.MoteOption(name: str, value: Literal['true', 'false'])
 digital_autotracking.NameValue(name: str | None, value: str | None)
 digital_autotracking.NamedObject(name: str, data: NamedObjectData | None)
@@ -2312,6 +2422,30 @@ firewall.SetBruteForceProtectionIntervalRequest(interval: BlockInterval)
 firewall.SetRulesRequest(default_policy: Policy | None [defaultPolicy], fallback_time: PositiveNumValue | None [fallbackTime], rules: RuleList | None)
 firewall.UpdateAllRequest(activated: bool | None)
 firewall.UpdateBruteForceProtectionRequest(attempts: AttemptsLimit | None, block_time: BlockTime | None [blockTime], enabled: bool | None, interval: BlockInterval | None)
+firmware_management.AsyncFirmwareManagementApi.commit(self, *, request_options: RequestOptions | None = None) -> FirmwareVersion
+firmware_management.AsyncFirmwareManagementApi.factory_default(self, *, factory_default_mode: FactoryDefaultMode | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+firmware_management.AsyncFirmwareManagementApi.purge(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.AsyncFirmwareManagementApi.reboot(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.AsyncFirmwareManagementApi.rollback(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.AsyncFirmwareManagementApi.status(self, *, request_options: RequestOptions | None = None) -> FirmwareStatus
+firmware_management.AsyncFirmwareManagementApi.stop_auto(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.AsyncFirmwareManagementApi.upgrade(self, *, file: UploadSource, factory_default_mode: UpgradeFactoryDefaultMode | MISSING = MISSING, auto_commit: AutoCommit | MISSING = MISSING, auto_rollback: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> FirmwareVersion
+firmware_management.AutoCommit = Literal['never', 'boot', 'started', 'default']
+firmware_management.FactoryDefaultMode = Literal['soft', 'hard']
+firmware_management.FactoryDefaultRequest(factory_default_mode: FactoryDefaultMode | None [factoryDefaultMode])
+firmware_management.FirmwareManagementApi.commit(self, *, request_options: RequestOptions | None = None) -> FirmwareVersion
+firmware_management.FirmwareManagementApi.factory_default(self, *, factory_default_mode: FactoryDefaultMode | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+firmware_management.FirmwareManagementApi.purge(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.FirmwareManagementApi.reboot(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.FirmwareManagementApi.rollback(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.FirmwareManagementApi.status(self, *, request_options: RequestOptions | None = None) -> FirmwareStatus
+firmware_management.FirmwareManagementApi.stop_auto(self, *, request_options: RequestOptions | None = None) -> None
+firmware_management.FirmwareManagementApi.upgrade(self, *, file: UploadSource, factory_default_mode: UpgradeFactoryDefaultMode | MISSING = MISSING, auto_commit: AutoCommit | MISSING = MISSING, auto_rollback: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> FirmwareVersion
+firmware_management.FirmwareStatus(active_firmware_version: str [activeFirmwareVersion], active_firmware_part: str [activeFirmwarePart], inactive_firmware_version: str | None [inactiveFirmwareVersion], is_committed: bool | None [isCommited], pending_commit: PendingCommit | None [pendingCommit], time_to_rollback: int | None [timeToRollback], last_upgrade_at: str | None [lastUpgradeAt])
+firmware_management.FirmwareVersion(firmware_version: str [firmwareVersion])
+firmware_management.PendingCommit = Literal['started']
+firmware_management.UpgradeFactoryDefaultMode = Literal['none', 'soft', 'hard']
+firmware_management.UpgradeRequest(file: UploadSource, factory_default_mode: UpgradeFactoryDefaultMode | None [factoryDefaultMode], auto_commit: AutoCommit | None [autoCommit], auto_rollback: str | None [autoRollback])
 focus_recall.AddMemoryZoneRequest(name: str | None, polygon: str | None, zoomrange: str | None, camera: CameraSource | None, focus: str)
 focus_recall.AsyncFocusRecallApi.add_memory_zone(self, focus: str, /, *, name: str | MISSING = MISSING, polygon: str | MISSING = MISSING, zoomrange: str | MISSING = MISSING, camera: CameraSource | MISSING = MISSING, request_options: RequestOptions | None = None) -> MemoryZoneRef
 focus_recall.AsyncFocusRecallApi.add_memory_zone(self, request: AddMemoryZoneRequest, /, *, request_options: RequestOptions | None = None) -> MemoryZoneRef
@@ -2683,6 +2817,7 @@ io_port.AsyncIoPortApi.check_ports(self, check: PortIds, *, request_options: Req
 io_port.AsyncIoPortApi.check_ports_active(self, checkactive: PortIds, *, request_options: RequestOptions | None = None) -> dict[str, Literal['active', 'inactive']]
 io_port.AsyncIoPortApi.check_ports_direction(self, checkdirection: PortIds, *, request_options: RequestOptions | None = None) -> dict[str, Literal['input', 'output']]
 io_port.AsyncIoPortApi.list_port_parameters(self, group: list[str], *, request_options: RequestOptions | None = None) -> dict[str, str]
+io_port.AsyncIoPortApi.monitor_ports(self, monitor: PortIds, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[str]
 io_port.AsyncIoPortApi.run_output_action(self, action: str, *, request_options: RequestOptions | None = None) -> None
 io_port.AsyncIoPortApi.update_port_parameters(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
 io_port.CheckPortsActiveRequest(checkactive: PortIds)
@@ -2692,9 +2827,11 @@ io_port.IoPortApi.check_ports(self, check: PortIds, *, request_options: RequestO
 io_port.IoPortApi.check_ports_active(self, checkactive: PortIds, *, request_options: RequestOptions | None = None) -> dict[str, Literal['active', 'inactive']]
 io_port.IoPortApi.check_ports_direction(self, checkdirection: PortIds, *, request_options: RequestOptions | None = None) -> dict[str, Literal['input', 'output']]
 io_port.IoPortApi.list_port_parameters(self, group: list[str], *, request_options: RequestOptions | None = None) -> dict[str, str]
+io_port.IoPortApi.monitor_ports(self, monitor: PortIds, *, request_options: RequestOptions | None = None) -> StreamResult[str]
 io_port.IoPortApi.run_output_action(self, action: str, *, request_options: RequestOptions | None = None) -> None
 io_port.IoPortApi.update_port_parameters(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
 io_port.ListPortParametersRequest(group: list[str])
+io_port.MonitorPortsRequest(monitor: PortIds)
 io_port.PortIds = Annotated[list[Annotated[int, Field(ge=1)]], Field(min_length=1)]
 io_port.RunOutputActionRequest(action: str)
 io_port.UpdatePortParametersRequest(parameters: dict[str, str])
@@ -2755,48 +2892,98 @@ keystore_service.SetEncryptionKeyRequest(encryption_key: list[EncryptionKeyInput
 keystore_service.TokenList(token: list[ReferenceToken] | None [Token])
 keystore_service.TokensRequest(token: list[ReferenceToken] [Token])
 license_plate_verifier.AddPlateRequest(plate: str, list: ListName)
+license_plate_verifier.AddPlatesRequest(list_file: ListFile, plates: str)
 license_plate_verifier.AsyncLicensePlateVerifierApi.add_plate(self, plate: str, list: ListName, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.add_plates(self, list_file: ListFile, plates: str, *, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.AsyncLicensePlateVerifierApi.delete_plate(self, plate: str, list: ListName, *, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.AsyncLicensePlateVerifierApi.export_allow_list(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.AsyncLicensePlateVerifierApi.export_block_list(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.AsyncLicensePlateVerifierApi.export_custom_list(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.AsyncLicensePlateVerifierApi.get_2n_config(self, *, request_options: RequestOptions | None = None) -> TwoNConfig
 license_plate_verifier.AsyncLicensePlateVerifierApi.get_genetec_config(self, *, request_options: RequestOptions | None = None) -> GenetecConfig
+license_plate_verifier.AsyncLicensePlateVerifierApi.get_list(self, list_file: ListFile, *, request_options: RequestOptions | None = None) -> PlateListContent
 license_plate_verifier.AsyncLicensePlateVerifierApi.get_list_settings(self, *, request_options: RequestOptions | None = None) -> ListSettings
+license_plate_verifier.AsyncLicensePlateVerifierApi.get_push_config(self, profile: PushProfile, *, request_options: RequestOptions | None = None) -> PushConfig
 license_plate_verifier.AsyncLicensePlateVerifierApi.get_roi(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.AsyncLicensePlateVerifierApi.get_settings(self, *, request_options: RequestOptions | None = None) -> ET.Element
 license_plate_verifier.AsyncLicensePlateVerifierApi.get_statistics(self, *, limit: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> Statistics
 license_plate_verifier.AsyncLicensePlateVerifierApi.search_events(self, /, *, timestampfrom: int | MISSING = MISSING, timestampto: int | MISSING = MISSING, text: str | MISSING = MISSING, place_desc: str | MISSING = MISSING, country: str | MISSING = MISSING, car_type: Literal[1, 2, 32] | MISSING = MISSING, car_color: Literal[65536, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] | MISSING = MISSING, roi_id: int | MISSING = MISSING, car_direction: int | MISSING = MISSING, car_view: Literal[0, 1] | MISSING = MISSING, action: Literal[0, 1] | MISSING = MISSING, offset: int | MISSING = MISSING, limit: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> EventSearchResult
 license_plate_verifier.AsyncLicensePlateVerifierApi.search_events(self, request: SearchEventsRequest, /, *, request_options: RequestOptions | None = None) -> EventSearchResult
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_2n_config(self, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_direction(self, config: DirectionConfig, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_direction(self, request: SetDirectionRequest, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_genetec_config(self, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_heartbeat_config(self, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_heartbeat_data(self, data: HeartbeatData, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_heartbeat_data(self, request: SetHeartbeatDataRequest, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_list_settings(self, request: SetListSettingsRequest, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_list_settings(self, settings: ListSettings, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_push_config(self, profile: PushProfile, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.AsyncLicensePlateVerifierApi.set_settings(self, configuration: str, *, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.AsyncLicensePlateVerifierApi.upload_list(self, *, command: Literal['new', 'upload', 'save'], list: str, data: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.DeletePlateRequest(plate: str, list: ListName)
+license_plate_verifier.DirectionConfig(api: Literal['setconfig'], config: Literal['roi'], roi: list[DirectionRoi])
 license_plate_verifier.DirectionCounts(in_: int | None [in], out: int | None, unknown: int | None [unk])
+license_plate_verifier.DirectionRoi(id: int, name: str, type: str, active: bool, angle: int, coordinates: list[Annotated[list[int], Field(min_length=2, max_length=2)]])
 license_plate_verifier.EventSearchResult(current_timestamp_us: int | None [currentTimestampUs], events: list[RecognitionEvent] | None [event])
 license_plate_verifier.GenetecConfig(url: str | None, user: str | None, password: str | None, enable: bool | None, https: bool | None, camera_id: str | None [cameraID])
+license_plate_verifier.GetListRequest(list_file: ListFile)
+license_plate_verifier.GetPushConfigRequest(profile: PushProfile)
 license_plate_verifier.GetStatisticsRequest(limit: int | None)
+license_plate_verifier.HeartbeatData(system: HeartbeatDataSystem | None, identify: HeartbeatDataIdentify | None, alpv: HeartbeatDataAlpv | None [ALPV], services: HeartbeatDataServices | None)
+license_plate_verifier.HeartbeatDataAlpv(version: bool | None, device_id: bool | None [device_ID], num_frames: bool | None [numFrames], num_frames_avg: bool | None [numFramesAvg], numberof_reads: bool | None [numberofReads])
+license_plate_verifier.HeartbeatDataIdentify(platform: bool | None, version: bool | None, ip_address: bool | None [ipAddress], mac_address: bool | None [macAddress], os_version: bool | None [osVersion], anpr_version: bool | None [anprVersion])
+license_plate_verifier.HeartbeatDataServices(available_memory: bool | None [Available Memory])
+license_plate_verifier.HeartbeatDataSystem(timestamp: bool | None)
 license_plate_verifier.LicensePlateVerifierApi.add_plate(self, plate: str, list: ListName, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.add_plates(self, list_file: ListFile, plates: str, *, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.LicensePlateVerifierApi.delete_plate(self, plate: str, list: ListName, *, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.LicensePlateVerifierApi.export_allow_list(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.LicensePlateVerifierApi.export_block_list(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.LicensePlateVerifierApi.export_custom_list(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.LicensePlateVerifierApi.get_2n_config(self, *, request_options: RequestOptions | None = None) -> TwoNConfig
 license_plate_verifier.LicensePlateVerifierApi.get_genetec_config(self, *, request_options: RequestOptions | None = None) -> GenetecConfig
+license_plate_verifier.LicensePlateVerifierApi.get_list(self, list_file: ListFile, *, request_options: RequestOptions | None = None) -> PlateListContent
 license_plate_verifier.LicensePlateVerifierApi.get_list_settings(self, *, request_options: RequestOptions | None = None) -> ListSettings
+license_plate_verifier.LicensePlateVerifierApi.get_push_config(self, profile: PushProfile, *, request_options: RequestOptions | None = None) -> PushConfig
 license_plate_verifier.LicensePlateVerifierApi.get_roi(self, *, request_options: RequestOptions | None = None) -> str
 license_plate_verifier.LicensePlateVerifierApi.get_settings(self, *, request_options: RequestOptions | None = None) -> ET.Element
 license_plate_verifier.LicensePlateVerifierApi.get_statistics(self, *, limit: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> Statistics
 license_plate_verifier.LicensePlateVerifierApi.search_events(self, /, *, timestampfrom: int | MISSING = MISSING, timestampto: int | MISSING = MISSING, text: str | MISSING = MISSING, place_desc: str | MISSING = MISSING, country: str | MISSING = MISSING, car_type: Literal[1, 2, 32] | MISSING = MISSING, car_color: Literal[65536, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] | MISSING = MISSING, roi_id: int | MISSING = MISSING, car_direction: int | MISSING = MISSING, car_view: Literal[0, 1] | MISSING = MISSING, action: Literal[0, 1] | MISSING = MISSING, offset: int | MISSING = MISSING, limit: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> EventSearchResult
 license_plate_verifier.LicensePlateVerifierApi.search_events(self, request: SearchEventsRequest, /, *, request_options: RequestOptions | None = None) -> EventSearchResult
+license_plate_verifier.LicensePlateVerifierApi.set_2n_config(self, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_direction(self, config: DirectionConfig, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_direction(self, request: SetDirectionRequest, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_genetec_config(self, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_heartbeat_config(self, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_heartbeat_data(self, data: HeartbeatData, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_heartbeat_data(self, request: SetHeartbeatDataRequest, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_list_settings(self, request: SetListSettingsRequest, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_list_settings(self, settings: ListSettings, /, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_push_config(self, profile: PushProfile, config: str, *, request_options: RequestOptions | None = None) -> None
+license_plate_verifier.LicensePlateVerifierApi.set_settings(self, configuration: str, *, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.LicensePlateVerifierApi.upload_list(self, *, command: Literal['new', 'upload', 'save'], list: str, data: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 license_plate_verifier.ListCounts(blocklist: int | None, allowlist: int | None, customlist: int | None, nonelist: int | None)
+license_plate_verifier.ListFile = Literal['allow_list', 'block_list', 'custom_list']
 license_plate_verifier.ListMode = Literal['allow', 'block', 'none']
 license_plate_verifier.ListName = Literal['allow', 'block', 'custom']
 license_plate_verifier.ListSettings(lists: list[PlateList])
 license_plate_verifier.PlateList(id: str, name: str, schedule: list[Schedule] | None, mode: ListMode | None)
+license_plate_verifier.PlateListContent(mode: str | None, plates: list[str] | None)
+license_plate_verifier.PushConfig(url: str | None, latitude: float | None, longitude: float | None, sensor_provider_id: str | None [sensorProviderID], protocol: Literal[1, 8, 16] | None, enable: bool | None, skip_image_in_post: bool | None, event_new: bool | None, event_update: bool | None, event_lost: bool | None, use_multipart: bool | None, use_event_buffer: bool | None, user: str | None, password: str | None, http_auth_type: int | None, send_second_image: bool | None, second_image_type: int | None, path_template: str | None, x_auth_key: str | None)
+license_plate_verifier.PushProfile = Literal['cloud', 'cloud2', 'cloud3']
 license_plate_verifier.RecognitionEvent(ts: str | None [TS], mod_ts: str | None [MOD_TS], end_ts: str | None [END_TS], car_id: int | None [CAR_ID], lpr: str | None [LPR], lpr_utf8: str | None [LPR_UTF8], lpr_unicode: str | None [LPR_UNICODE], rtime: float | None [RTIME], action: int | None [ACTION], act_param: str | None [ACT_PARAM], threshold: float | None [THRESHOLD], roi_x: int | None [ROI_X], roi_y: int | None [ROI_Y], roi_w: int | None [ROI_W], roi_h: int | None [ROI_H], lp_x: int | None [LP_X], lp_y: int | None [LP_Y], lp_w: int | None [LP_W], lp_h: int | None [LP_H], roi_id: int | None [ROI_ID], roi_idu: int | None [ROI_IDU], frames: int | None [FRAMES], direction: int | None [DIRECTION], lp_bmp: str | None [LP_BMP], roi_bmp: str | None [ROI_BMP], country: str | None [COUNTRY], lp_list_mode: int | None [LP_LIST_MODE], lp_description: str | None [LP_DESCRIPTION], lp_region_utf8: str | None [LP_REGION_UTF8], iso3166_2_code: str | None [ISO3166_2_CODE], lp_type: int | None [LP_TYPE], ext1: str | None [EXT1], ext2: str | None [EXT2], ext3: str | None [EXT3], car_m_type: str | None [CAR_M_TYPE], car_color: str | None [CAR_COLOR], car_conf: float | None [CAR_CONF], car_view: int | None [CAR_VIEW])
 license_plate_verifier.RoiCounts(roi1: int | None, roi2: int | None)
 license_plate_verifier.Schedule(enabled: bool | None, start_time: str | None, end_time: str | None, mon: bool | None [Mon], tue: bool | None [Tue], wed: bool | None [Wed], thu: bool | None [Thu], fri: bool | None [Fri], sat: bool | None [Sat], sun: bool | None [Sun])
 license_plate_verifier.SearchEventsRequest(timestampfrom: int | None, timestampto: int | None, text: str | None, place_desc: str | None [place desc], country: str | None, car_type: Literal[1, 2, 32] | None, car_color: Literal[65536, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] | None, roi_id: int | None, car_direction: int | None, car_view: Literal[0, 1] | None, action: Literal[0, 1] | None, offset: int | None, limit: int | None)
+license_plate_verifier.Set2nConfigRequest(config: str)
+license_plate_verifier.SetDirectionRequest(config: DirectionConfig)
+license_plate_verifier.SetGenetecConfigRequest(config: str)
+license_plate_verifier.SetHeartbeatConfigRequest(config: str)
+license_plate_verifier.SetHeartbeatDataRequest(data: HeartbeatData)
+license_plate_verifier.SetListSettingsRequest(settings: ListSettings)
+license_plate_verifier.SetPushConfigRequest(profile: PushProfile, config: str)
+license_plate_verifier.SetSettingsRequest(configuration: str)
 license_plate_verifier.Statistics(current_timestamp_us: int | None [currentTimestampUs], counts: VehicleCounts | None [vcount])
 license_plate_verifier.TwoNConfig(url: str | None, user: str | None, password: str | None, enable: bool | None, https: bool | None, access_point: int | None [accessPoint], event_on_direction: int | None)
 license_plate_verifier.UploadListRequest(command: Literal['new', 'upload', 'save'], list: str, data: str | None)
@@ -3006,6 +3193,7 @@ media_clip.AsyncMediaClipApi.remove_clip(self, clip: int, *, request_options: Re
 media_clip.AsyncMediaClipApi.set_clip_name(self, clip: int, name: str, *, request_options: RequestOptions | None = None) -> str
 media_clip.AsyncMediaClipApi.stop_clip(self, *, request_options: RequestOptions | None = None) -> str
 media_clip.AsyncMediaClipApi.stop_clip_as_viewer(self, *, request_options: RequestOptions | None = None) -> str
+media_clip.AsyncMediaClipApi.upload_clip(self, clip: UploadSource, *, name: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 media_clip.DownloadClipRequest(clip: int)
 media_clip.MediaClipApi.download_clip(self, clip: int, *, request_options: RequestOptions | None = None) -> bytes
 media_clip.MediaClipApi.list_clips(self, *, request_options: RequestOptions | None = None) -> dict[str, str]
@@ -3017,10 +3205,12 @@ media_clip.MediaClipApi.remove_clip(self, clip: int, *, request_options: Request
 media_clip.MediaClipApi.set_clip_name(self, clip: int, name: str, *, request_options: RequestOptions | None = None) -> str
 media_clip.MediaClipApi.stop_clip(self, *, request_options: RequestOptions | None = None) -> str
 media_clip.MediaClipApi.stop_clip_as_viewer(self, *, request_options: RequestOptions | None = None) -> str
+media_clip.MediaClipApi.upload_clip(self, clip: UploadSource, *, name: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 media_clip.PlayClipAsViewerRequest(clip: int | None, audiooutput: int | None, repeat: int | None, volume: int | None, location: str | None, audiodeviceid: int | None, audiooutputid: int | None)
 media_clip.PlayClipRequest(clip: int | None, audiooutput: int | None, repeat: int | None, volume: int | None, location: str | None, audiodeviceid: int | None, audiooutputid: int | None)
 media_clip.RemoveClipRequest(clip: int)
 media_clip.SetClipNameRequest(clip: int, name: str)
+media_clip.UploadClipRequest(clip: UploadSource, name: str | None)
 motion_guard.AlarmOverlayCamera(id: int | None, available_resolutions: list[str] | None [availableResolutions])
 motion_guard.AlarmOverlayCapabilities(is_supported: bool | None [isSupported], max_nbr_active_cameras: int | None [maxNbrActiveCameras], cameras: list[AlarmOverlayCamera] | None)
 motion_guard.AsyncMotionGuardApi.get_configuration(self, *, request_options: RequestOptions | None = None) -> Configuration
@@ -3444,6 +3634,17 @@ network_share.StartedTest(job_id: str [JobId])
 network_share.TestShareRequest(schemaversion: XmlSchemaVersion | None, address: str | None, share: str | None, user: str | None, password: str | None [pass], shareid: str | None)
 network_share.UnbindShareRequest(schemaversion: XmlSchemaVersion | None, shareid: str)
 network_share.XmlSchemaVersion = Annotated[str, Field(pattern=r"^[0-9]+(\.[0-9]+)?$")]
+network_time_sync.AsyncNetworkTimeSyncApi.get_client(self, *, request_options: RequestOptions | None = None) -> NtpClient
+network_time_sync.AsyncNetworkTimeSyncApi.update_client(self, /, *, enabled: bool | MISSING = MISSING, maximum_poll: int | MISSING = MISSING, minimum_poll: int | MISSING = MISSING, servers_source: str | MISSING = MISSING, static_servers: list[str] | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+network_time_sync.AsyncNetworkTimeSyncApi.update_client(self, request: UpdateClientRequest, /, *, request_options: RequestOptions | None = None) -> None
+network_time_sync.NetworkTimeSync(ntp: Ntp | None)
+network_time_sync.NetworkTimeSyncApi.get_client(self, *, request_options: RequestOptions | None = None) -> NtpClient
+network_time_sync.NetworkTimeSyncApi.update_client(self, /, *, enabled: bool | MISSING = MISSING, maximum_poll: int | MISSING = MISSING, minimum_poll: int | MISSING = MISSING, servers_source: str | MISSING = MISSING, static_servers: list[str] | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+network_time_sync.NetworkTimeSyncApi.update_client(self, request: UpdateClientRequest, /, *, request_options: RequestOptions | None = None) -> None
+network_time_sync.Ntp(client: NtpClient | None)
+network_time_sync.NtpClient(advertised_servers: list[str] | None [advertisedServers], enabled: bool | None, maximum_poll: int | None [maximumPoll], minimum_poll: int | None [minimumPoll], servers_source: str | None [serversSource], static_servers: list[str] | None [staticServers], synced: bool | None, time_offset: int | None [timeOffset], time_to_next_sync: int | None [timeToNextSync])
+network_time_sync.UpdateClientRequest(enabled: bool | None, maximum_poll: int | None [maximumPoll], minimum_poll: int | None [minimumPoll], servers_source: str | None [serversSource], static_servers: list[str] | None [staticServers])
+network_time_sync.UpdateClientRequest.from_current(NtpClient)
 networkpairing.AddPairingRequest(address: str, username: str, password: str, certificate_common_name: str | None, description: PairingDescription | None, nice_name: PairingNiceName | None)
 networkpairing.AsyncNetworkpairingApi.add_pairing(self, /, *, address: str, username: str, password: str, certificate_common_name: str | MISSING = MISSING, description: PairingDescription | MISSING = MISSING, nice_name: PairingNiceName | MISSING = MISSING, request_options: RequestOptions | None = None) -> Pairing
 networkpairing.AsyncNetworkpairingApi.add_pairing(self, request: AddPairingRequest, /, *, request_options: RequestOptions | None = None) -> Pairing
@@ -3731,12 +3932,15 @@ on_screen_controls.VmsReq = Literal['eventStream']
 onvif_replay_extension.AsyncOnvifReplayExtensionApi.get_default_enabled(self, *, request_options: RequestOptions | None = None) -> OnvifReplayExtDefault
 onvif_replay_extension.AsyncOnvifReplayExtensionApi.get_support(self, *, request_options: RequestOptions | None = None) -> OnvifReplayExtSupport
 onvif_replay_extension.AsyncOnvifReplayExtensionApi.set_default_enabled(self, enabled: bool, *, request_options: RequestOptions | None = None) -> None
+onvif_replay_extension.AsyncOnvifReplayExtensionApi.stream_with_replay_extension(self, *, videocodec: str | MISSING = MISSING, onvifreplayext: Literal[0, 1], port: int | None = None, include_credentials: bool = False) -> RtspUrl
 onvif_replay_extension.OnvifReplayExtDefault(enabled: bool [Network.RTP.OnvifReplayExt])
 onvif_replay_extension.OnvifReplayExtSupport(supported: bool [Properties.API.RTP.OnvifReplayExt])
 onvif_replay_extension.OnvifReplayExtensionApi.get_default_enabled(self, *, request_options: RequestOptions | None = None) -> OnvifReplayExtDefault
 onvif_replay_extension.OnvifReplayExtensionApi.get_support(self, *, request_options: RequestOptions | None = None) -> OnvifReplayExtSupport
 onvif_replay_extension.OnvifReplayExtensionApi.set_default_enabled(self, enabled: bool, *, request_options: RequestOptions | None = None) -> None
+onvif_replay_extension.OnvifReplayExtensionApi.stream_with_replay_extension(self, *, videocodec: str | MISSING = MISSING, onvifreplayext: Literal[0, 1], port: int | None = None, include_credentials: bool = False) -> RtspUrl
 onvif_replay_extension.SetDefaultEnabledRequest(enabled: bool [Network.RTP.OnvifReplayExt])
+onvif_replay_extension.StreamWithReplayExtensionRequest(videocodec: str | None, onvifreplayext: Literal[0, 1])
 optics_control.AsyncOpticsControlApi.calibrate(self, /, *, optics: list[CalibrateRequestOpticsItem], request_options: RequestOptions | None = None) -> None
 optics_control.AsyncOpticsControlApi.calibrate(self, request: CalibrateRequest, /, *, request_options: RequestOptions | None = None) -> None
 optics_control.AsyncOpticsControlApi.get_capabilities(self, *, request_options: RequestOptions | None = None) -> CapabilitiesList
@@ -3946,6 +4150,7 @@ people_counter.AsyncPeopleCounterApi.occupancy_export_csv(self, *, date: str, re
 people_counter.AsyncPeopleCounterApi.occupancy_export_json(self, *, date: str, res: OccupancyResolution, request_options: RequestOptions | None = None) -> OccupancyExport
 people_counter.AsyncPeopleCounterApi.occupancy_export_xml(self, *, date: str, res: OccupancyResolution, request_options: RequestOptions | None = None) -> ET.Element
 people_counter.AsyncPeopleCounterApi.reset_occupancy(self, *, occ: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+people_counter.AsyncPeopleCounterApi.set_params(self, values: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
 people_counter.AsyncPeopleCounterApi.show_logs(self, *, request_options: RequestOptions | None = None) -> str
 people_counter.CountPosition(width: int, height: int, left: int, right: int, top: int, bottom: int, yfirst: int, ylast: int, radius: int)
 people_counter.DateSelection = Annotated[str, Field(pattern='^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$')]
@@ -3972,9 +4177,11 @@ people_counter.PeopleCounterApi.occupancy_export_csv(self, *, date: str, res: Oc
 people_counter.PeopleCounterApi.occupancy_export_json(self, *, date: str, res: OccupancyResolution, request_options: RequestOptions | None = None) -> OccupancyExport
 people_counter.PeopleCounterApi.occupancy_export_xml(self, *, date: str, res: OccupancyResolution, request_options: RequestOptions | None = None) -> ET.Element
 people_counter.PeopleCounterApi.reset_occupancy(self, *, occ: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+people_counter.PeopleCounterApi.set_params(self, values: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
 people_counter.PeopleCounterApi.show_logs(self, *, request_options: RequestOptions | None = None) -> str
 people_counter.ResetOccupancyRequest(occ: int | None)
 people_counter.Resolution = Literal['15m', '1h', '24h']
+people_counter.SetParamsRequest(values: dict[str, str])
 people_counter_3d_legacy.AsyncPeopleCounter3DLegacyApi.export_csv(self, *, resolution: ExportResolution | MISSING = MISSING, date: ExportDate | MISSING = MISSING, method: ExportMethod | MISSING = MISSING, export_method: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 people_counter_3d_legacy.AsyncPeopleCounter3DLegacyApi.export_json(self, *, resolution: ExportResolution | MISSING = MISSING, date: ExportDate | MISSING = MISSING, method: ExportMethod | MISSING = MISSING, request_options: RequestOptions | None = None) -> Any
 people_counter_3d_legacy.AsyncPeopleCounter3DLegacyApi.get_counts(self, *, request_options: RequestOptions | None = None) -> Counts
@@ -4378,6 +4585,7 @@ ptz_driver_management.ActiveDriver(status: DriverState | None, driver_id: int | 
 ptz_driver_management.AsyncPtzDriverManagementApi.activate_driver(self, driverid: int | MISSING = MISSING, *, channel: int | MISSING = MISSING, device_type: str | MISSING = MISSING, device_id: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 ptz_driver_management.AsyncPtzDriverManagementApi.get_driver_status(self, *, request_options: RequestOptions | None = None) -> DriverStatus
 ptz_driver_management.AsyncPtzDriverManagementApi.list_drivers(self, status: bool | MISSING = MISSING, *, request_options: RequestOptions | None = None) -> DriverList
+ptz_driver_management.AsyncPtzDriverManagementApi.upload_driver(self, driver: UploadSource, *, request_options: RequestOptions | None = None) -> UploadedDriver
 ptz_driver_management.ChannelStatus(channel: int, active_driver: ActiveDriver | None [activeDriver])
 ptz_driver_management.DeviceIdRange(minimum: int | None, maximum: int | None)
 ptz_driver_management.DriverEntry(id: int, driver: str | None, driver_version: str | None [driverVersion], installed: list[int] | None, device_types: list[str] | None [deviceTypes], device_id_range: DeviceIdRange | None [deviceIdRange])
@@ -4388,6 +4596,9 @@ ptz_driver_management.ListDriversRequest(status: bool | None)
 ptz_driver_management.PtzDriverManagementApi.activate_driver(self, driverid: int | MISSING = MISSING, *, channel: int | MISSING = MISSING, device_type: str | MISSING = MISSING, device_id: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 ptz_driver_management.PtzDriverManagementApi.get_driver_status(self, *, request_options: RequestOptions | None = None) -> DriverStatus
 ptz_driver_management.PtzDriverManagementApi.list_drivers(self, status: bool | MISSING = MISSING, *, request_options: RequestOptions | None = None) -> DriverList
+ptz_driver_management.PtzDriverManagementApi.upload_driver(self, driver: UploadSource, *, request_options: RequestOptions | None = None) -> UploadedDriver
+ptz_driver_management.UploadDriverRequest(driver: UploadSource)
+ptz_driver_management.UploadedDriver(id: int)
 ptz_orientation_aid.AsyncPtzOrientationAidApi.get_compass_state(self, *, request_options: RequestOptions | None = None) -> CompassState
 ptz_orientation_aid.AsyncPtzOrientationAidApi.list_tags(self, *, request_options: RequestOptions | None = None) -> Tag
 ptz_orientation_aid.AsyncPtzOrientationAidApi.set_compass_state(self, enabled: bool, *, request_options: RequestOptions | None = None) -> None
@@ -4701,12 +4912,19 @@ raid.RaidLevel = Literal['raid0', 'raid1', 'raid5', 'raid6', 'raid10']
 raid.RaidStatus = Literal['active', 'degraded', 'syncing', 'failure']
 raid.RaidStatusResult(raids: list[Raid])
 raid.RecreateRaidOnAllComponentsRequest(raid_level: RaidLevel [raidLevel])
+rate_control.AsyncRateControlApi.get_rtsp_stream_with_rate_control(self, *, videobitratemode: Mode | MISSING = MISSING, videobitratepriority: Priority | MISSING = MISSING, videomaxbitrate: int | MISSING = MISSING, videoabrtargetbitrate: int | MISSING = MISSING, videoabrmaxbitrate: int | MISSING = MISSING, videoabrretentiontime: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 rate_control.AsyncRateControlApi.list_rate_control(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
-rate_control.AsyncRateControlApi.update_rate_control(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
+rate_control.AsyncRateControlApi.set_rate_control(self, n: int, /, *, mode: Mode | MISSING = MISSING, priority: Priority | MISSING = MISSING, max_bitrate: int | MISSING = MISSING, abr_target_bitrate: int | MISSING = MISSING, abr_max_bitrate: int | MISSING = MISSING, abr_retention_time: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+rate_control.AsyncRateControlApi.set_rate_control(self, request: SetRateControlRequest, /, *, request_options: RequestOptions | None = None) -> None
+rate_control.GetRtspStreamWithRateControlRequest(videobitratemode: Mode | None, videobitratepriority: Priority | None, videomaxbitrate: int | None, videoabrtargetbitrate: int | None, videoabrmaxbitrate: int | None, videoabrretentiontime: int | None)
 rate_control.ListRateControlRequest(group: str)
+rate_control.Mode = Literal['vbr', 'mbr', 'abr']
+rate_control.Priority = Literal['none', 'quality', 'framerate', 'fullframerate']
+rate_control.RateControlApi.get_rtsp_stream_with_rate_control(self, *, videobitratemode: Mode | MISSING = MISSING, videobitratepriority: Priority | MISSING = MISSING, videomaxbitrate: int | MISSING = MISSING, videoabrtargetbitrate: int | MISSING = MISSING, videoabrmaxbitrate: int | MISSING = MISSING, videoabrretentiontime: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 rate_control.RateControlApi.list_rate_control(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
-rate_control.RateControlApi.update_rate_control(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
-rate_control.UpdateRateControlRequest(parameters: dict[str, str])
+rate_control.RateControlApi.set_rate_control(self, n: int, /, *, mode: Mode | MISSING = MISSING, priority: Priority | MISSING = MISSING, max_bitrate: int | MISSING = MISSING, abr_target_bitrate: int | MISSING = MISSING, abr_max_bitrate: int | MISSING = MISSING, abr_retention_time: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+rate_control.RateControlApi.set_rate_control(self, request: SetRateControlRequest, /, *, request_options: RequestOptions | None = None) -> None
+rate_control.SetRateControlRequest(n: int, mode: Mode | None [root.Image.I{n}.RateControl.Mode], priority: Priority | None [root.Image.I{n}.RateControl.Priority], max_bitrate: int | None [root.Image.I{n}.RateControl.MaxBitrate], abr_target_bitrate: int | None [root.Image.I{n}.RateControl.ABR.TargetBitrate], abr_max_bitrate: int | None [root.Image.I{n}.RateControl.ABR.MaxBitrate], abr_retention_time: int | None [root.Image.I{n}.RateControl.ABR.RetentionTime])
 recorded_guard_tour.AsyncRecordedTourApi.get_schema_versions(self, *, request_options: RequestOptions | None = None) -> SchemaVersions
 recorded_guard_tour.AsyncRecordedTourApi.list_recorded_tours(self, schemaversion: SchemaVersion, *, camera: int | MISSING = MISSING, recordedtourid: RecordedTourId | MISSING = MISSING, request_options: RequestOptions | None = None) -> RecordedTours
 recorded_guard_tour.AsyncRecordedTourApi.modify_tour(self, *, schemaversion: SchemaVersion, recordedtourid: RecordedTourId, nicename: RecordedTourName | MISSING = MISSING, defaultloopdelay: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
@@ -4752,6 +4970,9 @@ recording.AsyncRecordingApi.list_event_ids(self, diskid: str | MISSING = MISSING
 recording.AsyncRecordingApi.list_recording_sources(self, diskid: str | MISSING = MISSING, *, request_options: RequestOptions | None = None) -> RecordingSources
 recording.AsyncRecordingApi.list_recordings(self, recordingid: str | MISSING = MISSING, /, *, maxnumberofresults: int | MISSING = MISSING, startatresultnumber: int | MISSING = MISSING, recordinggroupid: str | MISSING = MISSING, eventid: str | MISSING = MISSING, diskid: str | MISSING = MISSING, starttime: str | MISSING = MISSING, stoptime: str | MISSING = MISSING, sortorder: Literal['ascending', 'descending'] | MISSING = MISSING, source: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> RecordingList
 recording.AsyncRecordingApi.list_recordings(self, request: ListRecordingsRequest, /, *, request_options: RequestOptions | None = None) -> RecordingList
+recording.AsyncRecordingApi.play_recording(self, recordingid: str, /, *, mediatype: Literal['video', 'audio'] | MISSING = MISSING, rate: str | MISSING = MISSING, starttime: str | MISSING = MISSING, stoptime: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> AsyncStreamResult[Part]
+recording.AsyncRecordingApi.play_recording(self, request: PlayRecordingRequest, /, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[Part]
+recording.AsyncRecordingApi.play_recording_rtsp(self, recordingid: str, *, pull: bool | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 recording.AsyncRecordingApi.remove_continuous_configuration(self, profile: int, *, request_options: RequestOptions | None = None) -> None
 recording.AsyncRecordingApi.remove_recordings(self, recordingid: str | MISSING = MISSING, /, *, recordinggroupid: str | MISSING = MISSING, diskid: str | MISSING = MISSING, beforetime: str | MISSING = MISSING, eventid: str | MISSING = MISSING, source: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 recording.AsyncRecordingApi.remove_recordings(self, request: RemoveRecordingsRequest, /, *, request_options: RequestOptions | None = None) -> None
@@ -4765,12 +4986,17 @@ recording.ListContinuousConfigurationsRequest(profile: int | None)
 recording.ListEventIdsRequest(diskid: str | None)
 recording.ListRecordingSourcesRequest(diskid: str | None)
 recording.ListRecordingsRequest(recordingid: str | None, maxnumberofresults: int | None, startatresultnumber: int | None, recordinggroupid: str | None, eventid: str | None, diskid: str | None, starttime: str | None, stoptime: str | None, sortorder: Literal['ascending', 'descending'] | None, source: str | None)
+recording.PlayRecordingRequest(recordingid: str, mediatype: Literal['video', 'audio'] | None, rate: str | None, starttime: str | None, stoptime: str | None)
+recording.PlayRecordingRtspRequest(recordingid: str, pull: bool | None)
 recording.RecordingApi.add_continuous_configuration(self, *, diskid: str, options: str, eventid: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ContinuousProfile
 recording.RecordingApi.list_continuous_configurations(self, profile: int | MISSING = MISSING, *, request_options: RequestOptions | None = None) -> ContinuousConfigurations
 recording.RecordingApi.list_event_ids(self, diskid: str | MISSING = MISSING, *, request_options: RequestOptions | None = None) -> EventIds
 recording.RecordingApi.list_recording_sources(self, diskid: str | MISSING = MISSING, *, request_options: RequestOptions | None = None) -> RecordingSources
 recording.RecordingApi.list_recordings(self, recordingid: str | MISSING = MISSING, /, *, maxnumberofresults: int | MISSING = MISSING, startatresultnumber: int | MISSING = MISSING, recordinggroupid: str | MISSING = MISSING, eventid: str | MISSING = MISSING, diskid: str | MISSING = MISSING, starttime: str | MISSING = MISSING, stoptime: str | MISSING = MISSING, sortorder: Literal['ascending', 'descending'] | MISSING = MISSING, source: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> RecordingList
 recording.RecordingApi.list_recordings(self, request: ListRecordingsRequest, /, *, request_options: RequestOptions | None = None) -> RecordingList
+recording.RecordingApi.play_recording(self, recordingid: str, /, *, mediatype: Literal['video', 'audio'] | MISSING = MISSING, rate: str | MISSING = MISSING, starttime: str | MISSING = MISSING, stoptime: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> StreamResult[Part]
+recording.RecordingApi.play_recording(self, request: PlayRecordingRequest, /, *, request_options: RequestOptions | None = None) -> StreamResult[Part]
+recording.RecordingApi.play_recording_rtsp(self, recordingid: str, *, pull: bool | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 recording.RecordingApi.remove_continuous_configuration(self, profile: int, *, request_options: RequestOptions | None = None) -> None
 recording.RecordingApi.remove_recordings(self, recordingid: str | MISSING = MISSING, /, *, recordinggroupid: str | MISSING = MISSING, diskid: str | MISSING = MISSING, beforetime: str | MISSING = MISSING, eventid: str | MISSING = MISSING, source: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 recording.RecordingApi.remove_recordings(self, request: RemoveRecordingsRequest, /, *, request_options: RequestOptions | None = None) -> None
@@ -4991,11 +5217,11 @@ remote_syslog.Severity = Literal['Emergency', 'Alert', 'Critical', 'Error', 'War
 remote_syslog.Status(enabled: bool, servers: list[ServerConfig])
 remote_syslog.SyslogFormat = Literal['AXIS', 'RFC3164', 'RFC5424']
 scene_profile.AsyncSceneProfileApi.list_scene_profiles(self, group: str, *, responseformat: str | MISSING = MISSING, responsecharset: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
-scene_profile.AsyncSceneProfileApi.set_scene_profile(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
+scene_profile.AsyncSceneProfileApi.set_scene_profile(self, image_source: int, profile: str, *, request_options: RequestOptions | None = None) -> None
 scene_profile.ListSceneProfilesRequest(group: str, responseformat: str | None, responsecharset: str | None)
 scene_profile.SceneProfileApi.list_scene_profiles(self, group: str, *, responseformat: str | MISSING = MISSING, responsecharset: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
-scene_profile.SceneProfileApi.set_scene_profile(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
-scene_profile.SetSceneProfileRequest(parameters: dict[str, str])
+scene_profile.SceneProfileApi.set_scene_profile(self, image_source: int, profile: str, *, request_options: RequestOptions | None = None) -> None
+scene_profile.SetSceneProfileRequest(image_source: int, profile: str [ImageSource.I{image_source}.SceneProfile])
 schedule_service.AsyncScheduleServiceApi.get_schedule(self, *, token: list[ReferenceToken], request_options: RequestOptions | None = None) -> Schedules
 schedule_service.AsyncScheduleServiceApi.get_schedule_info(self, *, token: list[ReferenceToken], request_options: RequestOptions | None = None) -> ScheduleInfos
 schedule_service.AsyncScheduleServiceApi.get_schedule_info_list(self, *, limit: int | MISSING = MISSING, start_reference: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ScheduleInfoList
@@ -5038,6 +5264,12 @@ schedule_service.TokenList(token: list[ReferenceToken] | None [Token])
 schedule_service.TokensRequest(token: list[ReferenceToken] [Token])
 serial_port.AsyncSerialPortApi.connect_video_source(self, *, port: int, camera: VideoChannel, request_options: RequestOptions | None = None) -> None
 serial_port.AsyncSerialPortApi.read_data(self, read: int, *, wait: int | MISSING = MISSING, timeout: int | MISSING = MISSING, camera: VideoChannel | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
+serial_port.AsyncSerialPortApi.set_port_manager(self, port_manager: int, /, *, port_enabled: Literal['yes', 'no'] | MISSING = MISSING, port_type: Literal['Serial', 'RemotePort'] | MISSING = MISSING, serial_cgi_enabled: Literal['yes', 'no'] | MISSING = MISSING, ptz_server_enabled: Literal['yes', 'no'] | MISSING = MISSING, remote_port_server_enabled: Literal['yes', 'no'] | MISSING = MISSING, remote_port_server_allowed_ip_addresses: str | MISSING = MISSING, remote_port_server_timeout: int | MISSING = MISSING, remote_port_server_authentication_key: str | MISSING = MISSING, remote_port_server_listener_enabled: Literal['yes', 'no'] | MISSING = MISSING, remote_port_server_listener_port: int | MISSING = MISSING, generic_tcp_server_enabled: Literal['yes', 'no'] | MISSING = MISSING, generic_tcp_server_allowed_ip_addresses: str | MISSING = MISSING, generic_tcp_server_timeout: int | MISSING = MISSING, generic_tcp_server_connect_to_enabled: Literal['yes', 'no'] | MISSING = MISSING, generic_tcp_server_connect_to_host: str | MISSING = MISSING, generic_tcp_server_connect_to_port: int | MISSING = MISSING, generic_tcp_server_listener_enabled: Literal['yes', 'no'] | MISSING = MISSING, generic_tcp_server_listener_port: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+serial_port.AsyncSerialPortApi.set_port_manager(self, request: SetPortManagerRequest, /, *, request_options: RequestOptions | None = None) -> None
+serial_port.AsyncSerialPortApi.set_remote_port(self, remote_port: int, /, *, auto_conf: Literal['yes', 'no'] | MISSING = MISSING, authentication_key: str | MISSING = MISSING, host: str | MISSING = MISSING, port: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+serial_port.AsyncSerialPortApi.set_remote_port(self, request: SetRemotePortRequest, /, *, request_options: RequestOptions | None = None) -> None
+serial_port.AsyncSerialPortApi.set_serial_port(self, request: SetSerialPortRequest, /, *, request_options: RequestOptions | None = None) -> None
+serial_port.AsyncSerialPortApi.set_serial_port(self, serial: int, /, *, port_mode: Literal['RS232', 'RS485', 'RS485_4', 'RS422'] | MISSING = MISSING, baud_rate: Literal['300', '600', '1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200', '230400', '460800'] | MISSING = MISSING, data_bits: Literal['7', '8'] | MISSING = MISSING, stop_bits: Literal['1', '2'] | MISSING = MISSING, parity: Literal['None', 'Even', 'Odd', 'Mark', 'Space'] | MISSING = MISSING, flow_control_xon_xoff: Literal['yes', 'no'] | MISSING = MISSING, flow_control_rts_cts: Literal['yes', 'no'] | MISSING = MISSING, termination: Literal['yes', 'no'] | MISSING = MISSING, bias: Literal['yes', 'no'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 serial_port.AsyncSerialPortApi.update_serial_parameters(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
 serial_port.AsyncSerialPortApi.write_data(self, write: str, *, camera: VideoChannel | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 serial_port.AsyncSerialPortApi.write_string(self, writestring: str, *, camera: VideoChannel | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
@@ -5045,9 +5277,18 @@ serial_port.ConnectVideoSourceRequest(port: int, camera: VideoChannel)
 serial_port.ReadDataRequest(read: int, wait: int | None, timeout: int | None, camera: VideoChannel | None)
 serial_port.SerialPortApi.connect_video_source(self, *, port: int, camera: VideoChannel, request_options: RequestOptions | None = None) -> None
 serial_port.SerialPortApi.read_data(self, read: int, *, wait: int | MISSING = MISSING, timeout: int | MISSING = MISSING, camera: VideoChannel | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
+serial_port.SerialPortApi.set_port_manager(self, port_manager: int, /, *, port_enabled: Literal['yes', 'no'] | MISSING = MISSING, port_type: Literal['Serial', 'RemotePort'] | MISSING = MISSING, serial_cgi_enabled: Literal['yes', 'no'] | MISSING = MISSING, ptz_server_enabled: Literal['yes', 'no'] | MISSING = MISSING, remote_port_server_enabled: Literal['yes', 'no'] | MISSING = MISSING, remote_port_server_allowed_ip_addresses: str | MISSING = MISSING, remote_port_server_timeout: int | MISSING = MISSING, remote_port_server_authentication_key: str | MISSING = MISSING, remote_port_server_listener_enabled: Literal['yes', 'no'] | MISSING = MISSING, remote_port_server_listener_port: int | MISSING = MISSING, generic_tcp_server_enabled: Literal['yes', 'no'] | MISSING = MISSING, generic_tcp_server_allowed_ip_addresses: str | MISSING = MISSING, generic_tcp_server_timeout: int | MISSING = MISSING, generic_tcp_server_connect_to_enabled: Literal['yes', 'no'] | MISSING = MISSING, generic_tcp_server_connect_to_host: str | MISSING = MISSING, generic_tcp_server_connect_to_port: int | MISSING = MISSING, generic_tcp_server_listener_enabled: Literal['yes', 'no'] | MISSING = MISSING, generic_tcp_server_listener_port: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+serial_port.SerialPortApi.set_port_manager(self, request: SetPortManagerRequest, /, *, request_options: RequestOptions | None = None) -> None
+serial_port.SerialPortApi.set_remote_port(self, remote_port: int, /, *, auto_conf: Literal['yes', 'no'] | MISSING = MISSING, authentication_key: str | MISSING = MISSING, host: str | MISSING = MISSING, port: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+serial_port.SerialPortApi.set_remote_port(self, request: SetRemotePortRequest, /, *, request_options: RequestOptions | None = None) -> None
+serial_port.SerialPortApi.set_serial_port(self, request: SetSerialPortRequest, /, *, request_options: RequestOptions | None = None) -> None
+serial_port.SerialPortApi.set_serial_port(self, serial: int, /, *, port_mode: Literal['RS232', 'RS485', 'RS485_4', 'RS422'] | MISSING = MISSING, baud_rate: Literal['300', '600', '1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200', '230400', '460800'] | MISSING = MISSING, data_bits: Literal['7', '8'] | MISSING = MISSING, stop_bits: Literal['1', '2'] | MISSING = MISSING, parity: Literal['None', 'Even', 'Odd', 'Mark', 'Space'] | MISSING = MISSING, flow_control_xon_xoff: Literal['yes', 'no'] | MISSING = MISSING, flow_control_rts_cts: Literal['yes', 'no'] | MISSING = MISSING, termination: Literal['yes', 'no'] | MISSING = MISSING, bias: Literal['yes', 'no'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 serial_port.SerialPortApi.update_serial_parameters(self, parameters: Mapping[str, str], *, request_options: RequestOptions | None = None) -> None
 serial_port.SerialPortApi.write_data(self, write: str, *, camera: VideoChannel | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 serial_port.SerialPortApi.write_string(self, writestring: str, *, camera: VideoChannel | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
+serial_port.SetPortManagerRequest(port_manager: int, port_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.PortEnabled], port_type: Literal['Serial', 'RemotePort'] | None [PortManager.P{port_manager}.PortType], serial_cgi_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.SerialCGI.Enabled], ptz_server_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.PTZServer.Enabled], remote_port_server_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.RemotePortServer.Enabled], remote_port_server_allowed_ip_addresses: str | None [PortManager.P{port_manager}.RemotePortServer.AllowedIPAddresses], remote_port_server_timeout: int | None [PortManager.P{port_manager}.RemotePortServer.Timeout], remote_port_server_authentication_key: str | None [PortManager.P{port_manager}.RemotePortServer.AuthenticationKey], remote_port_server_listener_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.RemotePortServer.Listener.Enabled], remote_port_server_listener_port: int | None [PortManager.P{port_manager}.RemotePortServer.Listener.Port], generic_tcp_server_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.GenericTCPServer.Enabled], generic_tcp_server_allowed_ip_addresses: str | None [PortManager.P{port_manager}.GenericTCPServer.AllowedIPAddresses], generic_tcp_server_timeout: int | None [PortManager.P{port_manager}.GenericTCPServer.Timeout], generic_tcp_server_connect_to_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.GenericTCPServer.ConnectTo.Enabled], generic_tcp_server_connect_to_host: str | None [PortManager.P{port_manager}.GenericTCPServer.ConnectTo.Host], generic_tcp_server_connect_to_port: int | None [PortManager.P{port_manager}.GenericTCPServer.ConnectTo.Port], generic_tcp_server_listener_enabled: Literal['yes', 'no'] | None [PortManager.P{port_manager}.GenericTCPServer.Listener.Enabled], generic_tcp_server_listener_port: int | None [PortManager.P{port_manager}.GenericTCPServer.Listener.Port])
+serial_port.SetRemotePortRequest(remote_port: int, auto_conf: Literal['yes', 'no'] | None [RemotePort.R{remote_port}.AutoConf], authentication_key: str | None [RemotePort.R{remote_port}.AuthenticationKey], host: str | None [RemotePort.R{remote_port}.Host], port: int | None [RemotePort.R{remote_port}.Port])
+serial_port.SetSerialPortRequest(serial: int, port_mode: Literal['RS232', 'RS485', 'RS485_4', 'RS422'] | None [Serial.Ser{serial}.PortMode], baud_rate: Literal['300', '600', '1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200', '230400', '460800'] | None [Serial.Ser{serial}.BaudRate], data_bits: Literal['7', '8'] | None [Serial.Ser{serial}.DataBits], stop_bits: Literal['1', '2'] | None [Serial.Ser{serial}.StopBits], parity: Literal['None', 'Even', 'Odd', 'Mark', 'Space'] | None [Serial.Ser{serial}.Parity], flow_control_xon_xoff: Literal['yes', 'no'] | None [Serial.Ser{serial}.FlowControlXONXOFF], flow_control_rts_cts: Literal['yes', 'no'] | None [Serial.Ser{serial}.FlowControlRTSCTS], termination: Literal['yes', 'no'] | None [Serial.Ser{serial}.Termination], bias: Literal['yes', 'no'] | None [Serial.Ser{serial}.Bias])
 serial_port.UpdateSerialParametersRequest(parameters: dict[str, str])
 serial_port.VideoChannel = Annotated[int, Field(ge=1)]
 serial_port.WriteDataRequest(write: str, camera: VideoChannel | None)
@@ -5081,10 +5322,13 @@ shock_detection.ShockDetectionApi.set_sensitivity_level(self, *, schemaversion: 
 shock_detection.ShockDetectionStatus(enabled: bool [Enabled])
 signed_video.AsyncSignedVideoApi.get_signed_video(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
 signed_video.AsyncSignedVideoApi.set_signed_video(self, parameters: Mapping[str, Literal['yes', 'no']], *, request_options: RequestOptions | None = None) -> None
+signed_video.AsyncSignedVideoApi.stream_signed_video(self, *, videosigned: bool, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 signed_video.GetSignedVideoRequest(group: str)
 signed_video.SetSignedVideoRequest(parameters: dict[str, Literal['yes', 'no']])
 signed_video.SignedVideoApi.get_signed_video(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
 signed_video.SignedVideoApi.set_signed_video(self, parameters: Mapping[str, Literal['yes', 'no']], *, request_options: RequestOptions | None = None) -> None
+signed_video.SignedVideoApi.stream_signed_video(self, *, videosigned: bool, port: int | None = None, include_credentials: bool = False) -> RtspUrl
+signed_video.StreamSignedVideoRequest(videosigned: bool)
 siren_and_light.AddProfileRequest(name: str, description: str | None, siren: SirenConfig | None, light: LightConfig | None)
 siren_and_light.AsyncSirenAndLightApi.add_profile(self, /, *, name: str, description: str | MISSING = MISSING, siren: SirenConfig | MISSING = MISSING, light: LightConfig | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 siren_and_light.AsyncSirenAndLightApi.add_profile(self, request: AddProfileRequest, /, *, request_options: RequestOptions | None = None) -> None
@@ -5698,14 +5942,17 @@ supervised_io.SupervisedResult(items: list[PortSupervision])
 supervised_io.SupportedStatesResult(items: list[PortStates])
 system_settings.AsyncSystemSettingsApi.access_log(self, *, request_options: RequestOptions | None = None) -> str
 system_settings.AsyncSystemSettingsApi.factory_default(self, *, request_options: RequestOptions | None = None) -> None
+system_settings.AsyncSystemSettingsApi.firmware_upgrade(self, firmware: UploadSource, *, type: Literal['normal', 'factorydefault'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 system_settings.AsyncSystemSettingsApi.hard_factory_default(self, *, request_options: RequestOptions | None = None) -> None
 system_settings.AsyncSystemSettingsApi.restart(self, *, request_options: RequestOptions | None = None) -> None
 system_settings.AsyncSystemSettingsApi.server_report(self, *, mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
 system_settings.AsyncSystemSettingsApi.system_log(self, *, text: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
+system_settings.FirmwareUpgradeRequest(firmware: UploadSource, type: Literal['normal', 'factorydefault'] | None)
 system_settings.ServerReportRequest(mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | None)
 system_settings.SystemLogRequest(text: str | None)
 system_settings.SystemSettingsApi.access_log(self, *, request_options: RequestOptions | None = None) -> str
 system_settings.SystemSettingsApi.factory_default(self, *, request_options: RequestOptions | None = None) -> None
+system_settings.SystemSettingsApi.firmware_upgrade(self, firmware: UploadSource, *, type: Literal['normal', 'factorydefault'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 system_settings.SystemSettingsApi.hard_factory_default(self, *, request_options: RequestOptions | None = None) -> None
 system_settings.SystemSettingsApi.restart(self, *, request_options: RequestOptions | None = None) -> None
 system_settings.SystemSettingsApi.server_report(self, *, mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
@@ -5773,11 +6020,17 @@ temperature_control.TemperatureControlApi.stop(self, device: TemperatureDevice, 
 temperature_control.TemperatureControlApi.time_until_stop(self, device: TemperatureDevice, id: int, *, request_options: RequestOptions | None = None) -> str
 temperature_control.TemperatureDevice = Literal['heater', 'fan', 'sensor']
 temperature_control.TemperatureUnit = Literal['celsius', 'fahrenheit']
+thermal_color_palettes.AsyncThermalColorPalettesApi.get_mjpeg_stream_with_palette(self, *, palette: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> AsyncStreamResult[Part]
+thermal_color_palettes.AsyncThermalColorPalettesApi.get_rtsp_stream_with_palette(self, *, videocodec: str | MISSING = MISSING, palette: str | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 thermal_color_palettes.AsyncThermalColorPalettesApi.list_palettes(self, *, request_options: RequestOptions | None = None) -> PaletteDefinition
 thermal_color_palettes.AsyncThermalColorPalettesApi.set_global_palette(self, palette: str, *, request_options: RequestOptions | None = None) -> None
+thermal_color_palettes.GetMjpegStreamWithPaletteRequest(palette: str | None)
+thermal_color_palettes.GetRtspStreamWithPaletteRequest(videocodec: str | None, palette: str | None)
 thermal_color_palettes.PaletteDefinition(name: str | None, nice_name: str | None [niceName], value: str | None, security_level: str | None [securityLevel], palettes: list[PaletteName])
 thermal_color_palettes.PaletteName(value: str)
 thermal_color_palettes.SetGlobalPaletteRequest(palette: str [Image.I0.Appearance.Palette])
+thermal_color_palettes.ThermalColorPalettesApi.get_mjpeg_stream_with_palette(self, *, palette: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> StreamResult[Part]
+thermal_color_palettes.ThermalColorPalettesApi.get_rtsp_stream_with_palette(self, *, videocodec: str | MISSING = MISSING, palette: str | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 thermal_color_palettes.ThermalColorPalettesApi.list_palettes(self, *, request_options: RequestOptions | None = None) -> PaletteDefinition
 thermal_color_palettes.ThermalColorPalettesApi.set_global_palette(self, palette: str, *, request_options: RequestOptions | None = None) -> None
 thermal_visual_fusion.AbsCoordinate = Annotated[float, Field(ge=-1, le=1)]
@@ -6133,11 +6386,15 @@ user_service.UserServiceApi.set_user(self, request: SetUserRequest, /, *, reques
 user_service.Users(user: list[User] | None [User])
 video_motion_detection_2_1.Application(name: str, nicename: str | None, rule_engine: RuleEngine | None [ruleEngine])
 video_motion_detection_2_1.ApplicationConfig(version: str | None, application: Application | None)
+video_motion_detection_2_1.AsyncVideoMotionDetection21Api.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 video_motion_detection_2_1.AsyncVideoMotionDetection21Api.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+video_motion_detection_2_1.AsyncVideoMotionDetection21Api.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
 video_motion_detection_2_1.Event(name: str, nicename: str | None, attributes: list[EventAttribute] | None [attr])
 video_motion_detection_2_1.EventAttribute(key: str | None, nicename: str | None, tag: Literal['source', 'data', 'property-state'] | None, value: str | None)
+video_motion_detection_2_1.EventStreamUrlRequest(video: int | None)
 video_motion_detection_2_1.IntValue(value: int)
 video_motion_detection_2_1.Library(name: str | None)
+video_motion_detection_2_1.ModifyConfigurationRequest(configuration: str)
 video_motion_detection_2_1.MoteOption(name: str, value: Literal['true', 'false'])
 video_motion_detection_2_1.NameValue(name: str | None, value: str | None)
 video_motion_detection_2_1.NamedObject(name: str, data: NamedObjectData | None)
@@ -6147,14 +6404,20 @@ video_motion_detection_2_1.Rule(name: str, function: str | None, parameters: lis
 video_motion_detection_2_1.RuleEngine(status: Literal['enabled', 'disabled'] | None, named_objects: list[NamedObject] | None [namedObjects], rules: list[Rule] | None, scripts: list[Script] | None, events: list[Event] | None, analytic_sources: list[NameValue] | None [analyticSources], mote_config: list[MoteOption] | None [moteConfig], libraries: list[Library] | None)
 video_motion_detection_2_1.RuleParameter(name: str, value: str)
 video_motion_detection_2_1.Script(name: str | None, encryption: Literal['0', '1'] | None)
+video_motion_detection_2_1.VideoMotionDetection21Api.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 video_motion_detection_2_1.VideoMotionDetection21Api.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+video_motion_detection_2_1.VideoMotionDetection21Api.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
 video_motion_detection_3.Application(name: str, nicename: str | None, rule_engines: list[RuleEngine] | None [ruleEngines])
 video_motion_detection_3.ApplicationConfig(version: str | None, application: Application | None)
+video_motion_detection_3.AsyncVideoMotionDetection3Api.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 video_motion_detection_3.AsyncVideoMotionDetection3Api.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+video_motion_detection_3.AsyncVideoMotionDetection3Api.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
 video_motion_detection_3.Event(name: str, nicename: str | None, attributes: list[EventAttribute] | None [attr])
 video_motion_detection_3.EventAttribute(key: str | None, nicename: str | None, tag: Literal['source', 'data', 'property-state'] | None, value: str | None)
+video_motion_detection_3.EventStreamUrlRequest(video: int | None)
 video_motion_detection_3.IntValue(value: int)
 video_motion_detection_3.Library(name: str | None)
+video_motion_detection_3.ModifyConfigurationRequest(configuration: str)
 video_motion_detection_3.MoteOption(name: str, value: Literal['true', 'false'])
 video_motion_detection_3.NameValue(name: str | None, value: str | None)
 video_motion_detection_3.NamedObject(name: str, data: NamedObjectData | None)
@@ -6164,7 +6427,9 @@ video_motion_detection_3.Rule(name: str, function: str | None, parameters: list[
 video_motion_detection_3.RuleEngine(status: Literal['enabled', 'disabled'] | None, named_objects: list[NamedObject] | None [namedObjects], rules: list[Rule] | None, scripts: list[Script] | None, events: list[Event] | None, analytic_sources: list[NameValue] | None [analyticSources], mote_config: list[MoteOption] | None [moteConfig], libraries: list[Library] | None)
 video_motion_detection_3.RuleParameter(name: str, value: str)
 video_motion_detection_3.Script(name: str | None, encryption: Literal['0', '1'] | None)
+video_motion_detection_3.VideoMotionDetection3Api.event_stream_url(self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 video_motion_detection_3.VideoMotionDetection3Api.get_configuration(self, *, request_options: RequestOptions | None = None) -> ApplicationConfig
+video_motion_detection_3.VideoMotionDetection3Api.modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None
 video_motion_detection_4.AlarmOverlayCamera(id: int | None, available_resolutions: list[str] | None [availableResolutions])
 video_motion_detection_4.AlarmOverlayCapabilities(is_supported: bool | None [isSupported], max_nbr_active_cameras: int | None [maxNbrActiveCameras], cameras: list[AlarmOverlayCamera] | None)
 video_motion_detection_4.AsyncVideoMotionDetection4Api.get_configuration(self, *, request_options: RequestOptions | None = None) -> Configuration
@@ -6288,31 +6553,36 @@ video_output.VideoOutputApi.update_sequence_element(self, sequenceelementid: int
 video_output.VideoSource(name: str | None [Name], id: str [Id], active: bool | None [Active])
 video_output.VideoSources(video_source: list[VideoSource] [VideoSource])
 video_streaming.AsyncVideoStreamingApi.get_always_multicast_sdp(self, *, camera: Camera | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
-video_streaming.AsyncVideoStreamingApi.get_avif(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+video_streaming.AsyncVideoStreamingApi.get_avif(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
 video_streaming.AsyncVideoStreamingApi.get_avif(self, request: ImageRequest, /, *, request_options: RequestOptions | None = None) -> bytes
-video_streaming.AsyncVideoStreamingApi.get_bitmap(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+video_streaming.AsyncVideoStreamingApi.get_bitmap(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
 video_streaming.AsyncVideoStreamingApi.get_bitmap(self, request: ImageRequest, /, *, request_options: RequestOptions | None = None) -> bytes
-video_streaming.AsyncVideoStreamingApi.get_image_size(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> ImageSize
+video_streaming.AsyncVideoStreamingApi.get_image_size(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> ImageSize
 video_streaming.AsyncVideoStreamingApi.get_image_size(self, request: ImageRequest, /, *, request_options: RequestOptions | None = None) -> ImageSize
-video_streaming.AsyncVideoStreamingApi.get_jpeg(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, text: int | MISSING = MISSING, textstring: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+video_streaming.AsyncVideoStreamingApi.get_jpeg(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, text: int | MISSING = MISSING, textstring: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
 video_streaming.AsyncVideoStreamingApi.get_jpeg(self, request: JpegRequest, /, *, request_options: RequestOptions | None = None) -> bytes
+video_streaming.AsyncVideoStreamingApi.get_mjpeg_stream(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, streamprofile: str | MISSING = MISSING, duration: int | MISSING = MISSING, nbrofframes: int | MISSING = MISSING, fps: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> AsyncStreamResult[Part]
+video_streaming.AsyncVideoStreamingApi.get_mjpeg_stream(self, request: MjpegRequest, /, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[Part]
 video_streaming.AsyncVideoStreamingApi.get_video_status(self, status: list[Annotated[int, Field(ge=1)]], *, request_options: RequestOptions | None = None) -> dict[str, str]
 video_streaming.Camera = Annotated[str, Field(pattern='^([0-9]+|quad)$')]
-video_streaming.ImageRequest(resolution: str | None, camera: Camera | None, compression: int | None, color: int | None, rotation: Literal[0, 90, 180, 270] | None, mirror: int | None, palette: str | None, squarepixel: int | None, overlays: Overlays | None)
+video_streaming.ImageRequest(resolution: str | None, camera: Camera | None, compression: int | None, color: Literal[0, 1] | None, rotation: Literal[0, 90, 180, 270] | None, mirror: Literal[0, 1] | None, palette: str | None, squarepixel: Literal[0, 1] | None, overlays: Overlays | None)
 video_streaming.ImageSize(width: int [image width], height: int [image height])
-video_streaming.JpegRequest(resolution: str | None, camera: Camera | None, compression: int | None, color: int | None, rotation: Literal[0, 90, 180, 270] | None, mirror: int | None, palette: str | None, squarepixel: int | None, overlays: Overlays | None, text: int | None, textstring: str | None)
+video_streaming.JpegRequest(resolution: str | None, camera: Camera | None, compression: int | None, color: Literal[0, 1] | None, rotation: Literal[0, 90, 180, 270] | None, mirror: Literal[0, 1] | None, palette: str | None, squarepixel: Literal[0, 1] | None, overlays: Overlays | None, text: int | None, textstring: str | None)
+video_streaming.MjpegRequest(resolution: str | None, camera: Camera | None, compression: int | None, color: Literal[0, 1] | None, rotation: Literal[0, 90, 180, 270] | None, mirror: Literal[0, 1] | None, palette: str | None, squarepixel: Literal[0, 1] | None, overlays: Overlays | None, streamprofile: str | None, duration: int | None, nbrofframes: int | None, fps: int | None)
 video_streaming.Overlays = Literal['all', 'text', 'image', 'application', 'off', 'all-sync', 'application-sync']
 video_streaming.SdpRequest(camera: Camera | None)
 video_streaming.VideoStatusRequest(status: list[Annotated[int, Field(ge=1)]])
 video_streaming.VideoStreamingApi.get_always_multicast_sdp(self, *, camera: Camera | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
-video_streaming.VideoStreamingApi.get_avif(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+video_streaming.VideoStreamingApi.get_avif(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
 video_streaming.VideoStreamingApi.get_avif(self, request: ImageRequest, /, *, request_options: RequestOptions | None = None) -> bytes
-video_streaming.VideoStreamingApi.get_bitmap(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+video_streaming.VideoStreamingApi.get_bitmap(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
 video_streaming.VideoStreamingApi.get_bitmap(self, request: ImageRequest, /, *, request_options: RequestOptions | None = None) -> bytes
-video_streaming.VideoStreamingApi.get_image_size(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> ImageSize
+video_streaming.VideoStreamingApi.get_image_size(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, request_options: RequestOptions | None = None) -> ImageSize
 video_streaming.VideoStreamingApi.get_image_size(self, request: ImageRequest, /, *, request_options: RequestOptions | None = None) -> ImageSize
-video_streaming.VideoStreamingApi.get_jpeg(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: int | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: int | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: int | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, text: int | MISSING = MISSING, textstring: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+video_streaming.VideoStreamingApi.get_jpeg(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, text: int | MISSING = MISSING, textstring: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
 video_streaming.VideoStreamingApi.get_jpeg(self, request: JpegRequest, /, *, request_options: RequestOptions | None = None) -> bytes
+video_streaming.VideoStreamingApi.get_mjpeg_stream(self, /, *, resolution: str | MISSING = MISSING, camera: Camera | MISSING = MISSING, compression: int | MISSING = MISSING, color: Literal[0, 1] | MISSING = MISSING, rotation: Literal[0, 90, 180, 270] | MISSING = MISSING, mirror: Literal[0, 1] | MISSING = MISSING, palette: str | MISSING = MISSING, squarepixel: Literal[0, 1] | MISSING = MISSING, overlays: Overlays | MISSING = MISSING, streamprofile: str | MISSING = MISSING, duration: int | MISSING = MISSING, nbrofframes: int | MISSING = MISSING, fps: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> StreamResult[Part]
+video_streaming.VideoStreamingApi.get_mjpeg_stream(self, request: MjpegRequest, /, *, request_options: RequestOptions | None = None) -> StreamResult[Part]
 video_streaming.VideoStreamingApi.get_video_status(self, status: list[Annotated[int, Field(ge=1)]], *, request_options: RequestOptions | None = None) -> dict[str, str]
 video_streaming_indicator.AsyncVideoStreamingIndicatorApi.get(self, *, request_options: RequestOptions | None = None) -> IndicatorConfig
 video_streaming_indicator.AsyncVideoStreamingIndicatorApi.off(self, *, request_options: RequestOptions | None = None) -> None
@@ -6398,6 +6668,7 @@ virtualhost.VirtualhostApi.set_virtualhost_auth_type(self, server_name: ServerNa
 virtualhost.VirtualhostApi.set_virtualhost_port(self, server_name: ServerNameType, *, port: PortType, request_options: RequestOptions | None = None) -> None
 virtualhost.VirtualhostApi.update_virtualhost(self, server_name: ServerNameType, *, active: bool | MISSING = MISSING, auth_type: AuthType | MISSING = MISSING, port: PortType | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 virtualhost.VirtualhostEntry(active: bool | None, auth_type: AuthType | None, port: PortType | None, server_name: ServerNameType)
+zipstream.AsyncZipstreamApi.get_rtsp_stream_with_zipstream(self, *, videocodec: str | MISSING = MISSING, videozstrength: Strength | MISSING = MISSING, videozgopmode: GopMode | MISSING = MISSING, videozmaxgoplength: int | MISSING = MISSING, videokeyframeinterval: int | MISSING = MISSING, videozfpsmode: FpsMode | MISSING = MISSING, videozminfps: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 zipstream.AsyncZipstreamApi.get_schema_versions(self, *, request_options: RequestOptions | None = None) -> SchemaVersions
 zipstream.AsyncZipstreamApi.get_status(self, *, schemaversion: int, camera: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> Statuses
 zipstream.AsyncZipstreamApi.list_fps_modes(self, *, schemaversion: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> FpsModes
@@ -6412,6 +6683,7 @@ zipstream.AsyncZipstreamApi.set_profile(self, request: SetProfileRequest, /, *, 
 zipstream.AsyncZipstreamApi.set_strength(self, *, schemaversion: int, camera: str | MISSING = MISSING, strength: Strength, request_options: RequestOptions | None = None) -> None
 zipstream.FpsMode = Literal['fixed', 'dynamic']
 zipstream.FpsModes(fps_modes: list[str] [FpsMode])
+zipstream.GetRtspStreamWithZipstreamRequest(videocodec: str | None, videozstrength: Strength | None, videozgopmode: GopMode | None, videozmaxgoplength: int | None, videokeyframeinterval: int | None, videozfpsmode: FpsMode | None, videozminfps: int | None)
 zipstream.GetStatusRequest(schemaversion: int, camera: str | None)
 zipstream.GopMode = Literal['fixed', 'dynamic']
 zipstream.GopModes(gop_modes: list[str] [GopMode])
@@ -6433,6 +6705,7 @@ zipstream.Status(channel: str [Channel], strength: Strength [Strength], gop_mode
 zipstream.Statuses(channels: list[Status] [Status])
 zipstream.Strength = Literal['off', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100']
 zipstream.Strengths(strengths: list[str] [Strength])
+zipstream.ZipstreamApi.get_rtsp_stream_with_zipstream(self, *, videocodec: str | MISSING = MISSING, videozstrength: Strength | MISSING = MISSING, videozgopmode: GopMode | MISSING = MISSING, videozmaxgoplength: int | MISSING = MISSING, videokeyframeinterval: int | MISSING = MISSING, videozfpsmode: FpsMode | MISSING = MISSING, videozminfps: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 zipstream.ZipstreamApi.get_schema_versions(self, *, request_options: RequestOptions | None = None) -> SchemaVersions
 zipstream.ZipstreamApi.get_status(self, *, schemaversion: int, camera: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> Statuses
 zipstream.ZipstreamApi.list_fps_modes(self, *, schemaversion: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> FpsModes

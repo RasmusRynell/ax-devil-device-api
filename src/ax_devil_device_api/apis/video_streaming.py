@@ -13,7 +13,9 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import Binary, CgiArg, CgiBinding, Text, TextKv
+from .._protocols.cgi import Binary, CgiArg, CgiBinding, Stream, Text, TextKv
+from .._runtime.driver import AsyncStreamResult, StreamResult
+from .._streams import Part
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -31,15 +33,15 @@ class ImageRequest(Model):
     camera: Camera | None = None
     compression: int | None = Field(default=None, ge=0, le=100)
     """Compression level; higher values mean higher compression (lower quality, smaller image). Internally mapped and product dependent."""
-    color: int | None = Field(default=None, ge=0, le=1)
+    color: Literal[0, 1] | None = None
     """``0`` black and white, ``1`` color."""
     rotation: Literal[0, 90, 180, 270] | None = None
     """Rotate the image clockwise. The alternatives are defined by ``Properties.Image.Rotation``; 90, 180 and 270 are product and release dependent. Not applicable to AVIF."""
-    mirror: int | None = Field(default=None, ge=0, le=1)
+    mirror: Literal[0, 1] | None = None
     """``0`` no horizontal mirroring, ``1`` mirror the image horizontally."""
     palette: str | None = None
     """Thermal cameras only. The color palette to use, applicable if ``Properties.Image.Palette.StreamPalette`` is ``yes`` or does not exist. See thermal-color-palettes."""
-    squarepixel: int | None = Field(default=None, ge=0, le=1)
+    squarepixel: Literal[0, 1] | None = None
     """``1`` adjusts the aspect ratio to appear as intended (square pixel correction). Not applicable to AVIF."""
     overlays: Overlays | None = None
 
@@ -52,21 +54,50 @@ class JpegRequest(Model):
     camera: Camera | None = None
     compression: int | None = Field(default=None, ge=0, le=100)
     """Compression level; higher values mean higher compression (lower quality, smaller image). Internally mapped and product dependent."""
-    color: int | None = Field(default=None, ge=0, le=1)
+    color: Literal[0, 1] | None = None
     """``0`` black and white, ``1`` color."""
     rotation: Literal[0, 90, 180, 270] | None = None
     """Rotate the image clockwise. The alternatives are defined by ``Properties.Image.Rotation``; 90, 180 and 270 are product and release dependent. Not applicable to AVIF."""
-    mirror: int | None = Field(default=None, ge=0, le=1)
+    mirror: Literal[0, 1] | None = None
     """``0`` no horizontal mirroring, ``1`` mirror the image horizontally."""
     palette: str | None = None
     """Thermal cameras only. The color palette to use, applicable if ``Properties.Image.Palette.StreamPalette`` is ``yes`` or does not exist. See thermal-color-palettes."""
-    squarepixel: int | None = Field(default=None, ge=0, le=1)
+    squarepixel: Literal[0, 1] | None = None
     """``1`` adjusts the aspect ratio to appear as intended (square pixel correction). Not applicable to AVIF."""
     overlays: Overlays | None = None
     text: int | None = Field(default=None, ge=0, le=1)
     """Set to ``1`` to display text on the image. Defined in the Image API URL options."""
     textstring: str | None = None
     """The text to display, for example ``My Camera``. Defined in the Image API URL options."""
+
+
+class MjpegRequest(Model):
+    """The image request arguments plus the stream profile and the stream length. A value given after ``streamprofile`` overrides the saved one."""
+
+    resolution: str | None = None
+    """Resolution of the returned image, for example ``320x240`` or ``QCIF``. Product and release dependent; see ``Properties.Image.Resolution``."""
+    camera: Camera | None = None
+    compression: int | None = Field(default=None, ge=0, le=100)
+    """Compression level; higher values mean higher compression (lower quality, smaller image). Internally mapped and product dependent."""
+    color: Literal[0, 1] | None = None
+    """``0`` black and white, ``1`` color."""
+    rotation: Literal[0, 90, 180, 270] | None = None
+    """Rotate the image clockwise. The alternatives are defined by ``Properties.Image.Rotation``; 90, 180 and 270 are product and release dependent. Not applicable to AVIF."""
+    mirror: Literal[0, 1] | None = None
+    """``0`` no horizontal mirroring, ``1`` mirror the image horizontally."""
+    palette: str | None = None
+    """Thermal cameras only. The color palette to use, applicable if ``Properties.Image.Palette.StreamPalette`` is ``yes`` or does not exist. See thermal-color-palettes."""
+    squarepixel: Literal[0, 1] | None = None
+    """``1`` adjusts the aspect ratio to appear as intended (square pixel correction). Not applicable to AVIF."""
+    overlays: Overlays | None = None
+    streamprofile: str | None = None
+    """Name of a saved stream profile (``StreamProfile.S#.Name``)."""
+    duration: int | None = Field(default=None, ge=0)
+    """For how many seconds the video is generated and pushed to the client. ``0`` is unlimited."""
+    nbrofframes: int | None = Field(default=None, ge=0)
+    """How many frames the device generates and pushes. ``0`` is unlimited."""
+    fps: int | None = Field(default=None, ge=0)
+    """The frame rate. ``0`` is unlimited."""
 
 
 class ImageSize(Model):
@@ -206,6 +237,33 @@ class OPS:
         access="viewer",
         effect="read",
     )
+    get_mjpeg_stream = Operation(
+        INFO,
+        "get_mjpeg_stream",
+        CgiBinding(
+            "/axis-cgi/mjpg/video.cgi",
+            args=(
+                CgiArg("resolution"),
+                CgiArg("camera"),
+                CgiArg("compression"),
+                CgiArg("color"),
+                CgiArg("rotation"),
+                CgiArg("mirror"),
+                CgiArg("palette"),
+                CgiArg("squarepixel"),
+                CgiArg("overlays"),
+                CgiArg("streamprofile"),
+                CgiArg("duration"),
+                CgiArg("nbrofframes"),
+                CgiArg("fps"),
+            ),
+            reply=Stream("mjpeg"),
+            stream=True,
+        ),
+        params=MjpegRequest,
+        access="viewer",
+        effect="read",
+    )
     get_always_multicast_sdp = Operation(
         INFO,
         "get_always_multicast_sdp",
@@ -238,11 +296,11 @@ class VideoStreamingApi(SyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> ImageSize: ...
@@ -280,11 +338,11 @@ class VideoStreamingApi(SyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> bytes: ...
@@ -309,11 +367,11 @@ class VideoStreamingApi(SyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> bytes: ...
@@ -338,11 +396,11 @@ class VideoStreamingApi(SyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         text: int | MISSING = MISSING,
         textstring: str | MISSING = MISSING,
@@ -358,6 +416,44 @@ class VideoStreamingApi(SyncApi):
         Access: viewer.
         """
         return self._run(OPS.get_jpeg, request, kwargs, request_options)
+
+    @overload
+    def get_mjpeg_stream(
+        self, request: MjpegRequest, /, *, request_options: RequestOptions | None = None
+    ) -> StreamResult[Part]: ...
+    @overload
+    def get_mjpeg_stream(
+        self,
+        /,
+        *,
+        resolution: str | MISSING = MISSING,
+        camera: Camera | MISSING = MISSING,
+        compression: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
+        rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
+        palette: str | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
+        overlays: Overlays | MISSING = MISSING,
+        streamprofile: str | MISSING = MISSING,
+        duration: int | MISSING = MISSING,
+        nbrofframes: int | MISSING = MISSING,
+        fps: int | MISSING = MISSING,
+        request_options: RequestOptions | None = None,
+    ) -> StreamResult[Part]: ...
+    def get_mjpeg_stream(
+        self, request: MjpegRequest | None = None, /, *, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> StreamResult[Part]:
+        """Open a Motion JPEG stream.
+
+        Returns a stream of ``multipart/x-mixed-replace`` parts, one JPEG per part. Arguments such as
+        resolution and compression are given in the request, or taken from a saved stream profile. Use the
+        result as a context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return self._run(OPS.get_mjpeg_stream, request, kwargs, request_options)
 
     def get_always_multicast_sdp(
         self, *, camera: Camera | MISSING = MISSING, request_options: RequestOptions | None = None
@@ -389,11 +485,11 @@ class AsyncVideoStreamingApi(AsyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> ImageSize: ...
@@ -431,11 +527,11 @@ class AsyncVideoStreamingApi(AsyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> bytes: ...
@@ -460,11 +556,11 @@ class AsyncVideoStreamingApi(AsyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         request_options: RequestOptions | None = None,
     ) -> bytes: ...
@@ -489,11 +585,11 @@ class AsyncVideoStreamingApi(AsyncApi):
         resolution: str | MISSING = MISSING,
         camera: Camera | MISSING = MISSING,
         compression: int | MISSING = MISSING,
-        color: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
         rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
-        mirror: int | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
         palette: str | MISSING = MISSING,
-        squarepixel: int | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
         overlays: Overlays | MISSING = MISSING,
         text: int | MISSING = MISSING,
         textstring: str | MISSING = MISSING,
@@ -509,6 +605,44 @@ class AsyncVideoStreamingApi(AsyncApi):
         Access: viewer.
         """
         return await self._run(OPS.get_jpeg, request, kwargs, request_options)
+
+    @overload
+    async def get_mjpeg_stream(
+        self, request: MjpegRequest, /, *, request_options: RequestOptions | None = None
+    ) -> AsyncStreamResult[Part]: ...
+    @overload
+    async def get_mjpeg_stream(
+        self,
+        /,
+        *,
+        resolution: str | MISSING = MISSING,
+        camera: Camera | MISSING = MISSING,
+        compression: int | MISSING = MISSING,
+        color: Literal[0, 1] | MISSING = MISSING,
+        rotation: Literal[0, 90, 180, 270] | MISSING = MISSING,
+        mirror: Literal[0, 1] | MISSING = MISSING,
+        palette: str | MISSING = MISSING,
+        squarepixel: Literal[0, 1] | MISSING = MISSING,
+        overlays: Overlays | MISSING = MISSING,
+        streamprofile: str | MISSING = MISSING,
+        duration: int | MISSING = MISSING,
+        nbrofframes: int | MISSING = MISSING,
+        fps: int | MISSING = MISSING,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncStreamResult[Part]: ...
+    async def get_mjpeg_stream(
+        self, request: MjpegRequest | None = None, /, *, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> AsyncStreamResult[Part]:
+        """Open a Motion JPEG stream.
+
+        Returns a stream of ``multipart/x-mixed-replace`` parts, one JPEG per part. Arguments such as
+        resolution and compression are given in the request, or taken from a saved stream profile. Use the
+        result as a context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return await self._run(OPS.get_mjpeg_stream, request, kwargs, request_options)
 
     async def get_always_multicast_sdp(
         self, *, camera: Camera | MISSING = MISSING, request_options: RequestOptions | None = None

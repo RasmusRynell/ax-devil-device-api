@@ -12,7 +12,7 @@ from typing import Annotated, Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
+from .._protocols.base import ApiDiscovery, ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Text, TextKv
 from ._base import AsyncApi, SyncApi
 
@@ -92,30 +92,6 @@ class OPS:
         access="admin",
         effect="write",
         write="create",
-        errors={
-            "Error: consult the system log file.": ErrorCode("Generic error.", "internal"),
-            "Error: action operation type.": ErrorCode(
-                "The action is omitted or is not one of add, update, remove or get.", "invalid_argument"
-            ),
-            "Error: account user name.": ErrorCode(
-                "No user name was supplied, or the user name contains characters other than A-Z, a-z or 0-9.",
-                "invalid_argument",
-            ),
-            "Error: malformed action operation, <action>.": ErrorCode(
-                "The user name is not appropriate for the action.", "invalid_argument"
-            ),
-            "Error: not a valid initial admin user.": ErrorCode(
-                "No admin user has been created and the user that attempted to be added is not a valid initial admin user (HTTP 401).",
-                "access_denied",
-            ),
-            "Error: initial admin user must be created first.": ErrorCode(
-                "No admin user has been created; create one and log in with it (HTTP 401).", "access_denied"
-            ),
-            "Error:  invalid password.": ErrorCode(
-                "The supplied password is shorter than 1 or longer than 64 characters or does not comply with the passphrase policy.",
-                "invalid_argument",
-            ),
-        },
     )
     update_user = Operation(
         INFO,
@@ -200,7 +176,14 @@ class UserManagementApi(SyncApi):
         The arguments are sent in the request body, as the docs advise against putting credentials in the
         URL. The initial administrator account can be created without authentication, and on devices older
         than AXIS OS 11.5 it must be named ``root``; the role must be Administrator with PTZ control. The
-        device reports failures as a text line starting with ``Error:``.
+        device reports failures as a text line starting with ``Error:`` and a message, with no numeric code
+        (HTTP 200, except HTTP 401 for the two initial-admin cases). The documented messages are: ``consult
+        the system log file.`` (generic), ``action operation type.`` (action omitted or not add, update,
+        remove or get), ``account user name.`` (no or invalid user name), ``malformed action operation,
+        <action>.`` (user name not appropriate for the action), ``not a valid initial admin user.`` and
+        ``initial admin user must be created first.`` (no admin exists yet, HTTP 401) and ``invalid
+        password.`` (password shorter than 1 or longer than 64 characters, or against the passphrase
+        policy).
 
         Access: admin.
         """
@@ -282,7 +265,14 @@ class AsyncUserManagementApi(AsyncApi):
         The arguments are sent in the request body, as the docs advise against putting credentials in the
         URL. The initial administrator account can be created without authentication, and on devices older
         than AXIS OS 11.5 it must be named ``root``; the role must be Administrator with PTZ control. The
-        device reports failures as a text line starting with ``Error:``.
+        device reports failures as a text line starting with ``Error:`` and a message, with no numeric code
+        (HTTP 200, except HTTP 401 for the two initial-admin cases). The documented messages are: ``consult
+        the system log file.`` (generic), ``action operation type.`` (action omitted or not add, update,
+        remove or get), ``account user name.`` (no or invalid user name), ``malformed action operation,
+        <action>.`` (user name not appropriate for the action), ``not a valid initial admin user.`` and
+        ``initial admin user must be created first.`` (no admin exists yet, HTTP 401) and ``invalid
+        password.`` (password shorter than 1 or longer than 64 characters, or against the passphrase
+        policy).
 
         Access: admin.
         """

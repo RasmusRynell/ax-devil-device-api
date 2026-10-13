@@ -13,8 +13,11 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import CgiArg, CgiBinding, Xml
+from .._protocols.cgi import CgiArg, CgiBinding, Stream, Xml
 from .._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
+from .._runtime.driver import AsyncStreamResult, StreamResult
+from .._streams import Part
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -199,6 +202,26 @@ class RemoveRecordingsRequest(Model):
     """Remove recordings triggered by this event ID. Cannot be combined with recordingid or recordinggroupid."""
     source: str | None = None
     """Remove recordings from this video source. Cannot be combined with recordingid or recordinggroupid."""
+
+
+class PlayRecordingRequest(Model):
+    recordingid: str
+    """The ID of the recording to play."""
+    mediatype: Literal["video", "audio"] | None = None
+    """What to play. Default: video."""
+    rate: str | None = Field(default=None, pattern="^(max|[0-9]+/[0-9]+)$")
+    """The playback rate: ``max`` (as fast as possible) or a fraction numerator/denominator of the original rate."""
+    starttime: str | None = None
+    """Playback start time (UTC ISO 8601); playback starts at the frame closest to it. Default is the beginning."""
+    stoptime: str | None = None
+    """Playback stop time (UTC ISO 8601); playback stops at the frame closest to it. Default is the end."""
+
+
+class PlayRecordingRtspRequest(Model):
+    recordingid: str
+    """The ID of the recording to play."""
+    pull: bool | None = None
+    """Stream as fast as possible; only useful when tunneling RTSP over HTTP. Default: off."""
 
 
 # ---------------------------------------------------------------------------
@@ -444,6 +467,22 @@ class OPS:
         effect="write",
         write="delete",
     )
+    play_recording = Operation(
+        INFO,
+        "play_recording",
+        CgiBinding(
+            "/axis-cgi/record/play.cgi",
+            args=(CgiArg("recordingid"), CgiArg("mediatype"), CgiArg("rate"), CgiArg("starttime"), CgiArg("stoptime")),
+            reply=Stream("mjpeg"),
+            stream=True,
+        ),
+        params=PlayRecordingRequest,
+        access="viewer",
+        effect="read",
+    )
+    play_recording_rtsp = Operation(
+        INFO, "play_recording_rtsp", RtspBinding(), params=PlayRecordingRtspRequest, access="viewer", effect="read"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -592,6 +631,62 @@ class RecordingApi(SyncApi):
             request = None
         self._run(OPS.remove_recordings, request, kwargs, request_options)
 
+    @overload
+    def play_recording(
+        self, request: PlayRecordingRequest, /, *, request_options: RequestOptions | None = None
+    ) -> StreamResult[Part]: ...
+    @overload
+    def play_recording(
+        self,
+        recordingid: str,
+        /,
+        *,
+        mediatype: Literal["video", "audio"] | MISSING = MISSING,
+        rate: str | MISSING = MISSING,
+        starttime: str | MISSING = MISSING,
+        stoptime: str | MISSING = MISSING,
+        request_options: RequestOptions | None = None,
+    ) -> StreamResult[Part]: ...
+    def play_recording(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> StreamResult[Part]:
+        """Play an MJPEG recording as a stream (deprecated since AXIS OS 10.2).
+
+        The stream has the same format as the live view stream. Only MJPEG recordings can be played this
+        way; use ``play_recording_rtsp`` for other formats. Use the result as a context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, PlayRecordingRequest):
+            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            request = None
+        return self._run(OPS.play_recording, request, kwargs, request_options)
+
+    def play_recording_rtsp(
+        self,
+        recordingid: str,
+        *,
+        pull: bool | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL for playing a recording in any media format.
+
+        Send PLAY to the URL. A ``Range`` header (``npt``, ``clock`` or ``smpte``) selects the part to play;
+        that header is not part of the URL.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.play_recording_rtsp,
+            {"recordingid": recordingid, "pull": pull},
+            port=port,
+            include_credentials=include_credentials,
+        )
+
 
 class AsyncRecordingApi(AsyncApi):
     """Recording API (Edge storage) (``recording``)."""
@@ -736,3 +831,59 @@ class AsyncRecordingApi(AsyncApi):
             kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
             request = None
         await self._run(OPS.remove_recordings, request, kwargs, request_options)
+
+    @overload
+    async def play_recording(
+        self, request: PlayRecordingRequest, /, *, request_options: RequestOptions | None = None
+    ) -> AsyncStreamResult[Part]: ...
+    @overload
+    async def play_recording(
+        self,
+        recordingid: str,
+        /,
+        *,
+        mediatype: Literal["video", "audio"] | MISSING = MISSING,
+        rate: str | MISSING = MISSING,
+        starttime: str | MISSING = MISSING,
+        stoptime: str | MISSING = MISSING,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncStreamResult[Part]: ...
+    async def play_recording(
+        self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
+    ) -> AsyncStreamResult[Part]:
+        """Play an MJPEG recording as a stream (deprecated since AXIS OS 10.2).
+
+        The stream has the same format as the live view stream. Only MJPEG recordings can be played this
+        way; use ``play_recording_rtsp`` for other formats. Use the result as a context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        if request is MISSING:
+            request = None
+        elif args or not isinstance(request, PlayRecordingRequest):
+            kwargs = {**dict(zip(("recordingid",), (request, *args), strict=False)), **kwargs}
+            request = None
+        return await self._run(OPS.play_recording, request, kwargs, request_options)
+
+    def play_recording_rtsp(
+        self,
+        recordingid: str,
+        *,
+        pull: bool | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL for playing a recording in any media format.
+
+        Send PLAY to the URL. A ``Range`` header (``npt``, ``clock`` or ``smpte``) selects the part to play;
+        that header is not part of the URL.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.play_recording_rtsp,
+            {"recordingid": recordingid, "pull": pull},
+            port=port,
+            include_credentials=include_credentials,
+        )

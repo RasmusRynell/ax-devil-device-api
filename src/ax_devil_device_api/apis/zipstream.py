@@ -15,6 +15,7 @@ from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -158,6 +159,20 @@ class SetProfileRequest(Model):
 class ListProfilesRequest(Model):
     schemaversion: int = Field(ge=1)
     """The major version of the XML schema to use for the response (latest supported minor version is used)."""
+
+
+class GetRtspStreamWithZipstreamRequest(Model):
+    videocodec: str | None = None
+    """Video codec of the stream, for example h264."""
+    videozstrength: Strength | None = None
+    videozgopmode: GopMode | None = None
+    videozmaxgoplength: int | None = Field(default=None, ge=1)
+    """The maximum GOP length for dynamic GOP mode."""
+    videokeyframeinterval: int | None = Field(default=None, ge=1)
+    """Overrides the default GOP length (Image.I#.MPEG.PCount); the minimum GOP length in dynamic mode."""
+    videozfpsmode: FpsMode | None = None
+    videozminfps: int | None = Field(default=None, ge=0)
+    """The minimum dynamic frame rate; only with ``videozfpsmode=dynamic``."""
 
 
 # ---------------------------------------------------------------------------
@@ -403,6 +418,14 @@ class OPS:
         access="operator",
         effect="read",
     )
+    get_rtsp_stream_with_zipstream = Operation(
+        INFO,
+        "get_rtsp_stream_with_zipstream",
+        RtspBinding(),
+        params=GetRtspStreamWithZipstreamRequest,
+        access="operator",
+        effect="read",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -547,6 +570,42 @@ class ZipstreamApi(SyncApi):
         """List all available Zipstream profiles with their maximum level. Access: operator."""
         return self._run(OPS.list_profiles, None, {"schemaversion": schemaversion}, request_options)
 
+    def get_rtsp_stream_with_zipstream(
+        self,
+        *,
+        videocodec: str | MISSING = MISSING,
+        videozstrength: Strength | MISSING = MISSING,
+        videozgopmode: GopMode | MISSING = MISSING,
+        videozmaxgoplength: int | MISSING = MISSING,
+        videokeyframeinterval: int | MISSING = MISSING,
+        videozfpsmode: FpsMode | MISSING = MISSING,
+        videozminfps: int | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with Zipstream settings that apply to that stream only.
+
+        The settings override the device-wide Zipstream settings (``set_strength``, ``set_gop``,
+        ``set_fps_mode``, ``set_min_fps``) for the requested stream. ``videozminfps`` is only relevant when
+        ``videozfpsmode`` is ``dynamic``.
+
+        Builds the URL only; no request is made. Access: operator.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream_with_zipstream,
+            {
+                "videocodec": videocodec,
+                "videozstrength": videozstrength,
+                "videozgopmode": videozgopmode,
+                "videozmaxgoplength": videozmaxgoplength,
+                "videokeyframeinterval": videokeyframeinterval,
+                "videozfpsmode": videozfpsmode,
+                "videozminfps": videozminfps,
+            },
+            port=port,
+            include_credentials=include_credentials,
+        )
+
 
 class AsyncZipstreamApi(AsyncApi):
     """Zipstream technology (``zipstream``)."""
@@ -689,3 +748,39 @@ class AsyncZipstreamApi(AsyncApi):
     async def list_profiles(self, *, schemaversion: int, request_options: RequestOptions | None = None) -> Profiles:
         """List all available Zipstream profiles with their maximum level. Access: operator."""
         return await self._run(OPS.list_profiles, None, {"schemaversion": schemaversion}, request_options)
+
+    def get_rtsp_stream_with_zipstream(
+        self,
+        *,
+        videocodec: str | MISSING = MISSING,
+        videozstrength: Strength | MISSING = MISSING,
+        videozgopmode: GopMode | MISSING = MISSING,
+        videozmaxgoplength: int | MISSING = MISSING,
+        videokeyframeinterval: int | MISSING = MISSING,
+        videozfpsmode: FpsMode | MISSING = MISSING,
+        videozminfps: int | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with Zipstream settings that apply to that stream only.
+
+        The settings override the device-wide Zipstream settings (``set_strength``, ``set_gop``,
+        ``set_fps_mode``, ``set_min_fps``) for the requested stream. ``videozminfps`` is only relevant when
+        ``videozfpsmode`` is ``dynamic``.
+
+        Builds the URL only; no request is made. Access: operator.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream_with_zipstream,
+            {
+                "videocodec": videocodec,
+                "videozstrength": videozstrength,
+                "videozgopmode": videozgopmode,
+                "videozmaxgoplength": videozmaxgoplength,
+                "videokeyframeinterval": videokeyframeinterval,
+                "videozfpsmode": videozfpsmode,
+                "videozminfps": videozminfps,
+            },
+            port=port,
+            include_credentials=include_credentials,
+        )

@@ -78,7 +78,7 @@ class OPS:
     get_live_sum_people = Operation(
         INFO,
         "get_live_sum_people",
-        CgiBinding(PATH, fixed_query=(("live-sum-people.json", ""),), reply=JsonReply()),
+        CgiBinding(PATH, fixed_query=(("live-sum-people.json", None),), reply=JsonReply()),
         result=LiveSumPeople,
         access="admin",
         effect="read",
@@ -86,7 +86,9 @@ class OPS:
     export_csv_minutes = Operation(
         INFO,
         "export_csv_minutes",
-        CgiBinding(PATH, fixed_query=(("export-csv-minutes", ""),), args=(CgiArg("date"), CgiArg("res")), reply=Text()),
+        CgiBinding(
+            PATH, fixed_query=(("export-csv-minutes", None),), args=(CgiArg("date"), CgiArg("res")), reply=Text()
+        ),
         params=ExportRequest,
         result=str,
         access="admin",
@@ -95,7 +97,9 @@ class OPS:
     export_csv_people = Operation(
         INFO,
         "export_csv_people",
-        CgiBinding(PATH, fixed_query=(("export-csv-people", ""),), args=(CgiArg("date"), CgiArg("res")), reply=Text()),
+        CgiBinding(
+            PATH, fixed_query=(("export-csv-people", None),), args=(CgiArg("date"), CgiArg("res")), reply=Text()
+        ),
         params=ExportPeopleRequest,
         result=str,
         access="admin",
@@ -104,7 +108,7 @@ class OPS:
     clear_data = Operation(
         INFO,
         "clear_data",
-        CgiBinding("/local/queue/.apioperator", fixed_query=(("clear-data", ""),), reply=TextOk()),
+        CgiBinding("/local/queue/.apioperator", fixed_query=(("clear-data", None),), reply=TextOk()),
         access="operator",
         effect="write",
         write="delete",
@@ -112,7 +116,7 @@ class OPS:
     get_params = Operation(
         INFO,
         "get_params",
-        CgiBinding(PATH, fixed_query=(("params.json", ""),), reply=JsonReply()),
+        CgiBinding(PATH, fixed_query=(("params.json", None),), reply=JsonReply()),
         result=dict[str, Any],
         access="admin",
         effect="read",
@@ -120,7 +124,7 @@ class OPS:
     show_logs = Operation(
         INFO,
         "show_logs",
-        CgiBinding("/local/queue/.apioperator", fixed_query=(("show-logs", ""),), reply=Text()),
+        CgiBinding("/local/queue/.apioperator", fixed_query=(("show-logs", None),), reply=Text()),
         result=str,
         access="operator",
         effect="read",
@@ -130,7 +134,7 @@ class OPS:
         "generate_logs",
         CgiBinding(
             "/local/queue/.apioperator",
-            fixed_query=(("generate-logs", ""),),
+            fixed_query=(("generate-logs", None),),
             reply=Binary(media_types=("application/gzip",)),
         ),
         result=bytes,

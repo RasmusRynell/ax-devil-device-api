@@ -12,6 +12,7 @@ from typing import Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
+from .._http.upload import UploadSource, UploadSpec
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import Binary, CgiArg, CgiBinding, Text, TextKv
 from ._base import AsyncApi, SyncApi
@@ -69,6 +70,13 @@ class PlayClipAsViewerRequest(Model):
     """The audio device that plays the clip. An alternative to audiooutput; it must be paired with audiooutputid. Only supported if PlayOptions includes audiodeviceid."""
     audiooutputid: int | None = Field(default=None, ge=0)
     """The output on the audio device that plays the clip. Required when audiodeviceid is given."""
+
+
+class UploadClipRequest(Model):
+    clip: UploadSource = Field(exclude=True, repr=False)
+    """The audio file, as bytes, a Path or an Upload(stream, size)."""
+    name: str | None = None
+    """The name of the media clip."""
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +194,24 @@ class OPS:
         access="viewer",
         effect="read",
     )
+    upload_clip = Operation(
+        INFO,
+        "upload_clip",
+        CgiBinding(
+            PATH,
+            method="POST",
+            encoding="multipart",
+            url_query=(("action", "upload"), ("media", "audio")),
+            args=(CgiArg("name", place="query"),),
+            uploads=(UploadSpec("clip", part="file", content_type="audio/basic"),),
+            reply=Text(),
+        ),
+        params=UploadClipRequest,
+        result=str,
+        access="operator",
+        effect="write",
+        write="create",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +324,17 @@ class MediaClipApi(SyncApi):
         """
         return self._run(OPS.list_clips, None, {}, request_options)
 
+    def upload_clip(
+        self, clip: UploadSource, *, name: str | MISSING = MISSING, request_options: RequestOptions | None = None
+    ) -> str:
+        """Upload an audio file as a new media clip.
+
+        POST with the audio file as multipart/form-data (RFC 1867). media=audio is required for the upload.
+
+        Access: operator.
+        """
+        return self._run(OPS.upload_clip, None, {"clip": clip, "name": name}, request_options)
+
 
 class AsyncMediaClipApi(AsyncApi):
     """Media clip API (``media-clip-api``)."""
@@ -404,3 +441,14 @@ class AsyncMediaClipApi(AsyncApi):
         Access: viewer.
         """
         return await self._run(OPS.list_clips, None, {}, request_options)
+
+    async def upload_clip(
+        self, clip: UploadSource, *, name: str | MISSING = MISSING, request_options: RequestOptions | None = None
+    ) -> str:
+        """Upload an audio file as a new media clip.
+
+        POST with the audio file as multipart/form-data (RFC 1867). media=audio is required for the upload.
+
+        Access: operator.
+        """
+        return await self._run(OPS.upload_clip, None, {"clip": clip, "name": name}, request_options)

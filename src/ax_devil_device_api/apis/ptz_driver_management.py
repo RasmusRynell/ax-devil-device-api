@@ -12,6 +12,7 @@ from typing import Annotated
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
+from .._http.upload import UploadSource, UploadSpec
 from .._protocols.base import ApiDiscovery, ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Text, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
@@ -80,6 +81,11 @@ class DriverList(Model):
     """The driver status of every channel. Present when ``status`` was requested."""
 
 
+class UploadedDriver(Model):
+    id: int
+    """The ID of the uploaded driver."""
+
+
 class ListDriversRequest(Model):
     status: bool | None = None
     """Append the driver status of all channels to the reply. Default: False."""
@@ -94,6 +100,11 @@ class ActivateDriverRequest(Model):
     """The device type for drivers that support hardware variants (see ``DriverEntry.device_types``). Defaults to the first listed device type, without a guarantee that communication succeeds."""
     device_id: int | None = Field(default=None, validation_alias="deviceId", serialization_alias="deviceId")
     """The address of the device when several are daisy chained (see ``DriverEntry.device_id_range``). Defaults to the channel number."""
+
+
+class UploadDriverRequest(Model):
+    driver: UploadSource = Field(exclude=True, repr=False)
+    """The driver file, as bytes, a Path or an Upload(stream, size)."""
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +275,24 @@ class OPS:
             501: ErrorCode("A driver is already installed on the channel."),
         },
     )
+    upload_driver = Operation(
+        INFO,
+        "upload_driver",
+        CgiBinding(
+            PATH,
+            method="POST",
+            encoding="body",
+            content_type="application/octet-stream",
+            body_field="driver",
+            uploads=(UploadSpec("driver"),),
+            reply=Xml(map=XmlMap(fields=(XmlField("id", source="child"),), root=".")),
+        ),
+        params=UploadDriverRequest,
+        result=UploadedDriver,
+        access="admin",
+        effect="write",
+        write="create",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -311,6 +340,17 @@ class PtzDriverManagementApi(SyncApi):
             request_options,
         )
 
+    def upload_driver(self, driver: UploadSource, *, request_options: RequestOptions | None = None) -> UploadedDriver:
+        """Upload a PTZ driver file and return its driver ID.
+
+        Deprecated since API version 1.1 (all compatible drivers are embedded in the device software) and
+        removed in API version 2.0. The driver file is the HTTP POST body. The docs show the request line as
+        GET but say the contents are sent as POST data.
+
+        Access: admin.
+        """
+        return self._run(OPS.upload_driver, None, {"driver": driver}, request_options)
+
 
 class AsyncPtzDriverManagementApi(AsyncApi):
     """PTZ driver management API (``ptz-driver-management``)."""
@@ -352,3 +392,16 @@ class AsyncPtzDriverManagementApi(AsyncApi):
             {"driverid": driverid, "channel": channel, "device_type": device_type, "device_id": device_id},
             request_options,
         )
+
+    async def upload_driver(
+        self, driver: UploadSource, *, request_options: RequestOptions | None = None
+    ) -> UploadedDriver:
+        """Upload a PTZ driver file and return its driver ID.
+
+        Deprecated since API version 1.1 (all compatible drivers are embedded in the device software) and
+        removed in API version 2.0. The driver file is the HTTP POST body. The docs show the request line as
+        GET but say the contents are sent as POST data.
+
+        Access: admin.
+        """
+        return await self._run(OPS.upload_driver, None, {"driver": driver}, request_options)

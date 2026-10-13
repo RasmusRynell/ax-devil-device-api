@@ -7,11 +7,14 @@ Docs: https://developer.axis.com/vapix/network-video/onvif-replay-extension/
 
 from __future__ import annotations
 
-from pydantic import Field
+from typing import Literal
+
+from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, TextKv, TextOk
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -37,6 +40,13 @@ class SetDefaultEnabledRequest(Model):
         validation_alias="Network.RTP.OnvifReplayExt", serialization_alias="Network.RTP.OnvifReplayExt"
     )
     """The new default for ``Network.RTP.OnvifReplayExt``."""
+
+
+class StreamWithReplayExtensionRequest(Model):
+    videocodec: str | None = None
+    """Video codec of the stream, for example h264."""
+    onvifreplayext: Literal[0, 1]
+    """1 enables the RTP header extension, 0 disables it."""
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +104,14 @@ class OPS:
         effect="write",
         write="patch",
     )
+    stream_with_replay_extension = Operation(
+        INFO,
+        "stream_with_replay_extension",
+        RtspBinding(),
+        params=StreamWithReplayExtensionRequest,
+        access="viewer",
+        effect="read",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +143,28 @@ class OnvifReplayExtensionApi(SyncApi):
         """
         self._run(OPS.set_default_enabled, None, {"enabled": enabled}, request_options)
 
+    def stream_with_replay_extension(
+        self,
+        *,
+        videocodec: str | MISSING = MISSING,
+        onvifreplayext: Literal[0, 1],
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream that uses (or does not use) the ONVIF replay RTP header extension.
+
+        ``onvifreplayext=1`` includes NTP timestamps in the RTP packets; ``0`` disables the extension when
+        it is enabled by default.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.stream_with_replay_extension,
+            {"videocodec": videocodec, "onvifreplayext": onvifreplayext},
+            port=port,
+            include_credentials=include_credentials,
+        )
+
 
 class AsyncOnvifReplayExtensionApi(AsyncApi):
     """Onvif Replay Extension (``onvif-replay-extension``)."""
@@ -150,3 +190,25 @@ class AsyncOnvifReplayExtensionApi(AsyncApi):
         Changes only the fields given. Access: admin.
         """
         await self._run(OPS.set_default_enabled, None, {"enabled": enabled}, request_options)
+
+    def stream_with_replay_extension(
+        self,
+        *,
+        videocodec: str | MISSING = MISSING,
+        onvifreplayext: Literal[0, 1],
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream that uses (or does not use) the ONVIF replay RTP header extension.
+
+        ``onvifreplayext=1`` includes NTP timestamps in the RTP packets; ``0`` disables the extension when
+        it is enabled by default.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.stream_with_replay_extension,
+            {"videocodec": videocodec, "onvifreplayext": onvifreplayext},
+            port=port,
+            include_credentials=include_credentials,
+        )

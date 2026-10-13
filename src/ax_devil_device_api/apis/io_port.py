@@ -14,7 +14,8 @@ from pydantic import Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import CgiArg, CgiBinding, Text, TextKv, TextOk
+from .._protocols.cgi import CgiArg, CgiBinding, Stream, Text, TextKv, TextOk
+from .._runtime.driver import AsyncStreamResult, StreamResult
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -25,6 +26,10 @@ PortIds = Annotated[list[Annotated[int, Field(ge=1)]], Field(min_length=1)]
 
 class CheckPortsRequest(Model):
     check: PortIds
+
+
+class MonitorPortsRequest(Model):
+    monitor: PortIds
 
 
 class CheckPortsActiveRequest(Model):
@@ -70,6 +75,14 @@ class OPS:
         CgiBinding(PATH, args=(CgiArg("check", style="csv"),), reply=TextKv(), accept="text/plain"),
         params=CheckPortsRequest,
         result=dict[str, str],
+        access="viewer",
+        effect="read",
+    )
+    monitor_ports = Operation(
+        INFO,
+        "monitor_ports",
+        CgiBinding(PATH, args=(CgiArg("monitor", style="csv"),), reply=Stream("lines", encoding="utf-8"), stream=True),
+        params=MonitorPortsRequest,
         access="viewer",
         effect="read",
     )
@@ -146,6 +159,19 @@ class IoPortApi(SyncApi):
         """
         return self._run(OPS.check_ports, None, {"check": check}, request_options)
 
+    def monitor_ports(self, monitor: PortIds, *, request_options: RequestOptions | None = None) -> StreamResult[str]:
+        """Monitor ports and receive their state changes as a stream of lines.
+
+        Returns a ``multipart/x-mixed-replace`` stream; each line is ``<port id><I|O>:<action>``, where the
+        action character is ``/`` or ``H`` for active and a backslash or ``L`` for inactive. Empty parts are
+        sent every 15 seconds. Input and output ports must be monitored separately. Use the result as a
+        context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return self._run(OPS.monitor_ports, None, {"monitor": monitor}, request_options)
+
     def check_ports_active(
         self, checkactive: PortIds, *, request_options: RequestOptions | None = None
     ) -> dict[str, Literal["active", "inactive"]]:
@@ -216,6 +242,21 @@ class AsyncIoPortApi(AsyncApi):
         Access: viewer.
         """
         return await self._run(OPS.check_ports, None, {"check": check}, request_options)
+
+    async def monitor_ports(
+        self, monitor: PortIds, *, request_options: RequestOptions | None = None
+    ) -> AsyncStreamResult[str]:
+        """Monitor ports and receive their state changes as a stream of lines.
+
+        Returns a ``multipart/x-mixed-replace`` stream; each line is ``<port id><I|O>:<action>``, where the
+        action character is ``/`` or ``H`` for active and a backslash or ``L`` for inactive. Empty parts are
+        sent every 15 seconds. Input and output ports must be monitored separately. Use the result as a
+        context manager.
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return await self._run(OPS.monitor_ports, None, {"monitor": monitor}, request_options)
 
     async def check_ports_active(
         self, checkactive: PortIds, *, request_options: RequestOptions | None = None

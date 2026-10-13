@@ -9,12 +9,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import AcapDiscovery, ApiInfo, ErrorCode, Family, Model, Operation
 from .._protocols.cgi import CgiBinding, Xml
 from .._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -140,6 +141,16 @@ class ApplicationConfig(Model):
 
     version: str | None = None
     application: Application | None = None
+
+
+class ModifyConfigurationRequest(Model):
+    configuration: str
+    """The complete configuration document to apply (the application element, or the config element around it, as returned by get_configuration), edited as described above. All settings that are not to change must be kept as is."""
+
+
+class EventStreamUrlRequest(Model):
+    video: int | None = None
+    """Video source number (the documented example uses 0)."""
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +333,31 @@ class OPS:
         access="admin",
         effect="read",
     )
+    modify_configuration = Operation(
+        INFO,
+        "modify_configuration",
+        CgiBinding(
+            PATH,
+            method="POST",
+            encoding="body",
+            fixed_query=(("action", "modify"), ("name", "CrossLineDetection")),
+            content_type="text/xml",
+            body_field="configuration",
+            reply=Xml(status_error=XmlStatusError(attribute="result", value="error")),
+        ),
+        params=ModifyConfigurationRequest,
+        access="admin",
+        effect="write",
+        write="replace",
+    )
+    event_stream_url = Operation(
+        INFO,
+        "event_stream_url",
+        RtspBinding(fixed_query=(("event", "on"), ("eventtopic", "onvif:RuleEngine/axis:CrossLineDetection//"))),
+        params=EventStreamUrlRequest,
+        access="admin",
+        effect="read",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -343,6 +379,31 @@ class CrossLineDetectionApi(SyncApi):
         """
         return self._run(OPS.get_configuration, None, {}, request_options)
 
+    def modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None:
+        """Modify the application configuration.
+
+        Only the virtual line (named object CrossLine0) and the Direction parameter of the rule are to
+        change; all other settings must be kept as is. Posts the XML as the raw request body with action and
+        name in the URL, as the API syntax shows.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        self._run(OPS.modify_configuration, None, {"configuration": configuration}, request_options)
+
+    def event_stream_url(
+        self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with event metadata.
+
+        RTSP stream that carries the linetouched events as metadata. The library only builds the URL; use an
+        RTSP client to read the stream.
+
+        Builds the URL only; no request is made. Access: admin.
+        """
+        return self._device.rtsp_url_for(
+            OPS.event_stream_url, {"video": video}, port=port, include_credentials=include_credentials
+        )
+
 
 class AsyncCrossLineDetectionApi(AsyncApi):
     """Cross line detection 1.1 API (``cross-line-detection-1-1``)."""
@@ -358,3 +419,28 @@ class AsyncCrossLineDetectionApi(AsyncApi):
         Access: admin.
         """
         return await self._run(OPS.get_configuration, None, {}, request_options)
+
+    async def modify_configuration(self, *, configuration: str, request_options: RequestOptions | None = None) -> None:
+        """Modify the application configuration.
+
+        Only the virtual line (named object CrossLine0) and the Direction parameter of the rule are to
+        change; all other settings must be kept as is. Posts the XML as the raw request body with action and
+        name in the URL, as the API syntax shows.
+
+        Replaces the whole configuration; fields left out return to their defaults. Access: admin.
+        """
+        await self._run(OPS.modify_configuration, None, {"configuration": configuration}, request_options)
+
+    def event_stream_url(
+        self, *, video: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream with event metadata.
+
+        RTSP stream that carries the linetouched events as metadata. The library only builds the URL; use an
+        RTSP client to read the stream.
+
+        Builds the URL only; no request is made. Access: admin.
+        """
+        return self._device.rtsp_url_for(
+            OPS.event_stream_url, {"video": video}, port=port, include_credentials=include_credentials
+        )

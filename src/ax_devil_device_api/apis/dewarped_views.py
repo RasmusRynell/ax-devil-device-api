@@ -9,11 +9,14 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import CgiArg, CgiBinding, TextKv, TextOk
+from .._protocols.cgi import CgiArg, CgiBinding, Stream, TextKv, TextOk
+from .._runtime.driver import AsyncStreamResult, StreamResult
+from .._streams import Part
+from ..rtsp import RtspBinding, RtspUrl
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -30,6 +33,22 @@ class SetCameraTiltOrientationRequest(Model):
         validation_alias="ImageSource.I0.CameraTiltOrientation",
         serialization_alias="ImageSource.I0.CameraTiltOrientation",
     )
+
+
+class GetMjpegStreamRequest(Model):
+    camera: int = Field(ge=1)
+    """View mode group number + 1."""
+    resolution: str = Field(pattern="^[0-9]+x[0-9]+$")
+    """A valid resolution of the view mode, e.g. 1600x600."""
+
+
+class GetRtspStreamRequest(Model):
+    videocodec: str | None = None
+    """Video codec of the stream, for example h264."""
+    camera: int = Field(ge=1)
+    """View mode group number + 1."""
+    resolution: str = Field(pattern="^[0-9]+x[0-9]+$")
+    """A valid resolution of the view mode, e.g. 800x600."""
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +105,22 @@ class OPS:
         effect="write",
         write="patch",
     )
+    get_mjpeg_stream = Operation(
+        INFO,
+        "get_mjpeg_stream",
+        CgiBinding(
+            "/axis-cgi/mjpg/video.cgi",
+            args=(CgiArg("camera"), CgiArg("resolution")),
+            reply=Stream("mjpeg"),
+            stream=True,
+        ),
+        params=GetMjpegStreamRequest,
+        access="viewer",
+        effect="read",
+    )
+    get_rtsp_stream = Operation(
+        INFO, "get_rtsp_stream", RtspBinding(), params=GetRtspStreamRequest, access="viewer", effect="read"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +167,41 @@ class DewarpedViewsApi(SyncApi):
             OPS.set_camera_tilt_orientation, None, {"camera_tilt_orientation": camera_tilt_orientation}, request_options
         )
 
+    def get_mjpeg_stream(
+        self, camera: int, resolution: str, *, request_options: RequestOptions | None = None
+    ) -> StreamResult[Part]:
+        """Open a Motion JPEG stream of one dewarped view mode.
+
+        Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode
+        (see ``list_parameters`` with ``Properties.Image.I<n>``).
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return self._run(OPS.get_mjpeg_stream, None, {"camera": camera, "resolution": resolution}, request_options)
+
+    def get_rtsp_stream(
+        self,
+        camera: int,
+        resolution: str,
+        *,
+        videocodec: str | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream from one dewarped view mode.
+
+        Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream,
+            {"videocodec": videocodec, "camera": camera, "resolution": resolution},
+            port=port,
+            include_credentials=include_credentials,
+        )
+
 
 class AsyncDewarpedViewsApi(AsyncApi):
     """Dewarped views (``dewarped-views``)."""
@@ -171,4 +241,41 @@ class AsyncDewarpedViewsApi(AsyncApi):
         """
         await self._run(
             OPS.set_camera_tilt_orientation, None, {"camera_tilt_orientation": camera_tilt_orientation}, request_options
+        )
+
+    async def get_mjpeg_stream(
+        self, camera: int, resolution: str, *, request_options: RequestOptions | None = None
+    ) -> AsyncStreamResult[Part]:
+        """Open a Motion JPEG stream of one dewarped view mode.
+
+        Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode
+        (see ``list_parameters`` with ``Properties.Image.I<n>``).
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: viewer.
+        """
+        return await self._run(
+            OPS.get_mjpeg_stream, None, {"camera": camera, "resolution": resolution}, request_options
+        )
+
+    def get_rtsp_stream(
+        self,
+        camera: int,
+        resolution: str,
+        *,
+        videocodec: str | MISSING = MISSING,
+        port: int | None = None,
+        include_credentials: bool = False,
+    ) -> RtspUrl:
+        """Build the RTSP URL of a stream from one dewarped view mode.
+
+        Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode.
+
+        Builds the URL only; no request is made. Access: viewer.
+        """
+        return self._device.rtsp_url_for(
+            OPS.get_rtsp_stream,
+            {"videocodec": videocodec, "camera": camera, "resolution": resolution},
+            port=port,
+            include_credentials=include_credentials,
         )
