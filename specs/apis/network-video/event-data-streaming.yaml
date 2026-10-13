@@ -85,6 +85,6 @@ provenance:
   - 'The docs write the eventtopic alternation with spaces (Port//. | onvif:UserAlarm/...); the example here uses the bare | of the ConcreteSet grammar.'
   - Video streaming over RTSP is referred to as 'RSTP' (typo).
   - Access level required to subscribe is not stated.
-  - 'BLOCKED(SOAP, not an RTSP operation): GetEventInstances (query event declarations) is the SOAP call of the Event and action services API'
+  - 'GetEventInstances (query event declarations) is a SOAP call of the Event and action services API, not an RTSP operation; it is specified as event-service get_event_instances.'
   migrated_from: v1
   curated: true
