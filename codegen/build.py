@@ -488,7 +488,7 @@ class Builder:
     ) -> list[str]:
         """Python names of the arguments that fill ``{name}`` placeholders (never sent as arguments).
 
-        Placeholders are read from the operation's path, the wire names of its arguments, a ``text_kv``
+        Placeholders are read from the operation's path, its fixed ``query`` / ``url_query`` values, the wire names of its arguments, a ``text_kv``
         ``strip_prefix`` and the wire names of its result fields.
         """
         names: list[str] = []
@@ -499,6 +499,9 @@ class Builder:
                     names.append(name)
 
         add(ob.get("path"))
+        for fixed in (ob.get("query"), ob.get("url_query")):
+            for value in (fixed or {}).values():
+                add(value)
         for f in fields:
             add(f.wire)
         reply = ob.get("reply")

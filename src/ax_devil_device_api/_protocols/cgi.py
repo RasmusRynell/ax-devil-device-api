@@ -86,6 +86,7 @@ def _fill_values(op: Operation[CgiBinding], params: Model | None) -> dict[str, s
     """Text of every ``{name}`` placeholder used by the binding's path, argument names and reply prefix."""
     binding = op.binding
     texts = [binding.path, *(a.wire or "" for a in binding.args)]
+    texts += [value for _, value in (*binding.url_query, *binding.fixed_query) if value]
     if isinstance(binding.reply, TextKv) and binding.reply.strip_prefix:
         texts.append(binding.reply.strip_prefix)
     names = {name for text in texts for name in _PLACEHOLDER.findall(text)}
@@ -117,9 +118,9 @@ def _encode_args(
     binding = op.binding
     values = values or {}
     default = "query" if binding.encoding in ("query", "body") else "form"
-    query: list[tuple[str, str | None]] = list(binding.url_query)
+    query: list[tuple[str, str | None]] = [(k, _fill(v, values) if v else v) for k, v in binding.url_query]
     form: list[tuple[str, str | None]] = []
-    (query if default == "query" else form).extend(binding.fixed_query)
+    (query if default == "query" else form).extend((k, _fill(v, values) if v else v) for k, v in binding.fixed_query)
     if params is None:
         return query, form
     set_fields = params.model_fields_set
@@ -255,7 +256,8 @@ class CgiBinding:
     fixed_query: tuple[tuple[str, str | None], ...] = ()
     """Fixed arguments, such as ``action=list`` on ``action``-multiplexed CGIs. They go where the
     encoding sends arguments by default (the URL, or the body for ``form`` and ``multipart``).
-    A ``None`` value is a bare key (``?live-sum.json``), URL only."""
+    A ``None`` value is a bare key (``?live-sum.json``), URL only. A value may contain ``{name}``
+    placeholders, filled from the required scalar params field ``name`` (``group=Image.I{n}.RateControl``)."""
     url_query: tuple[tuple[str, str | None], ...] = ()
     """Fixed arguments that always go in the URL, even when the encoding sends arguments in the body."""
     args: tuple[CgiArg, ...] = ()

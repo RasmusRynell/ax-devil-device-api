@@ -16,29 +16,34 @@ discovery:
 
 binding: {path: /axis-cgi/param.cgi}
 
+types:
+  SignedVideo:
+    type: object
+    description: The signed video setting of one channel.
+    required: [Enabled]
+    properties:
+      Enabled: {type: boolean, description: Whether signed video is enabled by default (``yes`` or ``no`` on the wire).}
+
 operations:
   get_signed_video:
-    summary: 'Read whether signed video is enabled for a channel, as ``{"Image.I0.MPEG.SignedVideo.Enabled": "yes"}``.'
+    summary: Read whether signed video is enabled by default for a channel.
     description: >-
-      ``group`` is ``Image.I#.MPEG.SignedVideo.Enabled`` (or the ``Image.I#.MPEG.SignedVideo`` group), where ``#`` is the
-      channel index, from 0 up to the number of channels of the product minus 1.
+      ``n`` is the channel index, from 0 up to the number of channels of the product minus 1. The device answers
+      ``root.Image.I<n>.MPEG.SignedVideo.Enabled=yes`` or ``no``.
     access: viewer
     effect: read
     binding:
       method: GET
-      query: {action: list}
+      query: {action: list, group: 'Image.I{n}.MPEG.SignedVideo.Enabled'}
       accept: text/plain
-      reply: {text_kv: {strip_prefix: "root."}}
+      reply: {text_kv: {strip_prefix: 'root.Image.I{n}.MPEG.SignedVideo.'}}
     params:
       type: object
-      required: [group]
+      required: [n]
       properties:
-        group:
-          type: string
-          pattern: ^Image\.I[0-9]+\.MPEG\.SignedVideo(\.Enabled)?$
-          description: The parameter or group to list, for example ``Image.I0.MPEG.SignedVideo.Enabled``.
-    positional: [group]
-    result: {type: object, additionalProperties: {type: string}}
+        n: {type: integer, minimum: 0, description: The channel index.}
+    positional: [n]
+    result: {$ref: '#/types/SignedVideo'}
     examples:
     - title: Read whether signed video is enabled on channel 0
       request: {query: {group: Image.I0.MPEG.SignedVideo.Enabled}}
@@ -89,7 +94,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-  - The channel index sits inside the parameter name (Image.I#...), so set_signed_video takes the parameter map and get_signed_video the full parameter name.
+  - The channel index sits inside the parameter name (Image.I#...), so set_signed_video takes the parameter map, while get_signed_video takes the channel index (the fixed ``group`` argument and the reply prefix are templated with it).
   - AXIS OS minimum version not stated.
   - Update security level is Admin; list security level is given as "Operator, Viewer" (ambiguous whether viewer suffices).
   - Validation/verification of signed video (tools, formats) is not documented on this page.

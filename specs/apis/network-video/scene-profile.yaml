@@ -23,20 +23,21 @@ operations:
     summary: List the supported scene profile values and their display names.
     description: >-
       The reply is the XML schema definition of the parameter, whose ``<entry value="..." niceValue="..."/>`` elements
-      list the supported profiles. Valid profiles are product dependent.
+      list the supported profiles. Valid profiles are product dependent. ``image_source`` is the index n of
+      ``ImageSource.I<n>.SceneProfile``; it fills the fixed ``group`` argument.
     effect: read
     binding:
       method: GET
-      query: {action: listdefinitions, listformat: xmlschema}
+      query: {action: listdefinitions, listformat: xmlschema, group: 'ImageSource.I{image_source}.SceneProfile'}
       reply: xml
     params:
       type: object
-      required: [group]
+      required: [image_source]
       properties:
-        group: {type: string, description: 'The parameter to describe, ImageSource.I<n>.SceneProfile, for example ImageSource.I0.SceneProfile.'}
+        image_source: {type: integer, minimum: 0, description: 'Image source index n of ImageSource.I<n>.SceneProfile, 0 for the first.'}
         responseformat: {type: string, description: 'The example uses rfc.'}
         responsecharset: {type: string, description: 'The example uses utrf (sic).'}
-    positional: [group]
+    positional: [image_source]
     result: {x-xml: true}
     examples:
     - title: List the supported scene profiles

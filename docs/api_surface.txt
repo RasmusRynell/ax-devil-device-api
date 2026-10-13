@@ -5376,15 +5376,16 @@ raid.RaidStatus = Literal['active', 'degraded', 'syncing', 'failure']
 raid.RaidStatusResult(raids: list[Raid])
 raid.RecreateRaidOnAllComponentsRequest(raid_level: RaidLevel [raidLevel])
 rate_control.AsyncRateControlApi.get_rtsp_stream_with_rate_control(self, *, videobitratemode: Mode | MISSING = MISSING, videobitratepriority: Priority | MISSING = MISSING, videomaxbitrate: int | MISSING = MISSING, videoabrtargetbitrate: int | MISSING = MISSING, videoabrmaxbitrate: int | MISSING = MISSING, videoabrretentiontime: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
-rate_control.AsyncRateControlApi.list_rate_control(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
+rate_control.AsyncRateControlApi.list_rate_control(self, n: int, *, request_options: RequestOptions | None = None) -> RateControl
 rate_control.AsyncRateControlApi.set_rate_control(self, n: int, /, *, mode: Mode | MISSING = MISSING, priority: Priority | MISSING = MISSING, max_bitrate: int | MISSING = MISSING, abr_target_bitrate: int | MISSING = MISSING, abr_max_bitrate: int | MISSING = MISSING, abr_retention_time: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 rate_control.AsyncRateControlApi.set_rate_control(self, request: SetRateControlRequest, /, *, request_options: RequestOptions | None = None) -> None
 rate_control.GetRtspStreamWithRateControlRequest(videobitratemode: Mode | None, videobitratepriority: Priority | None, videomaxbitrate: int | None, videoabrtargetbitrate: int | None, videoabrmaxbitrate: int | None, videoabrretentiontime: int | None)
-rate_control.ListRateControlRequest(group: str)
+rate_control.ListRateControlRequest(n: int)
 rate_control.Mode = Literal['vbr', 'mbr', 'abr']
 rate_control.Priority = Literal['none', 'quality', 'framerate', 'fullframerate']
+rate_control.RateControl(mode: Mode | None [Mode], priority: Priority | None [Priority], max_bitrate: int | None [MaxBitrate], abr_target_bitrate: int | None [ABR.TargetBitrate], abr_max_bitrate: int | None [ABR.MaxBitrate], abr_retention_time: int | None [ABR.RetentionTime])
 rate_control.RateControlApi.get_rtsp_stream_with_rate_control(self, *, videobitratemode: Mode | MISSING = MISSING, videobitratepriority: Priority | MISSING = MISSING, videomaxbitrate: int | MISSING = MISSING, videoabrtargetbitrate: int | MISSING = MISSING, videoabrmaxbitrate: int | MISSING = MISSING, videoabrretentiontime: int | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
-rate_control.RateControlApi.list_rate_control(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
+rate_control.RateControlApi.list_rate_control(self, n: int, *, request_options: RequestOptions | None = None) -> RateControl
 rate_control.RateControlApi.set_rate_control(self, n: int, /, *, mode: Mode | MISSING = MISSING, priority: Priority | MISSING = MISSING, max_bitrate: int | MISSING = MISSING, abr_target_bitrate: int | MISSING = MISSING, abr_max_bitrate: int | MISSING = MISSING, abr_retention_time: int | MISSING = MISSING, request_options: RequestOptions | None = None) -> None
 rate_control.RateControlApi.set_rate_control(self, request: SetRateControlRequest, /, *, request_options: RequestOptions | None = None) -> None
 rate_control.SetRateControlRequest(n: int, mode: Mode | None [root.Image.I{n}.RateControl.Mode], priority: Priority | None [root.Image.I{n}.RateControl.Priority], max_bitrate: int | None [root.Image.I{n}.RateControl.MaxBitrate], abr_target_bitrate: int | None [root.Image.I{n}.RateControl.ABR.TargetBitrate], abr_max_bitrate: int | None [root.Image.I{n}.RateControl.ABR.MaxBitrate], abr_retention_time: int | None [root.Image.I{n}.RateControl.ABR.RetentionTime])
@@ -5684,10 +5685,10 @@ rtsp_adjustable_live_stream.AsyncRtspAdjustableLiveStreamApi.open_adjustable_str
 rtsp_adjustable_live_stream.OpenAdjustableStreamUrlRequest(videozprofile: str | None)
 rtsp_adjustable_live_stream.RtspAdjustableLiveStreamApi.get_adjustable_stream_settings_property(self, *, request_options: RequestOptions | None = None) -> dict[str, str]
 rtsp_adjustable_live_stream.RtspAdjustableLiveStreamApi.open_adjustable_stream_url(self, *, videozprofile: str | MISSING = MISSING, port: int | None = None, include_credentials: bool = False) -> RtspUrl
-scene_profile.AsyncSceneProfileApi.list_scene_profiles(self, group: str, *, responseformat: str | MISSING = MISSING, responsecharset: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
+scene_profile.AsyncSceneProfileApi.list_scene_profiles(self, image_source: int, *, responseformat: str | MISSING = MISSING, responsecharset: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
 scene_profile.AsyncSceneProfileApi.set_scene_profile(self, image_source: int, profile: str, *, request_options: RequestOptions | None = None) -> None
-scene_profile.ListSceneProfilesRequest(group: str, responseformat: str | None, responsecharset: str | None)
-scene_profile.SceneProfileApi.list_scene_profiles(self, group: str, *, responseformat: str | MISSING = MISSING, responsecharset: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
+scene_profile.ListSceneProfilesRequest(image_source: int, responseformat: str | None, responsecharset: str | None)
+scene_profile.SceneProfileApi.list_scene_profiles(self, image_source: int, *, responseformat: str | MISSING = MISSING, responsecharset: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
 scene_profile.SceneProfileApi.set_scene_profile(self, image_source: int, profile: str, *, request_options: RequestOptions | None = None) -> None
 scene_profile.SetSceneProfileRequest(image_source: int, profile: str [ImageSource.I{image_source}.SceneProfile])
 schedule_service.AsyncScheduleServiceApi.get_schedule(self, *, token: list[ReferenceToken], request_options: RequestOptions | None = None) -> Schedules
@@ -5788,12 +5789,13 @@ shock_detection.ShockDetectionApi.get_sensitivity_level(self, *, schemaversion: 
 shock_detection.ShockDetectionApi.set_enabled(self, *, schemaversion: int, enabled: bool, request_options: RequestOptions | None = None) -> None
 shock_detection.ShockDetectionApi.set_sensitivity_level(self, *, schemaversion: int, level: int, request_options: RequestOptions | None = None) -> None
 shock_detection.ShockDetectionStatus(enabled: bool [Enabled])
-signed_video.AsyncSignedVideoApi.get_signed_video(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
+signed_video.AsyncSignedVideoApi.get_signed_video(self, n: int, *, request_options: RequestOptions | None = None) -> SignedVideo
 signed_video.AsyncSignedVideoApi.set_signed_video(self, parameters: Mapping[str, Literal['yes', 'no']], *, request_options: RequestOptions | None = None) -> None
 signed_video.AsyncSignedVideoApi.stream_signed_video(self, *, videosigned: bool, port: int | None = None, include_credentials: bool = False) -> RtspUrl
-signed_video.GetSignedVideoRequest(group: str)
+signed_video.GetSignedVideoRequest(n: int)
 signed_video.SetSignedVideoRequest(parameters: dict[str, Literal['yes', 'no']])
-signed_video.SignedVideoApi.get_signed_video(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]
+signed_video.SignedVideo(enabled: bool [Enabled])
+signed_video.SignedVideoApi.get_signed_video(self, n: int, *, request_options: RequestOptions | None = None) -> SignedVideo
 signed_video.SignedVideoApi.set_signed_video(self, parameters: Mapping[str, Literal['yes', 'no']], *, request_options: RequestOptions | None = None) -> None
 signed_video.SignedVideoApi.stream_signed_video(self, *, videosigned: bool, port: int | None = None, include_credentials: bool = False) -> RtspUrl
 signed_video.StreamSignedVideoRequest(videosigned: bool)

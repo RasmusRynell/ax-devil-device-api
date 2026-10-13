@@ -24,9 +24,30 @@ Mode = Literal["vbr", "mbr", "abr"]
 Priority = Literal["none", "quality", "framerate", "fullframerate"]
 
 
+class RateControl(Model):
+    """The default rate control parameters of one image view (the names are those below ``root.Image.I<n>.RateControl.``)."""
+
+    mode: Mode | None = Field(default=None, validation_alias="Mode", serialization_alias="Mode")
+    priority: Priority | None = Field(default=None, validation_alias="Priority", serialization_alias="Priority")
+    max_bitrate: int | None = Field(default=None, validation_alias="MaxBitrate", serialization_alias="MaxBitrate", ge=0)
+    """The maximum bitrate in kbit/s in MBR mode."""
+    abr_target_bitrate: int | None = Field(
+        default=None, validation_alias="ABR.TargetBitrate", serialization_alias="ABR.TargetBitrate", ge=0
+    )
+    """The maximum average bitrate in kbit/s in ABR mode."""
+    abr_max_bitrate: int | None = Field(
+        default=None, validation_alias="ABR.MaxBitrate", serialization_alias="ABR.MaxBitrate", ge=0
+    )
+    """The maximum instantaneous bitrate in kbit/s in ABR mode."""
+    abr_retention_time: int | None = Field(
+        default=None, validation_alias="ABR.RetentionTime", serialization_alias="ABR.RetentionTime", ge=1, le=3652
+    )
+    """The desired retention in days in ABR mode."""
+
+
 class ListRateControlRequest(Model):
-    group: str = Field(pattern=r"^Image\.I[0-9]+\.RateControl$")
-    """The parameter group, Image.I<n>.RateControl."""
+    n: int = Field(ge=0)
+    """The image view index."""
 
 
 class SetRateControlRequest(Model):
@@ -108,10 +129,12 @@ class OPS:
         INFO,
         "list_rate_control",
         CgiBinding(
-            PATH, fixed_query=(("action", "list"),), args=(CgiArg("group"),), reply=TextKv(strip_prefix="root.")
+            PATH,
+            fixed_query=(("action", "list"), ("group", "Image.I{n}.RateControl")),
+            reply=TextKv(strip_prefix="root.Image.I{n}.RateControl."),
         ),
         params=ListRateControlRequest,
-        result=dict[str, str],
+        result=RateControl,
         access="admin",
         effect="read",
     )
@@ -155,17 +178,17 @@ class RateControlApi(SyncApi):
 
     INFO = INFO
 
-    def list_rate_control(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]:
-        """Get the default rate control parameters of an image view as ``{"Image.I0.RateControl.Mode": "vbr"}`` (``root.`` removed).
+    def list_rate_control(self, n: int, *, request_options: RequestOptions | None = None) -> RateControl:
+        """Get the default rate control parameters of an image view.
 
-        Pass the parameter group of the image view, for example ``Image.I0.RateControl``; the number ranges
-        from 0 to Properties.Image.NbrOfViews minus one. The values are Mode (vbr, mbr or abr), Priority
-        (none, quality, framerate or fullframerate), MaxBitrate, ABR.TargetBitrate, ABR.MaxBitrate (all in
-        kbit/s, 0 means the product default of at least 50000) and ABR.RetentionTime (days, 1 to 3652).
+        ``n`` is the image view index, from 0 to Properties.Image.NbrOfViews minus one. The values are Mode
+        (vbr, mbr or abr), Priority (none, quality, framerate or fullframerate), MaxBitrate,
+        ABR.TargetBitrate, ABR.MaxBitrate (all in kbit/s, 0 means the product default of at least 50000) and
+        ABR.RetentionTime (days, 1 to 3652). A product returns only the parameters it supports.
 
         Access: admin.
         """
-        return self._run(OPS.list_rate_control, None, {"group": group}, request_options)
+        return self._run(OPS.list_rate_control, None, {"n": n}, request_options)
 
     @overload
     def set_rate_control(
@@ -243,17 +266,17 @@ class AsyncRateControlApi(AsyncApi):
 
     INFO = INFO
 
-    async def list_rate_control(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]:
-        """Get the default rate control parameters of an image view as ``{"Image.I0.RateControl.Mode": "vbr"}`` (``root.`` removed).
+    async def list_rate_control(self, n: int, *, request_options: RequestOptions | None = None) -> RateControl:
+        """Get the default rate control parameters of an image view.
 
-        Pass the parameter group of the image view, for example ``Image.I0.RateControl``; the number ranges
-        from 0 to Properties.Image.NbrOfViews minus one. The values are Mode (vbr, mbr or abr), Priority
-        (none, quality, framerate or fullframerate), MaxBitrate, ABR.TargetBitrate, ABR.MaxBitrate (all in
-        kbit/s, 0 means the product default of at least 50000) and ABR.RetentionTime (days, 1 to 3652).
+        ``n`` is the image view index, from 0 to Properties.Image.NbrOfViews minus one. The values are Mode
+        (vbr, mbr or abr), Priority (none, quality, framerate or fullframerate), MaxBitrate,
+        ABR.TargetBitrate, ABR.MaxBitrate (all in kbit/s, 0 means the product default of at least 50000) and
+        ABR.RetentionTime (days, 1 to 3652). A product returns only the parameters it supports.
 
         Access: admin.
         """
-        return await self._run(OPS.list_rate_control, None, {"group": group}, request_options)
+        return await self._run(OPS.list_rate_control, None, {"n": n}, request_options)
 
     @overload
     async def set_rate_control(

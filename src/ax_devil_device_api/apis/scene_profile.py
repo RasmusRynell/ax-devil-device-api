@@ -21,8 +21,8 @@ from ._base import AsyncApi, SyncApi
 
 
 class ListSceneProfilesRequest(Model):
-    group: str
-    """The parameter to describe, ImageSource.I<n>.SceneProfile, for example ImageSource.I0.SceneProfile."""
+    image_source: int = Field(ge=0)
+    """Image source index n of ImageSource.I<n>.SceneProfile, 0 for the first."""
     responseformat: str | None = None
     """The example uses rfc."""
     responsecharset: str | None = None
@@ -59,8 +59,12 @@ class OPS:
         "list_scene_profiles",
         CgiBinding(
             PATH,
-            fixed_query=(("action", "listdefinitions"), ("listformat", "xmlschema")),
-            args=(CgiArg("group"), CgiArg("responseformat"), CgiArg("responsecharset")),
+            fixed_query=(
+                ("action", "listdefinitions"),
+                ("listformat", "xmlschema"),
+                ("group", "ImageSource.I{image_source}.SceneProfile"),
+            ),
+            args=(CgiArg("responseformat"), CgiArg("responsecharset")),
             reply=Xml(),
         ),
         params=ListSceneProfilesRequest,
@@ -95,7 +99,7 @@ class SceneProfileApi(SyncApi):
 
     def list_scene_profiles(
         self,
-        group: str,
+        image_source: int,
         *,
         responseformat: str | MISSING = MISSING,
         responsecharset: str | MISSING = MISSING,
@@ -105,13 +109,15 @@ class SceneProfileApi(SyncApi):
 
         The reply is the XML schema definition of the parameter, whose ``<entry value="..."
         niceValue="..."/>`` elements list the supported profiles. Valid profiles are product dependent.
+        ``image_source`` is the index n of ``ImageSource.I<n>.SceneProfile``; it fills the fixed ``group``
+        argument.
 
         Access: operator.
         """
         return self._run(
             OPS.list_scene_profiles,
             None,
-            {"group": group, "responseformat": responseformat, "responsecharset": responsecharset},
+            {"image_source": image_source, "responseformat": responseformat, "responsecharset": responsecharset},
             request_options,
         )
 
@@ -137,7 +143,7 @@ class AsyncSceneProfileApi(AsyncApi):
 
     async def list_scene_profiles(
         self,
-        group: str,
+        image_source: int,
         *,
         responseformat: str | MISSING = MISSING,
         responsecharset: str | MISSING = MISSING,
@@ -147,13 +153,15 @@ class AsyncSceneProfileApi(AsyncApi):
 
         The reply is the XML schema definition of the parameter, whose ``<entry value="..."
         niceValue="..."/>`` elements list the supported profiles. Valid profiles are product dependent.
+        ``image_source`` is the index n of ``ImageSource.I<n>.SceneProfile``; it fills the fixed ``group``
+        argument.
 
         Access: operator.
         """
         return await self._run(
             OPS.list_scene_profiles,
             None,
-            {"group": group, "responseformat": responseformat, "responsecharset": responsecharset},
+            {"image_source": image_source, "responseformat": responseformat, "responsecharset": responsecharset},
             request_options,
         )
 

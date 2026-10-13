@@ -231,6 +231,18 @@ def cgi_path(op, request: dict) -> tuple[str, dict[str, str]]:
     return given, {n: unquote(v) for n, v in zip(names, match.groups())}
 
 
+def _value_regex(template: str) -> tuple[re.Pattern[str], list[str]]:
+    """Regex and placeholder names of a fixed argument value such as ``Image.I{n}.RateControl``."""
+    names: list[str] = []
+    pattern = ""
+    for literal, name, _, _ in string.Formatter().parse(template):
+        pattern += re.escape(literal)
+        if name:
+            names.append(name)
+            pattern += "(.+?)"
+    return re.compile(pattern), names
+
+
 def _templated_wires(binding) -> list[tuple[Any, re.Pattern[str], list[str]]]:
     """``(arg, regex, placeholder names)`` for every argument whose wire name has ``{placeholders}``."""
     out = []
@@ -268,11 +280,30 @@ def build_cgi(op, request: dict) -> tuple[Any, dict[str, str]]:
         return "true" if v is True else "false" if v is False else str(v)
 
     args = {str(k): v for k, v in raw.items()}
+    # Index arguments: placeholders of the path, of fixed values and of templated wire names (``Image.I{n}.Name``).
+    keys: dict[str, str] = {}
+
+    def learn(name: str, value: str, where: str) -> None:
+        field = _model_field(op, name)
+        assert keys.setdefault(field, value) == value, f"{where}: {name} is {value!r}, but another argument says {keys[field]!r}"
+
+    for name, value in cgi_path(op, request)[1].items():
+        learn(name, value, "path")
     # Fixed bare keys (``?live-sum.json``) may be listed in the example with a null value; they arrive as ``""``.
+    fixed_sent: dict[str, str] = {}
     for key, value in list(binding.url_query) + list(fixed.items()):
+        if value is not None and "{" in value:
+            assert key in args, f"{op.id}: the fixed argument {key}={value!r} has placeholders, so the example must give {key}"
+            match = _value_regex(value)[0].fullmatch(text(args[key]))
+            assert match, f"example changes fixed argument {key}: {text(args[key])!r} does not match {value!r}"
+            for name, found in zip(_value_regex(value)[1], match.groups()):
+                learn(name, found, key)
+            fixed_sent[key] = text(args.pop(key))
+            continue
         given = args.pop(key, value)
         assert (given is None and value is None) or text(given) == value, f"example changes fixed argument {key}"
-    expected = {**{k: v or "" for k, v in (*binding.url_query, *fixed.items())}, **{k: text(v) for k, v in args.items()}}
+        fixed_sent[key] = value or ""
+    expected = {**fixed_sent, **{k: text(v) for k, v in args.items()}}
     for arg in binding.args:
         if arg.style == "flag" and (arg.wire or arg.field) in args:
             expected[arg.wire or arg.field] = ""  # a flag is a bare key
@@ -280,8 +311,6 @@ def build_cgi(op, request: dict) -> tuple[Any, dict[str, str]]:
     if op.params is None:
         return None, expected
     remaining = dict(args)
-    # Index arguments: placeholders of the path and of templated wire names (``Image.I{n}.Name``).
-    keys = {_model_field(op, name): value for name, value in cgi_path(op, request)[1].items()}
     templated = _templated_wires(binding)
     for key in list(remaining):
         if any((arg.wire or arg.field) == key for arg in binding.args):
@@ -291,8 +320,7 @@ def build_cgi(op, request: dict) -> tuple[Any, dict[str, str]]:
             if match is None:
                 continue
             for name, value in zip(names, match.groups()):
-                field = _model_field(op, name)
-                assert keys.setdefault(field, value) == value, f"{key}: {name} is {value!r}, but another argument says {keys[field]!r}"
+                learn(name, value, key)
             data[arg.field] = remaining.pop(key)
             break
     data.update(keys)

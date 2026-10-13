@@ -22,9 +22,16 @@ from ._base import AsyncApi, SyncApi
 # Models
 
 
+class SignedVideo(Model):
+    """The signed video setting of one channel."""
+
+    enabled: bool = Field(validation_alias="Enabled", serialization_alias="Enabled")
+    """Whether signed video is enabled by default (``yes`` or ``no`` on the wire)."""
+
+
 class GetSignedVideoRequest(Model):
-    group: str = Field(pattern=r"^Image\.I[0-9]+\.MPEG\.SignedVideo(\.Enabled)?$")
-    """The parameter or group to list, for example ``Image.I0.MPEG.SignedVideo.Enabled``."""
+    n: int = Field(ge=0)
+    """The channel index."""
 
 
 class SetSignedVideoRequest(Model):
@@ -56,13 +63,12 @@ class OPS:
         "get_signed_video",
         CgiBinding(
             PATH,
-            fixed_query=(("action", "list"),),
-            args=(CgiArg("group"),),
-            reply=TextKv(strip_prefix="root."),
+            fixed_query=(("action", "list"), ("group", "Image.I{n}.MPEG.SignedVideo.Enabled")),
+            reply=TextKv(strip_prefix="root.Image.I{n}.MPEG.SignedVideo."),
             accept="text/plain",
         ),
         params=GetSignedVideoRequest,
-        result=dict[str, str],
+        result=SignedVideo,
         access="viewer",
         effect="read",
     )
@@ -91,15 +97,15 @@ class SignedVideoApi(SyncApi):
 
     INFO = INFO
 
-    def get_signed_video(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]:
-        """Read whether signed video is enabled for a channel, as ``{"Image.I0.MPEG.SignedVideo.Enabled": "yes"}``.
+    def get_signed_video(self, n: int, *, request_options: RequestOptions | None = None) -> SignedVideo:
+        """Read whether signed video is enabled by default for a channel.
 
-        ``group`` is ``Image.I#.MPEG.SignedVideo.Enabled`` (or the ``Image.I#.MPEG.SignedVideo`` group),
-        where ``#`` is the channel index, from 0 up to the number of channels of the product minus 1.
+        ``n`` is the channel index, from 0 up to the number of channels of the product minus 1. The device
+        answers ``root.Image.I<n>.MPEG.SignedVideo.Enabled=yes`` or ``no``.
 
         Access: viewer.
         """
-        return self._run(OPS.get_signed_video, None, {"group": group}, request_options)
+        return self._run(OPS.get_signed_video, None, {"n": n}, request_options)
 
     def set_signed_video(
         self, parameters: Mapping[str, Literal["yes", "no"]], *, request_options: RequestOptions | None = None
@@ -131,15 +137,15 @@ class AsyncSignedVideoApi(AsyncApi):
 
     INFO = INFO
 
-    async def get_signed_video(self, group: str, *, request_options: RequestOptions | None = None) -> dict[str, str]:
-        """Read whether signed video is enabled for a channel, as ``{"Image.I0.MPEG.SignedVideo.Enabled": "yes"}``.
+    async def get_signed_video(self, n: int, *, request_options: RequestOptions | None = None) -> SignedVideo:
+        """Read whether signed video is enabled by default for a channel.
 
-        ``group`` is ``Image.I#.MPEG.SignedVideo.Enabled`` (or the ``Image.I#.MPEG.SignedVideo`` group),
-        where ``#`` is the channel index, from 0 up to the number of channels of the product minus 1.
+        ``n`` is the channel index, from 0 up to the number of channels of the product minus 1. The device
+        answers ``root.Image.I<n>.MPEG.SignedVideo.Enabled=yes`` or ``no``.
 
         Access: viewer.
         """
-        return await self._run(OPS.get_signed_video, None, {"group": group}, request_options)
+        return await self._run(OPS.get_signed_video, None, {"n": n}, request_options)
 
     async def set_signed_video(
         self, parameters: Mapping[str, Literal["yes", "no"]], *, request_options: RequestOptions | None = None

@@ -27,26 +27,37 @@ types:
     enum: [none, quality, framerate, fullframerate]
     description: Whether frame rate or quality is prioritized in MBR mode. ``none`` lets both be affected.
 
+  RateControl:
+    type: object
+    description: The default rate control parameters of one image view (the names are those below ``root.Image.I<n>.RateControl.``).
+    properties:
+      Mode: {$ref: '#/types/Mode'}
+      Priority: {$ref: '#/types/Priority'}
+      MaxBitrate: {type: integer, minimum: 0, description: The maximum bitrate in kbit/s in MBR mode.}
+      ABR.TargetBitrate: {type: integer, minimum: 0, x-python-name: abr_target_bitrate, description: The maximum average bitrate in kbit/s in ABR mode.}
+      ABR.MaxBitrate: {type: integer, minimum: 0, x-python-name: abr_max_bitrate, description: The maximum instantaneous bitrate in kbit/s in ABR mode.}
+      ABR.RetentionTime: {type: integer, minimum: 1, maximum: 3652, x-python-name: abr_retention_time, description: The desired retention in days in ABR mode.}
+
 operations:
   list_rate_control:
-    summary: 'Get the default rate control parameters of an image view as ``{"Image.I0.RateControl.Mode": "vbr"}`` (``root.`` removed).'
+    summary: Get the default rate control parameters of an image view.
     description: >-
-      Pass the parameter group of the image view, for example ``Image.I0.RateControl``; the number ranges from 0 to
-      Properties.Image.NbrOfViews minus one. The values are Mode (vbr, mbr or abr), Priority (none, quality,
-      framerate or fullframerate), MaxBitrate, ABR.TargetBitrate, ABR.MaxBitrate (all in kbit/s, 0 means the
-      product default of at least 50000) and ABR.RetentionTime (days, 1 to 3652).
+      ``n`` is the image view index, from 0 to Properties.Image.NbrOfViews minus one. The values are Mode (vbr, mbr or
+      abr), Priority (none, quality, framerate or fullframerate), MaxBitrate, ABR.TargetBitrate, ABR.MaxBitrate (all in
+      kbit/s, 0 means the product default of at least 50000) and ABR.RetentionTime (days, 1 to 3652). A product returns
+      only the parameters it supports.
     effect: read
     binding:
       method: GET
-      query: {action: list}
-      reply: {text_kv: {strip_prefix: "root."}}
+      query: {action: list, group: 'Image.I{n}.RateControl'}
+      reply: {text_kv: {strip_prefix: 'root.Image.I{n}.RateControl.'}}
     params:
       type: object
-      required: [group]
+      required: [n]
       properties:
-        group: {type: string, pattern: '^Image\.I[0-9]+\.RateControl$', description: 'The parameter group, Image.I<n>.RateControl.'}
-    positional: [group]
-    result: {type: object, additionalProperties: {type: string}}
+        n: {type: integer, minimum: 0, description: The image view index.}
+    positional: [n]
+    result: {$ref: '#/types/RateControl'}
     examples:
     - title: Get the default rate control parameters of image view 0
       request: {query: {group: Image.I0.RateControl}}
