@@ -13,7 +13,7 @@ from ax_devil_device_api._http.config import ConnectionConfig
 from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
 from ax_devil_device_api._http.types import Headers, Request, Response
 from ax_devil_device_api._runtime.driver import AsyncStreamResult, Call, StreamResult, run_async, run_sync
-from ax_devil_device_api._streams import LinesDecoder, MixedReplaceDecoder, Part, boundary_of, mjpeg_decoder, stream_flow
+from ax_devil_device_api._streams import LinesDecoder, MixedReplaceDecoder, Part, boundary_of, decoder_for, mjpeg_decoder, stream_flow
 
 JPEG_A = b"\xff\xd8AAAA\r\n--not-a-boundary\xff\xd9"
 JPEG_B = b"\xff\xd8" + bytes(range(256)) * 4 + b"\xff\xd9"
@@ -201,3 +201,56 @@ async def test_stream_result_async() -> None:
         assert body.closed
         with pytest.raises(errors.HttpError):
             await run_async(AsyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(lambda r: httpx.Response(500))), mjpeg_flow(), Call())
+
+
+# -- the lines decoder on multipart answers (port.cgi?monitor=...) ------------------
+
+PORT_MONITOR = (
+    b"--x\r\nContent-Type: text/plain\r\n\r\n1I:/\r\n\r\n"
+    b"--x\r\nContent-Type: text/plain\r\n\r\n\r\n"  # keep-alive: an empty part
+    b"--x\r\nContent-Type: text/plain\r\n\r\n1I:H\r\n2I:\\\r\n\r\n"
+    b"--x--\r\n"
+)
+PORT_HEADERS = {"Content-Type": "multipart/x-mixed-replace; boundary=x"}
+
+
+def lines_flow():
+    from ax_devil_device_api._protocols.cgi import Stream
+
+    return stream_flow(
+        Request("GET", "/axis-cgi/io/port.cgi"),
+        lambda response: decoder_for(Stream("lines"), response),
+        lambda response: errors.HttpError(response.status, response.excerpt(), api="io", operation="monitor"),
+    )
+
+
+@pytest.mark.parametrize("size", [1, 7, 10_000])
+def test_lines_stream_on_multipart_returns_part_text_only(size: int) -> None:
+    body = Chunks(PORT_MONITOR, size=size)
+    handler = lambda request: httpx.Response(200, headers=PORT_HEADERS, stream=body)  # noqa: E731
+    with SyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(handler)) as transport:
+        with run_sync(transport, lines_flow(), Call()) as lines:
+            assert list(lines) == ["1I:/", "1I:H", "2I:\\"]
+
+
+def test_lines_stream_on_plain_text_is_unchanged() -> None:
+    handler = lambda request: httpx.Response(200, headers={"Content-Type": "text/plain"}, content=b"a\r\n\r\nb\n")  # noqa: E731
+    with SyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(handler)) as transport:
+        with run_sync(transport, lines_flow(), Call()) as lines:
+            assert list(lines) == ["a", "", "b"]
+
+
+@pytest.mark.anyio
+async def test_lines_stream_on_multipart_async() -> None:
+    handler = lambda request: httpx.Response(200, headers=PORT_HEADERS, stream=Chunks(PORT_MONITOR, size=13))  # noqa: E731
+    async with AsyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(handler)) as transport:
+        async with await run_async(transport, lines_flow(), Call()) as lines:
+            assert [line async for line in lines] == ["1I:/", "1I:H", "2I:\\"]
+
+
+def test_lines_stream_cut_inside_a_part_fails() -> None:
+    handler = lambda request: httpx.Response(200, headers=PORT_HEADERS, content=b"--x\r\nContent-Type: text/plain\r\n\r\n1I:")  # noqa: E731
+    with SyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(handler)) as transport:
+        with pytest.raises(errors.ConnectionFailed):
+            with run_sync(transport, lines_flow(), Call()) as lines:
+                list(lines)

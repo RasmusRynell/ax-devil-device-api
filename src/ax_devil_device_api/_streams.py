@@ -5,7 +5,8 @@
 block ends:
 
 - ``BytesDecoder`` (in ``_protocols.base``): raw chunks.
-- ``LinesDecoder``: text lines (log tails, server-sent text).
+- ``LinesDecoder``: text lines (log tails, server-sent text). On a ``multipart`` answer,
+  ``MultipartLinesDecoder`` returns the lines of the part bodies instead.
 - ``MixedReplaceDecoder``: ``multipart/x-mixed-replace`` (MJPEG, snapshot
   pushes) as ``Part`` values, one per frame.
 
@@ -200,6 +201,30 @@ class LinesDecoder:
         return [rest.rstrip(b"\r").decode(self._encoding, errors="replace")] if rest else []
 
 
+class MultipartLinesDecoder:
+    """Lines of a ``multipart/x-mixed-replace`` text stream: every part body is split into lines.
+
+    Boundaries and part headers are consumed, so only the text of the parts is returned. Blank lines
+    are dropped: a part without content is the device's keep-alive, not an item.
+    """
+
+    def __init__(self, parts: MixedReplaceDecoder, encoding: str = "utf-8") -> None:
+        self._parts = parts
+        self._encoding = encoding
+
+    def _lines(self, parts: list[Part]) -> list[str]:
+        out: list[str] = []
+        for part in parts:
+            out.extend(line for line in part.body.decode(self._encoding, errors="replace").splitlines() if line.strip())
+        return out
+
+    def feed(self, chunk: bytes) -> list[str]:
+        return self._lines(self._parts.feed(chunk))
+
+    def close(self) -> list[str]:
+        return self._lines(self._parts.close())
+
+
 def stream_flow(
     request: Request,
     decoder_for: Callable[[Response], StreamDecoder[object]],
@@ -230,7 +255,11 @@ def decoder_for(codec: object, response: Response, *, api: str = "stream") -> St
     if kind == "mjpeg":
         return mjpeg_decoder(response, api=api)
     if kind == "lines":
-        return LinesDecoder(getattr(codec, "encoding", "utf-8"))
+        encoding = getattr(codec, "encoding", "utf-8")
+        content_type = response.headers.get("content-type", "")
+        if is_multipart_stream(content_type) and boundary_of(content_type) is not None:
+            return MultipartLinesDecoder(MixedReplaceDecoder.for_response(response, api=api), encoding)
+        return LinesDecoder(encoding)
     if kind == "bytes":
         return BytesDecoder()
     raise ValueError(f"unknown stream decoder {kind!r}")
@@ -239,6 +268,7 @@ def decoder_for(codec: object, response: Response, *, api: str = "stream") -> St
 __all__ = [
     "LinesDecoder",
     "MixedReplaceDecoder",
+    "MultipartLinesDecoder",
     "Part",
     "boundary_of",
     "decoder_for",

@@ -66,6 +66,15 @@ operations:
           $ref: "#/types/PortIds"
           x-style: csv
     positional: [monitor]
+    examples:
+    - title: Monitor input port 3
+      request: {query: {monitor: '3'}}
+      response:
+        status: 200
+        content_type: multipart/x-mixed-replace; boundary=ioboundary
+        text: "--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:/\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:H\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:\\\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:L\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n\r\n--ioboundary--\r\n"
+        items: ["3I:/", "3I:H", "3I:\\", "3I:L"]
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
 
   check_ports_active:
     summary: 'Whether ports are active as ``{"port3": "inactive"}``.'
