@@ -274,7 +274,7 @@ def test_on_response_reports_handshake() -> None:
 
 def test_ledger_gap_start_depends_on_how_the_session_ended(monkeypatch: pytest.MonkeyPatch) -> None:
     now = [1000.0]
-    monkeypatch.setattr(ws.time, "time", lambda: now[0])
+    monkeypatch.setattr(time, "time", lambda: now[0])
     ledger = SessionLedger()
     assert ledger.begin("k") is None
     now[0] = 1010.0

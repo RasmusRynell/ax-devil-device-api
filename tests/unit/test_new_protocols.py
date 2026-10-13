@@ -96,14 +96,14 @@ def test_service_json_request_and_bare_response() -> None:
     assert json.loads(rec.last.content) == {"axast:PerformSpeakerTest": {"volume": 10}}
 
 
-class Item(Model):
+class SjItem(Model):
     code: str
     tags: list[str] | None = None
 
 
 class ListResult(Model):
     token: list[str]
-    items: list[Item] | None = None
+    items: list[SjItem] | None = None
     name: str | None = None
     flag: list[str] | None = None
 

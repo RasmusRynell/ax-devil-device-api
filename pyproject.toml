@@ -54,6 +54,7 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.pyright]
-include = ["src"]
+include = ["src", "tests"]
+extraPaths = ["tests", "tests/unit"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
