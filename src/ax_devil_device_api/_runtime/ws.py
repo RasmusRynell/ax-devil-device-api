@@ -536,7 +536,11 @@ def connect_session(
         except Exception as error:
             call.observe(request, None, error, started, attempt)  # e.g. AuthError: still one record
             raise
-        call.observe(request, response, None, started, attempt)
+        try:
+            call.observe(request, response, None, started, attempt)
+        except BaseException:
+            stack.close()  # a raising hook must not leak the open connection and its stream slot
+            raise
         break
     core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
     session = Session(raw, core)
@@ -712,7 +716,11 @@ async def connect_session_async(
         except Exception as error:
             call.observe(request, None, error, started, attempt)  # e.g. AuthError: still one record
             raise
-        call.observe(request, response, None, started, attempt)
+        try:
+            call.observe(request, response, None, started, attempt)
+        except BaseException:
+            await stack.aclose()  # a raising hook must not leak the open connection and its stream slot
+            raise
         break
     core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
     session = AsyncSession(raw, core)

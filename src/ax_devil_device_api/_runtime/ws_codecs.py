@@ -161,11 +161,21 @@ class EventsCodec:
             return None
         body = _mapping(raw.get("message"))
         millis = raw.get("timestamp")
-        stamp = datetime.fromtimestamp(millis / 1000, tz=UTC) if isinstance(millis, (int, float)) else None
+        stamp = _epoch_millis(millis)
         return Notification(EventNotification(topic, stamp, _mapping(body.get("source")), _mapping(body.get("key")), _mapping(body.get("data")), raw))
 
     def error_kind(self, code: int | str | None) -> ErrorKind | None:
         return None if code is None else _EVENTS_KINDS.get(code)
+
+
+def _epoch_millis(value: Any) -> datetime | None:
+    """UTC time of an epoch-milliseconds number; ``None`` (unset) if it is not a number or not a representable time."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return datetime.fromtimestamp(value / 1000, tz=UTC)
+    except (OverflowError, ValueError, OSError):  # inf, nan, 1e300: a bad timestamp must not break the stream
+        return None
 
 
 def _ctx(message: Mapping[str, Any]) -> str | None:
@@ -247,7 +257,7 @@ class DataHubCodec:
         if isinstance(text, str):
             try:
                 stamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            except ValueError:
+            except (ValueError, OverflowError):
                 stamp = None
         return Notification(
             TopicSample(
