@@ -6,6 +6,7 @@ import json
 import random
 import string
 import time
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import quote
 
@@ -171,41 +172,75 @@ def test_basic_prose_is_not_altered() -> None:
         assert serialize(text) == text
 
 
-@pytest.mark.parametrize("size", [100_000, 1_000_000])
-def test_large_ordinary_values_are_fast(size: int) -> None:
-    value = "a" * size
-    start = time.perf_counter()
+def _best(fn: Callable[[], Any], runs: int = 3) -> float:
+    best = float("inf")
+    for _ in range(runs):
+        start = time.perf_counter()
+        fn()
+        best = min(best, time.perf_counter() - start)
+    return best
+
+
+def assert_scales_linearly(work: Callable[[int], Any], n: int, label: str) -> None:
+    """``work(n)`` must scale about linearly: best-of-3 time at 4n over time at n stays below 8
+    (linear code gives about 4, quadratic about 16). Wall-clock noise on a shared runner cannot trip this
+    the way an absolute bound can; a generous ceiling at 4n still catches catastrophic slowness."""
+    small = _best(lambda: work(n))
+    large = _best(lambda: work(4 * n))
+    assert large < 5, f"{label}: {large:.2f} s at {4 * n}"
+    assert large / max(small, 1e-4) < 8, f"{label}: {small:.4f} s at {n} but {large:.4f} s at {4 * n}"
+
+
+def _ordinary(n: int) -> None:
+    value = "a" * n
     assert serialize(value) == value
     assert redact_url("https://g/?q=" + value).endswith(value)
-    assert serialize({"k": ["x " * (size // 2)]})
-    assert time.perf_counter() - start < 0.5
+    assert serialize({"k": ["x " * (n // 2)]})
 
 
-def test_large_json_string_and_separator_heavy_values_are_fast() -> None:
-    start = time.perf_counter()
-    big = json.dumps({"k": "a" * 1_000_000})
-    assert serialize(big)
-    one_mb = 1_000_000
-    hostile_inputs = [
-        "<x " + "a" * one_mb + ">",
-        '<x a="b" ' * 100_000 + ">",
-        "<x " + "'a' " * 250_000 + ">",
-        "rtsp://a:b@h," * 70_000,
-        "@" * one_mb,
-        "://" * 330_000,
-        "://" + "@" * one_mb,
-        "password=" + "'" * one_mb,
-        "password=" + "a b " * 250_000,
-    ]
-    for hostile in hostile_inputs:
-        t0 = time.perf_counter()
-        serialize(hostile)
-        redact_url("https://g/?q=" + quote(hostile[:300_000]))
-        assert time.perf_counter() - t0 < 0.5, hostile[:20]
-    for hostile in ("<a " * 300_000, "://" * 300_000, "a=" * 500_000, "%" * 1_000_000, "<![CDATA[" * 100_000):
-        serialize(hostile)
-        redact_url("https://g/?q=" + quote(hostile[:200_000]))
-    assert time.perf_counter() - start < 5
+def test_large_ordinary_values_scale_linearly() -> None:
+    assert_scales_linearly(_ordinary, 250_000, "ordinary")
+
+
+def _described(text: str) -> None:
+    serialize(text)
+    redact_url("https://g/?q=" + quote(text[: len(text) * 3 // 10]))
+
+
+HOSTILE = {
+    "json string": lambda n: json.dumps({"k": "a" * n}),
+    "open tag": lambda n: "<x " + "a" * n + ">",
+    "attributes": lambda n: '<x a="b" ' * (n // 10) + ">",
+    "quoted words": lambda n: "<x " + "'a' " * (n // 4) + ">",
+    "userinfo list": lambda n: "rtsp://a:b@h," * (n // 14),
+    "at signs": lambda n: "@" * n,
+    "schemes": lambda n: "://" * (n // 3),
+    "scheme and at signs": lambda n: "://" + "@" * n,
+    "quotes after key": lambda n: "password=" + "'" * n,
+    "words after key": lambda n: "password=" + "a b " * (n // 4),
+    "open markup": lambda n: "<a " * (n // 3),
+    "equals": lambda n: "a=" * (n // 2),
+    "percent": lambda n: "%" * n,
+    "cdata": lambda n: "<![CDATA[" * (n // 9),
+}
+
+
+@pytest.mark.parametrize("name", sorted(HOSTILE))
+def test_hostile_values_scale_linearly(name: str) -> None:
+    build = HOSTILE[name]
+    assert_scales_linearly(lambda n: _described(build(n)), 250_000, name)
+
+
+def test_scale_check_detects_quadratic_work() -> None:
+    def quadratic(n: int) -> int:
+        total = 0
+        for i in range(n // 100):
+            total += sum(1 for _ in range(n // 100))
+        return total
+
+    with pytest.raises(AssertionError):
+        assert_scales_linearly(quadratic, 20_000, "quadratic")
+    assert_scales_linearly(lambda n: sum(1 for _ in range(n)), 200_000, "linear")
 
 
 # --- property-style: a known secret never survives any supported carrier -------------------------------------------
