@@ -127,21 +127,31 @@ def _tag_end(text: str, start: int) -> int:
     return -1
 
 
-def _scrub_tag(interior: str) -> tuple[str, str, bool, bool]:
-    """Return (scrubbed interior, local name, is_end_tag, is_self_closing)."""
+_NAME_KEYS = frozenset({"name", "key"})
+
+
+def _scrub_tag(interior: str) -> tuple[str, str, bool, bool, bool]:
+    """Return (scrubbed interior, local name, is_end_tag, is_self_closing, names_a_secret_parameter)."""
     closing = interior.startswith("/")
     selfclose = interior.rstrip().endswith("/")
     m = _NAME_RE.match(interior[1:] if closing else interior)
     name = m.group(0).rsplit(":", 1)[-1] if m else ""
+    attrs = list(_ATTR_RE.finditer(interior))
+    # ``<Parameter Name="Password" Value="x"/>``: a secret-named parameter hides its value attribute and content.
+    param = not closing and any(
+        a.group(1).rsplit(":", 1)[-1].lower() in _NAME_KEYS and _text_has_secret_name(a.group(3).strip("\"'"))
+        for a in attrs
+    )
 
     def attr(match: re.Match[str]) -> str:
         key, eq, value = match.groups()
         quote = value[0] if value[0] in "\"'" else ""
         inner = value[1:-1] if quote else value
-        new = _REDACTED if _is_secret_local(key) else _scrub_plain(inner)
-        return f"{key}{eq}{quote}{new}{quote}"
+        local = key.rsplit(":", 1)[-1]
+        hide = _is_secret_local(key) or (param and local.lower() == "value")
+        return f"{key}{eq}{quote}{_REDACTED if hide else _scrub_plain(inner)}{quote}"
 
-    return _ATTR_RE.sub(attr, interior), name, closing, selfclose
+    return _ATTR_RE.sub(attr, interior), name, closing, selfclose, param
 
 
 def _scrub_markup(text: str) -> str:
@@ -183,7 +193,7 @@ def _scrub_markup(text: str) -> str:
                 out.append(f"<{_scrub_plain(interior)}>")
             i = gt + 1
             continue
-        scrubbed, name, closing, selfclose = _scrub_tag(interior)
+        scrubbed, name, closing, selfclose, param = _scrub_tag(interior)
         if skip:
             if closing:
                 skip -= 1
@@ -193,7 +203,7 @@ def _scrub_markup(text: str) -> str:
                 skip += 1
         else:
             out.append(f"<{scrubbed}>")
-            if not closing and not selfclose and _is_secret_key(name):
+            if not closing and not selfclose and (param or _is_secret_key(name)):
                 out.append(_REDACTED)
                 skip = 1
         i = gt + 1
@@ -272,7 +282,14 @@ def serialize(value: Any, key: Any = None, _depth: int = 0) -> Any:
     if isinstance(value, bytes):
         return serialize(value.decode("utf-8", errors="replace"), key, _depth + 1)
     if isinstance(value, dict):
-        return {str(k): serialize(v, k, _depth + 1) for k, v in value.items()}
+        # ``{"name": "password", "value": ...}``: a secret-named parameter hides its value.
+        param = any(
+            str(k).lower() in _NAME_KEYS and isinstance(v, str) and _text_has_secret_name(v) for k, v in value.items()
+        )
+        return {
+            str(k): _REDACTED if param and str(k).lower() == "value" else serialize(v, k, _depth + 1)
+            for k, v in value.items()
+        }
     if isinstance(value, (list, tuple, set)):
         return [serialize(item, key, _depth + 1) for item in value]
     return str(value)

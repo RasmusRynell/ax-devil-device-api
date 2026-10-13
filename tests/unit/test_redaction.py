@@ -89,6 +89,29 @@ def test_xml_cdata_and_attributes() -> None:
     )
 
 
+def test_name_value_parameters_hide_the_value_of_secret_names() -> None:
+    xml = [
+        '<Parameters><Parameter Name="Password" Value="SECRET"/><Parameter Name="Host" Value="smtp.example"/></Parameters>',
+        '<p name="smtpToken" value="SECRET"></p>',
+        "<Parameter key='ftp_password'>SECRET</Parameter>",
+        '<Parameter Name="password"><Value><![CDATA[SECRET]]></Value></Parameter>',
+    ]
+    for sample in xml:
+        assert "SECRET" not in json.dumps(serialize(sample)), sample
+    kept = serialize(xml[0])
+    assert "smtp.example" in kept and 'Name="Password"' in kept
+    for obj in ({"name": "Password", "value": "SECRET"}, {"Key": "api_key", "Value": "SECRET"}):
+        assert "SECRET" not in json.dumps(serialize(obj)), obj
+    assert serialize({"name": "Host", "value": "h"}) == {"name": "Host", "value": "h"}
+
+
+def test_soap_action_body_is_never_exposed_by_the_hook() -> None:
+    from ax_devil_device_api._http.types import RawBody
+
+    body = RawBody(b'<Parameter Name="Password" Value="SECRET"/>', "application/soap+xml")
+    assert "SECRET" not in _record(Request("POST", "/vapix/services", body=body))
+
+
 def test_basic_prose_is_not_altered() -> None:
     for text in ("Basic functionality is supported", "Bearer of good news", "see https://example.com/@user for info"):
         assert serialize(text) == text
@@ -144,6 +167,9 @@ def _carriers(tok: str) -> list[tuple[str, Request, str]]:
     add("xml-element", Request("POST", "/x", body=JsonBody({"x": f"<a:Password>{tok}</a:Password>"})))
     add("xml-cdata", Request("POST", "/x", body=JsonBody({"x": f"<s><Token><![CDATA[{tok}]]></Token></s>"})))
     add("xml-attr", Request("POST", "/x", body=JsonBody({"x": f'<s Password="{tok}"/>'})))
+    add("param-xml", Request("POST", "/x", body=JsonBody({"x": f'<P Name="smtp_password" Value="{tok}"/>'})))
+    add("param-xml-text", Request("POST", "/x", body=JsonBody({"x": f"<P key='token'>{tok}</P>"})))
+    add("param-json", Request("POST", "/x", body=JsonBody({"params": [{"Name": "password", "Value": tok}]})))
     add("userinfo-text", Request("POST", "/x", body=JsonBody({"d": f"see {url} now"})))
     add("userinfo-form", Request("POST", "/x", body=FormBody((("d", url),))))
     add("userinfo-query", Request("GET", "/x", query=(("u", url),)))
