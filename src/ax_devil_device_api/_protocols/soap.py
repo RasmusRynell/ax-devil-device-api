@@ -12,10 +12,13 @@ innermost), falling back to the code value (``env:Sender``). Reply bodies are
 read with the existing XML mapping (``XmlMap``), applied to the first element
 inside ``Body``, so ``XmlMap.root`` is relative to that element.
 
+A result of ``xml.etree.ElementTree.Element`` returns the reply element itself.
+
 Params become child elements in the request element's namespace, in field
 order: scalars as text (``true``/``false`` for booleans), lists as repeated
 elements, nested objects as nested elements. A wire key starting with ``@`` is
-an attribute of its parent element instead. A key may carry a namespace
+an attribute of its parent element instead, and the key ``#text`` is the text of the parent (an element with
+attributes and text, such as ``<TopicExpression Dialect="...">tns1:Device//.</TopicExpression>``). A key may carry a namespace
 prefix (``acert:Certificate``, ``@xsi:type``); the prefix must be declared in
 ``SoapBinding.namespaces`` and is declared on the request element. Replies are
 read by local name, so prefixes never matter there.
@@ -93,6 +96,8 @@ def _render(name: str, value: Any, out: list[str], prefixes: frozenset[str] = fr
             if key.startswith("@"):
                 _check_prefix(key[1:], prefixes)
                 attrs.append(f" {key[1:]}={quoteattr(_text(item))}")
+            elif key == "#text":
+                text = escape(_text(item)) if item is not None else ""
             elif isinstance(item, list):
                 children.extend((key, entry) for entry in item)
             elif item is not None:
@@ -179,6 +184,10 @@ def _decode(op: Operation[SoapBinding], response: Response) -> Any:
     if root is None or body is None:
         raise ResponseFormatError(op.api.id, op.id, "response is not a SOAP envelope")
     reply = op.binding.reply
+    if op.result is ET.Element:
+        if first is None:
+            raise ResponseFormatError(op.api.id, op.id, "SOAP body is empty")
+        return first  # the reply element, unparsed (dynamic content such as the event topic tree)
     if reply is None:
         return {}
     if first is None:
@@ -201,6 +210,8 @@ def flow(op: Operation[SoapBinding], params: Model | None, state: DeviceState) -
     data = _decode(op, response)
     if op.result is None:
         return None
+    if op.result is ET.Element:
+        return data
     return parse_result(op, data)
 
 

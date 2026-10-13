@@ -56,11 +56,22 @@ types:
     description: Description of the schedule.
     required: [ICalendar]
     properties:
-      ICalendar:
+      ICalendar: {$ref: '#/types/ICalendar'}
+  ICalendar:
+    type: object
+    required: ['#text']
+    description: A schedule in the supported subset of iCalendar (RFC 5545), as the text of the element ``ICalendar``.
+    properties:
+      '@Dialect':
         type: string
-        description: 'Schedule in the supported subset of iCalendar (RFC 5545): DTSTART, DTEND (interval schedules only) and
-          RRULE, e.g. "DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR". The start and end
-          are the product''s local time without a time zone.'
+        x-python-name: dialect
+        x-xml: {attribute: Dialect}
+        description: The dialect of the value. Must be ``http://www.axis.com/vapix/ws/ical1`` (the default of the WSDL, so it may be left out; the docs examples do).
+      '#text':
+        type: string
+        x-python-name: value
+        x-xml: text
+        description: 'DTSTART, DTEND (interval schedules only) and RRULE, e.g. "DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR". The start and end are the product''s local time without a time zone.'
   ScheduleFilter:
     type: object
     properties:
@@ -75,6 +86,10 @@ operations:
     summary: List all events that can currently occur in the Axis product.
     effect: read
     binding: {action: 'http://www.axis.com/vapix/ws/event1/GetEventInstances', element: GetEventInstances}
+    description: >-
+      The reply element ``GetEventInstancesResponse`` is returned as an ``xml.etree.ElementTree.Element``: it holds a
+      ``wstop:TopicSet`` tree whose element names are the topics, so it cannot be a typed result. Walk it by local name.
+    result: {x-xml: true}
     examples:
     - title: List the event instances
       request:
@@ -104,7 +119,7 @@ operations:
           NewScheduledEvent:
             Name: My schedule
             Schedule:
-              ICalendar: 'DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'
+              ICalendar: {'#text': 'DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'}
       source: https://developer.axis.com/vapix/network-video/event-and-action-services/#create-a-scheduled-event
   remove_scheduled_event:
     summary: Remove a schedule.
@@ -163,8 +178,7 @@ provenance:
   - 'Open casing event: Source instance "Not applicable" yet a value table (JunctionBox) is shown.'
   - Fault SOAP subcodes/reasons are not documented beyond WSDL fault element names, so no errors are declared.
   - SOAPAction values are not documented; <namespace>/<operation> is assumed (the HTTP example for GetEventInstances confirms it for that operation).
-  - 'BLOCKED(soap-raw-result): get_event_instances replies with a wstop:TopicSet tree whose element names are the topics (dynamic), so it cannot be a typed result, and the soap binding requires an object result read through x-xml (it cannot return the parsed element as cgi does with result x-xml: true). The reply is ignored for now; the response example documents the shape.'
-  - The v1 spec typed ICalendar with a Dialect attribute (http://www.axis.com/vapix/ws/ical1, from the WSDL); the docs show <aev:ICalendar> without it and the SOAP request builder cannot send an element with both text and attributes, so ICalendar is the plain schedule string.
+  - The v1 spec typed ICalendar with a Dialect attribute (http://www.axis.com/vapix/ws/ical1, from the WSDL); the docs show <aev:ICalendar> without it, so the Dialect attribute is optional (the WSDL gives it a default) and ICalendar is an object with the schedule text in ``value``.
   - 'The only documented examples for add_scheduled_event are C# code; the example is derived from it and has no response. Reply shapes of add_scheduled_event, get_scheduled_events, remove_scheduled_event and change_virtual_input_state are undocumented (taken from the WSDL via v1).'
   - Duplicates no service_json spec; the event service is SOAP only.
   migrated_from: v1

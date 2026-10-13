@@ -524,7 +524,9 @@ def _soap_text(value: Any) -> str:
 def _fill(element: ET.Element, value: Any, default_ns: str, namespaces: dict[str, str]) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
-            if key.startswith("@"):
+            if key == "#text":
+                element.text = _soap_text(item)
+            elif key.startswith("@"):
                 # A prefixed attribute is in that prefix's namespace; an unprefixed one has no namespace.
                 prefix, sep, local = key[1:].partition(":")
                 uri = namespaces.get(prefix) if sep else None

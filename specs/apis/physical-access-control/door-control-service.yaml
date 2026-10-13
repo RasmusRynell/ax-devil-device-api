@@ -333,7 +333,6 @@ operations:
           $ref: '#/types/ServiceCapabilities'
           description: The capability response message contains the requested Door Control service capabilities
             using a hierarchical XML capability structure.
-    access: anonymous
   get_door_info_list:
     summary: This operation requests a list of all `DoorInfo` items provided by the device.
     description: An ONVIF compliant device that provides Door Control service shall implement this method. A call
@@ -1277,7 +1276,9 @@ provenance:
   completeness: complete
   open_questions:
   - The access classes (PRE_AUTH, READ_SYSTEM, READ_SYSTEM_SENSITIVE, ACTUATE, WRITE_SYSTEM) are not mapped to VAPIX
-    roles; GetServiceCapabilities is PRE_AUTH (anonymous) and the API default admin is kept for the rest.
+    roles. GetServiceCapabilities is access anonymous and sent with
+    auth if_challenged, so credentials go out only when the device asks for them; the API default admin is kept
+    for the rest, which are sent with credentials from the first request.
   - The Extension request members (future extensions, types not defined on any page) are not modelled.
   - The fields of DoorCapabilities, ServiceCapabilities and DoorState are not shown in any JSON example; their JSON
     types follow the ONVIF definitions. Capability fields are therefore optional.

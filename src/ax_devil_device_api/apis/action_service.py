@@ -21,6 +21,35 @@ from ._base import AsyncApi, SyncApi
 # Models
 
 
+class FilterExpression(Model):
+    """A ``wsnt:TopicExpression`` or ``wsnt:MessageContent`` element, with its dialect attribute and the expression as text."""
+
+    dialect: str = Field(validation_alias="@Dialect", serialization_alias="@Dialect")
+    """The dialect, for example ``http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet`` for a topic or ``http://www.onvif.org/ver10/tev/messageContentFilter/ItemFilter`` for a message filter (the dialects of ONVIF Core 1.02 are supported)."""
+    value: str = Field(validation_alias="#text", serialization_alias="#text")
+    """The expression: an event topic such as ``tns1:VideoSource/tnsaxis:Tampering`` (the prefixes tns1 and tnsaxis are declared on the request element), or an XPath message filter."""
+
+
+class FilterType(Model):
+    """A filter (``wsnt:FilterType``) of a start event or condition. A condition must describe one stateful event."""
+
+    topic_expression: FilterExpression | None = Field(
+        default=None, validation_alias="wsnt:TopicExpression", serialization_alias="wsnt:TopicExpression"
+    )
+    """The topic filter."""
+    message_content: FilterExpression | None = Field(
+        default=None, validation_alias="wsnt:MessageContent", serialization_alias="wsnt:MessageContent"
+    )
+    """The optional message filter on the data of the event."""
+
+
+class Conditions(Model):
+    condition: list[FilterType] | None = Field(
+        default=None, validation_alias="Condition", serialization_alias="Condition"
+    )
+    """A condition that must be fulfilled for the action to be executed."""
+
+
 class ActionRule(Model):
     rule_id: int = Field(validation_alias="RuleID", serialization_alias="RuleID")
     """Action Rule ID."""
@@ -28,6 +57,12 @@ class ActionRule(Model):
     """User defined name for the action rule."""
     enabled: bool = Field(validation_alias="Enabled", serialization_alias="Enabled")
     """If false, then the rule is idle and the action is never executed. If true, the rule is active."""
+    start_event: FilterType | None = Field(
+        default=None, validation_alias="StartEvent", serialization_alias="StartEvent"
+    )
+    """The start event, if the rule has one."""
+    conditions: Conditions | None = Field(default=None, validation_alias="Conditions", serialization_alias="Conditions")
+    """The conditions, in the order given to add_action_rule."""
     activation_timeout: str | None = Field(
         default=None, validation_alias="ActivationTimeout", serialization_alias="ActivationTimeout"
     )
@@ -45,6 +80,27 @@ class ActionRules(Model):
         default=None, validation_alias="ActionRule", serialization_alias="ActionRule"
     )
     """Action rule description."""
+
+
+class NewActionRule(Model):
+    """Description of the action rule to add. Either a start event or at least one condition must be given."""
+
+    name: str | None = Field(default=None, validation_alias="Name", serialization_alias="Name")
+    """User defined name for the action rule."""
+    enabled: bool = Field(validation_alias="Enabled", serialization_alias="Enabled")
+    """Enable the rule. If false, the rule is stored in idle state and its action is not activated."""
+    start_event: FilterType | None = Field(
+        default=None, validation_alias="StartEvent", serialization_alias="StartEvent"
+    )
+    """Start event. The action is executed when it is emitted and all conditions, if any, are fulfilled."""
+    conditions: Conditions | None = Field(default=None, validation_alias="Conditions", serialization_alias="Conditions")
+    """Conditions that must be fulfilled for the action to be executed; their order is preserved by get_action_rules."""
+    activation_timeout: str | None = Field(
+        default=None, validation_alias="ActivationTimeout", serialization_alias="ActivationTimeout"
+    )
+    """Minimum time between successive action executions, which prevents the rule from triggering repeatedly. (format=duration)"""
+    primary_action: int = Field(validation_alias="PrimaryAction", serialization_alias="PrimaryAction")
+    """The primary action to be executed, specified by its Action Configuration ID."""
 
 
 class ActionParameter(Model):
@@ -249,6 +305,16 @@ class GetRecipientConfigurationsResult(Model):
         default=None, validation_alias="RecipientConfigurations", serialization_alias="RecipientConfigurations"
     )
     """List of configured recipients."""
+
+
+class AddActionRuleRequest(Model):
+    new_action_rule: NewActionRule = Field(validation_alias="NewActionRule", serialization_alias="NewActionRule")
+    """Action rule description."""
+
+
+class AddActionRuleResult(Model):
+    rule_id: int | None = Field(default=None, validation_alias="RuleID", serialization_alias="RuleID")
+    """Action Rule ID."""
 
 
 class GetActionRulesResult(Model):
@@ -579,6 +645,27 @@ class OPS:
         access="admin",
         effect="read",
     )
+    add_action_rule = Operation(
+        INFO,
+        "add_action_rule",
+        SoapBinding(
+            "http://www.axis.com/vapix/ws/action1/AddActionRule",
+            "AddActionRule",
+            "http://www.axis.com/vapix/ws/action1",
+            reply=XmlMap(fields=(XmlField("RuleID", source="child"),)),
+            namespaces=(
+                ("aa", "http://www.axis.com/vapix/ws/action1"),
+                ("wsnt", "http://docs.oasis-open.org/wsn/b-2"),
+                ("tns1", "http://www.onvif.org/ver10/topics"),
+                ("tnsaxis", "http://www.axis.com/2009/event/topics"),
+            ),
+        ),
+        params=AddActionRuleRequest,
+        result=AddActionRuleResult,
+        access="admin",
+        effect="write",
+        write="create",
+    )
     get_action_rules = Operation(
         INFO,
         "get_action_rules",
@@ -602,6 +689,75 @@ class OPS:
                                             XmlField("RuleID", source="child"),
                                             XmlField("Name", source="child"),
                                             XmlField("Enabled", source="child"),
+                                            XmlField(
+                                                "StartEvent",
+                                                source="path",
+                                                nested=XmlMap(
+                                                    fields=(
+                                                        XmlField(
+                                                            "wsnt:TopicExpression",
+                                                            source="path",
+                                                            name="TopicExpression",
+                                                            nested=XmlMap(
+                                                                fields=(
+                                                                    XmlField("@Dialect", name="Dialect"),
+                                                                    XmlField("#text", source="text"),
+                                                                )
+                                                            ),
+                                                        ),
+                                                        XmlField(
+                                                            "wsnt:MessageContent",
+                                                            source="path",
+                                                            name="MessageContent",
+                                                            nested=XmlMap(
+                                                                fields=(
+                                                                    XmlField("@Dialect", name="Dialect"),
+                                                                    XmlField("#text", source="text"),
+                                                                )
+                                                            ),
+                                                        ),
+                                                    )
+                                                ),
+                                            ),
+                                            XmlField(
+                                                "Conditions",
+                                                source="path",
+                                                nested=XmlMap(
+                                                    fields=(
+                                                        XmlField(
+                                                            "Condition",
+                                                            source="path",
+                                                            many=True,
+                                                            nested=XmlMap(
+                                                                fields=(
+                                                                    XmlField(
+                                                                        "wsnt:TopicExpression",
+                                                                        source="path",
+                                                                        name="TopicExpression",
+                                                                        nested=XmlMap(
+                                                                            fields=(
+                                                                                XmlField("@Dialect", name="Dialect"),
+                                                                                XmlField("#text", source="text"),
+                                                                            )
+                                                                        ),
+                                                                    ),
+                                                                    XmlField(
+                                                                        "wsnt:MessageContent",
+                                                                        source="path",
+                                                                        name="MessageContent",
+                                                                        nested=XmlMap(
+                                                                            fields=(
+                                                                                XmlField("@Dialect", name="Dialect"),
+                                                                                XmlField("#text", source="text"),
+                                                                            )
+                                                                        ),
+                                                                    ),
+                                                                )
+                                                            ),
+                                                        ),
+                                                    )
+                                                ),
+                                            ),
                                             XmlField("ActivationTimeout", source="child"),
                                             XmlField("PrimaryAction", source="child"),
                                             XmlField("FailoverAction", source="child"),
@@ -728,6 +884,33 @@ class ActionServiceApi(SyncApi):
         """List currently stored recipient configurations. Access: admin."""
         return self._run(OPS.get_recipient_configurations, None, {}, request_options)
 
+    @overload
+    def add_action_rule(
+        self, request: AddActionRuleRequest, /, *, request_options: RequestOptions | None = None
+    ) -> AddActionRuleResult: ...
+    @overload
+    def add_action_rule(
+        self, /, *, new_action_rule: NewActionRule, request_options: RequestOptions | None = None
+    ) -> AddActionRuleResult: ...
+    def add_action_rule(
+        self,
+        request: AddActionRuleRequest | None = None,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        **kwargs: Any,
+    ) -> AddActionRuleResult:
+        """Add an action rule.
+
+        The rule runs its primary action (an action configuration, see ``add_action_configuration``) when
+        the start event occurs and all conditions are fulfilled. Each condition describes one stateful
+        event; the request fails when a filter matches no stateful event or several. Fallback actions are
+        not supported.
+
+        Access: admin.
+        """
+        return self._run(OPS.add_action_rule, request, kwargs, request_options)
+
     def get_action_rules(self, *, request_options: RequestOptions | None = None) -> GetActionRulesResult:
         """List currently stored action rules. Access: admin."""
         return self._run(OPS.get_action_rules, None, {}, request_options)
@@ -819,6 +1002,33 @@ class AsyncActionServiceApi(AsyncApi):
     ) -> GetRecipientConfigurationsResult:
         """List currently stored recipient configurations. Access: admin."""
         return await self._run(OPS.get_recipient_configurations, None, {}, request_options)
+
+    @overload
+    async def add_action_rule(
+        self, request: AddActionRuleRequest, /, *, request_options: RequestOptions | None = None
+    ) -> AddActionRuleResult: ...
+    @overload
+    async def add_action_rule(
+        self, /, *, new_action_rule: NewActionRule, request_options: RequestOptions | None = None
+    ) -> AddActionRuleResult: ...
+    async def add_action_rule(
+        self,
+        request: AddActionRuleRequest | None = None,
+        /,
+        *,
+        request_options: RequestOptions | None = None,
+        **kwargs: Any,
+    ) -> AddActionRuleResult:
+        """Add an action rule.
+
+        The rule runs its primary action (an action configuration, see ``add_action_configuration``) when
+        the start event occurs and all conditions are fulfilled. Each condition describes one stateful
+        event; the request fails when a filter matches no stateful event or several. Fallback actions are
+        not supported.
+
+        Access: admin.
+        """
+        return await self._run(OPS.add_action_rule, request, kwargs, request_options)
 
     async def get_action_rules(self, *, request_options: RequestOptions | None = None) -> GetActionRulesResult:
         """List currently stored action rules. Access: admin."""

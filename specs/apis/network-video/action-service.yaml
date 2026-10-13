@@ -42,6 +42,8 @@ types:
       Enabled:
         type: boolean
         description: If false, then the rule is idle and the action is never executed. If true, the rule is active.
+      StartEvent: {$ref: '#/types/FilterType', description: 'The start event, if the rule has one.'}
+      Conditions: {$ref: '#/types/Conditions', description: 'The conditions, in the order given to add_action_rule.'}
       ActivationTimeout:
         type: string
         description: Minimum time between successive action executions. This is used to prevent the action rule
@@ -53,6 +55,51 @@ types:
         type: integer
         description: Action Configuration ID for the fallback action. The fallback action will be executed if the
           primary action fails.
+  FilterExpression:
+    type: object
+    required: ['@Dialect', '#text']
+    description: A ``wsnt:TopicExpression`` or ``wsnt:MessageContent`` element, with its dialect attribute and the expression as text.
+    properties:
+      '@Dialect':
+        type: string
+        x-python-name: dialect
+        x-xml: {attribute: Dialect}
+        description: 'The dialect, for example ``http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet`` for a topic or ``http://www.onvif.org/ver10/tev/messageContentFilter/ItemFilter`` for a message filter (the dialects of ONVIF Core 1.02 are supported).'
+      '#text':
+        type: string
+        x-python-name: value
+        x-xml: text
+        description: 'The expression: an event topic such as ``tns1:VideoSource/tnsaxis:Tampering`` (the prefixes tns1 and tnsaxis are declared on the request element), or an XPath message filter.'
+  FilterType:
+    type: object
+    description: A filter (``wsnt:FilterType``) of a start event or condition. A condition must describe one stateful event.
+    properties:
+      'wsnt:TopicExpression': {$ref: '#/types/FilterExpression', description: The topic filter.}
+      'wsnt:MessageContent': {$ref: '#/types/FilterExpression', description: The optional message filter on the data of the event.}
+  Conditions:
+    type: object
+    properties:
+      Condition:
+        type: array
+        items: {$ref: '#/types/FilterType'}
+        description: A condition that must be fulfilled for the action to be executed.
+  NewActionRule:
+    type: object
+    required: [Enabled, PrimaryAction]
+    description: Description of the action rule to add. Either a start event or at least one condition must be given.
+    properties:
+      Name: {type: string, description: User defined name for the action rule.}
+      Enabled:
+        type: boolean
+        description: Enable the rule. If false, the rule is stored in idle state and its action is not activated.
+      StartEvent: {$ref: '#/types/FilterType', description: 'Start event. The action is executed when it is emitted and all conditions, if any, are fulfilled.'}
+      Conditions: {$ref: '#/types/Conditions', description: 'Conditions that must be fulfilled for the action to be executed; their order is preserved by get_action_rules.'}
+      ActivationTimeout:
+        type: string
+        description: Minimum time between successive action executions, which prevents the rule from triggering repeatedly. (format=duration)
+      PrimaryAction:
+        type: integer
+        description: The primary action to be executed, specified by its Action Configuration ID.
   NewRecipientConfiguration:
     type: object
     required: [TemplateToken]
@@ -398,6 +445,45 @@ operations:
         body: '<aa:GetRecipientConfigurations xmlns:aa="http://www.axis.com/vapix/ws/action1" xmlns="http://www.axis.com/vapix/ws/action1" />'
         params: {}
       source: https://developer.axis.com/vapix/network-video/event-and-action-services/#recipient-configurations
+  add_action_rule:
+    summary: Add an action rule.
+    description: >-
+      The rule runs its primary action (an action configuration, see ``add_action_configuration``) when the start event
+      occurs and all conditions are fulfilled. Each condition describes one stateful event; the request fails when a
+      filter matches no stateful event or several. Fallback actions are not supported.
+    effect: write
+    write: create
+    binding: {action: 'http://www.axis.com/vapix/ws/action1/AddActionRule', element: AddActionRule}
+    params:
+      type: object
+      required: [NewActionRule]
+      properties:
+        NewActionRule: {$ref: '#/types/NewActionRule', description: Action rule description.}
+    result:
+      type: object
+      properties:
+        RuleID: {type: integer, description: Action Rule ID.}
+    examples:
+    - title: Play an audio clip when tampering is detected while input 1 is active (derived from the C# sample)
+      request:
+        params:
+          NewActionRule:
+            Name: Play audio clip on tampering
+            Enabled: true
+            StartEvent:
+              wsnt:TopicExpression:
+                '@Dialect': http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet
+                '#text': tns1:VideoSource/tnsaxis:Tampering
+            Conditions:
+              Condition:
+              - wsnt:TopicExpression:
+                  '@Dialect': http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet
+                  '#text': tns1:Device/tnsaxis:I0/tnsaxis:Port
+                wsnt:MessageContent:
+                  '@Dialect': http://www.onvif.org/ver10/tev/messageContentFilter/ItemFilter
+                  '#text': boolean(//SimpleItem[@Name="port" and @Value="1"]) and boolean(//SimpleItem[@Name="state" and @Value="1"])
+            PrimaryAction: 1
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#setting-up-an-action-rule
   get_action_rules:
     summary: List currently stored action rules.
     effect: read
@@ -425,9 +511,9 @@ sources:
 provenance:
   completeness: partial
   open_questions:
+  - The start event and conditions are typed (TopicExpression and MessageContent elements with a Dialect attribute and the expression as text). The WSDL types them as wsnt:FilterType, which allows any content (xs:any); only these two elements are modelled. add_action_rule has no documented reply; RuleID is taken from the WSDL and the example is derived from the C# sample (the PrimaryAction id 1 stands for the actionId of add_action_configuration).
   - Security levels per operation are not documented; the API default (admin) is kept.
   - SOAPAction values are not documented; <namespace>/<operation> is assumed.
-  - 'BLOCKED(soap-raw-xml-filters): add_action_rule is omitted. Its StartEvent and Conditions are wsnt:FilterType values: wsnt:TopicExpression and wsnt:MessageContent elements that carry a Dialect attribute and text (and xs:any content), which the soap request builder cannot render (an element is either text, or attributes plus children). Without them a rule has no trigger. The docs show it only as C# (FormatTopicExpression), so there is no example to run either. The same limitation removes StartEvent and Conditions from the ActionRule result of get_action_rules.'
   - WSDL includes FailoverAction and ActivationTimeout in action rules, but the page states fallback actions are not supported.
   - 'Fault name typo ParametersMissmatchFault as in WSDL; page refers to InvalidconditionFilterFault (WSDL: InvalidConditionFilterFault). No errors are declared because the subcodes are not documented.'
   - Overlay text C# sample checks template token com.axis.action.fixed.set_overay (typo).

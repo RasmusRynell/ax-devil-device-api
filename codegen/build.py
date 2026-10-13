@@ -795,8 +795,8 @@ def check_op_binding(
                 raise SpecError(f"{op.id}: soap operations need binding.{key}")
         if not ob.get("namespace") and not api_binding.get("namespace"):
             raise SpecError(f"{op.id}: soap operations need binding.namespace (or a namespace in the API binding)")
-        if op.result is not None and op.result_model is None:
-            raise SpecError(f"{op.id}: a soap result must be an object type (the reply is read through x-xml)")
+        if op.result is not None and op.result_model is None and op.result != "ET.Element":
+            raise SpecError(f"{op.id}: a soap result must be an object type (the reply is read through x-xml) or x-xml: true (the raw reply element)")
         namespaces = {**(api_binding.get("namespaces") or {}), **(ob.get("namespaces") or {})}
         for prefix in namespaces:
             if prefix in ("env", "xml", "xmlns"):

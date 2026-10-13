@@ -269,10 +269,12 @@ action_service.ActionConfiguration(configuration_id: int [ConfigurationID], name
 action_service.ActionConfigurations(action_configuration: list[ActionConfiguration] | None [ActionConfiguration])
 action_service.ActionParameter(name: str [@Name], value: str [@Value])
 action_service.ActionParameters(parameter: list[ActionParameter] | None [Parameter])
-action_service.ActionRule(rule_id: int [RuleID], name: str | None [Name], enabled: bool [Enabled], activation_timeout: str | None [ActivationTimeout], primary_action: int [PrimaryAction], failover_action: int | None [FailoverAction])
+action_service.ActionRule(rule_id: int [RuleID], name: str | None [Name], enabled: bool [Enabled], start_event: FilterType | None [StartEvent], conditions: Conditions | None [Conditions], activation_timeout: str | None [ActivationTimeout], primary_action: int [PrimaryAction], failover_action: int | None [FailoverAction])
 action_service.ActionRules(action_rule: list[ActionRule] | None [ActionRule])
 action_service.ActionServiceApi.add_action_configuration(self, /, *, new_action_configuration: NewActionConfiguration, request_options: RequestOptions | None = None) -> AddActionConfigurationResult
 action_service.ActionServiceApi.add_action_configuration(self, request: AddActionConfigurationRequest, /, *, request_options: RequestOptions | None = None) -> AddActionConfigurationResult
+action_service.ActionServiceApi.add_action_rule(self, /, *, new_action_rule: NewActionRule, request_options: RequestOptions | None = None) -> AddActionRuleResult
+action_service.ActionServiceApi.add_action_rule(self, request: AddActionRuleRequest, /, *, request_options: RequestOptions | None = None) -> AddActionRuleResult
 action_service.ActionServiceApi.add_recipient_configuration(self, /, *, new_recipient_configuration: NewRecipientConfiguration, request_options: RequestOptions | None = None) -> AddRecipientConfigurationResult
 action_service.ActionServiceApi.add_recipient_configuration(self, request: AddRecipientConfigurationRequest, /, *, request_options: RequestOptions | None = None) -> AddRecipientConfigurationResult
 action_service.ActionServiceApi.get_action_configurations(self, *, request_options: RequestOptions | None = None) -> GetActionConfigurationsResult
@@ -289,10 +291,14 @@ action_service.ActionTemplateParameters(parameter: list[ActionTemplateParameter]
 action_service.ActionTemplates(action_template: list[ActionTemplate] | None [ActionTemplate])
 action_service.AddActionConfigurationRequest(new_action_configuration: NewActionConfiguration [NewActionConfiguration])
 action_service.AddActionConfigurationResult(configuration_id: int | None [ConfigurationID])
+action_service.AddActionRuleRequest(new_action_rule: NewActionRule [NewActionRule])
+action_service.AddActionRuleResult(rule_id: int | None [RuleID])
 action_service.AddRecipientConfigurationRequest(new_recipient_configuration: NewRecipientConfiguration [NewRecipientConfiguration])
 action_service.AddRecipientConfigurationResult(configuration_id: int | None [ConfigurationID])
 action_service.AsyncActionServiceApi.add_action_configuration(self, /, *, new_action_configuration: NewActionConfiguration, request_options: RequestOptions | None = None) -> AddActionConfigurationResult
 action_service.AsyncActionServiceApi.add_action_configuration(self, request: AddActionConfigurationRequest, /, *, request_options: RequestOptions | None = None) -> AddActionConfigurationResult
+action_service.AsyncActionServiceApi.add_action_rule(self, /, *, new_action_rule: NewActionRule, request_options: RequestOptions | None = None) -> AddActionRuleResult
+action_service.AsyncActionServiceApi.add_action_rule(self, request: AddActionRuleRequest, /, *, request_options: RequestOptions | None = None) -> AddActionRuleResult
 action_service.AsyncActionServiceApi.add_recipient_configuration(self, /, *, new_recipient_configuration: NewRecipientConfiguration, request_options: RequestOptions | None = None) -> AddRecipientConfigurationResult
 action_service.AsyncActionServiceApi.add_recipient_configuration(self, request: AddRecipientConfigurationRequest, /, *, request_options: RequestOptions | None = None) -> AddRecipientConfigurationResult
 action_service.AsyncActionServiceApi.get_action_configurations(self, *, request_options: RequestOptions | None = None) -> GetActionConfigurationsResult
@@ -303,12 +309,16 @@ action_service.AsyncActionServiceApi.get_recipient_templates(self, *, request_op
 action_service.AsyncActionServiceApi.remove_action_configuration(self, *, configuration_id: int, request_options: RequestOptions | None = None) -> None
 action_service.AsyncActionServiceApi.remove_action_rule(self, *, rule_id: int, request_options: RequestOptions | None = None) -> None
 action_service.AsyncActionServiceApi.remove_recipient_configuration(self, *, configuration_id: int, request_options: RequestOptions | None = None) -> None
+action_service.Conditions(condition: list[FilterType] | None [Condition])
+action_service.FilterExpression(dialect: str [@Dialect], value: str [#text])
+action_service.FilterType(topic_expression: FilterExpression | None [wsnt:TopicExpression], message_content: FilterExpression | None [wsnt:MessageContent])
 action_service.GetActionConfigurationsResult(action_configurations: ActionConfigurations | None [ActionConfigurations])
 action_service.GetActionRulesResult(action_rules: ActionRules | None [ActionRules])
 action_service.GetActionTemplatesResult(action_templates: ActionTemplates | None [ActionTemplates])
 action_service.GetRecipientConfigurationsResult(recipient_configurations: RecipientConfigurations | None [RecipientConfigurations])
 action_service.GetRecipientTemplatesResult(recipient_templates: RecipientTemplates | None [RecipientTemplates])
 action_service.NewActionConfiguration(name: str | None [Name], template_token: str [TemplateToken], parameters: ActionParameters | None [Parameters])
+action_service.NewActionRule(name: str | None [Name], enabled: bool [Enabled], start_event: FilterType | None [StartEvent], conditions: Conditions | None [Conditions], activation_timeout: str | None [ActivationTimeout], primary_action: int [PrimaryAction])
 action_service.NewRecipientConfiguration(name: str | None [Name], template_token: str [TemplateToken], parameters: ActionParameters | None [Parameters])
 action_service.RecipientConfiguration(configuration_id: int [ConfigurationID], template_token: str [TemplateToken], name: str | None [Name], parameters: StoredActionParameters | None [Parameters])
 action_service.RecipientConfigurations(recipient_configuration: list[RecipientConfiguration] | None [RecipientConfiguration])
@@ -2539,7 +2549,7 @@ event_service.AddScheduledEventResult(event_id: str | None [EventID])
 event_service.AsyncEventServiceApi.add_scheduled_event(self, /, *, new_scheduled_event: NewScheduledEvent, request_options: RequestOptions | None = None) -> AddScheduledEventResult
 event_service.AsyncEventServiceApi.add_scheduled_event(self, request: AddScheduledEventRequest, /, *, request_options: RequestOptions | None = None) -> AddScheduledEventResult
 event_service.AsyncEventServiceApi.change_virtual_input_state(self, *, port: int, active: bool, request_options: RequestOptions | None = None) -> ChangeVirtualInputStateResult
-event_service.AsyncEventServiceApi.get_event_instances(self, *, request_options: RequestOptions | None = None) -> None
+event_service.AsyncEventServiceApi.get_event_instances(self, *, request_options: RequestOptions | None = None) -> ET.Element
 event_service.AsyncEventServiceApi.get_scheduled_events(self, /, *, schedule_filter: ScheduleFilter | MISSING = MISSING, request_options: RequestOptions | None = None) -> GetScheduledEventsResult
 event_service.AsyncEventServiceApi.get_scheduled_events(self, request: GetScheduledEventsRequest, /, *, request_options: RequestOptions | None = None) -> GetScheduledEventsResult
 event_service.AsyncEventServiceApi.remove_scheduled_event(self, *, event_id: str, request_options: RequestOptions | None = None) -> None
@@ -2548,15 +2558,16 @@ event_service.ChangeVirtualInputStateResult(state_changed: bool | None [stateCha
 event_service.EventServiceApi.add_scheduled_event(self, /, *, new_scheduled_event: NewScheduledEvent, request_options: RequestOptions | None = None) -> AddScheduledEventResult
 event_service.EventServiceApi.add_scheduled_event(self, request: AddScheduledEventRequest, /, *, request_options: RequestOptions | None = None) -> AddScheduledEventResult
 event_service.EventServiceApi.change_virtual_input_state(self, *, port: int, active: bool, request_options: RequestOptions | None = None) -> ChangeVirtualInputStateResult
-event_service.EventServiceApi.get_event_instances(self, *, request_options: RequestOptions | None = None) -> None
+event_service.EventServiceApi.get_event_instances(self, *, request_options: RequestOptions | None = None) -> ET.Element
 event_service.EventServiceApi.get_scheduled_events(self, /, *, schedule_filter: ScheduleFilter | MISSING = MISSING, request_options: RequestOptions | None = None) -> GetScheduledEventsResult
 event_service.EventServiceApi.get_scheduled_events(self, request: GetScheduledEventsRequest, /, *, request_options: RequestOptions | None = None) -> GetScheduledEventsResult
 event_service.EventServiceApi.remove_scheduled_event(self, *, event_id: str, request_options: RequestOptions | None = None) -> None
 event_service.GetScheduledEventsRequest(schedule_filter: ScheduleFilter | None [ScheduleFilter])
 event_service.GetScheduledEventsResult(scheduled_events: ScheduledEvents | None [ScheduledEvents])
+event_service.ICalendar(dialect: str | None [@Dialect], value: str [#text])
 event_service.NewScheduledEvent(event_id: str | None [EventID], name: str | None [Name], schedule: Schedule [Schedule])
 event_service.RemoveScheduledEventRequest(event_id: str [EventID])
-event_service.Schedule(i_calendar: str [ICalendar])
+event_service.Schedule(i_calendar: ICalendar [ICalendar])
 event_service.ScheduleFilter(schedule_type: ScheduledType | None [ScheduleType])
 event_service.ScheduledEvent(event_id: str [EventID], name: str | None [Name], schedule: Schedule [Schedule])
 event_service.ScheduledEvents(scheduled_event: list[ScheduledEvent] | None [ScheduledEvent])

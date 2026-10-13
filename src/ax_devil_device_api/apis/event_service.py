@@ -7,6 +7,7 @@ Docs: https://developer.axis.com/vapix/network-video/event-and-action-services/
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from typing import Any, Literal, overload
 
 from pydantic import MISSING, Field
@@ -21,11 +22,19 @@ from ._base import AsyncApi, SyncApi
 # Models
 
 
+class ICalendar(Model):
+    """A schedule in the supported subset of iCalendar (RFC 5545), as the text of the element ``ICalendar``."""
+
+    dialect: str | None = Field(default=None, validation_alias="@Dialect", serialization_alias="@Dialect")
+    """The dialect of the value. Must be ``http://www.axis.com/vapix/ws/ical1`` (the default of the WSDL, so it may be left out; the docs examples do)."""
+    value: str = Field(validation_alias="#text", serialization_alias="#text")
+    """DTSTART, DTEND (interval schedules only) and RRULE, e.g. "DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR". The start and end are the product's local time without a time zone."""
+
+
 class Schedule(Model):
     """Description of the schedule."""
 
-    i_calendar: str = Field(validation_alias="ICalendar", serialization_alias="ICalendar")
-    """Schedule in the supported subset of iCalendar (RFC 5545): DTSTART, DTEND (interval schedules only) and RRULE, e.g. "DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR". The start and end are the product's local time without a time zone."""
+    i_calendar: ICalendar = Field(validation_alias="ICalendar", serialization_alias="ICalendar")
 
 
 class NewScheduledEvent(Model):
@@ -134,6 +143,7 @@ class OPS:
                 ("tnsaxis", "http://www.axis.com/2009/event/topics"),
             ),
         ),
+        result=ET.Element,
         access="admin",
         effect="read",
     )
@@ -204,7 +214,20 @@ class OPS:
                                             XmlField(
                                                 "Schedule",
                                                 source="path",
-                                                nested=XmlMap(fields=(XmlField("ICalendar", source="child"),)),
+                                                nested=XmlMap(
+                                                    fields=(
+                                                        XmlField(
+                                                            "ICalendar",
+                                                            source="path",
+                                                            nested=XmlMap(
+                                                                fields=(
+                                                                    XmlField("@Dialect", name="Dialect"),
+                                                                    XmlField("#text", source="text"),
+                                                                )
+                                                            ),
+                                                        ),
+                                                    )
+                                                ),
                                             ),
                                         )
                                     ),
@@ -259,9 +282,16 @@ class EventServiceApi(SyncApi):
 
     INFO = INFO
 
-    def get_event_instances(self, *, request_options: RequestOptions | None = None) -> None:
-        """List all events that can currently occur in the Axis product. Access: admin."""
-        self._run(OPS.get_event_instances, None, {}, request_options)
+    def get_event_instances(self, *, request_options: RequestOptions | None = None) -> ET.Element:
+        """List all events that can currently occur in the Axis product.
+
+        The reply element ``GetEventInstancesResponse`` is returned as an ``xml.etree.ElementTree.Element``:
+        it holds a ``wstop:TopicSet`` tree whose element names are the topics, so it cannot be a typed
+        result. Walk it by local name.
+
+        Access: admin.
+        """
+        return self._run(OPS.get_event_instances, None, {}, request_options)
 
     @overload
     def add_scheduled_event(
@@ -320,9 +350,16 @@ class AsyncEventServiceApi(AsyncApi):
 
     INFO = INFO
 
-    async def get_event_instances(self, *, request_options: RequestOptions | None = None) -> None:
-        """List all events that can currently occur in the Axis product. Access: admin."""
-        await self._run(OPS.get_event_instances, None, {}, request_options)
+    async def get_event_instances(self, *, request_options: RequestOptions | None = None) -> ET.Element:
+        """List all events that can currently occur in the Axis product.
+
+        The reply element ``GetEventInstancesResponse`` is returned as an ``xml.etree.ElementTree.Element``:
+        it holds a ``wstop:TopicSet`` tree whose element names are the topics, so it cannot be a typed
+        result. Walk it by local name.
+
+        Access: admin.
+        """
+        return await self._run(OPS.get_event_instances, None, {}, request_options)
 
     @overload
     async def add_scheduled_event(
