@@ -43,8 +43,8 @@ def boundary_of(content_type: str) -> str | None:
     """The ``boundary`` parameter of a ``Content-Type`` value, unquoted, or ``None``."""
     for param in content_type.split(";")[1:]:
         key, _, value = param.strip().partition("=")
-        if key.strip().lower() == "boundary" and value:
-            return value.strip().strip('"')
+        if key.strip().lower() == "boundary":
+            return value.strip().strip('"').strip() or None  # `boundary=""` is as good as none
     return None
 
 
@@ -65,8 +65,8 @@ class MixedReplaceDecoder:
     """
 
     def __init__(self, boundary: str, *, api: str = "stream", max_part_bytes: int = DEFAULT_MAX_PART_BYTES) -> None:
-        if not boundary:
-            raise ValueError("boundary must not be empty")
+        if not boundary or not boundary.strip("-"):
+            raise ResponseFormatError(api, "stream", "the multipart boundary is empty")
         self._delimiter = (boundary if boundary.startswith("--") else "--" + boundary).encode("latin-1")
         self._api = api
         self._max = max_part_bytes

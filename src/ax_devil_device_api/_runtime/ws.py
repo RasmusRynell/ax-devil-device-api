@@ -299,12 +299,13 @@ class _Core:
         record = self.record
         if record is None or record.ended or record.termination is not None:
             return
-        if self._reader_over is None or not self._reader_over():
-            return
-        closed = self.remote_close
+        closed = self.remote_close  # stamped by the transport as the frame arrived, even before the reader flags its end
         if closed is not None:
             self._record(record, "normal_remote" if closed[0] in _NORMAL_CLOSE else "abnormal_remote", closed[0], closed[1])
-        elif self.closing:
+            return
+        if self._reader_over is None or not self._reader_over():
+            return
+        if self.closing:
             self._record(record, "local_close", None, None)
         else:
             self._record(record, "network", None, None)
@@ -314,6 +315,11 @@ class _Core:
         if seen is not None:
             self.ledger.touch(record, seen)
         self.ledger.terminate(record, cause, code, self.ledger.now() if ts is None else ts)
+
+    def closing_now(self) -> None:
+        """We are about to close the socket: an end the reader already saw is recorded first."""
+        self._poll_reader()
+        self.closing = True
 
     def close_locally(self) -> None:
         """We are about to close the socket: an end the reader already saw is recorded first, then ours."""
@@ -424,6 +430,10 @@ class _Core:
             return
         self._poll_reader()  # an unread end must not be mistaken for our own close
         self.ledger.end(self.record)
+
+
+_CLOSE_ERRORS = (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError, wsproto.utilities.LocalProtocolError)
+"""What closing an already dead connection can raise: closing it is then a no-op, never an error for the caller."""
 
 
 def refusal_error(spec: SessionSpec, response: Response) -> DeviceError:
@@ -578,8 +588,13 @@ class Session:
                 yield found.item
 
     def close(self) -> None:
-        self._core.close_locally()  # before the socket closes, so it is not mistaken for a failure
-        self._raw.close()
+        self._core.closing_now()  # before the socket closes, so it is not mistaken for a failure
+        try:
+            self._raw.close()
+        except _CLOSE_ERRORS:
+            self._core.terminate("network")  # the connection was already dead; closing it again is a no-op
+        else:
+            self._core.terminate("local_close")
 
 
 @contextmanager
@@ -760,8 +775,13 @@ class AsyncSession:
                 yield found.item
 
     async def close(self) -> None:
-        self._core.close_locally()
-        await self._raw.close()
+        self._core.closing_now()
+        try:
+            await self._raw.close()
+        except _CLOSE_ERRORS:
+            self._core.terminate("network")
+        else:
+            self._core.terminate("local_close")
 
 
 @asynccontextmanager
