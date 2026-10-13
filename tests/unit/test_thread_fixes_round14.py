@@ -157,3 +157,30 @@ def test_multipart_lines_stream_without_a_boundary_is_rejected_not_read_as_lines
     response = Response(200, Headers([("content-type", content_type)]), b"", Request("GET", "/x"))
     with pytest.raises(ResponseFormatError):
         decoder_for(_Lines(), response)
+
+
+@pytest.mark.anyio
+async def test_cancelled_heartbeat_write_on_a_normal_exit_is_not_a_write_failure(clock: list[float]) -> None:
+    camera = FakeWsCamera()
+    async with AsyncDevice(
+        "cam.test", credentials=("root", "pass"), transport=camera.async_transport(), max_streams=4
+    ) as dev:
+        dev._ledger.now = lambda: clock[0]  # noqa: SLF001
+        async with dev.connect_session(RAW, heartbeat=Heartbeat(0.05, 5)) as session:
+            clock[0] = 1010.0
+            camera.sockets[0].push_bytes(b"d")
+            assert await session.receive(timeout=5) == b"d"
+            stream = camera.streams[0]
+            real_write = stream.write
+
+            async def slow_write(buffer: bytes, timeout: float | None = None) -> None:
+                await anyio.sleep(0.1)  # a heartbeat ping write is in flight when the session is left
+                await real_write(buffer, timeout)
+
+            stream.write = slow_write  # type: ignore[method-assign]
+            await anyio.sleep(0.07)
+            clock[0] = 1100.0
+        assert camera.sockets[0].closed_by_client == 1000  # the peer saw a normal close
+        clock[0] = 1200.0
+        async with dev.connect_session(RAW, heartbeat=QUICK) as again:
+            assert again.gap is not None and again.gap.start.timestamp() == 1100.0

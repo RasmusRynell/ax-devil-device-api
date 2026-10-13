@@ -267,7 +267,7 @@ class _WatchedStream:
     def write(self, *args: Any, **kwargs: Any) -> Any:
         try:
             result = self._inner.write(*args, **kwargs)
-        except BaseException:
+        except Exception:  # not BaseException: a write cancelled by closing the session is not a failure
             self.write_failed = True
             raise
         if inspect.isawaitable(result):
@@ -277,7 +277,7 @@ class _WatchedStream:
     async def _awaited(self, awaitable: Any) -> Any:
         try:
             return await awaitable
-        except BaseException:
+        except Exception:  # not BaseException: a write cancelled by closing the session is not a failure
             self.write_failed = True
             raise
 
