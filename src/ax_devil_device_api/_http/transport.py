@@ -72,6 +72,14 @@ async def _aslot(semaphore: asyncio.Semaphore, timeout: float) -> AsyncIterator[
         semaphore.release()
 
 
+def _check_proxy_with_transport(config: ConnectionConfig, transport: object | None) -> None:
+    if transport is not None and config.proxy is not None:
+        raise errors.ConfigurationError(
+            "proxy cannot be combined with an injected transport: httpx would route requests around the "
+            "transport. Configure the proxy on that transport instead, or drop one of the two"
+        )
+
+
 def _client_error(error: Exception) -> errors.ConfigurationError:
     if isinstance(error, ImportError):
         return errors.ConfigurationError("SOCKS proxy support requires: pip install 'ax-devil-device-api[socks]'")
@@ -108,6 +116,9 @@ def map_error(error: httpx.TransportError) -> errors.TransportError:
     if isinstance(error, httpx.TimeoutException):
         return errors.ReadTimeout(f"timed out waiting for the device{where}")
     message = f"{str(error) or type(error).__name__}{where}"
+    if isinstance(error, httpx.ProxyError):
+        # The proxy refused or failed the tunnel: nothing reached the device.
+        return errors.ConnectionFailed(message, request_sent=False)
     if isinstance(error, httpx.ConnectError):
         if _is_tls(error):
             return errors.TlsError(message)
@@ -410,6 +421,7 @@ class SyncTransport:
         self._auth = AxisAuth(config.credentials)
         self._slots = threading.BoundedSemaphore(config.max_concurrency)
         self._stream_slots = threading.BoundedSemaphore(config.max_streams)
+        _check_proxy_with_transport(config, transport)
         try:
             self._client = httpx.Client(transport=transport, **_client_args(config))
         except (httpx.InvalidURL, ValueError, ImportError) as error:
@@ -530,6 +542,7 @@ class AsyncTransport:
         self._auth = AxisAuth(config.credentials)
         self._slots: asyncio.Semaphore | None = None  # created on first use, inside a running loop
         self._stream_slots: asyncio.Semaphore | None = None
+        _check_proxy_with_transport(config, transport)
         try:
             self._client = httpx.AsyncClient(transport=transport, **_client_args(config))
         except (httpx.InvalidURL, ValueError, ImportError) as error:

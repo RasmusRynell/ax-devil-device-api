@@ -612,3 +612,77 @@ def test_socks_proxy_without_socksio_is_a_configuration_error(monkeypatch: pytes
         SyncTransport(config)
     with pytest.raises(ConfigurationError, match=r"\[socks\]"):
         AsyncTransport(config)
+
+
+# --- proxy errors and injected transports ---------------------------------------------------------------------------
+
+
+def test_proxy_error_is_connection_failed_not_sent() -> None:
+    import httpx
+
+    from ax_devil_device_api._http.transport import map_error
+    from ax_devil_device_api.errors import ConnectionFailed
+
+    mapped = map_error(httpx.ProxyError("tunnel refused", request=httpx.Request("GET", "https://cam/x")))
+    assert isinstance(mapped, ConnectionFailed) and mapped.request_sent is False and mapped.body_untouched is False
+
+
+def _proxy_flaky() -> Any:
+    import httpx
+
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if len(calls) == 1:
+            raise httpx.ProxyError("tunnel refused", request=request)
+        return httpx.Response(200)
+
+    return httpx.MockTransport(handler), calls
+
+
+def _get_flow() -> CallFlow[int]:
+    response = yield Request("GET", "/x")
+    return response.status
+
+
+def test_sync_proxy_error_is_retried_per_retry_unsent() -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api._http.transport import SyncTransport
+
+    mock, calls = _proxy_flaky()
+    with SyncTransport(ConnectionConfig("cam"), transport=mock) as t:
+        assert run_sync(t, _get_flow(), Call(label=("a", "b"), retry=RetryPolicy(backoff=0))) == 200
+    assert calls == ["/x", "/x"]
+
+
+@pytest.mark.anyio
+async def test_async_proxy_error_is_retried_per_retry_unsent() -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api._http.transport import AsyncTransport
+
+    mock, calls = _proxy_flaky()
+    async with AsyncTransport(ConnectionConfig("cam"), transport=mock) as t:
+        assert await run_async(t, _get_flow(), Call(label=("a", "b"), retry=RetryPolicy(backoff=0))) == 200
+    assert calls == ["/x", "/x"]
+
+
+def test_proxy_with_an_injected_transport_is_a_configuration_error() -> None:
+    import httpx
+
+    from ax_devil_device_api import AsyncDevice, Device
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
+    from ax_devil_device_api.errors import ConfigurationError
+
+    config = ConnectionConfig("cam", proxy="http://proxy.local:8080")
+    with pytest.raises(ConfigurationError, match="proxy"):
+        SyncTransport(config, transport=httpx.MockTransport(lambda r: httpx.Response(200)))
+    with pytest.raises(ConfigurationError, match="proxy"):
+        AsyncTransport(config, transport=httpx.MockTransport(lambda r: httpx.Response(200)))
+    with pytest.raises(ConfigurationError, match="proxy"):
+        Device("cam", proxy="http://proxy.local:8080", transport=httpx.MockTransport(lambda r: httpx.Response(200)))
+    with pytest.raises(ConfigurationError, match="proxy"):
+        AsyncDevice("cam", proxy="http://proxy.local:8080", transport=httpx.MockTransport(lambda r: httpx.Response(200)))

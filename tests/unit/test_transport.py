@@ -279,7 +279,7 @@ def test_proxy_passed_to_client(monkeypatch: pytest.MonkeyPatch) -> None:
         return real(*args, **kwargs)
 
     monkeypatch.setattr(httpx, "Client", fake)
-    SyncTransport(cfg(proxy="http://proxy:3128"), transport=httpx.MockTransport(lambda r: httpx.Response(200)))
+    SyncTransport(cfg(proxy="http://proxy:3128"))
     assert captured["proxy"] == "http://proxy:3128"
     captured.clear()
     SyncTransport(cfg(), transport=httpx.MockTransport(lambda r: httpx.Response(200)))
