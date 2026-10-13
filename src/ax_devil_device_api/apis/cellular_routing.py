@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/device-configuration/cellular-routing-api
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -95,32 +95,51 @@ class ConnectionMonitor(Model):
 class MacLease(Model):
     """A MAC address for static leases. The first one decides which device gets all ports in ``PRIMARY_LAN_HOST`` mode and the first IP of the range."""
 
-    index: ListIndex
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"index"})
+    index: ListIndex = Field(default_factory=not_sent)
     mac_address: MacAddress = Field(validation_alias="macAddress", serialization_alias="macAddress")
 
 
 class DhcpLocalConfig(Model):
     """DHCP server configuration for a private LAN network (``LOCAL`` mode)."""
 
-    ip_prefix_length: int = Field(validation_alias="ipPrefixLength", serialization_alias="ipPrefixLength")
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"ip_prefix_length", "server_ip", "static_leases"})
+    ip_prefix_length: int = Field(
+        default_factory=not_sent, validation_alias="ipPrefixLength", serialization_alias="ipPrefixLength"
+    )
     """Prefix length of the smallest subnet that contains ipRange. Calculated."""
     ip_range: IpRange = Field(validation_alias="ipRange", serialization_alias="ipRange")
-    server_ip: Ipv4Address = Field(validation_alias="serverIp", serialization_alias="serverIp")
-    static_leases: list[StaticMacIpLease] = Field(validation_alias="staticLeases", serialization_alias="staticLeases")
+    server_ip: Ipv4Address = Field(
+        default_factory=not_sent, validation_alias="serverIp", serialization_alias="serverIp"
+    )
+    static_leases: list[StaticMacIpLease] = Field(
+        default_factory=not_sent, validation_alias="staticLeases", serialization_alias="staticLeases"
+    )
 
 
 class DhcpPassthroughConfig(Model):
     """DHCP configuration that extends the cellular subnet to the LAN (``PASSTHROUGH`` mode). Before the cellular connection is up, ipRange may be empty."""
 
-    ip_prefix_length: int = Field(validation_alias="ipPrefixLength", serialization_alias="ipPrefixLength")
+    __response_required__: ClassVar[frozenset[str]] = frozenset(
+        {"ip_prefix_length", "ip_prefix_length_override", "server_ip", "static_leases"}
+    )
+    ip_prefix_length: int = Field(
+        default_factory=not_sent, validation_alias="ipPrefixLength", serialization_alias="ipPrefixLength"
+    )
     """Prefix length of the DHCP server IP based on the uplink DHCP configuration."""
     ip_prefix_length_override: int = Field(
-        validation_alias="ipPrefixLengthOverride", serialization_alias="ipPrefixLengthOverride"
+        default_factory=not_sent,
+        validation_alias="ipPrefixLengthOverride",
+        serialization_alias="ipPrefixLengthOverride",
     )
     """0 when ipRange fits the cellular subnet; otherwise the expanded prefix length (smaller than ipPrefixLength)."""
     ip_range: IpRange | None = Field(default=None, validation_alias="ipRange", serialization_alias="ipRange")
-    server_ip: Ipv4Address = Field(validation_alias="serverIp", serialization_alias="serverIp")
-    static_leases: list[StaticMacIpLease] = Field(validation_alias="staticLeases", serialization_alias="staticLeases")
+    server_ip: Ipv4Address = Field(
+        default_factory=not_sent, validation_alias="serverIp", serialization_alias="serverIp"
+    )
+    static_leases: list[StaticMacIpLease] = Field(
+        default_factory=not_sent, validation_alias="staticLeases", serialization_alias="staticLeases"
+    )
 
 
 class DhcpServer(Model):
@@ -152,17 +171,19 @@ class MainSettings(Model):
 class CellularHostDefaultPort(Model):
     """A default management port of the cellular host. It cannot be added or removed; only the source port can change."""
 
-    index: ListIndex
-    name: str
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"index", "name", "destination"})
+    index: ListIndex = Field(default_factory=not_sent)
+    name: str = Field(default_factory=not_sent)
     """The protocol name of the port."""
     source: NetworkPort
-    destination: NetworkPort
+    destination: NetworkPort = Field(default_factory=not_sent)
 
 
 class CellularHostPort(Model):
     """A custom port of the cellular host."""
 
-    index: ListIndex
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"index"})
+    index: ListIndex = Field(default_factory=not_sent)
     name: str
     """The protocol name of the port."""
     source: NetworkPort
@@ -181,7 +202,8 @@ class CellularHost(Model):
 class LanHostPort(Model):
     """A custom port applied symmetrically to all LAN hosts."""
 
-    index: ListIndex
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"index"})
+    index: ListIndex = Field(default_factory=not_sent)
     name: str
     """The protocol name of the port."""
     destination: NetworkPort
@@ -190,10 +212,15 @@ class LanHostPort(Model):
 class LanHost(Model):
     """Network ports for the hosts on the LAN DHCP server network."""
 
-    default_ports: list[DestinationPort] = Field(validation_alias="defaultPorts", serialization_alias="defaultPorts")
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"default_ports", "source_max_port"})
+    default_ports: list[DestinationPort] = Field(
+        default_factory=not_sent, validation_alias="defaultPorts", serialization_alias="defaultPorts"
+    )
     """Default destination ports applied to all LAN hosts."""
     source_base_port: NetworkPort = Field(validation_alias="sourceBasePort", serialization_alias="sourceBasePort")
-    source_max_port: NetworkPort = Field(validation_alias="sourceMaxPort", serialization_alias="sourceMaxPort")
+    source_max_port: NetworkPort = Field(
+        default_factory=not_sent, validation_alias="sourceMaxPort", serialization_alias="sourceMaxPort"
+    )
     source_port_list_alignment: PortAlignment = Field(
         validation_alias="sourcePortListAlignment", serialization_alias="sourcePortListAlignment"
     )

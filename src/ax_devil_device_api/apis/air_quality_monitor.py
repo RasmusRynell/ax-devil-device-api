@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/device-configuration/environmental-sensor
 
 from __future__ import annotations
 
-from typing import Any, overload
+from typing import Any, ClassVar, overload
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -40,6 +40,7 @@ VapeSensitivity = int
 class Configuration(Model):
     """Configuration of air quality monitor"""
 
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"sensor_id"})
     cloud_metadata_enable: bool | None = Field(
         default=None, validation_alias="cloudMetadataEnable", serialization_alias="cloudMetadataEnable"
     )
@@ -100,7 +101,7 @@ class Configuration(Model):
     """Minimum temperature"""
     min_voc: Limit | None = Field(default=None, validation_alias="minVoc", serialization_alias="minVoc")
     """Minimum VOC"""
-    sensor_id: SensorId = Field(validation_alias="sensorId", serialization_alias="sensorId")
+    sensor_id: SensorId = Field(default_factory=not_sent, validation_alias="sensorId", serialization_alias="sensorId")
     """Sensor ID"""
     storage_enable: bool | None = Field(
         default=None, validation_alias="storageEnable", serialization_alias="storageEnable"

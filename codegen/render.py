@@ -172,7 +172,9 @@ def render_field(f: FieldDef) -> list[str]:
     if needs_none and not ann.endswith("| None") and ann != "None":
         ann += " | None"
     parts: list[str] = []
-    if not f.required:
+    if f.required and f.read_only:
+        parts.append("default_factory=not_sent")  # left out of requests, required in responses (Model.__response_required__)
+    elif not f.required:
         parts.append(f"default={f.default if f.default is not None else 'None'}")
     if f.wire != f.py:
         parts += [f"validation_alias={f.wire!r}", f"serialization_alias={f.wire!r}"]
@@ -196,7 +198,7 @@ def render_from_current(td: TypeDef, source: TypeDef) -> list[str]:
     exclude = sorted(set(source.masked) | set(source.read_only))
     needs = []
     for f in td.fields:
-        if not f.required or f.py in rt.set_values:
+        if not f.required or f.read_only or f.py in rt.set_values:
             continue
         src = source.by_wire(f.wire)
         if src is not None and src.required and src.py not in exclude:
@@ -244,6 +246,9 @@ def render_type(td: TypeDef, types: dict[str, TypeDef]) -> list[str]:
     if td.nullable:
         names = ", ".join(repr(n) for n in td.nullable)
         body.append(f"    __nullable__: ClassVar[frozenset[str]] = frozenset({{{names}}})")
+    if td.response_required:
+        names = ", ".join(repr(n) for n in td.response_required)
+        body.append(f"    __response_required__: ClassVar[frozenset[str]] = frozenset({{{names}}})")
     for f in td.fields:
         body += render_field(f)
     if td.round_trip:
@@ -709,7 +714,7 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._http.upload import UploadSource, UploadSpec
-from .._protocols.base import AcapDiscovery, ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery, ServiceDiscovery
+from .._protocols.base import AcapDiscovery, ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery, ServiceDiscovery, not_sent
 from .._protocols.cgi import Binary, CgiArg, CgiBinding, JsonReply, Text, TextKv, TextLines, TextOk, Xml
 from .._protocols.dca import DcaBinding
 from .._protocols.rest import RestBinding

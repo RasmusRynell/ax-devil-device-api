@@ -115,6 +115,9 @@ class Model(BaseModel):
     """
 
     __nullable__: ClassVar[frozenset[str]] = frozenset()
+    __response_required__: ClassVar[frozenset[str]] = frozenset()
+    """Required read-only fields (``required`` with ``x-read-only``): the device always returns them, so a response
+    without one is rejected, while a request model leaves them out (``not_sent``) and never sends them."""
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -137,7 +140,15 @@ class Model(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _check_request_fields(cls, data: Any, info: ValidationInfo) -> Any:
-        if not isinstance(data, dict) or is_response(info):
+        if not isinstance(data, dict):
+            return data
+        if is_response(info):
+            if cls.__response_required__:
+                names = cls._wire_to_field()
+                present = {names[key] for key in data if key in names}
+                missing = sorted(cls.__response_required__ - present)
+                if missing:
+                    raise ValueError(f"required field(s) missing from the response: {', '.join(missing)}")
             return data
         names = cls._wire_to_field()
         unknown = sorted(str(key) for key in data if key not in names)
@@ -186,6 +197,11 @@ class Model(BaseModel):
         are dropped rather than sent back.
         """
         return self.model_dump(mode="python", by_alias=False, exclude_unset=True, exclude_none=True, exclude=set(exclude))
+
+
+def not_sent() -> Any:
+    """Default of a required read-only field: absent on a request model, which never sends it."""
+    return None
 
 
 def _literal_values(annotation: Any) -> tuple[Any, ...] | None:

@@ -12,7 +12,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -94,7 +94,10 @@ class Connectivity(Model):
 class Netstats(Model):
     """Interface that retrieves network statistics"""
 
-    sampling_interval: int = Field(validation_alias="samplingInterval", serialization_alias="samplingInterval")
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"sampling_interval"})
+    sampling_interval: int = Field(
+        default_factory=not_sent, validation_alias="samplingInterval", serialization_alias="samplingInterval"
+    )
     """The interval at which retransmissions and spikes are sampled in seconds."""
 
 

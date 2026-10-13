@@ -454,7 +454,8 @@ def check_sent_body(op, request: dict, sent: Sent) -> None:
             assert key in sent.query or key in sent.rawquery.replace("=", "&").split("&"), f"{key} should be in the URL"
         for key in request["form"]:
             assert sent.form is not None and key in sent.form and key not in sent.query, f"{key} should be in the body only"
-    for key, value in list(getattr(binding, "url_query", ())) + list(request.get("query", {}).items()):
+    url_query: list[tuple[str, Any]] = list(getattr(binding, "url_query", ()))
+    for key, value in url_query + list(request.get("query", {}).items()):
         if value is None and key in sent.rawquery:
             assert not re.search(rf"(?:^|&){re.escape(key)}=", sent.rawquery), f"bare key {key} was sent with a value"
 

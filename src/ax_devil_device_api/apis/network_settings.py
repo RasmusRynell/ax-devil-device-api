@@ -12,7 +12,7 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -99,13 +99,22 @@ VlanId = Annotated[str, Field(pattern="^([1-9][0-9]{0,2}|[1-3][0-9]{3}|40[0-8][0
 class SystemSettings(Model):
     """The global network configuration"""
 
-    active_uplink: Uplink = Field(validation_alias="activeUplink", serialization_alias="activeUplink")
+    __response_required__: ClassVar[frozenset[str]] = frozenset(
+        {"active_uplink", "hostname", "name_servers", "search_domains"}
+    )
+    active_uplink: Uplink = Field(
+        default_factory=not_sent, validation_alias="activeUplink", serialization_alias="activeUplink"
+    )
     """Indicates which uplink is currently in use."""
-    hostname: Hostname
+    hostname: Hostname = Field(default_factory=not_sent)
     """The currently used hostname"""
-    name_servers: NameServers = Field(validation_alias="nameServers", serialization_alias="nameServers")
+    name_servers: NameServers = Field(
+        default_factory=not_sent, validation_alias="nameServers", serialization_alias="nameServers"
+    )
     """The name servers currently in use."""
-    search_domains: SearchDomains = Field(validation_alias="searchDomains", serialization_alias="searchDomains")
+    search_domains: SearchDomains = Field(
+        default_factory=not_sent, validation_alias="searchDomains", serialization_alias="searchDomains"
+    )
     """The search domains currently in use."""
     static_hostname: Hostname = Field(validation_alias="staticHostname", serialization_alias="staticHostname")
     """The statically configured hostname. It is used if `useDhcpHostname` is set to `false`, or if no `hostname` was obtained by DHCP."""
@@ -131,19 +140,26 @@ class Vlan(Model):
 class Wired(Model):
     """The wired uplink configuration. Only available when wired_supported is true."""
 
-    link_mode: LinkMode = Field(validation_alias="linkMode", serialization_alias="linkMode")
+    __response_required__: ClassVar[frozenset[str]] = frozenset(
+        {"link_mode", "mac_address", "max_mtu", "max_number_of_vlans", "min_mtu", "mtu", "supported_link_modes"}
+    )
+    link_mode: LinkMode = Field(default_factory=not_sent, validation_alias="linkMode", serialization_alias="linkMode")
     """The current link mode."""
     lower_state: LinkState | None = Field(default=None, validation_alias="lowerState", serialization_alias="lowerState")
     """Indicates if the wired network interface device status is UP or DOWN."""
-    mac_address: MacAddress = Field(validation_alias="macAddress", serialization_alias="macAddress")
+    mac_address: MacAddress = Field(
+        default_factory=not_sent, validation_alias="macAddress", serialization_alias="macAddress"
+    )
     """The MAC address of the wired device."""
-    max_mtu: Mtu = Field(validation_alias="maxMtu", serialization_alias="maxMtu")
+    max_mtu: Mtu = Field(default_factory=not_sent, validation_alias="maxMtu", serialization_alias="maxMtu")
     """The maximum supported MTU of the wired device"""
-    max_number_of_vlans: int = Field(validation_alias="maxNumberOfVlans", serialization_alias="maxNumberOfVlans")
+    max_number_of_vlans: int = Field(
+        default_factory=not_sent, validation_alias="maxNumberOfVlans", serialization_alias="maxNumberOfVlans"
+    )
     """The maximum number of supported VLANs."""
-    min_mtu: Mtu = Field(validation_alias="minMtu", serialization_alias="minMtu")
+    min_mtu: Mtu = Field(default_factory=not_sent, validation_alias="minMtu", serialization_alias="minMtu")
     """The minimum supported MTU of the wired device"""
-    mtu: Mtu
+    mtu: Mtu = Field(default_factory=not_sent)
     """The MTU of the wired device"""
     use_dhcp_resolver: bool | None = Field(
         default=None, validation_alias="useDhcpResolver", serialization_alias="useDhcpResolver"
@@ -154,7 +170,7 @@ class Wired(Model):
     static_mtu: Mtu = Field(validation_alias="staticMtu", serialization_alias="staticMtu")
     """The statically configured MTU of the wired device"""
     supported_link_modes: LinkModes = Field(
-        validation_alias="supportedLinkModes", serialization_alias="supportedLinkModes"
+        default_factory=not_sent, validation_alias="supportedLinkModes", serialization_alias="supportedLinkModes"
     )
     """The supported link modes."""
     vlans: list[Vlan]
@@ -254,15 +270,22 @@ class PortSecurity(Model):
 class SwitchPort(Model):
     """Switch port configurations. security is left out when security_supported is false."""
 
+    __response_required__: ClassVar[frozenset[str]] = frozenset(
+        {"lower_state", "port_id", "remote_addresses", "security_supported"}
+    )
     enabled: bool
     """Specifies if a network interface device is enabled."""
-    lower_state: LinkState = Field(validation_alias="lowerState", serialization_alias="lowerState")
+    lower_state: LinkState = Field(
+        default_factory=not_sent, validation_alias="lowerState", serialization_alias="lowerState"
+    )
     """Indicates if the network interface device status is UP or DOWN."""
-    port_id: str = Field(validation_alias="portId", serialization_alias="portId")
+    port_id: str = Field(default_factory=not_sent, validation_alias="portId", serialization_alias="portId")
     """Switch port ID."""
-    remote_addresses: RemoteAddresses = Field(validation_alias="remoteAddresses", serialization_alias="remoteAddresses")
+    remote_addresses: RemoteAddresses = Field(
+        default_factory=not_sent, validation_alias="remoteAddresses", serialization_alias="remoteAddresses"
+    )
     """List all stored remote MAC addresses observed on the switch port."""
-    security_supported: bool
+    security_supported: bool = Field(default_factory=not_sent)
     """Indicates if security is supported."""
     security: PortSecurity | None = None
     """Security settings; only present when security_supported is true."""

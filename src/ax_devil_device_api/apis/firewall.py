@@ -12,7 +12,7 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, ErrorCode, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -141,19 +141,28 @@ class Rules(Model):
     """Firewall rules. Read-only; change them with set_rules."""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"pending_default_policy"})
+    __response_required__: ClassVar[frozenset[str]] = frozenset(
+        {"active_default_policy", "active_rules", "pending_rules", "test_time_left"}
+    )
     active_default_policy: Policy = Field(
-        validation_alias="activeDefaultPolicy", serialization_alias="activeDefaultPolicy"
+        default_factory=not_sent, validation_alias="activeDefaultPolicy", serialization_alias="activeDefaultPolicy"
     )
     """Active default firewall policy. Default to `ACCEPT`."""
-    active_rules: RuleList = Field(validation_alias="activeRules", serialization_alias="activeRules")
+    active_rules: RuleList = Field(
+        default_factory=not_sent, validation_alias="activeRules", serialization_alias="activeRules"
+    )
     """Active firewall rules"""
     pending_default_policy: Policy | None = Field(
         default=None, validation_alias="pendingDefaultPolicy", serialization_alias="pendingDefaultPolicy"
     )
     """Pending default firewall policy set by the `setRules` action"""
-    pending_rules: RuleList = Field(validation_alias="pendingRules", serialization_alias="pendingRules")
+    pending_rules: RuleList = Field(
+        default_factory=not_sent, validation_alias="pendingRules", serialization_alias="pendingRules"
+    )
     """Pending firewall rules"""
-    test_time_left: PositiveNumValue = Field(validation_alias="testTimeLeft", serialization_alias="testTimeLeft")
+    test_time_left: PositiveNumValue = Field(
+        default_factory=not_sent, validation_alias="testTimeLeft", serialization_alias="testTimeLeft"
+    )
     """Measures the remaining test time for the pending firewall rules"""
 
 

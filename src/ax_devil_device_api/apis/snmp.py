@@ -12,7 +12,7 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -113,10 +113,11 @@ class User(Model):
 class SnmpV3(Model):
     """V3 snmp support"""
 
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"supported_encryption"})
     enabled: bool
     """Status of V3 snmp support"""
     supported_encryption: SupportedEncryptionTypeArray = Field(
-        validation_alias="supportedEncryption", serialization_alias="supportedEncryption"
+        default_factory=not_sent, validation_alias="supportedEncryption", serialization_alias="supportedEncryption"
     )
     """AES-128 or AES-256 encryption"""
     user_encryption: UserEncryptionTypeEnum | None = Field(

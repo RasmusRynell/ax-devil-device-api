@@ -12,7 +12,7 @@ from typing import Annotated, Any, ClassVar, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, ErrorCode, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -207,6 +207,7 @@ class Task(Model):
     """Active tasks"""
 
     __nullable__: ClassVar[frozenset[str]] = frozenset({"colors", "duration_left", "profile", "speed", "threshold"})
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"pattern", "priority", "task_id"})
     beam_shape: NameString | None = Field(default=None, validation_alias="beamShape", serialization_alias="beamShape")
     """The beam shape of the pattern"""
     colors: ColorsArray | None = None
@@ -217,15 +218,15 @@ class Task(Model):
     """The number of seconds left"""
     intensity: Integer0To5
     """The intensity level"""
-    pattern: NameString
+    pattern: NameString = Field(default_factory=not_sent)
     """The name of the pattern"""
-    priority: Integer1To13
+    priority: Integer1To13 = Field(default_factory=not_sent)
     """The priority level"""
     profile: NameString | None = None
     """The name of the profile"""
     speed: Integer1To5 | None = None
     """The speed of the pattern"""
-    task_id: TaskId = Field(validation_alias="taskId", serialization_alias="taskId")
+    task_id: TaskId = Field(default_factory=not_sent, validation_alias="taskId", serialization_alias="taskId")
     """The ID of the task"""
     threshold: Integer0To100 | None = None
     """The threshold value to trigger the audio visualizer"""
@@ -299,6 +300,7 @@ class ProfileFunction(Model):
     __nullable__: ClassVar[frozenset[str]] = frozenset(
         {"beam_shape_override", "colors", "duration", "speed", "threshold"}
     )
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"function_class"})
     beam_shape_override: NameString | None = Field(
         default=None, validation_alias="beamShapeOverride", serialization_alias="beamShapeOverride"
     )
@@ -309,7 +311,9 @@ class ProfileFunction(Model):
     """The duration the function stays active"""
     function: NameString
     """The name of the function"""
-    function_class: FunctionClass = Field(validation_alias="functionClass", serialization_alias="functionClass")
+    function_class: FunctionClass = Field(
+        default_factory=not_sent, validation_alias="functionClass", serialization_alias="functionClass"
+    )
     """The class of function"""
     intensity: Integer0To5 | None = None
     """The intensity level"""

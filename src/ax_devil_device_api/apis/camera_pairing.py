@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, ErrorCode, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -35,11 +35,12 @@ VideoChannels = list[str]
 class Pairing(Model):
     """A camera pairing. The password is never returned."""
 
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     address: Address | None = None
     """Address for the camera pairing."""
     description: Description | None = None
     """Description of the paired camera."""
-    id: ID
+    id: ID = Field(default_factory=not_sent)
     """The unique ID generated automatically for the camera pairing."""
     product_model: ProductModel | None = Field(
         default=None, validation_alias="productModel", serialization_alias="productModel"

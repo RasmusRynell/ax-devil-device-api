@@ -76,7 +76,7 @@ RESERVED_MODULE_NAMES = frozenset(
         "NoVersion", "DcaBinding", "CgiArg", "CgiBinding", "Text", "TextKv", "TextOk", "Xml", "Binary", "JsonReply",
         "XmlMap", "XmlField", "XmlStatusError", "AsyncApi", "SyncApi", "INFO", "OPS", "PATH", "ROOT",
         "AcapDiscovery", "ServiceDiscovery", "ServiceJsonBinding", "SoapBinding", "RestBinding", "TextLines", "UploadSource", "UploadSpec",
-        "JsonRpcMultipart",
+        "JsonRpcMultipart", "not_sent",
     }
 )  # fmt: skip
 BUILTIN_SHADOWS = ("list", "dict", "set", "tuple", "str", "int", "float", "bool", "bytes", "type", "object")
@@ -416,6 +416,10 @@ class Builder:
         td.nullable = names("x-nullable")
         td.masked = names("x-masked")
         td.read_only = names("x-read-only")
+        for py in td.read_only:
+            fd = td.by_py(py)
+            assert fd is not None
+            fd.read_only = True
         for py in td.nullable:
             fd = td.by_py(py)
             assert fd is not None

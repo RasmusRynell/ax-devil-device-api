@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/device-configuration/event-schedules-api/
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -25,13 +25,16 @@ ScheduleVariant = Literal["PULSE", "INTERVAL"]
 class Schedule(Model):
     """Schedules"""
 
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"schedule_type"})
     id: str
     """Unique identifier for a schedule. Automatically generated if not provided during add."""
     name: str
     """Well-known name of the schedule."""
     schedule: str
     """Schedule definition, based on the iCalendar format (DTSTART, optional DTEND, RRULE). The schedule type follows from DTEND."""
-    schedule_type: ScheduleVariant = Field(validation_alias="scheduleType", serialization_alias="scheduleType")
+    schedule_type: ScheduleVariant = Field(
+        default_factory=not_sent, validation_alias="scheduleType", serialization_alias="scheduleType"
+    )
     """Type of schedule, either 'Pulse' or 'Interval'. Determined by the schedule definition."""
 
 

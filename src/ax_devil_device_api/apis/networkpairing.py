@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/device-configuration/network-pairing-api/
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, overload
+from typing import Annotated, Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -29,16 +29,18 @@ SirenLightKind = Literal["siren", "light"]
 class Capability(Model):
     """A capability of a feature on a paired device."""
 
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"name"})
     enabled: bool | None = None
     """The capability is administratively enabled on the host. Toggling it does not affect the remote device."""
-    name: str
+    name: str = Field(default_factory=not_sent)
     """Name of a pairing capability."""
 
 
 class Feature(Model):
     """A category of capabilities provided by a pairing."""
 
-    category: str
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"category"})
+    category: str = Field(default_factory=not_sent)
     """The capability category name, for example SirenLight."""
     capabilities: list[Capability] | None = None
 
@@ -46,7 +48,8 @@ class Feature(Model):
 class Pairing(Model):
     """A configured pairing with a remote device. The password is never returned."""
 
-    id: PairingId
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
+    id: PairingId = Field(default_factory=not_sent)
     """The pairing identifier."""
     address: str | None = None
     """The network address of the remote device. Must be a FQDN DNS name, an IPv4 address (dotted quad notation), or an IPv6 address."""

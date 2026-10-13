@@ -7,12 +7,12 @@ Docs: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, not_sent
 from .._protocols.rest import RestBinding
 from ._base import AsyncApi, SyncApi
 
@@ -90,12 +90,13 @@ class DuplexDevice(Model):
 
 
 class HttpAudioSession(Model):
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["HTTP"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")
     """Custom text overriding the default text of the visual profile."""
-    id: str | None = None
+    id: str = Field(default_factory=not_sent)
     """A unique audio session ID. Assigned by the server."""
     prio: Literal["HIGH", "MEDIUM", "LOW"] | None = None
     """Priority of the session relative to other playing audio. A higher priority silences sessions with a lower priority in the same targets. Default: 'LOW'."""
@@ -115,12 +116,13 @@ class HttpAudioSession(Model):
 
 
 class RtpAudioSession(Model):
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["RTP"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")
     """Custom text overriding the default text of the visual profile."""
-    id: str | None = None
+    id: str = Field(default_factory=not_sent)
     """A unique audio session ID. Assigned by the server."""
     prio: Literal["HIGH", "MEDIUM", "LOW"] | None = None
     """Priority of the session relative to other playing audio. A higher priority silences sessions with a lower priority in the same targets. Default: 'LOW'."""
@@ -143,12 +145,13 @@ class RtpAudioSession(Model):
 
 
 class SipAudioSession(Model):
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["SIP"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")
     """Custom text overriding the default text of the visual profile."""
-    id: str | None = None
+    id: str = Field(default_factory=not_sent)
     """A unique audio session ID. Assigned by the server."""
     prio: Literal["HIGH", "MEDIUM", "LOW"] | None = None
     """Priority of the session relative to other playing audio. A higher priority silences sessions with a lower priority in the same targets. Default: 'LOW'."""
@@ -169,12 +172,13 @@ class SipAudioSession(Model):
 
 
 class WsAudioSession(Model):
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"id"})
     type: Literal["WS"]
     custom_id: str | None = Field(default=None, validation_alias="customId", serialization_alias="customId")
     """Client-provided identifier used to reference the session."""
     custom_text: str | None = Field(default=None, validation_alias="customText", serialization_alias="customText")
     """Custom text overriding the default text of the visual profile."""
-    id: str | None = None
+    id: str = Field(default_factory=not_sent)
     """A unique audio session ID. Assigned by the server."""
     prio: Literal["HIGH", "MEDIUM", "LOW"] | None = None
     """Priority of the session relative to other playing audio. A higher priority silences sessions with a lower priority in the same targets. Default: 'LOW'."""

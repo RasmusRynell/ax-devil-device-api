@@ -32,7 +32,9 @@ class FieldDef:
     upload: dict[str, Any] | None = None
     """``x-upload`` options: the field is file content (``UploadSource``), sent as a file part or raw body."""
     place: str | None = None
-    """``x-in``: ``query``, ``form`` or ``body`` (cgi); ``None`` means the encoding's default."""
+    """``x-in``: ``query``, ``form``, ``body`` or ``content_type`` (cgi); ``None`` means the encoding's default."""
+    read_only: bool = False
+    """Listed in the type's ``x-read-only``: sent never, and, when also ``required``, enforced on responses only."""
 
     @property
     def is_mapping(self) -> bool:
@@ -60,6 +62,11 @@ class TypeDef:
     read_only: list[str] = field(default_factory=list)
     schema: dict[str, Any] = field(default_factory=dict)
     round_trip: RoundTrip | None = None
+
+    @property
+    def response_required(self) -> list[str]:
+        """Python names of the fields that are required and read-only: the device always returns them, a request leaves them out."""
+        return [f.py for f in self.fields if f.required and f.read_only]
 
     def by_wire(self, wire: str) -> FieldDef | None:
         return next((f for f in self.fields if f.wire == wire), None)

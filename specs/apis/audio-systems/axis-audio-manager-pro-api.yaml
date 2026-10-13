@@ -90,7 +90,7 @@ types:
     oneOf:
     - type: object
       x-name: HttpAudioSession
-      required: [type, targets]
+      required: [type, targets, id]
       x-read-only: [id]
       properties:
         type: {const: HTTP}
@@ -120,7 +120,7 @@ types:
             networks at the cost of latency.
     - type: object
       x-name: RtpAudioSession
-      required: [type, targets]
+      required: [type, targets, id]
       x-read-only: [id]
       properties:
         type: {const: RTP}
@@ -151,7 +151,7 @@ types:
           description: RTP port; assigned by the server if omitted; error if occupied or outside configured range.
     - type: object
       x-name: SipAudioSession
-      required: [type, targets]
+      required: [type, targets, id]
       x-read-only: [id]
       properties:
         type: {const: SIP}
@@ -175,7 +175,7 @@ types:
         extension: {type: string, description: 'Dialing extension; when dialed, the session is used.'}
     - type: object
       x-name: WsAudioSession
-      required: [type, targets]
+      required: [type, targets, id]
       x-read-only: [id]
       properties:
         type: {const: WS}

@@ -12,7 +12,7 @@ from typing import ClassVar
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation
+from .._protocols.base import ApiInfo, DcaDiscovery, Family, Model, Operation, not_sent
 from .._protocols.dca import DcaBinding
 from ._base import AsyncApi, SyncApi
 
@@ -33,11 +33,16 @@ TimeZonesArray = list[TimeZoneEntry]
 class TimeSettings(Model):
     """Handle date and time configuration."""
 
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"local_date_time", "max_supported_year"})
     date_time: str = Field(validation_alias="dateTime", serialization_alias="dateTime")
     """The system date and time in UTC. The format is in ISO 8601. The date should be between Unix time (`UTC 1970-01-01T00:00:00`) and the last second of the year declared in `maxSupportedYear`."""
-    local_date_time: str = Field(validation_alias="localDateTime", serialization_alias="localDateTime")
+    local_date_time: str = Field(
+        default_factory=not_sent, validation_alias="localDateTime", serialization_alias="localDateTime"
+    )
     """The local date and time. The format is in ISO 8601."""
-    max_supported_year: int = Field(validation_alias="maxSupportedYear", serialization_alias="maxSupportedYear")
+    max_supported_year: int = Field(
+        default_factory=not_sent, validation_alias="maxSupportedYear", serialization_alias="maxSupportedYear"
+    )
     """Latest year that the date can be set to."""
 
 
@@ -76,7 +81,10 @@ class Posix(Model):
 class TimeZone(Model):
     """Handle all settings related to time zones."""
 
-    active_time_zone: str = Field(validation_alias="activeTimeZone", serialization_alias="activeTimeZone")
+    __response_required__: ClassVar[frozenset[str]] = frozenset({"active_time_zone"})
+    active_time_zone: str = Field(
+        default_factory=not_sent, validation_alias="activeTimeZone", serialization_alias="activeTimeZone"
+    )
     """The currently active system time zone, in IANA or POSIX format. The IANA or POSIX time zone if one has been set; with DHCP enabled, the DHCP time zone if the network supplies one, otherwise the factory default time zone."""
     dhcp: Dhcp
     iana: Iana
