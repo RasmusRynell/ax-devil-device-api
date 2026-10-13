@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 
@@ -52,6 +53,13 @@ class RequestOptions:
     retry: RetryPolicy | None = None
     """Replaces the device retry policy for this call."""
 
+    def __post_init__(self) -> None:
+        if self.timeout is not None and not (isinstance(self.timeout, (int, float)) and 0 < self.timeout < math.inf):
+            raise ValueError(
+                f"timeout must be a positive, finite number of seconds, got {self.timeout!r}; "
+                "use None to keep the device timeout (there is no way to disable timeouts)"
+            )
+
 
 @dataclass(frozen=True)
 class Heartbeat:
@@ -69,10 +77,10 @@ class Heartbeat:
     timeout: float = 20.0
 
     def __post_init__(self) -> None:
-        if self.interval is not None and self.interval <= 0:
-            raise ValueError("interval must be positive")
-        if self.timeout <= 0:
-            raise ValueError("timeout must be positive")
+        if self.interval is not None and not 0 < self.interval < math.inf:
+            raise ValueError("interval must be positive and finite (use Heartbeat(None) to disable pings)")
+        if not 0 < self.timeout < math.inf:
+            raise ValueError("timeout must be positive and finite")
 
 
 DEFAULT_HEARTBEAT = Heartbeat()

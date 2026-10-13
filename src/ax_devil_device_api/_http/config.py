@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import ssl
 from collections.abc import Callable
 from dataclasses import dataclass, field, fields
@@ -101,8 +102,8 @@ class ConnectionConfig:
             raise ConfigurationError("base_path must start with '/', not end with '/', and contain no query or fragment")
         if self.base_path and unsafe_path(self.base_path, strict=True):
             raise ConfigurationError("base_path must not contain '.', '..', empty segments or backslashes (also percent-encoded)")
-        if self.timeout <= 0:
-            raise ConfigurationError("timeout must be positive")
+        if not 0 < self.timeout < math.inf:
+            raise ConfigurationError("timeout must be positive and finite")
         if self.max_concurrency < 1 or self.max_streams < 1:
             raise ConfigurationError("max_concurrency and max_streams must be at least 1")
         if not isinstance(self.verify, (bool, str, ssl.SSLContext)):

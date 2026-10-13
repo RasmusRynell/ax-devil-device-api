@@ -256,3 +256,31 @@ def test_request_and_rtsp_paths_reject_dot_segments(path: str) -> None:
         Request("GET", path)
     with pytest.raises(ConfigurationError):
         build_rtsp_url("cam", path=path)
+
+
+@pytest.mark.parametrize("value", [0, -1, 0.0, -0.5, float("inf"), float("nan")])
+def test_request_options_reject_non_positive_or_non_finite_timeouts(value: float) -> None:
+    from ax_devil_device_api._http.options import RequestOptions
+
+    with pytest.raises(ValueError, match="None"):
+        RequestOptions(timeout=value)
+
+
+def test_request_options_accept_none_and_positive_timeouts() -> None:
+    from ax_devil_device_api._http.options import RequestOptions
+
+    assert RequestOptions().timeout is None and RequestOptions(timeout=0.5).timeout == 0.5
+
+
+@pytest.mark.parametrize("value", [0, -1, float("inf"), float("nan")])
+def test_connection_timeout_and_heartbeat_reject_non_finite_values(value: float) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.options import Heartbeat
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError):
+        ConnectionConfig("cam", timeout=value)
+    with pytest.raises(ValueError):
+        Heartbeat(timeout=value)
+    with pytest.raises(ValueError):
+        Heartbeat(interval=value)
