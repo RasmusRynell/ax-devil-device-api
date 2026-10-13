@@ -45,7 +45,14 @@ import wsproto.events
 import wsproto.utilities
 
 from .._http.options import DEFAULT_HEARTBEAT, Heartbeat
-from .._http.transport import MAX_WS_MESSAGE_BYTES, AsyncTransport, SyncTransport, UpgradeRefused
+from .._http.transport import (
+    LIMIT_CLOSE_CODE,
+    LIMIT_CLOSE_REASON,
+    MAX_WS_MESSAGE_BYTES,
+    AsyncTransport,
+    SyncTransport,
+    UpgradeRefused,
+)
 from .._http.types import Request, Response
 from .._protocols.base import CallFlow
 from ..errors import (
@@ -221,11 +228,11 @@ class _Core:
             self.ledger.touch(self.spec.key)
         is_text = isinstance(event, wsproto.events.TextMessage)
         self._parts.append(event.data if is_text else bytes(event.data))
-        self._parts_size += len(event.data)
+        self._parts_size += len(event.data.encode("utf-8")) if is_text else len(event.data)
         if self._parts_size > MAX_WS_MESSAGE_BYTES:
             self._parts.clear()
             self._parts_size = 0
-            raise self._fail(ConnectionFailed(f"{self.spec.api_id}: fragmented message exceeds {MAX_WS_MESSAGE_BYTES} bytes"))
+            raise self._too_large()
         if not event.message_finished:
             return None
         parts, self._parts, self._parts_size = self._parts, [], 0
@@ -246,7 +253,13 @@ class _Core:
             return message
         return json.dumps(message)
 
+    def _too_large(self) -> ResponseFormatError:
+        self.failed = True
+        return ResponseFormatError(self.spec.api_id, "receive", f"message exceeds {MAX_WS_MESSAGE_BYTES} bytes; session closed")
+
     def on_disconnect(self, error: httpx_ws.WebSocketDisconnect) -> DeviceError:
+        if error.code == LIMIT_CLOSE_CODE and error.reason == LIMIT_CLOSE_REASON:
+            return self._too_large()
         if error.code in _NORMAL_CLOSE:
             self.closed = SessionClosed(error.code, error.reason)
             return self.closed

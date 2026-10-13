@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import quote_plus, urlencode
 
 import httpx
+import wsproto.events
 from httpx_ws import AsyncWebSocketSession, WebSocketSession
 
 from .. import errors
@@ -148,7 +149,7 @@ class _ThreadReads:
             self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ax-upload-read")
         future = self._executor.submit(next, self._chunks, _DONE)
         self._pending = future
-        chunk = await asyncio.wrap_future(future)
+        chunk: Any = await asyncio.wrap_future(future)
         if chunk is _DONE:
             raise StopAsyncIteration
         return chunk
@@ -199,6 +200,44 @@ class UpgradeRefused(Exception):
 
 MAX_WS_MESSAGE_BYTES = 8 * 1024 * 1024
 WS_QUEUE_SIZE = 512
+LIMIT_CLOSE_CODE = 1009
+LIMIT_CLOSE_REASON = "message too big (ax-devil limit)"
+"""Close code and reason of the synthetic close the size guard injects."""
+
+
+class _SizeGuard:
+    """Wraps httpx-ws's wsproto connection so a message is cut off while it is still being received.
+
+    httpx-ws buffers the fragments of an unfinished message without any limit (its
+    ``max_message_size_bytes`` is only the read size). Counting UTF-8 bytes per wsproto event here,
+    before the fragments are aggregated, turns an over-limit message into a close event
+    (``LIMIT_CLOSE_CODE``), which the session layer reports as a ``ResponseFormatError``.
+    """
+
+    def __init__(self, inner: Any, limit: int) -> None:
+        self._inner = inner
+        self._limit = limit
+        self._size = 0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    def events(self) -> Iterator[Any]:
+        for event in self._inner.events():
+            if isinstance(event, wsproto.events.Message):
+                data = event.data
+                self._size += len(data.encode("utf-8")) if isinstance(data, str) else len(data)
+                if self._size > self._limit:
+                    self._size = 0
+                    yield wsproto.events.CloseConnection(LIMIT_CLOSE_CODE, LIMIT_CLOSE_REASON)
+                    return
+                if event.message_finished:
+                    self._size = 0
+            yield event
+
+
+def _guard(session: Any) -> None:
+    session.connection = _SizeGuard(session.connection, MAX_WS_MESSAGE_BYTES)
 
 
 def _ws_request(request: Request) -> Request:
@@ -389,6 +428,7 @@ class SyncTransport:
                     keepalive_ping_timeout_seconds=heartbeat.timeout,
                     response=raw,
                 )
+                _guard(session)
                 with session:
                     yield _response(raw, request, b""), session
             finally:
@@ -510,6 +550,7 @@ class AsyncTransport:
                     keepalive_ping_timeout_seconds=heartbeat.timeout,
                     response=raw,
                 )
+                _guard(session)
                 try:
                     async with session:
                         yield _response(raw, request, b""), session

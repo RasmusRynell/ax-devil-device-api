@@ -495,3 +495,46 @@ def test_token_is_redacted_in_hook_records_and_never_in_authorization() -> None:
     assert camera.token not in text and "wssession" in text
     assert all(camera.token not in (a or "") for a in camera.authorization)
     assert camera.authorization[-1] is None
+
+
+# -- message size cap (D7) ----------------------------------------------------
+
+MIB = 1024 * 1024
+RAW = ws.SessionSpec("audio", "/audio")
+
+
+def _oversized(kind: str) -> tuple[Any, ...]:
+    if kind == "unfinished-binary":  # 9 MiB, never finished
+        return (b"\x00" * (3 * MIB),) * 3
+    if kind == "unicode-text":  # 4 Mi characters, 12 MiB of UTF-8
+        return ("€" * (MIB * 2), "€" * (MIB * 2))
+    return (b"\x00" * (5 * MIB), b"\x00" * (5 * MIB))
+
+
+@pytest.mark.parametrize("kind", ["unfinished-binary", "unicode-text", "finished-binary"])
+def test_oversized_messages_close_the_session_with_a_library_error(kind: str) -> None:
+    camera = FakeWsCamera()
+    with device(camera) as dev, dev.connect_session(RAW, heartbeat=QUICK) as session:
+        parts = _oversized(kind)
+        camera.sockets[0].push_fragments(*parts)
+        with pytest.raises(errors.ResponseFormatError, match="exceeds"):
+            session.receive(timeout=5)
+        assert session._core.failed  # noqa: SLF001
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("kind", ["unfinished-binary", "unicode-text", "finished-binary"])
+async def test_async_oversized_messages_close_the_session_with_a_library_error(kind: str) -> None:
+    camera = FakeWsCamera()
+    async with adevice(camera) as dev, dev.connect_session(RAW, heartbeat=QUICK) as session:
+        camera.sockets[0].push_fragments(*_oversized(kind))
+        with pytest.raises(errors.ResponseFormatError, match="exceeds"):
+            await session.receive(timeout=5)
+        assert session._core.failed  # noqa: SLF001
+
+
+def test_messages_under_the_cap_still_arrive() -> None:
+    camera = FakeWsCamera()
+    with device(camera) as dev, dev.connect_session(RAW, heartbeat=QUICK) as session:
+        camera.sockets[0].push_fragments(b"\x01" * (3 * MIB), b"\x02" * (3 * MIB))
+        assert len(session.receive(timeout=5)) == 6 * MIB
