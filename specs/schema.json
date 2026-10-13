@@ -1209,6 +1209,14 @@
           "description": {
             "type": "string"
           },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message_prefix": {
+            "type": "string",
+            "minLength": 1
+          },
           "kind": {
             "enum": [
               "access_denied",

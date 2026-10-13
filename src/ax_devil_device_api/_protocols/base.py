@@ -293,10 +293,28 @@ SupportStatus = Literal["verified", "docs-only", "known-broken"]
 
 @dataclass(frozen=True)
 class ErrorCode:
-    """One documented error code."""
+    """One documented error: a code (the key of the ``errors`` map), or a message.
+
+    An entry with ``message`` or ``message_prefix`` is matched against the message text of a
+    failure reply that carries no code (``Error: account user name.``); its key in the map is
+    only a label. ``message`` must equal the reply message, ``message_prefix`` must start it; both are
+    case-sensitive, collapse whitespace and ignore a trailing full stop.
+    """
 
     description: str
     kind: ErrorKind | None = None
+    message: str | None = None
+    message_prefix: str | None = None
+
+    def matches_message(self, message: str) -> bool:
+        text = _normalize_message(message)
+        if self.message is not None and text == _normalize_message(self.message):
+            return True
+        return self.message_prefix is not None and text.startswith(_normalize_message(self.message_prefix))
+
+
+def _normalize_message(text: str) -> str:
+    return " ".join(text.split()).rstrip(".").strip()
 
 
 @dataclass(frozen=True)
@@ -393,17 +411,25 @@ class Operation(Generic[B]):
     errors: Mapping[int | str, ErrorCode] = field(default_factory=dict)
     support: SupportStatus = "docs-only"
 
-    def error_code(self, code: int | str | None) -> ErrorCode | None:
-        if code is None:
-            return None
-        return self.errors.get(code) or self.api.errors.get(code)
+    def error_code(self, code: int | str | None, message: str | None = None) -> ErrorCode | None:
+        """The documented error for ``code``; without a code (or when it is unknown), the one matching ``message``."""
+        for table in (self.errors, self.api.errors):
+            entry = table.get(code) if code is not None else None
+            if entry is not None and entry.message is None and entry.message_prefix is None:
+                return entry
+        if message:
+            for table in (self.errors, self.api.errors):
+                for entry in table.values():
+                    if (entry.message is not None or entry.message_prefix is not None) and entry.matches_message(message):
+                        return entry
+        return None
 
 
 def api_error(
     op: Operation[Any], code: int | str | None, message: str, *, http_status: int | None, details: Any
 ) -> ApiError:
     """Build the right ``ApiError`` subclass for a documented (or unknown) code."""
-    info = op.error_code(code)
+    info = op.error_code(code, message)
     kind = info.kind if info else None
     if kind is None and http_status == 403:
         kind = "access_denied"

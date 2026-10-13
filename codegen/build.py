@@ -594,6 +594,7 @@ class Builder:
         applicability = self.applicability(op_id, op.get("since_fields") or {}, params)
         since = _parse_version(op["since"], f"{op_id}.since") if op.get("since") else None
         errors = {k: dict(v) for k, v in (op.get("errors") or {}).items()}
+        check_errors(op_id, errors)
         return OpDef(
             id=op_id, summary=clean(op.get("summary")) or op_id, description=clean(op.get("description")),
             access=op.get("access") or api_access, effect=effect, write=op.get("write"), since=since,
@@ -816,6 +817,13 @@ def check_op_binding(
             raise SpecError(f"{op.id}: binding.body_field only applies to body 'value'")
 
 
+def check_errors(where: str, errors: dict[Any, dict[str, Any]]) -> None:
+    """Message-keyed errors: ``message`` or ``message_prefix`` (not both), under a label that is not a code."""
+    for key, entry in errors.items():
+        if entry.get("message") and entry.get("message_prefix"):
+            raise SpecError(f"{where}: error {key!r} sets both message and message_prefix")
+
+
 def build_api(spec: LoadedSpec) -> ApiDef:
     family = spec.data["family"]
     if family not in SUPPORTED_FAMILIES:
@@ -824,6 +832,7 @@ def build_api(spec: LoadedSpec) -> ApiDef:
     if renames:
         spec = LoadedSpec(spec.path, data, spec.warnings)
         spec.warnings.append("type(s) renamed because the name is used by the generated module: " + ", ".join(f"{a} -> {b}" for a, b in renames.items()))
+    check_errors("errors", data.get("errors") or {})
     b = Builder(spec)
     for name in b.raw_types:
         b.define(name)

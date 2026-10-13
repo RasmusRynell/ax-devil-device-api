@@ -12,7 +12,7 @@ from typing import Annotated, Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiDiscovery, ApiInfo, Family, Model, Operation, ParamDiscovery
+from .._protocols.base import ApiDiscovery, ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
 from .._protocols.cgi import CgiArg, CgiBinding, Text, TextKv
 from ._base import AsyncApi, SyncApi
 
@@ -64,6 +64,41 @@ INFO = ApiInfo(
     family=Family.CGI,
     discovery=(ApiDiscovery("user-management"), ParamDiscovery("Properties.API.HTTP.Version", "3")),
     docs=("https://developer.axis.com/vapix/network-video/system-settings/",),
+    errors={
+        "system_log": ErrorCode(
+            "Generic failure; the details are in the system log", "internal", message="consult the system log file."
+        ),
+        "action_operation_type": ErrorCode(
+            "The action is omitted or is not add, update, remove or get",
+            "invalid_argument",
+            message="action operation type.",
+        ),
+        "account_user_name": ErrorCode(
+            "The user name is missing or contains characters other than A-Z, a-z and 0-9",
+            "invalid_argument",
+            message="account user name.",
+        ),
+        "malformed_action": ErrorCode(
+            "The user name is not appropriate for the action (the message ends with the action)",
+            "invalid_argument",
+            message_prefix="malformed action operation,",
+        ),
+        "not_initial_admin": ErrorCode(
+            "No administrator exists yet and the user is not a valid initial administrator (HTTP 401)",
+            "access_denied",
+            message="not a valid initial admin user.",
+        ),
+        "initial_admin_first": ErrorCode(
+            "No administrator exists yet; create one first and log in with it (HTTP 401)",
+            "access_denied",
+            message="initial admin user must be created first.",
+        ),
+        "invalid_password": ErrorCode(
+            "The password is shorter than 1 or longer than 64 characters, or breaks the configured passphrase policy",
+            "invalid_argument",
+            message="invalid password.",
+        ),
+    },
 )
 
 
@@ -177,13 +212,13 @@ class UserManagementApi(SyncApi):
         URL. The initial administrator account can be created without authentication, and on devices older
         than AXIS OS 11.5 it must be named ``root``; the role must be Administrator with PTZ control. The
         device reports failures as a text line starting with ``Error:`` and a message, with no numeric code
-        (HTTP 200, except HTTP 401 for the two initial-admin cases). The documented messages are: ``consult
-        the system log file.`` (generic), ``action operation type.`` (action omitted or not add, update,
-        remove or get), ``account user name.`` (no or invalid user name), ``malformed action operation,
-        <action>.`` (user name not appropriate for the action), ``not a valid initial admin user.`` and
-        ``initial admin user must be created first.`` (no admin exists yet, HTTP 401) and ``invalid
-        password.`` (password shorter than 1 or longer than 64 characters, or against the passphrase
-        policy).
+        (HTTP 200, except HTTP 401 for the two initial-admin cases); the API-level ``errors`` match them by
+        message. The documented messages are: ``consult the system log file.`` (generic), ``action operation
+        type.`` (action omitted or not add, update, remove or get), ``account user name.`` (no or invalid
+        user name), ``malformed action operation, <action>.`` (user name not appropriate for the action),
+        ``not a valid initial admin user.`` and ``initial admin user must be created first.`` (no admin
+        exists yet, HTTP 401) and ``invalid password.`` (password shorter than 1 or longer than 64
+        characters, or against the passphrase policy).
 
         Access: admin.
         """
@@ -266,13 +301,13 @@ class AsyncUserManagementApi(AsyncApi):
         URL. The initial administrator account can be created without authentication, and on devices older
         than AXIS OS 11.5 it must be named ``root``; the role must be Administrator with PTZ control. The
         device reports failures as a text line starting with ``Error:`` and a message, with no numeric code
-        (HTTP 200, except HTTP 401 for the two initial-admin cases). The documented messages are: ``consult
-        the system log file.`` (generic), ``action operation type.`` (action omitted or not add, update,
-        remove or get), ``account user name.`` (no or invalid user name), ``malformed action operation,
-        <action>.`` (user name not appropriate for the action), ``not a valid initial admin user.`` and
-        ``initial admin user must be created first.`` (no admin exists yet, HTTP 401) and ``invalid
-        password.`` (password shorter than 1 or longer than 64 characters, or against the passphrase
-        policy).
+        (HTTP 200, except HTTP 401 for the two initial-admin cases); the API-level ``errors`` match them by
+        message. The documented messages are: ``consult the system log file.`` (generic), ``action operation
+        type.`` (action omitted or not add, update, remove or get), ``account user name.`` (no or invalid
+        user name), ``malformed action operation, <action>.`` (user name not appropriate for the action),
+        ``not a valid initial admin user.`` and ``initial admin user must be created first.`` (no admin
+        exists yet, HTTP 401) and ``invalid password.`` (password shorter than 1 or longer than 64
+        characters, or against the passphrase policy).
 
         Access: admin.
         """

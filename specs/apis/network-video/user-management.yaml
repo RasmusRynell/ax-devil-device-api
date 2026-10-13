@@ -19,6 +19,17 @@ requires:
 
 binding: {path: /axis-cgi/pwdgrp.cgi}
 
+# The device reports failures as a text line ``Error: <message>`` with no numeric code, so the entries are matched by
+# message (the key is only a label). HTTP 200, except the two initial-admin errors, which come with HTTP 401.
+errors:
+  system_log: {description: "Generic failure; the details are in the system log", kind: internal, message: consult the system log file.}
+  action_operation_type: {description: "The action is omitted or is not add, update, remove or get", kind: invalid_argument, message: action operation type.}
+  account_user_name: {description: "The user name is missing or contains characters other than A-Z, a-z and 0-9", kind: invalid_argument, message: account user name.}
+  malformed_action: {description: "The user name is not appropriate for the action (the message ends with the action)", kind: invalid_argument, message_prefix: 'malformed action operation,'}
+  not_initial_admin: {description: "No administrator exists yet and the user is not a valid initial administrator (HTTP 401)", kind: access_denied, message: not a valid initial admin user.}
+  initial_admin_first: {description: "No administrator exists yet; create one first and log in with it (HTTP 401)", kind: access_denied, message: initial admin user must be created first.}
+  invalid_password: {description: "The password is shorter than 1 or longer than 64 characters, or breaks the configured passphrase policy", kind: invalid_argument, message: invalid password.}
+
 types:
   UserName:
     type: string
@@ -86,8 +97,8 @@ operations:
       The arguments are sent in the request body, as the docs advise against putting credentials in the URL. The initial
       administrator account can be created without authentication, and on devices older than AXIS OS 11.5 it must be named
       ``root``; the role must be Administrator with PTZ control. The device reports failures as a text line starting with
-      ``Error:`` and a message, with no numeric code (HTTP 200, except HTTP 401 for the two initial-admin cases). The documented
-      messages are: ``consult the system log file.`` (generic), ``action operation type.`` (action omitted or not add, update,
+      ``Error:`` and a message, with no numeric code (HTTP 200, except HTTP 401 for the two initial-admin cases); the API-level ``errors`` match them by
+      message. The documented messages are: ``consult the system log file.`` (generic), ``action operation type.`` (action omitted or not add, update,
       remove or get), ``account user name.`` (no or invalid user name), ``malformed action operation, <action>.`` (user name
       not appropriate for the action), ``not a valid initial admin user.`` and ``initial admin user must be created first.``
       (no admin exists yet, HTTP 401) and ``invalid password.`` (password shorter than 1 or longer than 64 characters, or
@@ -121,6 +132,18 @@ operations:
           comment: Joe
           strict_pwd: 1
       response: {status: 200, text: Modified the account joe.}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+    - title: No administrator exists yet and the user is not a valid initial administrator (request constructed; the docs show only the reply)
+      request: {form: {user: joe, pwd: foo, grp: users, sgrp: 'admin:operator:viewer:ptz'}}
+      response: {status: 401, text: 'Error: not a valid initial admin user.'}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+    - title: No administrator exists yet (request constructed; the docs show only the reply)
+      request: {form: {user: joe, pwd: foo, grp: users, sgrp: 'admin:operator:viewer:ptz'}}
+      response: {status: 401, text: 'Error: initial admin user must be created first.'}
+      source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
+    - title: The password does not meet the requirements (request constructed; the docs show only the reply)
+      request: {form: {user: joe, pwd: foo, grp: users, sgrp: 'admin:operator:viewer:ptz'}}
+      response: {status: 200, text: 'Error:  invalid password.'}
       source: https://developer.axis.com/vapix/network-video/system-settings/#add-modify-and-delete-user-accounts
   update_user:
     summary: Change the given properties of an existing user account; returns the device message (``"Modified account joe."``).
@@ -189,7 +212,7 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'OPEN (needs a runtime/format change): the pwdgrp.cgi failures are documented only as message lines (``Error: account user name.``), with no numeric codes. The spec format keys ``errors`` by code, and the cgi runtime only produces a code when the text after ``Error:`` is a number, so message-keyed entries never match and were removed; the failures currently raise a generic ApiError carrying the message. Matching by message needs a new errors-by-message feature, which would give the kinds: generic and password errors internal/invalid_argument, malformed requests invalid_argument, the two initial-admin errors access_denied. The HTTP 401 cases are raised by the runtime as AuthError before the body is read.'
+  - 'The pwdgrp.cgi failures are documented only as message lines (``Error: account user name.``) with no numeric codes, so the API-level ``errors`` are matched by message (``message`` / ``message_prefix``). The two initial-admin errors come with HTTP 401: the request is sent without credentials first (``auth: if_challenged``) and a 401 that offers no ``WWW-Authenticate`` challenge is handed to the protocol layer, which reads the ``Error:`` line (ApiAccessDenied). A 401 that does carry a challenge (a device with an administrator and wrong credentials) is an authentication failure and raises AuthError before the body is read.'
   - The values of get_users are double-quoted comma separated lists (``"root,joe"``); the text_kv codec now strips the quotes and returns the comma separated string, because splitting only applies to a result model that declares an array field.
   - The parameter table marks user, pwd, grp, sgrp and comment all as "Required if action=add" (copy/paste artefact). comment is optional since autumn 2019; which arguments update and remove require is not stated, so update takes only user as required and remove takes user.
   - Example 6 (add with strict_pwd=1) shows the reply "Modified the account joe." although it is an add; probably a doc error, kept verbatim.

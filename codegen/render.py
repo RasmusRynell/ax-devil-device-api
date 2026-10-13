@@ -260,6 +260,9 @@ def errors_code(errors: dict[Any, dict[str, Any]]) -> str:
     items = []
     for code, entry in errors.items():
         kind = f", {entry['kind']!r}" if entry.get("kind") else ""
+        for key in ("message", "message_prefix"):
+            if entry.get(key):
+                kind += f", {key}={entry[key]!r}"
         items.append(f"{code!r}: ErrorCode({entry['description']!r}{kind})")
     return "{" + ", ".join(items) + "}"
 

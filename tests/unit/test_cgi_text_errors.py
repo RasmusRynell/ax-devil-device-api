@@ -88,3 +88,77 @@ def test_non_error_text_is_untouched() -> None:
     assert _decode(make(TextKv()), response) == {"root.Foo": "Error: not at the start", "root.Bar": "1"}
     response = Response(200, Headers(), b"Errors: none\n", Request("GET", "/x"))
     assert _decode(make(Text()), response) == "Errors: none\n"
+
+
+# -- message-keyed errors ----------------------------------------------------------
+
+MESSAGE_INFO = ApiInfo(
+    id="t", name="T", family=Family.CGI,
+    errors={
+        "bad_name": ErrorCode("Bad user name", "invalid_argument", message="account user name."),
+        "malformed": ErrorCode("Malformed", "invalid_argument", message_prefix="malformed action operation,"),
+        "no_admin": ErrorCode("No admin", "access_denied", message="initial admin user must be created first."),
+        "4": ErrorCode("Not a message entry", "not_found"),
+    },
+)
+
+
+def message_op(auth: Any = "required") -> Operation[CgiBinding]:
+    return Operation(MESSAGE_INFO, "op", binding=CgiBinding("/axis-cgi/t.cgi", reply=Text(), auth=auth))
+
+
+@pytest.mark.parametrize(
+    ("body", "kind", "description"),
+    [
+        ("Error: account user name.", "invalid_argument", "Bad user name"),
+        ("Error:  account user name", "invalid_argument", "Bad user name"),  # spacing and the full stop do not matter
+        ("Error: malformed action operation, add.", "invalid_argument", "Malformed"),
+        ("Error: initial admin user must be created first.", "access_denied", "No admin"),
+        ("Error: something else.", None, None),
+    ],
+)
+def test_message_keyed_errors(body: str, kind: str | None, description: str | None) -> None:
+    with Device("cam", credentials=("u", "p"), transport=httpx.MockTransport(handler(body))) as dev:
+        with pytest.raises(ApiError) as caught:
+            dev.invoke(message_op())
+    assert caught.value.code is None
+    assert caught.value.kind == kind
+    assert caught.value.description == description
+
+
+def test_message_entry_is_not_found_by_its_label() -> None:
+    assert message_op().error_code("bad_name") is None
+    assert message_op().error_code(4) is None
+    assert message_op().error_code("4") is not None
+    assert message_op().error_code(None, "Account user name.") is None  # case-sensitive
+
+
+def test_401_error_text_without_challenge_is_an_api_error_when_if_challenged() -> None:
+    """pwdgrp.cgi before the first administrator exists: 401 with an ``Error:`` line and no challenge."""
+    from ax_devil_device_api.errors import ApiAccessDenied
+
+    body = "Error: initial admin user must be created first."
+    with Device("cam", credentials=("u", "p"), transport=httpx.MockTransport(handler(body, 401))) as dev:
+        with pytest.raises(ApiAccessDenied) as caught:
+            dev.invoke(message_op("if_challenged"))
+    assert caught.value.http_status == 401
+
+
+def test_401_with_challenge_stays_an_auth_error() -> None:
+    from ax_devil_device_api.errors import AuthError
+
+    def challenge(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, text="Error: initial admin user must be created first.", headers={"www-authenticate": 'Basic realm="x"'})
+
+    with Device("cam", credentials=("u", "p"), transport=httpx.MockTransport(challenge)) as dev:
+        with pytest.raises(AuthError):
+            dev.invoke(message_op("if_challenged"))
+
+
+def test_401_without_challenge_stays_an_auth_error_when_required() -> None:
+    from ax_devil_device_api.errors import AuthError
+
+    body = "Error: initial admin user must be created first."
+    with Device("cam", credentials=("u", "p"), transport=httpx.MockTransport(handler(body, 401))) as dev:
+        with pytest.raises(AuthError):
+            dev.invoke(message_op("required"))

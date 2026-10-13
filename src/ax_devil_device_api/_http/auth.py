@@ -355,6 +355,10 @@ class _Flow(httpx.Auth):
             if response.status_code != 401:
                 return
 
+        if self._policy == "if_challenged" and not response.headers.get_list("www-authenticate"):
+            # A 401 that offers no challenge (pwdgrp.cgi before the first administrator exists) is an
+            # answer of the API, not a request for credentials: hand it to the protocol layer.
+            return
         for attempt in range(2):
             candidate = _state_from_challenges(response)
             self._sign(candidate, request)
