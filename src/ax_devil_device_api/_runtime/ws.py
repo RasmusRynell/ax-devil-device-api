@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import queue
 import threading
 import time
@@ -462,6 +463,12 @@ _CLOSE_ERRORS = (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.N
 """What closing an already dead connection can raise: closing it is then a no-op, never an error for the caller."""
 
 
+def _check_receive_timeout(timeout: float | None) -> None:
+    """``receive`` timeouts are finite and 0 or more (0 polls); ``None`` waits as long as the session lives."""
+    if timeout is not None and not (isinstance(timeout, (int, float)) and not isinstance(timeout, bool) and 0 <= timeout < math.inf):
+        raise ValueError(f"timeout must be a finite number of seconds, 0 or more, or None; got {timeout!r}")
+
+
 def refusal_error(spec: SessionSpec, response: Response) -> DeviceError:
     """The error for a handshake the device did not accept."""
     status = response.status
@@ -510,6 +517,7 @@ class Session:
     def __init__(self, raw: httpx_ws.WebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
+        self._request_lock = threading.Lock()
         core.watch_reader(raw)
 
     @property
@@ -540,6 +548,7 @@ class Session:
     def receive(self, timeout: float | None = None) -> Any:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
         core = self._core
+        _check_receive_timeout(timeout)
         if core.pending:
             return core.pending.popleft()
         return self._read(timeout)
@@ -587,20 +596,27 @@ class Session:
         core = self._core
         if timeout is not None:
             RequestOptions(timeout=timeout)  # positive and finite, like every other timeout; nothing is sent otherwise
-        request_id, message = core.request_message(method, params)
-        self.send(message)
         limit = core.default_timeout if timeout is None else timeout
         deadline = time.monotonic() + limit
-        skipped: list[Any] = []
+        # One request at a time: with several outstanding, each could consume the other's reply. Waiting for
+        # the turn counts against the caller's timeout; the lock is released however the request ends.
+        if not self._request_lock.acquire(timeout=limit):
+            raise ReadTimeout(f"{core.spec.api_id}: another request was still waiting for its reply for {limit} s")
         try:
-            while True:
-                incoming = self._read(max(0.0, deadline - time.monotonic()))
-                matched, result = core.reply_for(incoming, request_id, method)
-                if matched:
-                    return result
-                skipped.append(incoming)
+            request_id, message = core.request_message(method, params)
+            self.send(message)
+            skipped: list[Any] = []
+            try:
+                while True:
+                    incoming = self._read(max(0.0, deadline - time.monotonic()))
+                    matched, result = core.reply_for(incoming, request_id, method)
+                    if matched:
+                        return result
+                    skipped.append(incoming)
+            finally:
+                core.pending.extend(skipped)
         finally:
-            core.pending.extend(skipped)
+            self._request_lock.release()
 
     def __iter__(self) -> Iterator[Any]:
         while True:
@@ -698,6 +714,7 @@ class AsyncSession:
     def __init__(self, raw: httpx_ws.AsyncWebSocketSession, core: _Core) -> None:
         self._raw = raw
         self._core = core
+        self._request_lock = asyncio.Lock()
         core.watch_reader(raw)
 
     @property
@@ -728,6 +745,7 @@ class AsyncSession:
     async def receive(self, timeout: float | None = None) -> Any:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
         core = self._core
+        _check_receive_timeout(timeout)
         if core.pending:
             return core.pending.popleft()
         return await self._read(timeout)
@@ -776,21 +794,28 @@ class AsyncSession:
         core = self._core
         if timeout is not None:
             RequestOptions(timeout=timeout)
-        request_id, message = core.request_message(method, params)
-        await self.send(message)
         limit = core.default_timeout if timeout is None else timeout
         loop = asyncio.get_running_loop()
         deadline = loop.time() + limit
-        skipped: list[Any] = []
+        try:  # one request at a time (see Session.request); the wait for the turn counts against the timeout
+            await asyncio.wait_for(self._request_lock.acquire(), limit)
+        except TimeoutError:
+            raise ReadTimeout(f"{core.spec.api_id}: another request was still waiting for its reply for {limit} s") from None
         try:
-            while True:
-                incoming = await self._read(max(0.0, deadline - loop.time()))
-                matched, result = core.reply_for(incoming, request_id, method)
-                if matched:
-                    return result
-                skipped.append(incoming)
+            request_id, message = core.request_message(method, params)
+            await self.send(message)
+            skipped: list[Any] = []
+            try:
+                while True:
+                    incoming = await self._read(max(0.0, deadline - loop.time()))
+                    matched, result = core.reply_for(incoming, request_id, method)
+                    if matched:
+                        return result
+                    skipped.append(incoming)
+            finally:
+                core.pending.extend(skipped)
         finally:
-            core.pending.extend(skipped)
+            self._request_lock.release()
 
     async def __aiter__(self) -> AsyncIterator[Any]:
         while True:
