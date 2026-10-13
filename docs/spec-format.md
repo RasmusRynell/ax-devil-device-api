@@ -31,6 +31,7 @@ discovery:                       # how Device.supports() recognizes the API; tri
   - param: {name: Properties.API.HTTP.Version, value: "3"}
   - param: {name: Properties.EmbeddedDevelopment.Version, value: "1.20", compare: ">="}
   - acap: {name: loiteringguard}
+  - service: {namespace: "http://www.axis.com/vapix/ws/event1"}
 requires: {firmware: "11.5", application: null}   # optional
 binding: {...}                   # family-specific, below
 errors: {...}                    # API-wide error codes, below
@@ -46,6 +47,7 @@ provenance: {...}                # completeness, open questions, verification
 - `dca: {api, version}`: listed by `/config/discover`.
 - `param: {name, value, compare}`: a `param.cgi` property. Without `value` the property only has to exist. `compare` is `"=="` (default) or `">="`; `">="` compares dotted numbers component by component (`1.20` >= `1.9`), and a value that is not a dotted number never matches.
 - `acap: {name}`: an ACAP application whose `Name` attribute (case-insensitive) appears in `/axis-cgi/applications/list.cgi`. Installed is enough; the application need not be running. The list needs an administrator account, so without one the answer is `UNKNOWN`, not `NO`.
+- `service: {namespace}`: the web service namespace is listed by the Entry service (`GetServices` on `/vapix/services`, AXIS OS 5.60 and later). Use it for service APIs (SOAP, service JSON) that have no entry in API discovery. The probe runs only when an API asks for it, needs the same account as the service calls and answers `UNKNOWN` when it fails.
 
 ## Bindings
 
@@ -170,7 +172,7 @@ operations:
 | `mjpeg` | `Part` (`headers`, `body`, `content_type`) | `multipart/x-mixed-replace`, one JPEG per part; a plain `image/jpeg` answer raises `ResponseFormatError` |
 | `lines` | `str`, one per line | line-oriented text streams (I/O port monitor) |
 
-A stream operation has no `result` and no `examples` (contract tests skip it). Non-2xx answers are errors raised before the result is returned. `effect` is usually `read`. Request bodies of POST streams (audio transmit) belong to the upload bindings.
+A stream operation has no `result`. It may have `examples` (see "Examples of streams, sessions and RTSP URLs"). Non-2xx answers are errors raised before the result is returned. `effect` is usually `read`. Request bodies of POST streams (audio transmit) belong to the upload bindings.
 
 ### WebSocket sessions (`ws`, or any family)
 
@@ -193,7 +195,7 @@ operations:
 - `codec` selects the message format in `_runtime/ws_codecs.py`: `events` (event streaming, `events:notify` -> `EventNotification`), `datahub` (Device Data Hub, JSON-RPC 2.0, `TopicSample`) or `raw` (frames pass through; `bytes` stay `bytes`, text stays `str`, no request/response).
 - `setup` turns the `connect` arguments into the requests sent right after the handshake and decides what `connect` accepts: `events` adds `event_filter_list: Sequence[EventFilter | Mapping[str, str]] | None` (sends `events:configure` when given), `datahub` adds `subscriptions: Sequence[Mapping[str, Any]] | None` (one `data-hub_v1:subscribe` each), `none` adds nothing. A new codec or setup needs runtime code; escalate rather than inventing one.
 - Every `connect` also takes `heartbeat: Heartbeat = DEFAULT_HEARTBEAT`, `use_token: bool = False` and `request_options`.
-- A session path may contain `{placeholders}` (`/api/v1.2/audioSessions/{audioSessionId}/ws/recv`). `params` must then be exactly those fields, required scalars; they become the leading arguments of `connect` and are percent-encoded into the path. Otherwise a session operation has no `params`. It has no `result` or `examples`. `EventFilter`, `Heartbeat`, `Session` and the other names the generated module imports are reserved as type names when it uses sessions. In-session requests (`events:configure`, `data-hub_v1:listTopics`) are not operations; call `session.request(method, params)`.
+- A session path may contain `{placeholders}` (`/api/v1.2/audioSessions/{audioSessionId}/ws/recv`). `params` must then be exactly those fields, required scalars; they become the leading arguments of `connect` and are percent-encoded into the path. Otherwise a session operation has no `params`. It has no `result`. `EventFilter`, `Heartbeat`, `Session` and the other names the generated module imports are reserved as type names when it uses sessions. In-session requests (`events:configure`, `data-hub_v1:listTopics`) are not operations; call `session.request(method, params)`.
 
 ```python
 with dev.apis.event_streaming_ws.connect([EventFilter(topic_filter="tns1:Device/tnsaxis:IO/VirtualPort")]) as session:
@@ -225,7 +227,7 @@ operations:
     positional: [eventtopic]
 ```
 
-The set `params` fields become query arguments in field order (wire names as given; booleans as `1`/`0`; arrays joined with commas); only scalars and arrays of scalars are allowed. The method also takes `port: int | None = None` (overrides the binding) and `include_credentials: bool = False` (adds the user name and password from the device's credentials to the URL; a bearer token cannot be used), so `port` and `include_credentials` are reserved argument names for these operations. `str(url)` includes credentials, `url.safe` and `repr(url)` do not. `Device.rtsp_url(MediaStream(...))` remains the hand-written builder for `media.amp` parameters with validation. An RTSP operation has no `result`, no `examples`, and no `request_options`. RTSP methods on a stream that must be *driven* (GET_PARAMETER, replay `Range` headers) are out of scope; document them in `description`.
+The set `params` fields become query arguments in field order (wire names as given; booleans as `1`/`0`; arrays joined with commas); only scalars and arrays of scalars are allowed. The method also takes `port: int | None = None` (overrides the binding) and `include_credentials: bool = False` (adds the user name and password from the device's credentials to the URL; a bearer token cannot be used), so `port` and `include_credentials` are reserved argument names for these operations. `str(url)` includes credentials, `url.safe` and `repr(url)` do not. `Device.rtsp_url(MediaStream(...))` remains the hand-written builder for `media.amp` parameters with validation. An RTSP operation has no `result` and no `request_options`. RTSP methods on a stream that must be *driven* (GET_PARAMETER, replay `Range` headers) are out of scope; document them in `description`.
 
 ## CGI arguments, bodies and uploads
 
@@ -467,7 +469,7 @@ operations:
     support: docs-only           # docs-only | verified | known-broken
 ```
 
-Example conventions of the contract tests (`tests/contract`). `soap`: `request: {params: {...}}` is compared with the request element built from `params` (namespace-aware, whitespace-insensitive), or `request: {body: "<xml/>"}` (the element, or a full envelope) which wins; `response: {text: "<xml/>"}` is the reply element, a Fault or a full envelope, with `status` and `error: {code, message}` as alternatives for a fault. `rest`: `request: {path, query, body}` (the path is relative to `binding.root`; `query` values may be lists) and `response: {status, body}` or `{status, text}`.
+Example conventions of the contract tests (`tests/contract`). `soap`: `request: {params: {...}}` is compared with the request element built from `params` (namespace-aware, whitespace-insensitive), or `request: {body: "<xml/>"}` (the element, or a full envelope) which wins for the comparison (`params` is still needed when the operation has required arguments, because it drives the call); `response: {text: "<xml/>"}` is the reply element, a Fault or a full envelope, with `status` and `error: {code, message}` as alternatives for a fault. Prefixed names are written as in `params` (`acert:Id`, `@acert:flag`); a prefixed attribute is compared in that prefix's namespace. `rest`: `request: {path, query, body}` (the path is relative to `binding.root`; `query` values may be lists) and `response: {status, body}` or `{status, text}`.
 
 `cgi` examples with raw bodies, uploads, mixed placement and bare keys:
 
@@ -486,7 +488,43 @@ examples:
         - {name: file, filename: clip.wav, content_type: audio/basic, content: RIFF}   # or content_base64, or size: N
 ```
 
-A body is compared by its content type: XML structurally (ignoring whitespace and attribute order), JSON as JSON, `text/*` as text without surrounding whitespace, anything else as bytes. For parts, `name` is required and matched in order against the file and typed parts sent (text fields are compared through `form`); `filename`, `content_type` and `content` (or `content_base64`) are compared only when given, and `size: N` stands for N bytes of filler (the length is compared). When `query` and `form` are both given, `query` keys must be in the URL and `form` keys only in the body. Bare keys must be sent without `=`. Streamed replies, sessions and RTSP operations have no examples.
+A body is compared by its content type: XML structurally (ignoring whitespace and attribute order), JSON as JSON, `text/*` as text without surrounding whitespace, anything else as bytes. For parts, `name` is required and matched in order against the file and typed parts sent (text fields are compared through `form`); `filename`, `content_type` and `content` (or `content_base64`) are compared only when given, and `size: N` stands for N bytes of filler (the length is compared). When `query` and `form` are both given, `query` keys must be in the URL and `form` keys only in the body. Bare keys must be sent without `=`.
+
+### Examples of streams, sessions and RTSP URLs
+
+Streamed `cgi` replies, WebSocket sessions and RTSP URL builders may have `examples`; the contract tests run them through the generated API method with fake transports. An example that cannot be checked (it needs a real device or a codec the fake does not speak) carries `x-contract: {skip: "reason"}`. `x-contract: {template: true}` skips these three kinds as well.
+
+```yaml
+# stream (cgi): the request is compared like any cgi request (query, form, body); the response is optional
+examples:
+  - title: Watch the ports
+    request: {query: {monitor: all}}
+    response:
+      status: 200                       # default 200
+      content_type: text/plain          # default: octet-stream, multipart/x-mixed-replace; boundary=b for mjpeg
+      text: "0=active\n1=inactive\n"     # the body the fake serves
+      items: ["0=active", "1=inactive"] # optional: decoded items. lines: str; bytes: joined and compared as text; mjpeg: each part body as text
+# rtsp: the URL the method returns, built for the host camera.test with the credentials root/pass
+examples:
+  - title: Live stream, no audio       # binding: rtsp: {query: {videocodec: h264}}
+    request:
+      params: {resolution: 1280x720, audio: false}   # wire names, as in the other families
+      port: 8554                                     # optional method arguments
+      include_credentials: true
+    response: {url: "rtsp://root:pass@camera.test:8554/axis-media/media.amp?videocodec=h264&resolution=1280x720&audio=0"}
+# session: a fake WebSocket camera accepts the handshake and acknowledges the setup requests
+examples:
+  - title: Filtered events
+    request:
+      params: {audioSessionId: abc}     # path placeholders, wire names (sessions with a placeholder path only)
+      connect: {event_filter_list: [{topicFilter: "tns1:Device/tnsaxis:IO/VirtualPort"}]}   # setup arguments (event_filter_list or subscriptions)
+      path: /vapix/ws-data-stream       # optional: the expected handshake path, placeholders percent-encoded; default from the binding
+      query: {sources: events}          # optional: the expected handshake query; default from the binding
+      messages:                         # optional: the JSON messages sent right after the handshake, in order
+        - {method: "events:configure", params: {eventFilterList: [{topicFilter: "tns1:Device/tnsaxis:IO/VirtualPort"}]}}
+```
+
+Session `messages` are compared as subsets: every key written must match, extra keys the runtime adds (`context`, `id`) are ignored; lists must match exactly. A session example has no `response`.
 
 Request model naming: when `params` is inline, the generator names it `<OperationInPascalCase>Request`, unless `x-name` gives a name. Several operations may share one inline shape through the same `x-name`, for example `PublisherIdRequest` for `get_publisher` and `remove_publisher`. Named params types should follow the same convention.
 

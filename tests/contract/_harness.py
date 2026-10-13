@@ -104,6 +104,15 @@ def is_stream_reply(binding: dict) -> bool:
     return reply == "stream" or (isinstance(reply, dict) and "stream" in reply)
 
 
+def example_kind(binding: dict) -> str | None:
+    """``session``, ``rtsp`` or ``stream`` for operations that do not make a plain request/response exchange."""
+    if "session" in binding:
+        return "session"
+    if "rtsp" in binding:
+        return "rtsp"
+    return "stream" if is_stream_reply(binding) else None
+
+
 def build_jsonrpc(op, request: dict) -> Any:
     params = request.get("params")
     field = getattr(op.binding, "params_field", None)
@@ -407,7 +416,10 @@ def _fill(element: ET.Element, value: Any, default_ns: str, namespaces: dict[str
     if isinstance(value, dict):
         for key, item in value.items():
             if key.startswith("@"):
-                element.set(key[1:], _soap_text(item))
+                # A prefixed attribute is in that prefix's namespace; an unprefixed one has no namespace.
+                prefix, sep, local = key[1:].partition(":")
+                uri = namespaces.get(prefix) if sep else None
+                element.set(f"{{{uri}}}{local}" if uri else key[1:], _soap_text(item))
             else:
                 for entry in item if isinstance(item, list) else [item]:
                     if entry is None:
