@@ -41,9 +41,9 @@ def test_anonymous_operations_do_not_send_credentials_first() -> None:
 @pytest.mark.parametrize("api", ["api_discovery", "systemready", "basic_device_info"])
 def test_json_rpc_version_negotiation_of_anonymous_apis_is_challenge_only(api: str) -> None:
     entry = next(e for e in ENTRIES if e.name == api)
-    for op in entry.operations.values():
+    for name, op in entry.operations.items():
         negotiation = getattr(op.binding, "negotiation", None)
-        assert getattr(negotiation, "auth", None) == "if_challenged", f"{api}.{op.name}"
+        assert getattr(negotiation, "auth", None) == "if_challenged", f"{api}.{name}"
 
 
 _SECRET_NAME = re.compile(
