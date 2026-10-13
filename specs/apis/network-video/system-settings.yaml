@@ -45,7 +45,7 @@ operations:
       Useful as input when requesting support. The body is text for ``mode=text`` (the default), and a ``.zip`` or ``.tar``
       file for the other modes.
     effect: read
-    binding: {path: /axis-cgi/serverreport.cgi, method: GET, reply: binary}
+    binding: {path: /axis-cgi/serverreport.cgi, method: GET, reply: stream}
     params:
       type: object
       properties:
@@ -58,7 +58,6 @@ operations:
             file; ``text``: the report as text; ``zip``: the report as a .zip file; ``zip_with_image``: the report together with
             a snapshot image taken using the Image Appearance settings as a single .zip file. ``zip_with_image`` and ``tar_all``
             are only available on products with application support.
-    result: {type: string, format: binary}
     examples:
     - title: Server report as text
       request:

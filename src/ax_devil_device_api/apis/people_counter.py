@@ -15,7 +15,8 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, Family, Model, Operation
-from .._protocols.cgi import Binary, CgiArg, CgiBinding, JsonReply, Text, TextOk, Xml
+from .._protocols.cgi import Binary, CgiArg, CgiBinding, JsonReply, Stream, Text, TextOk, Xml
+from .._runtime.driver import AsyncStreamResult, StreamResult
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -205,8 +206,7 @@ class OPS:
     generate_logs = Operation(
         INFO,
         "generate_logs",
-        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("generate-logs", None),), reply=Binary()),
-        result=bytes,
+        CgiBinding("/local/tvpc/.apioperator", fixed_query=(("generate-logs", None),), reply=Stream(), stream=True),
         access="operator",
         effect="read",
     )
@@ -376,8 +376,12 @@ class PeopleCounterApi(SyncApi):
         """Show the system log. Access: operator."""
         return self._run(OPS.show_logs, None, {}, request_options)
 
-    def generate_logs(self, *, request_options: RequestOptions | None = None) -> bytes:
-        """Generate and download a log archive (tar.gz). Access: operator."""
+    def generate_logs(self, *, request_options: RequestOptions | None = None) -> StreamResult[bytes]:
+        """Generate and download a log archive (tar.gz).
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: operator.
+        """
         return self._run(OPS.generate_logs, None, {}, request_options)
 
     def get_params(self, *, request_options: RequestOptions | None = None) -> dict[str, Any]:
@@ -525,8 +529,12 @@ class AsyncPeopleCounterApi(AsyncApi):
         """Show the system log. Access: operator."""
         return await self._run(OPS.show_logs, None, {}, request_options)
 
-    async def generate_logs(self, *, request_options: RequestOptions | None = None) -> bytes:
-        """Generate and download a log archive (tar.gz). Access: operator."""
+    async def generate_logs(self, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[bytes]:
+        """Generate and download a log archive (tar.gz).
+
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
+        Access: operator.
+        """
         return await self._run(OPS.generate_logs, None, {}, request_options)
 
     async def get_params(self, *, request_options: RequestOptions | None = None) -> dict[str, Any]:

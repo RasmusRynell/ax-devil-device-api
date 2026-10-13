@@ -1467,6 +1467,12 @@
                 },
                 "encoding": {
                   "type": "string"
+                },
+                "media_types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "additionalProperties": false,

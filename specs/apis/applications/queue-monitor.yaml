@@ -239,12 +239,9 @@ operations:
       query:
         generate-logs: null
       reply:
-        binary:
+        stream:
           media_types:
           - application/gzip
-    result:
-      type: string
-      format: binary
 sources:
 - url: https://developer.axis.com/vapix/applications/queue-monitor-api/
   sha256_md: 7da5fd184429b85931523bcb607d8551339177b1ab0c7c8279ea5b76933e2555

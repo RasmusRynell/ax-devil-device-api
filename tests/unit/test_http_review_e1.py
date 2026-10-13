@@ -767,3 +767,74 @@ def test_a_request_time_tls_failure_is_still_a_tls_error() -> None:
     with SyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(handler)) as t:
         with pytest.raises(TlsError):
             t.send(Request("GET", "/x"))
+
+
+# --- large downloads are streamed, not buffered -----------------------------------------------------------------------
+
+
+class _CountingBody:
+    """A response body that records how many chunks were pulled from it."""
+
+    def __init__(self, chunks: int) -> None:
+        self.chunks = chunks
+        self.pulled = 0
+
+    def __iter__(self) -> Iterator[bytes]:
+        for _ in range(self.chunks):
+            self.pulled += 1
+            yield b"x" * 1024
+
+
+class _AsyncCountingBody(_CountingBody):
+    __iter__ = None  # type: ignore[assignment]  # an async-only body, so httpx hands out an async stream
+
+    async def __aiter__(self) -> Any:
+        for _ in range(self.chunks):
+            self.pulled += 1
+            yield b"x" * 1024
+
+
+def _export_transport(body: _CountingBody, content_type: str = "video/x-matroska") -> Any:
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"Content-Type": content_type}, content=body)  # type: ignore[arg-type]
+
+    return httpx.MockTransport(handler)
+
+
+def test_export_recording_is_streamed_not_buffered() -> None:
+    from ax_devil_device_api import Device
+
+    body = _CountingBody(50)
+    dev = Device("cam", credentials=("u", "p"), transport=_export_transport(body))
+    with dev.apis.export_recording.export_recording("rec1", "disk1", "matroska") as stream:
+        assert body.pulled == 0  # nothing read before the iterator is consumed
+        first = next(iter(stream))
+        assert len(first) == 1024 and body.pulled < 50
+        assert sum(len(c) for c in stream) == 49 * 1024
+
+
+@pytest.mark.anyio
+async def test_export_recording_is_streamed_async() -> None:
+    from ax_devil_device_api import AsyncDevice
+
+    body = _AsyncCountingBody(50)
+    dev = AsyncDevice("cam", credentials=("u", "p"), transport=_export_transport(body))
+    async with await dev.apis.export_recording.export_recording("rec1", "disk1", "matroska") as stream:
+        assert body.pulled == 0
+        total = 0
+        async for chunk in stream:
+            total += len(chunk)
+        assert total == 50 * 1024
+
+
+def test_export_recording_refuses_an_unexpected_content_type_before_streaming() -> None:
+    from ax_devil_device_api import Device
+    from ax_devil_device_api.errors import ResponseFormatError
+
+    body = _CountingBody(5)
+    dev = Device("cam", credentials=("u", "p"), transport=_export_transport(body, "text/xml"))
+    with pytest.raises(ResponseFormatError, match="content type"):
+        dev.apis.export_recording.export_recording("rec1", "disk1", "matroska")
+    assert body.pulled == 0

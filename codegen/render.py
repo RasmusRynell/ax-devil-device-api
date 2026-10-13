@@ -555,6 +555,8 @@ def reply_code(ob: dict[str, Any], op: OpDef) -> str | None:
         args = [repr(decoder)] if decoder != "bytes" else []
         if opts.get("encoding"):
             args.append(f"encoding={opts['encoding']!r}")
+        if opts.get("media_types"):
+            args.append(f"media_types={tup([repr(m) for m in opts['media_types']])}")
         return f"Stream({', '.join(args)})"
     if kind == "text_lines":
         return f"TextLines(skip={opts['skip']})" if opts.get("skip") else "TextLines()"

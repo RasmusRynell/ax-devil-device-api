@@ -168,13 +168,13 @@ operations:
           </ExportRecordingResponse>
       source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-recording-export-properties
   export_recording:
-    summary: Export a recording, or part of one, as a single file; returns the file bytes.
+    summary: Export a recording, or part of one, as a single file; returns the file as a stream of byte chunks (exports can be gigabytes, so write them as they arrive).
     description: The file is Matroska (video/x-matroska), or a ZIP archive (application/zip) when a password is
       set. The device names the file from the start and stop times unless filename is given, and gives encrypted
       ZIP files without a name a random XXXXXX.zip name; the name is not part of the result.
     effect: read
     binding: {path: /axis-cgi/record/export/exportrecording.cgi, method: GET, query: {schemaversion: '1'}, reply: {
-        binary: {media_types: [video/x-matroska, application/zip]}}}
+        stream: {media_types: [video/x-matroska, application/zip]}}}
     positional: [recording_id, disk_id, export_format]
     params:
       type: object
@@ -211,7 +211,6 @@ operations:
           x-python-name: encryption_format
           description: Encryption format, for example zip-aes256 (API version 1.2). Required when a password is
             set; a password must be set to use it.
-    result: {type: string, format: binary}
     examples:
     - title: Complete recording
       request: {query: {recordingid: 20141211_091153_025B_00408CCAD5D78, diskid: SD_DISK, exportformat: matroska}}
@@ -369,8 +368,8 @@ provenance:
   open_questions:
   - The XML schema version (schemaversion) is fixed to 1 in the binding; get_schema_versions lists the others.
   - The error table assigns no codes to exportrecording.cgi and gives no error format for it; a failed export is
-    expected to be a GeneralError XML body, which the binary reply check reports as an unexpected content type.
-  - Exported files are returned as bytes; the Content-Disposition file name is not exposed.
+    expected to be a GeneralError XML body, which the stream's media type check reports as an unexpected content type.
+  - Exported files are streamed as byte chunks; the Content-Disposition file name is not exposed.
   - Accepted encryptionformat values are not enumerated; only zip-aes256 appears in the examples.
   - The export_recording examples show <file data> as the body; they are skipped by the contract tests.
   - get_capabilities nests ExportEncryption under ExportCapabilities in the example (API 1.2) although the element

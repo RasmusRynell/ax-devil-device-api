@@ -14,7 +14,8 @@ from pydantic import MISSING, Field
 from .._http.options import RequestOptions
 from .._http.upload import UploadSource, UploadSpec
 from .._protocols.base import ApiInfo, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import Binary, CgiArg, CgiBinding, Text
+from .._protocols.cgi import CgiArg, CgiBinding, Stream, Text
+from .._runtime.driver import AsyncStreamResult, StreamResult
 from ._base import AsyncApi, SyncApi
 
 # ---------------------------------------------------------------------------
@@ -70,9 +71,8 @@ class OPS:
     server_report = Operation(
         INFO,
         "server_report",
-        CgiBinding("/axis-cgi/serverreport.cgi", args=(CgiArg("mode"),), reply=Binary()),
+        CgiBinding("/axis-cgi/serverreport.cgi", args=(CgiArg("mode"),), reply=Stream(), stream=True),
         params=ServerReportRequest,
-        result=bytes,
         access="admin",
         effect="read",
     )
@@ -157,12 +157,13 @@ class SystemSettingsApi(SyncApi):
         *,
         mode: Literal["tar_all", "text", "zip", "zip_with_image"] | MISSING = MISSING,
         request_options: RequestOptions | None = None,
-    ) -> bytes:
+    ) -> StreamResult[bytes]:
         """Generate and return a server report (product information, parameter settings and system logs) as bytes.
 
         Useful as input when requesting support. The body is text for ``mode=text`` (the default), and a
         ``.zip`` or ``.tar`` file for the other modes.
 
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
         Access: admin.
         """
         return self._run(OPS.server_report, None, {"mode": mode}, request_options)
@@ -241,12 +242,13 @@ class AsyncSystemSettingsApi(AsyncApi):
         *,
         mode: Literal["tar_all", "text", "zip", "zip_with_image"] | MISSING = MISSING,
         request_options: RequestOptions | None = None,
-    ) -> bytes:
+    ) -> AsyncStreamResult[bytes]:
         """Generate and return a server report (product information, parameter settings and system logs) as bytes.
 
         Useful as input when requesting support. The body is text for ``mode=text`` (the default), and a
         ``.zip`` or ``.tar`` file for the other modes.
 
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
         Access: admin.
         """
         return await self._run(OPS.server_report, None, {"mode": mode}, request_options)

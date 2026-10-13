@@ -13,8 +13,9 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ParamDiscovery
-from .._protocols.cgi import Binary, CgiArg, CgiBinding, Xml
+from .._protocols.cgi import CgiArg, CgiBinding, Stream, Xml
 from .._protocols.xmlmap import XmlField, XmlMap
+from .._runtime.driver import AsyncStreamResult, StreamResult
 from ._base import AsyncApi, SyncApi, bind_positional
 
 # ---------------------------------------------------------------------------
@@ -315,10 +316,10 @@ class OPS:
                 CgiArg("password"),
                 CgiArg("encryption_format", wire="encryptionformat"),
             ),
-            reply=Binary(media_types=("video/x-matroska", "application/zip")),
+            reply=Stream(media_types=("video/x-matroska", "application/zip")),
+            stream=True,
         ),
         params=ExportRecordingRequest,
-        result=bytes,
         access="viewer",
         effect="read",
     )
@@ -444,7 +445,7 @@ class ExportRecordingApi(SyncApi):
     @overload
     def export_recording(
         self, request: ExportRecordingRequest, /, *, request_options: RequestOptions | None = None
-    ) -> bytes: ...
+    ) -> StreamResult[bytes]: ...
     @overload
     def export_recording(
         self,
@@ -459,16 +460,17 @@ class ExportRecordingApi(SyncApi):
         password: str | MISSING = MISSING,
         encryption_format: str | MISSING = MISSING,
         request_options: RequestOptions | None = None,
-    ) -> bytes: ...
+    ) -> StreamResult[bytes]: ...
     def export_recording(
         self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
-    ) -> bytes:
-        """Export a recording, or part of one, as a single file; returns the file bytes.
+    ) -> StreamResult[bytes]:
+        """Export a recording, or part of one, as a single file; returns the file as a stream of byte chunks (exports can be gigabytes, so write them as they arrive).
 
         The file is Matroska (video/x-matroska), or a ZIP archive (application/zip) when a password is set.
         The device names the file from the start and stop times unless filename is given, and gives
         encrypted ZIP files without a name a random XXXXXX.zip name; the name is not part of the result.
 
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
         Access: viewer.
         """
         if request is MISSING:
@@ -581,7 +583,7 @@ class AsyncExportRecordingApi(AsyncApi):
     @overload
     async def export_recording(
         self, request: ExportRecordingRequest, /, *, request_options: RequestOptions | None = None
-    ) -> bytes: ...
+    ) -> AsyncStreamResult[bytes]: ...
     @overload
     async def export_recording(
         self,
@@ -596,16 +598,17 @@ class AsyncExportRecordingApi(AsyncApi):
         password: str | MISSING = MISSING,
         encryption_format: str | MISSING = MISSING,
         request_options: RequestOptions | None = None,
-    ) -> bytes: ...
+    ) -> AsyncStreamResult[bytes]: ...
     async def export_recording(
         self, request: Any = MISSING, /, *args: Any, request_options: RequestOptions | None = None, **kwargs: Any
-    ) -> bytes:
-        """Export a recording, or part of one, as a single file; returns the file bytes.
+    ) -> AsyncStreamResult[bytes]:
+        """Export a recording, or part of one, as a single file; returns the file as a stream of byte chunks (exports can be gigabytes, so write them as they arrive).
 
         The file is Matroska (video/x-matroska), or a ZIP archive (application/zip) when a password is set.
         The device names the file from the start and stop times unless filename is given, and gives
         encrypted ZIP files without a name a random XXXXXX.zip name; the name is not part of the result.
 
+        The result streams the body: use it as a context manager (``with`` / ``async with``) and iterate it.
         Access: viewer.
         """
         if request is MISSING:

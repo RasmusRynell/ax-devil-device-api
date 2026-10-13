@@ -380,10 +380,7 @@ operations:
       method: GET
       query:
         generate-logs: null
-      reply: binary
-    result:
-      type: string
-      format: binary
+      reply: stream
   get_params:
     summary: List the people counter parameters.
     effect: read

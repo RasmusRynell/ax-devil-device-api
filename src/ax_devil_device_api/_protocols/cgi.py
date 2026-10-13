@@ -265,6 +265,9 @@ class Stream:
     decoder: Literal["bytes", "mjpeg", "lines"] = "bytes"
     encoding: str = "utf-8"
     """Text encoding for the ``lines`` decoder."""
+    media_types: tuple[str, ...] = ()
+    """Accepted ``Content-Type`` values of a 2xx answer (a device that answers an error with a 200 XML body is
+    refused before anything is streamed); empty accepts any."""
 
 
 @dataclass(frozen=True)
@@ -549,6 +552,10 @@ def flow(op: Operation[CgiBinding], params: Model | None, state: DeviceState) ->
         if not 200 <= response.status < 300:
             _decode(op, response, values)  # raises
         from .._streams import decoder_for  # imported here: _streams itself imports this package
+
+        reply = binding.reply
+        if isinstance(reply, Stream) and reply.media_types and response.media_type not in reply.media_types:
+            raise ResponseFormatError(op.api.id, op.id, f"unexpected content type {response.media_type!r}")
 
         return decoder_for(binding.reply, response, api=op.api.id)
 

@@ -412,6 +412,7 @@ Remaining:
 3. `import-linter` contract for the layer rules.
 4. A JSON-RPC negotiation strategy based on `api_discovery`.
 5. The unsupported items listed under Scope statements (`BLOCKED` entries in the specs). The SOAP-related ones are resolved (`action_service.add_action_rule` and `event_service.get_event_instances`, using `#text` and raw reply elements).
+6. Build an SSLContext from a string `verify` path internally before httpx drops string support.
 
 ## 13. Decisions log
 

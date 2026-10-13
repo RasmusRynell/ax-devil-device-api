@@ -2575,8 +2575,8 @@ event_service.ScheduledEvents(scheduled_event: list[ScheduledEvent] | None [Sche
 event_service.ScheduledType = Literal['Interval', 'Pulse']
 event_streaming_ws.AsyncEventStreamingWebSocketApi.connect(self, event_filter_list: Sequence[EventFilter | Mapping[str, str]] | None = None, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractAsyncContextManager[AsyncSession]
 event_streaming_ws.EventStreamingWebSocketApi.connect(self, event_filter_list: Sequence[EventFilter | Mapping[str, str]] | None = None, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractContextManager[Session]
-export_recording.AsyncExportRecordingApi.export_recording(self, recording_id: str, disk_id: str, export_format: str, /, *, start_time: str | MISSING = MISSING, stop_time: str | MISSING = MISSING, filename: str | MISSING = MISSING, password: str | MISSING = MISSING, encryption_format: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
-export_recording.AsyncExportRecordingApi.export_recording(self, request: ExportRecordingRequest, /, *, request_options: RequestOptions | None = None) -> bytes
+export_recording.AsyncExportRecordingApi.export_recording(self, recording_id: str, disk_id: str, export_format: str, /, *, start_time: str | MISSING = MISSING, stop_time: str | MISSING = MISSING, filename: str | MISSING = MISSING, password: str | MISSING = MISSING, encryption_format: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> AsyncStreamResult[bytes]
+export_recording.AsyncExportRecordingApi.export_recording(self, request: ExportRecordingRequest, /, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[bytes]
 export_recording.AsyncExportRecordingApi.export_to_external(self, recording_id: str, disk_id: str, external_disk_id: Literal['USB_DISK'], export_format: str, /, *, start_time: str | MISSING = MISSING, stop_time: str | MISSING = MISSING, file_path: str | MISSING = MISSING, password: str | MISSING = MISSING, encryption_format: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ExportToExternalJob
 export_recording.AsyncExportRecordingApi.export_to_external(self, request: ExportToExternalRequest, /, *, request_options: RequestOptions | None = None) -> ExportToExternalJob
 export_recording.AsyncExportRecordingApi.get_capabilities(self, *, request_options: RequestOptions | None = None) -> ExportCapabilities
@@ -2588,8 +2588,8 @@ export_recording.ExportCapabilities(capabilities: list[ExportCapability] | None)
 export_recording.ExportCapability(export_format: str [ExportFormat], encryptions: list[ExportEncryption] | None [ExportEncryption])
 export_recording.ExportEncryption(encryption_format: str | None [EncryptionFormat])
 export_recording.ExportProperties(recording_id: str [RecordingId], export_format: str [ExportFormat], encryption_format: str | None [EncryptionFormat], estimated_file_size: int [EstimatedFileSize], start_time: str [Starttime], stop_time: str [Stoptime])
-export_recording.ExportRecordingApi.export_recording(self, recording_id: str, disk_id: str, export_format: str, /, *, start_time: str | MISSING = MISSING, stop_time: str | MISSING = MISSING, filename: str | MISSING = MISSING, password: str | MISSING = MISSING, encryption_format: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
-export_recording.ExportRecordingApi.export_recording(self, request: ExportRecordingRequest, /, *, request_options: RequestOptions | None = None) -> bytes
+export_recording.ExportRecordingApi.export_recording(self, recording_id: str, disk_id: str, export_format: str, /, *, start_time: str | MISSING = MISSING, stop_time: str | MISSING = MISSING, filename: str | MISSING = MISSING, password: str | MISSING = MISSING, encryption_format: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> StreamResult[bytes]
+export_recording.ExportRecordingApi.export_recording(self, request: ExportRecordingRequest, /, *, request_options: RequestOptions | None = None) -> StreamResult[bytes]
 export_recording.ExportRecordingApi.export_to_external(self, recording_id: str, disk_id: str, external_disk_id: Literal['USB_DISK'], export_format: str, /, *, start_time: str | MISSING = MISSING, stop_time: str | MISSING = MISSING, file_path: str | MISSING = MISSING, password: str | MISSING = MISSING, encryption_format: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> ExportToExternalJob
 export_recording.ExportRecordingApi.export_to_external(self, request: ExportToExternalRequest, /, *, request_options: RequestOptions | None = None) -> ExportToExternalJob
 export_recording.ExportRecordingApi.get_capabilities(self, *, request_options: RequestOptions | None = None) -> ExportCapabilities
@@ -4616,7 +4616,7 @@ people_counter.AsyncPeopleCounterApi.export_cnt(self, date: DateSelection, *, re
 people_counter.AsyncPeopleCounterApi.export_csv(self, *, date: DateSelection | MISSING = MISSING, res: Resolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 people_counter.AsyncPeopleCounterApi.export_json(self, *, date: DateSelection | MISSING = MISSING, res: Resolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> Any
 people_counter.AsyncPeopleCounterApi.export_xml(self, *, date: DateSelection | MISSING = MISSING, res: Resolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
-people_counter.AsyncPeopleCounterApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> bytes
+people_counter.AsyncPeopleCounterApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[bytes]
 people_counter.AsyncPeopleCounterApi.get_count_position(self, *, request_options: RequestOptions | None = None) -> CountPosition
 people_counter.AsyncPeopleCounterApi.get_live_occupancy(self, *, request_options: RequestOptions | None = None) -> Any
 people_counter.AsyncPeopleCounterApi.get_live_sum(self, *, request_options: RequestOptions | None = None) -> LiveSum
@@ -4643,7 +4643,7 @@ people_counter.PeopleCounterApi.export_cnt(self, date: DateSelection, *, request
 people_counter.PeopleCounterApi.export_csv(self, *, date: DateSelection | MISSING = MISSING, res: Resolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 people_counter.PeopleCounterApi.export_json(self, *, date: DateSelection | MISSING = MISSING, res: Resolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> Any
 people_counter.PeopleCounterApi.export_xml(self, *, date: DateSelection | MISSING = MISSING, res: Resolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> ET.Element
-people_counter.PeopleCounterApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> bytes
+people_counter.PeopleCounterApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> StreamResult[bytes]
 people_counter.PeopleCounterApi.get_count_position(self, *, request_options: RequestOptions | None = None) -> CountPosition
 people_counter.PeopleCounterApi.get_live_occupancy(self, *, request_options: RequestOptions | None = None) -> Any
 people_counter.PeopleCounterApi.get_live_sum(self, *, request_options: RequestOptions | None = None) -> LiveSum
@@ -5119,7 +5119,7 @@ quadview_configuration.SubViewOrder = list[Annotated[int, Field(ge=1, le=4)]]
 queue_monitor.AsyncQueueMonitorApi.clear_data(self, *, request_options: RequestOptions | None = None) -> None
 queue_monitor.AsyncQueueMonitorApi.export_csv_minutes(self, *, date: DateSelection | MISSING = MISSING, res: MinutesResolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 queue_monitor.AsyncQueueMonitorApi.export_csv_people(self, *, date: DateSelection | MISSING = MISSING, res: PeopleResolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
-queue_monitor.AsyncQueueMonitorApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> bytes
+queue_monitor.AsyncQueueMonitorApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> AsyncStreamResult[bytes]
 queue_monitor.AsyncQueueMonitorApi.get_live_sum_people(self, *, request_options: RequestOptions | None = None) -> LiveSumPeople
 queue_monitor.AsyncQueueMonitorApi.get_params(self, *, request_options: RequestOptions | None = None) -> dict[str, Any]
 queue_monitor.AsyncQueueMonitorApi.show_logs(self, *, request_options: RequestOptions | None = None) -> str
@@ -5132,7 +5132,7 @@ queue_monitor.PeopleResolution = Literal['1m', '15m', '1h', '24h']
 queue_monitor.QueueMonitorApi.clear_data(self, *, request_options: RequestOptions | None = None) -> None
 queue_monitor.QueueMonitorApi.export_csv_minutes(self, *, date: DateSelection | MISSING = MISSING, res: MinutesResolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 queue_monitor.QueueMonitorApi.export_csv_people(self, *, date: DateSelection | MISSING = MISSING, res: PeopleResolution | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
-queue_monitor.QueueMonitorApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> bytes
+queue_monitor.QueueMonitorApi.generate_logs(self, *, request_options: RequestOptions | None = None) -> StreamResult[bytes]
 queue_monitor.QueueMonitorApi.get_live_sum_people(self, *, request_options: RequestOptions | None = None) -> LiveSumPeople
 queue_monitor.QueueMonitorApi.get_params(self, *, request_options: RequestOptions | None = None) -> dict[str, Any]
 queue_monitor.QueueMonitorApi.show_logs(self, *, request_options: RequestOptions | None = None) -> str
@@ -6428,7 +6428,7 @@ system_settings.AsyncSystemSettingsApi.factory_default(self, *, request_options:
 system_settings.AsyncSystemSettingsApi.firmware_upgrade(self, firmware: UploadSource, *, type: Literal['normal', 'factorydefault'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 system_settings.AsyncSystemSettingsApi.hard_factory_default(self, *, request_options: RequestOptions | None = None) -> None
 system_settings.AsyncSystemSettingsApi.restart(self, *, request_options: RequestOptions | None = None) -> None
-system_settings.AsyncSystemSettingsApi.server_report(self, *, mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+system_settings.AsyncSystemSettingsApi.server_report(self, *, mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> AsyncStreamResult[bytes]
 system_settings.AsyncSystemSettingsApi.system_log(self, *, text: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 system_settings.FirmwareUpgradeRequest(firmware: UploadSource, type: Literal['normal', 'factorydefault'] | None)
 system_settings.ServerReportRequest(mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | None)
@@ -6438,7 +6438,7 @@ system_settings.SystemSettingsApi.factory_default(self, *, request_options: Requ
 system_settings.SystemSettingsApi.firmware_upgrade(self, firmware: UploadSource, *, type: Literal['normal', 'factorydefault'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 system_settings.SystemSettingsApi.hard_factory_default(self, *, request_options: RequestOptions | None = None) -> None
 system_settings.SystemSettingsApi.restart(self, *, request_options: RequestOptions | None = None) -> None
-system_settings.SystemSettingsApi.server_report(self, *, mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> bytes
+system_settings.SystemSettingsApi.server_report(self, *, mode: Literal['tar_all', 'text', 'zip', 'zip_with_image'] | MISSING = MISSING, request_options: RequestOptions | None = None) -> StreamResult[bytes]
 system_settings.SystemSettingsApi.system_log(self, *, text: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> str
 system_settings_time.AsyncSystemSettingsTimeApi.get_time_settings(self, *, request_options: RequestOptions | None = None) -> dict[str, str]
 system_settings_time.AsyncSystemSettingsTimeApi.set_time_settings(self, /, *, obtain_from_dhcp: bool | MISSING = MISSING, sync_source: Literal['PC', 'NTP', 'None'] | MISSING = MISSING, posix_time_zone: str | MISSING = MISSING, dst_enabled: bool | MISSING = MISSING, ntp_server: str | MISSING = MISSING, request_options: RequestOptions | None = None) -> None

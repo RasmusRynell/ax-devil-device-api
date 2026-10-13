@@ -176,7 +176,7 @@ operations:
 | `mjpeg` | `Part` (`headers`, `body`, `content_type`) | `multipart/x-mixed-replace`, one JPEG per part; a plain `image/jpeg` answer raises `ResponseFormatError` |
 | `lines` | `str`, one per line | line-oriented text streams. On a `multipart/x-mixed-replace` (or `multipart/mixed`) answer, such as `port.cgi?monitor=`, the lines of the part bodies are returned: boundaries and part headers are consumed and blank lines (the keep-alive parts) are dropped |
 
-A stream operation has no `result`. It may have `examples` (see "Examples of streams, sessions and RTSP URLs"). Non-2xx answers are errors raised before the result is returned. `effect` is usually `read`. Request bodies of POST streams (audio transmit) belong to the upload bindings.
+`stream` also takes `media_types: [...]`: the accepted `Content-Type` values of a 2xx answer; any other (a device answering an error with a 200 XML body, say) raises `ResponseFormatError` before anything is streamed. Large downloads (recording exports, server reports, log archives) are modelled this way, not as `binary`, so they are never held in memory. A stream operation has no `result`. It may have `examples` (see "Examples of streams, sessions and RTSP URLs"). Non-2xx answers are errors raised before the result is returned. `effect` is usually `read`. Request bodies of POST streams (audio transmit) belong to the upload bindings.
 
 ### WebSocket sessions (`ws`, or any family)
 
