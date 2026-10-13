@@ -211,15 +211,23 @@ _XML_DECLARATION = re.compile(rb"^\s*<\?xml[^>]*\?>")
 
 
 def _parse_xml(content: bytes) -> ET.Element:
-    """Parse a reply; several sibling top-level elements (a fragment) are wrapped in a synthetic ``fragment`` root."""
+    """Parse a reply; a sequence of sibling top-level elements is wrapped in a synthetic ``fragment`` root.
+
+    Only a body that really is several elements counts (whitespace, comments and processing
+    instructions between them are fine). Leading or trailing text, or a body with no element, is
+    not a fragment, so a plain-text error such as ``Error: camera not found`` is never wrapped.
+    """
     try:
         return ET.fromstring(content)
     except ET.ParseError as error:
         body = _XML_DECLARATION.sub(b"", content, count=1)
         try:
-            return ET.fromstring(b"<" + FRAGMENT_ROOT.encode() + b">" + body + b"</" + FRAGMENT_ROOT.encode() + b">")
+            root = ET.fromstring(b"<" + FRAGMENT_ROOT.encode() + b">" + body + b"</" + FRAGMENT_ROOT.encode() + b">")
         except ET.ParseError:
             raise error from None
+        if len(root) == 0 or (root.text or "").strip() or any((child.tail or "").strip() for child in root):
+            raise error from None
+        return root
 
 
 @dataclass(frozen=True)

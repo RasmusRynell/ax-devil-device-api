@@ -12,7 +12,7 @@ from ax_devil_device_api._protocols.base import ApiInfo, Family, Model, Operatio
 from ax_devil_device_api._protocols.cgi import CgiArg, CgiBinding, JsonReply, Text, TextKv, Xml
 from ax_devil_device_api._protocols.xmlmap import XmlField, XmlMap, XmlStatusError
 from ax_devil_device_api.device import Device
-from ax_devil_device_api.errors import ApiError
+from ax_devil_device_api.errors import ApiError, ResponseFormatError
 
 INFO = ApiInfo(id="t", name="T", family=Family.CGI)
 
@@ -162,3 +162,27 @@ def test_malformed_xml_still_raises() -> None:
     op = Operation(INFO, "op", CgiBinding("/x.cgi", reply=Xml()), result=None)
     with pytest.raises(ResponseFormatError):
         call(op, "<a><b></a>")
+
+
+@pytest.mark.parametrize("body", [
+    "Error: camera not found",
+    "Error: 4\n<a/>",
+    "<a/>\n# Error: Request failed",
+    "<!-- camera not found -->",
+    "just some text",
+    "<a/> trailing words <b/>",
+])
+def test_xml_fragment_fallback_does_not_hide_text_errors(body: str) -> None:
+    import xml.etree.ElementTree as ET
+
+    op = Operation(INFO, "op", CgiBinding("/x.cgi", reply=Xml()), result=ET.Element)
+    with pytest.raises((ApiError, ResponseFormatError)):
+        call(op, body)
+
+
+def test_xml_fragment_allows_comments_and_instructions_between_elements() -> None:
+    import xml.etree.ElementTree as ET
+
+    op = Operation(INFO, "op", CgiBinding("/x.cgi", reply=Xml()), result=ET.Element)
+    root = call(op, '<?xml version="1.0"?>\n<!-- c -->\n<a/>\n<?pi x?>\n<!-- d -->\n<b/> \n')
+    assert [e.tag for e in root] == ["a", "b"]
