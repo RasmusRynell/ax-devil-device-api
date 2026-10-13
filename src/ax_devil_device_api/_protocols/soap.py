@@ -37,7 +37,7 @@ from .._http.types import AuthPolicy, RawBody, Request, Response
 from ..errors import ConfigurationError, ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
-from .xmlmap import XmlMap, extract, local, prune_empty
+from .xmlmap import XmlMap, extract, local, parse_xml, prune_empty
 
 ENVELOPE_NS = "http://www.w3.org/2003/05/soap-envelope"
 SERVICES_PATH = "/vapix/services"
@@ -171,7 +171,7 @@ def _decode(op: Operation[SoapBinding], response: Response) -> Any:
     root: ET.Element | None = None
     if response.content:
         try:
-            root = ET.fromstring(response.content)
+            root = parse_xml(response.content)
         except ET.ParseError:
             root = None
     body = _child(root, "Body") if root is not None and local(root.tag) == "Envelope" else None

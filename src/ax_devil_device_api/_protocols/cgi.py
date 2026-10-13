@@ -26,7 +26,16 @@ from .._http.upload import UploadSpec, deferred_upload, file_part
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
-from .xmlmap import XmlMap, XmlStatusError, extract, is_list_type, prune_empty, status_error
+from .xmlmap import (
+    XmlDeclarationError,
+    XmlMap,
+    XmlStatusError,
+    extract,
+    is_list_type,
+    parse_xml,
+    prune_empty,
+    status_error,
+)
 
 # ---------------------------------------------------------------------------
 # Arguments
@@ -218,11 +227,13 @@ def _parse_xml(content: bytes) -> ET.Element:
     not a fragment, so a plain-text error such as ``Error: camera not found`` is never wrapped.
     """
     try:
-        return ET.fromstring(content)
+        return parse_xml(content)
+    except XmlDeclarationError:
+        raise
     except ET.ParseError as error:
         body = _XML_DECLARATION.sub(b"", content, count=1)
         try:
-            root = ET.fromstring(b"<" + FRAGMENT_ROOT.encode() + b">" + body + b"</" + FRAGMENT_ROOT.encode() + b">")
+            root = parse_xml(b"<" + FRAGMENT_ROOT.encode() + b">" + body + b"</" + FRAGMENT_ROOT.encode() + b">")
         except ET.ParseError:
             raise error from None
         if len(root) == 0 or (root.text or "").strip() or any((child.tail or "").strip() for child in root):

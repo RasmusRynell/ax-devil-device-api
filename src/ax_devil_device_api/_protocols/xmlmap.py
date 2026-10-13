@@ -18,6 +18,22 @@ from typing import Any, Literal, Union, get_args, get_origin
 from pydantic import BaseModel
 
 
+class XmlDeclarationError(ET.ParseError):
+    """The XML declaration is unusable (unknown encoding, bad value): not a syntax problem a fragment wrapper could fix."""
+
+
+def parse_xml(content: bytes | str) -> ET.Element:
+    """``ET.fromstring`` with every way a document can be malformed reported as ``ET.ParseError``.
+
+    An XML declaration with an unknown encoding raises ``LookupError`` and a bad declaration or value can raise
+    ``ValueError``; neither belongs to the library's error hierarchy, so callers only have to handle one exception.
+    """
+    try:
+        return ET.fromstring(content)
+    except (LookupError, ValueError) as error:  # ParseError is a SyntaxError and passes through
+        raise XmlDeclarationError(str(error)) from error
+
+
 @dataclass(frozen=True)
 class XmlField:
     """Where one model field comes from, relative to the element of its model.

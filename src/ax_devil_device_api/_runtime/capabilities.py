@@ -49,6 +49,7 @@ from .._protocols.jsonrpc import FixedVersion
 from .._protocols.jsonrpc import flow as jsonrpc_flow
 from .._protocols.soap import SoapBinding, build_envelope
 from .._protocols.state import DeviceState
+from .._protocols.xmlmap import parse_xml
 from ..apis import api_discovery as _api_discovery
 from ..apis import basic_device_info as _basic_device_info
 from ..errors import ApiError, DeviceError, ResponseFormatError
@@ -276,7 +277,7 @@ def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     if not 200 <= response.status < 300:
         raise http_error(_APPLICATIONS_OP, response)
     try:
-        root = ET.fromstring(response.content)
+        root = parse_xml(response.content)
     except ET.ParseError as error:
         raise ResponseFormatError("applications", "list", "response is not valid XML") from error
     if root.get("result") not in (None, "ok"):
@@ -302,7 +303,7 @@ def services_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     if not 200 <= response.status < 300:
         raise http_error(_SERVICES_OP, response)
     try:
-        root = ET.fromstring(response.content)
+        root = parse_xml(response.content)
     except ET.ParseError as error:
         raise ResponseFormatError("entry-service", "get_services", "response is not valid XML") from error
     found: dict[str, str] = {}
