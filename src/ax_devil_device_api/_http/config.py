@@ -68,6 +68,30 @@ ResponseHook = Callable[[dict[str, Any]], None]
 ``{api, operation, method, path, status, error, duration_ms, attempt}``."""
 
 
+def check_host(host: str) -> None:
+    """Raise ``ConfigurationError`` unless ``host`` is a name or IP address (colons only in an IPv6 literal)."""
+    if not host or any(c in host for c in "/?#@ "):
+        raise ConfigurationError(f"Invalid host: {host!r}")
+    if ":" in host and not _is_ipv6(host):
+        raise ConfigurationError(
+            f"Invalid host: {host!r}; a host name or IP address only. Pass the port with port=... (or --port)"
+        )
+
+
+def _check_proxy(proxy: str) -> None:
+    try:
+        parts = urlsplit(proxy)
+        hostname = parts.hostname
+        parts.port  # noqa: B018  (validates the port)
+    except ValueError as error:
+        raise ConfigurationError(f"Invalid proxy URL: {error}") from error
+    if parts.scheme not in ("http", "https", "socks5", "socks5h") or not hostname:
+        raise ConfigurationError(
+            "Invalid proxy URL: it needs a scheme (http, https or socks5) and a host, "
+            "for example proxy='http://proxy.local:8080'"
+        )
+
+
 def _is_ipv6(host: str) -> bool:
     """Whether ``host`` is an IPv6 literal, with or without brackets (a zone id is allowed)."""
     inner = host[1:-1] if host.startswith("[") and host.endswith("]") else host
@@ -101,14 +125,11 @@ class ConnectionConfig:
     on_response: ResponseHook | None = None
 
     def __post_init__(self) -> None:
-        if not self.host or any(c in self.host for c in "/?#@ "):
-            raise ConfigurationError(f"Invalid host: {self.host!r}")
-        if ":" in self.host and not _is_ipv6(self.host):
-            raise ConfigurationError(
-                f"Invalid host: {self.host!r}; a host name or IP address only. Pass the port with port=... (or --port)"
-            )
+        check_host(self.host)
         if self.scheme not in ("https", "http"):
             raise ConfigurationError(f"Invalid scheme: {self.scheme!r}")
+        if self.proxy is not None:
+            _check_proxy(self.proxy)
         if self.scheme == "http" and not self.allow_http:
             raise ConfigurationError("HTTP sends credentials and data unencrypted; pass allow_http=True to use it")
         if self.port is not None and not (0 < self.port < 65536):

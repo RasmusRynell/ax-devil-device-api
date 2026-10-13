@@ -23,7 +23,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
-from ._http.config import BearerToken, Credentials
+from ._http.config import BearerToken, Credentials, check_host
 from ._http.types import unsafe_path
 from ._protocols.base import CallFlow, Model, Operation, register_binding
 from .errors import ConfigurationError
@@ -58,8 +58,7 @@ class RtspUrl:
     password: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.host or any(c in self.host for c in "/?#@ "):
-            raise ConfigurationError(f"Invalid host: {self.host!r}")
+        check_host(self.host)
         if not 0 < self.port < 65536:
             raise ConfigurationError(f"Invalid RTSP port: {self.port!r}")
         if not self.path.startswith("/") or "?" in self.path:

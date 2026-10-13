@@ -56,6 +56,8 @@ class TransportError(DeviceError):
     request_sent: bool = True
     during_preflight: bool = False
     """The failure hit the credentials preflight (a replayable GET), before the upload body was touched."""
+    body_untouched: bool = False
+    """The failure came before the request was built (no free concurrency slot), so even a one-shot body can be sent again."""
 
     def __init__(self, message: str, *, request_sent: bool | None = None) -> None:
         super().__init__(message)

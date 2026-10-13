@@ -149,6 +149,8 @@ class Call:
         # A failed credentials preflight is its own replayable read-only GET; the one-shot body behind it was
         # never touched, so it is judged as such, not by the outer request.
         preflight = error.during_preflight
+        if attempt < policy.attempts and error.body_untouched and not error.request_sent:
+            return policy.retry_unsent  # nothing was built or sent yet, whatever the body is
         if attempt >= policy.attempts or not (request.replayable or preflight):
             # A streamed body may be partly consumed even if nothing reached the device.
             return False

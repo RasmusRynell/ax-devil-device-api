@@ -44,7 +44,9 @@ def _slot_timeout(config: ConnectionConfig, request: Request) -> float:
 
 
 def _pool_timeout(timeout: float) -> errors.PoolTimeout:
-    return errors.PoolTimeout(f"no free request slot to the device within {timeout:g} s")
+    error = errors.PoolTimeout(f"no free request slot to the device within {timeout:g} s")
+    error.body_untouched = True  # raised before the request was built: a one-shot body is still intact
+    return error
 
 
 @contextmanager
@@ -70,8 +72,8 @@ async def _aslot(semaphore: asyncio.Semaphore, timeout: float) -> AsyncIterator[
         semaphore.release()
 
 
-def _invalid_url(error: httpx.InvalidURL) -> errors.ConfigurationError:
-    return errors.ConfigurationError(f"the device address or request path does not make a valid URL: {error}")
+def _invalid_url(error: Exception) -> errors.ConfigurationError:
+    return errors.ConfigurationError(f"the device address, proxy or request path does not make a valid URL: {error}")
 
 
 def _preflight_request(request: Request) -> Request | None:
@@ -404,7 +406,7 @@ class SyncTransport:
         self._stream_slots = threading.BoundedSemaphore(config.max_streams)
         try:
             self._client = httpx.Client(transport=transport, **_client_args(config))
-        except httpx.InvalidURL as error:
+        except (httpx.InvalidURL, ValueError) as error:
             raise _invalid_url(error) from error
         self._client.headers.pop("Accept", None)  # Accept is set only when a request asks for it
 
@@ -524,7 +526,7 @@ class AsyncTransport:
         self._stream_slots: asyncio.Semaphore | None = None
         try:
             self._client = httpx.AsyncClient(transport=transport, **_client_args(config))
-        except httpx.InvalidURL as error:
+        except (httpx.InvalidURL, ValueError) as error:
             raise _invalid_url(error) from error
         self._client.headers.pop("Accept", None)
 

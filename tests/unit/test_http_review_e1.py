@@ -532,3 +532,65 @@ def test_a_failed_buffering_stays_failed_with_a_clear_error() -> None:
         file_part("f", upload).content.resolve()  # type: ignore[union-attr]
     with pytest.raises(ValueError, match="already failed"):
         file_part("f", upload).content.resolve()  # type: ignore[union-attr]
+
+
+# --- retries before a one-shot body is built; host and proxy validation -----------------------------------------------
+
+
+def _oneshot_flow() -> CallFlow[int]:
+    body = RawBody(iter([b"ab", b"cd"]), "application/octet-stream", size=4)
+    response = yield Request("POST", "/up", body=body, timeout=0.05)
+    return response.status
+
+
+def test_sync_pool_timeout_before_a_one_shot_upload_is_retried_and_the_body_sent_once() -> None:
+    import threading
+
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api._http.transport import SyncTransport
+
+    mock, seen = _mock_ok()
+    call = Call(label=("a", "b"), retry=RetryPolicy(backoff=0.15))
+    with SyncTransport(ConnectionConfig("cam", max_concurrency=1), transport=mock) as t:
+        assert t._slots.acquire()
+        threading.Timer(0.1, t._slots.release).start()
+        assert run_sync(t, _oneshot_flow(), call) == 200
+    assert seen == [b"abcd"]
+
+
+@pytest.mark.anyio
+async def test_async_pool_timeout_before_a_one_shot_upload_is_retried_and_the_body_sent_once() -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api._http.transport import AsyncTransport
+
+    mock, seen = _mock_ok()
+    call = Call(label=("a", "b"), retry=RetryPolicy(backoff=0.15))
+    async with AsyncTransport(ConnectionConfig("cam", max_concurrency=1), transport=mock) as t:
+        slots, _ = t._semaphores()
+        await slots.acquire()
+        asyncio.get_running_loop().call_later(0.1, slots.release)
+        assert await run_async(t, _oneshot_flow(), call) == 200
+    assert seen == [b"abcd"]
+
+
+@pytest.mark.parametrize("host", ["camera.local:8554", "10.0.0.5:554"])
+def test_rtsp_host_with_a_port_is_rejected_like_the_connection_host(host: str) -> None:
+    from ax_devil_device_api.errors import ConfigurationError
+    from ax_devil_device_api.rtsp import build_rtsp_url
+
+    with pytest.raises(ConfigurationError, match="port"):
+        build_rtsp_url(host)
+    assert build_rtsp_url("2001:db8::1").host == "2001:db8::1"
+
+
+@pytest.mark.parametrize("proxy", ["proxy.local:8080", "ftp://proxy.local", "http://", "proxy.local"])
+def test_invalid_proxy_is_a_configuration_error(proxy: str) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="proxy"):
+        ConnectionConfig("cam", proxy=proxy)
+    for ok in ("http://proxy.local:8080", "https://u:p@proxy.local", "socks5://proxy.local:1080"):
+        assert ConnectionConfig("cam", proxy=ok).proxy == ok
