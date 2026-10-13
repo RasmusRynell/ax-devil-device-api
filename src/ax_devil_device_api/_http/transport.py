@@ -72,6 +72,12 @@ async def _aslot(semaphore: asyncio.Semaphore, timeout: float) -> AsyncIterator[
         semaphore.release()
 
 
+def _client_error(error: Exception) -> errors.ConfigurationError:
+    if isinstance(error, ImportError):
+        return errors.ConfigurationError("SOCKS proxy support requires: pip install 'ax-devil-device-api[socks]'")
+    return _invalid_url(error)
+
+
 def _invalid_url(error: Exception) -> errors.ConfigurationError:
     return errors.ConfigurationError(f"the device address, proxy or request path does not make a valid URL: {error}")
 
@@ -406,8 +412,8 @@ class SyncTransport:
         self._stream_slots = threading.BoundedSemaphore(config.max_streams)
         try:
             self._client = httpx.Client(transport=transport, **_client_args(config))
-        except (httpx.InvalidURL, ValueError) as error:
-            raise _invalid_url(error) from error
+        except (httpx.InvalidURL, ValueError, ImportError) as error:
+            raise _client_error(error) from error
         self._client.headers.pop("Accept", None)  # Accept is set only when a request asks for it
 
     def _send(self, request: Request, *, stream: bool) -> httpx.Response:
@@ -526,8 +532,8 @@ class AsyncTransport:
         self._stream_slots: asyncio.Semaphore | None = None
         try:
             self._client = httpx.AsyncClient(transport=transport, **_client_args(config))
-        except (httpx.InvalidURL, ValueError) as error:
-            raise _invalid_url(error) from error
+        except (httpx.InvalidURL, ValueError, ImportError) as error:
+            raise _client_error(error) from error
         self._client.headers.pop("Accept", None)
 
     def _semaphores(self) -> tuple[asyncio.Semaphore, asyncio.Semaphore]:

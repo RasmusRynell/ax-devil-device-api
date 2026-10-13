@@ -339,12 +339,14 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
     except ValidationError as error:
         stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": str(error)}}) + "\n")
         return 2
-    except TypeError as error:
-        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": str(error)}}) + "\n")
-        return 2
     except DeviceError as error:
+        # Before ValueError: ConfigurationError is both, and is reported with the library's own error shape.
         stderr.write(json.dumps({"error": _error_json(error)}) + "\n")
         return 1
+    except (TypeError, ValueError) as error:
+        # A value that passed validation but failed a local check (a path parameter of ".", say).
+        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": str(error)}}) + "\n")
+        return 2
     except OSError as error:
         stderr.write(json.dumps({"error": {"type": type(error).__name__, "message": str(error)}}) + "\n")
         return 1

@@ -199,3 +199,17 @@ def test_call_output_dash_refuses_terminal(monkeypatch: pytest.MonkeyPatch) -> N
     err = io.StringIO()
     assert cli.main(["call", "media_stream", "get_media_stream", "-o", "-"], out=out, err=err) == 2
     assert raw.getvalue() == b"" and "terminal" in err.getvalue()
+
+
+def test_local_value_error_is_json_invalid_parameters_not_a_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
+    code, _, err = run(monkeypatch, MockCamera(), "call", "analytics_mqtt", "remove_publisher", "id=.")
+    assert code == 2 and "Traceback" not in err
+    error = json.loads(err.splitlines()[-1])["error"]
+    assert error["type"] == "InvalidParameters" and error["message"]
+
+
+def test_configuration_error_keeps_the_library_error_shape(monkeypatch: pytest.MonkeyPatch) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    code = cli.main(["--host", "camera.local:8443", "--user", "u", "--password", "p", "call", "mqtt_client", "get_client_status"], out=out, err=err)
+    error = json.loads(err.getvalue().splitlines()[-1])["error"]
+    assert code == 1 and error["type"] == "ConfigurationError" and "port" in error["message"]

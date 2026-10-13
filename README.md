@@ -22,7 +22,7 @@ uv add ax-devil-device-api --prerelease=allow
 pip install --pre ax-devil-device-api
 ```
 
-This also installs the `ax-devil` command.
+This also installs the `ax-devil` command. SOCKS proxies (`socks5://...`) need the optional extra: `pip install 'ax-devil-device-api[socks]'`.
 
 ## Quick start
 

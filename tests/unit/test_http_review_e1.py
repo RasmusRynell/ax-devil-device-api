@@ -594,3 +594,21 @@ def test_invalid_proxy_is_a_configuration_error(proxy: str) -> None:
         ConnectionConfig("cam", proxy=proxy)
     for ok in ("http://proxy.local:8080", "https://u:p@proxy.local", "socks5://proxy.local:1080"):
         assert ConnectionConfig("cam", proxy=ok).proxy == ok
+
+
+# --- SOCKS proxy without socksio -----------------------------------------------------------------------------------
+
+
+def test_socks_proxy_without_socksio_is_a_configuration_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
+    from ax_devil_device_api.errors import ConfigurationError
+
+    monkeypatch.setitem(sys.modules, "socksio", None)  # makes `import socksio` raise ImportError
+    config = ConnectionConfig("cam", proxy="socks5://proxy.local:1080")  # accepted at config time
+    with pytest.raises(ConfigurationError, match=r"\[socks\]"):
+        SyncTransport(config)
+    with pytest.raises(ConfigurationError, match=r"\[socks\]"):
+        AsyncTransport(config)
