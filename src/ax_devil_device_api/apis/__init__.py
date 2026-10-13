@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..device import AsyncDevice, Device
     from .access_control_service import AccessControlServiceApi, AsyncAccessControlServiceApi
+    from .action_service import ActionServiceApi, AsyncActionServiceApi
     from .air_quality_monitor import AirQualityMonitorApi, AsyncAirQualityMonitorApi
     from .airqualitymodbus import AirQualityModbusApi, AsyncAirQualityModbusApi
     from .airqualitymodbus_modbus_api import AirQualityModbusReleaseApi, AsyncAirQualityModbusReleaseApi
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from .api_discovery import ApiDiscoveryApi, AsyncApiDiscoveryApi
     from .application_api import ApplicationApi, AsyncApplicationApi
     from .application_configuration import ApplicationConfigurationApi, AsyncApplicationConfigurationApi
+    from .audio import AsyncAudioApi, AudioApi
     from .audio_analytics import AsyncAudioAnalyticsApi, AudioAnalyticsApi
     from .audio_control_service import AsyncAudioControlServiceApi, AudioControlServiceApi
     from .audio_device_control import AsyncAudioDeviceControlApi, AudioDeviceControlApi
@@ -27,6 +29,9 @@ if TYPE_CHECKING:
     from .audit_log import AsyncAuditLogApi, AuditLogApi
     from .auto_speaker_test_service import AsyncAutoSpeakerTestServiceApi, AutoSpeakerTestServiceApi
     from .autopilot import AsyncAutopilotApi, AutopilotApi
+    from .axis_audio_manager_edge import AsyncAxisAudioManagerEdgeApi, AxisAudioManagerEdgeApi
+    from .axis_audio_manager_pro import AsyncAxisAudioManagerProApi, AxisAudioManagerProApi
+    from .axis_audio_manager_pro_ws import AsyncAxisAudioManagerProWsApi, AxisAudioManagerProWsApi
     from .axis_object_analytics import AsyncAxisObjectAnalyticsApi, AxisObjectAnalyticsApi
     from .basic_device_info import AsyncBasicDeviceInfoApi, BasicDeviceInfoApi
     from .basic_device_info_config import AsyncBasicDeviceInfoConfigApi, BasicDeviceInfoConfigApi
@@ -36,6 +41,7 @@ if TYPE_CHECKING:
     from .cellular_routing import AsyncCellularRoutingApi, CellularRoutingApi
     from .cert import AsyncCertApi, CertApi
     from .cert_est import AsyncCertEstApi, CertEstApi
+    from .certificate_management import AsyncCertificateManagementApi, CertificateManagementApi
     from .clear_view import AsyncClearViewApi, ClearViewApi
     from .connection_service import AsyncConnectionServiceApi, ConnectionServiceApi
     from .connection_test import AsyncConnectionTestApi, ConnectionTestApi
@@ -50,6 +56,7 @@ if TYPE_CHECKING:
     from .decoder import AsyncDecoderApi, DecoderApi
     from .decoder2 import AsyncDecoder2Api, Decoder2Api
     from .demographic_identifier import AsyncDemographicIdentifierApi, DemographicIdentifierApi
+    from .device_data_hub_ws import AsyncDeviceDataHubWebSocketApi, DeviceDataHubWebSocketApi
     from .device_mode import AsyncDeviceModeApi, DeviceModeApi
     from .dewarped_views import AsyncDewarpedViewsApi, DewarpedViewsApi
     from .digital_autotracking import AsyncDigitalAutotrackingApi, DigitalAutotrackingApi
@@ -60,8 +67,12 @@ if TYPE_CHECKING:
     from .door_control_service import AsyncDoorControlServiceApi, DoorControlServiceApi
     from .dynamic_overlay import AsyncDynamicOverlayApi, DynamicOverlayApi
     from .dynamic_text import AsyncDynamicTextApi, DynamicTextApi
+    from .entry_service import AsyncEntryServiceApi, EntryServiceApi
+    from .event_data_streaming import AsyncEventDataStreamingApi, EventDataStreamingApi
     from .event_logger_service import AsyncEventLoggerServiceApi, EventLoggerServiceApi
     from .event_schedules import AsyncEventSchedulesApi, EventSchedulesApi
+    from .event_service import AsyncEventServiceApi, EventServiceApi
+    from .event_streaming_ws import AsyncEventStreamingWebSocketApi, EventStreamingWebSocketApi
     from .export_recording import AsyncExportRecordingApi, ExportRecordingApi
     from .external_ip_device_info import AsyncExternalIpDeviceInfoApi, ExternalIpDeviceInfoApi
     from .feature_flag import AsyncFeatureFlagApi, FeatureFlagApi
@@ -75,11 +86,14 @@ if TYPE_CHECKING:
     from .groupview import AsyncGroupViewApi, GroupViewApi
     from .guard_tour import AsyncGuardTourApi, GuardTourApi
     from .heartbeat import AsyncHeartbeatApi, HeartbeatApi
+    from .heartbeat_soap import AsyncHeartbeatSoapApi, HeartbeatSoapApi
     from .id_point_service import AsyncIdPointServiceApi, IdPointServiceApi
     from .image_parameters import AsyncImageParametersApi, ImageParametersApi
     from .image_source_rotation import AsyncImageSourceRotationApi, ImageSourceRotationApi
     from .imaging import AsyncImagingApi, ImagingApi
+    from .intercom_configuration import AsyncIntercomConfigurationApi, IntercomConfigurationApi
     from .intercom_service import AsyncIntercomServiceApi, IntercomServiceApi
+    from .intercom_ws import AsyncIntercomWsApi, IntercomWsApi
     from .io_assignment_service import AsyncIoAssignmentServiceApi, IoAssignmentServiceApi
     from .io_port import AsyncIoPortApi, IoPortApi
     from .io_port_management import AsyncIoPortManagementApi, IoPortManagementApi
@@ -87,6 +101,7 @@ if TYPE_CHECKING:
     from .keystore_service import AsyncKeystoreServiceApi, KeystoreServiceApi
     from .license_plate_verifier import AsyncLicensePlateVerifierApi, LicensePlateVerifierApi
     from .light_control import AsyncLightControlApi, LightControlApi
+    from .light_control_service import AsyncLightControlServiceApi, LightControlServiceApi
     from .lldp import AsyncLldpApi, LldpApi
     from .log import AsyncLogApi, LogApi
     from .loitering_guard import AsyncLoiteringGuardApi, LoiteringGuardApi
@@ -94,6 +109,7 @@ if TYPE_CHECKING:
     from .mdnssd import AsyncMdnssdApi, MdnssdApi
     from .mdnssd_config import AsyncMdnssdConfigApi, MdnssdConfigApi
     from .media_clip import AsyncMediaClipApi, MediaClipApi
+    from .media_stream import AsyncMediaStreamApi, MediaStreamApi
     from .motion_guard import AsyncMotionGuardApi, MotionGuardApi
     from .mqtt_client import AsyncMqttClientApi, MqttClientApi
     from .mqtt_event_bridge import AsyncMqttEventBridgeApi, MqttEventBridgeApi
@@ -113,6 +129,7 @@ if TYPE_CHECKING:
     from .oidcsetup import AsyncOidcsetupApi, OidcsetupApi
     from .on_screen_controls import AsyncOnScreenControlsApi, OnScreenControlsApi
     from .onvif_replay_extension import AsyncOnvifReplayExtensionApi, OnvifReplayExtensionApi
+    from .open_casing_faulty_front_window import AsyncOpenCasingFaultyFrontWindowApi, OpenCasingFaultyFrontWindowApi
     from .optics_control import AsyncOpticsControlApi, OpticsControlApi
     from .orientation import AsyncOrientationApi, OrientationApi
     from .osdi import AsyncOnScreenDirectionalIndicatorApi, OnScreenDirectionalIndicatorApi
@@ -152,6 +169,7 @@ if TYPE_CHECKING:
     from .remote_io_service import AsyncRemoteIoServiceApi, RemoteIoServiceApi
     from .remote_object_storage import AsyncRemoteObjectStorageApi, RemoteObjectStorageApi
     from .remote_syslog import AsyncRemoteSyslogApi, RemoteSyslogApi
+    from .rtsp_adjustable_live_stream import AsyncRtspAdjustableLiveStreamApi, RtspAdjustableLiveStreamApi
     from .scene_profile import AsyncSceneProfileApi, SceneProfileApi
     from .schedule_service import AsyncScheduleServiceApi, ScheduleServiceApi
     from .serial_port import AsyncSerialPortApi, SerialPortApi
@@ -193,6 +211,7 @@ if TYPE_CHECKING:
     from .video_output import AsyncVideoOutputApi, VideoOutputApi
     from .video_streaming import AsyncVideoStreamingApi, VideoStreamingApi
     from .video_streaming_indicator import AsyncVideoStreamingIndicatorApi, VideoStreamingIndicatorApi
+    from .video_streaming_rtsp import AsyncRtspHelperApi, RtspHelperApi
     from .view_area import AsyncViewAreaApi, ViewAreaApi
     from .virtual_input import AsyncVirtualInputApi, VirtualInputApi
     from .virtualhost import AsyncVirtualhostApi, VirtualhostApi
@@ -211,6 +230,12 @@ class Apis:
         from .access_control_service import AccessControlServiceApi
 
         return self._device.api(AccessControlServiceApi)
+
+    @cached_property
+    def action_service(self) -> ActionServiceApi:
+        from .action_service import ActionServiceApi
+
+        return self._device.api(ActionServiceApi)
 
     @cached_property
     def air_quality_monitor(self) -> AirQualityMonitorApi:
@@ -259,6 +284,12 @@ class Apis:
         from .application_configuration import ApplicationConfigurationApi
 
         return self._device.api(ApplicationConfigurationApi)
+
+    @cached_property
+    def audio(self) -> AudioApi:
+        from .audio import AudioApi
+
+        return self._device.api(AudioApi)
 
     @cached_property
     def audio_analytics(self) -> AudioAnalyticsApi:
@@ -315,6 +346,24 @@ class Apis:
         return self._device.api(AutopilotApi)
 
     @cached_property
+    def axis_audio_manager_edge(self) -> AxisAudioManagerEdgeApi:
+        from .axis_audio_manager_edge import AxisAudioManagerEdgeApi
+
+        return self._device.api(AxisAudioManagerEdgeApi)
+
+    @cached_property
+    def axis_audio_manager_pro(self) -> AxisAudioManagerProApi:
+        from .axis_audio_manager_pro import AxisAudioManagerProApi
+
+        return self._device.api(AxisAudioManagerProApi)
+
+    @cached_property
+    def axis_audio_manager_pro_ws(self) -> AxisAudioManagerProWsApi:
+        from .axis_audio_manager_pro_ws import AxisAudioManagerProWsApi
+
+        return self._device.api(AxisAudioManagerProWsApi)
+
+    @cached_property
     def axis_object_analytics(self) -> AxisObjectAnalyticsApi:
         from .axis_object_analytics import AxisObjectAnalyticsApi
 
@@ -367,6 +416,12 @@ class Apis:
         from .cert_est import CertEstApi
 
         return self._device.api(CertEstApi)
+
+    @cached_property
+    def certificate_management(self) -> CertificateManagementApi:
+        from .certificate_management import CertificateManagementApi
+
+        return self._device.api(CertificateManagementApi)
 
     @cached_property
     def clear_view(self) -> ClearViewApi:
@@ -453,6 +508,12 @@ class Apis:
         return self._device.api(DemographicIdentifierApi)
 
     @cached_property
+    def device_data_hub_ws(self) -> DeviceDataHubWebSocketApi:
+        from .device_data_hub_ws import DeviceDataHubWebSocketApi
+
+        return self._device.api(DeviceDataHubWebSocketApi)
+
+    @cached_property
     def device_mode(self) -> DeviceModeApi:
         from .device_mode import DeviceModeApi
 
@@ -513,6 +574,18 @@ class Apis:
         return self._device.api(DynamicTextApi)
 
     @cached_property
+    def entry_service(self) -> EntryServiceApi:
+        from .entry_service import EntryServiceApi
+
+        return self._device.api(EntryServiceApi)
+
+    @cached_property
+    def event_data_streaming(self) -> EventDataStreamingApi:
+        from .event_data_streaming import EventDataStreamingApi
+
+        return self._device.api(EventDataStreamingApi)
+
+    @cached_property
     def event_logger_service(self) -> EventLoggerServiceApi:
         from .event_logger_service import EventLoggerServiceApi
 
@@ -523,6 +596,18 @@ class Apis:
         from .event_schedules import EventSchedulesApi
 
         return self._device.api(EventSchedulesApi)
+
+    @cached_property
+    def event_service(self) -> EventServiceApi:
+        from .event_service import EventServiceApi
+
+        return self._device.api(EventServiceApi)
+
+    @cached_property
+    def event_streaming_ws(self) -> EventStreamingWebSocketApi:
+        from .event_streaming_ws import EventStreamingWebSocketApi
+
+        return self._device.api(EventStreamingWebSocketApi)
 
     @cached_property
     def export_recording(self) -> ExportRecordingApi:
@@ -603,6 +688,12 @@ class Apis:
         return self._device.api(HeartbeatApi)
 
     @cached_property
+    def heartbeat_soap(self) -> HeartbeatSoapApi:
+        from .heartbeat_soap import HeartbeatSoapApi
+
+        return self._device.api(HeartbeatSoapApi)
+
+    @cached_property
     def id_point_service(self) -> IdPointServiceApi:
         from .id_point_service import IdPointServiceApi
 
@@ -627,10 +718,22 @@ class Apis:
         return self._device.api(ImagingApi)
 
     @cached_property
+    def intercom_configuration(self) -> IntercomConfigurationApi:
+        from .intercom_configuration import IntercomConfigurationApi
+
+        return self._device.api(IntercomConfigurationApi)
+
+    @cached_property
     def intercom_service(self) -> IntercomServiceApi:
         from .intercom_service import IntercomServiceApi
 
         return self._device.api(IntercomServiceApi)
+
+    @cached_property
+    def intercom_ws(self) -> IntercomWsApi:
+        from .intercom_ws import IntercomWsApi
+
+        return self._device.api(IntercomWsApi)
 
     @cached_property
     def io_assignment_service(self) -> IoAssignmentServiceApi:
@@ -675,6 +778,12 @@ class Apis:
         return self._device.api(LightControlApi)
 
     @cached_property
+    def light_control_service(self) -> LightControlServiceApi:
+        from .light_control_service import LightControlServiceApi
+
+        return self._device.api(LightControlServiceApi)
+
+    @cached_property
     def lldp(self) -> LldpApi:
         from .lldp import LldpApi
 
@@ -715,6 +824,12 @@ class Apis:
         from .media_clip import MediaClipApi
 
         return self._device.api(MediaClipApi)
+
+    @cached_property
+    def media_stream(self) -> MediaStreamApi:
+        from .media_stream import MediaStreamApi
+
+        return self._device.api(MediaStreamApi)
 
     @cached_property
     def motion_guard(self) -> MotionGuardApi:
@@ -829,6 +944,12 @@ class Apis:
         from .onvif_replay_extension import OnvifReplayExtensionApi
 
         return self._device.api(OnvifReplayExtensionApi)
+
+    @cached_property
+    def open_casing_faulty_front_window(self) -> OpenCasingFaultyFrontWindowApi:
+        from .open_casing_faulty_front_window import OpenCasingFaultyFrontWindowApi
+
+        return self._device.api(OpenCasingFaultyFrontWindowApi)
 
     @cached_property
     def optics_control(self) -> OpticsControlApi:
@@ -1063,6 +1184,12 @@ class Apis:
         from .remote_syslog import RemoteSyslogApi
 
         return self._device.api(RemoteSyslogApi)
+
+    @cached_property
+    def rtsp_adjustable_live_stream(self) -> RtspAdjustableLiveStreamApi:
+        from .rtsp_adjustable_live_stream import RtspAdjustableLiveStreamApi
+
+        return self._device.api(RtspAdjustableLiveStreamApi)
 
     @cached_property
     def scene_profile(self) -> SceneProfileApi:
@@ -1311,6 +1438,12 @@ class Apis:
         return self._device.api(VideoStreamingIndicatorApi)
 
     @cached_property
+    def video_streaming_rtsp(self) -> RtspHelperApi:
+        from .video_streaming_rtsp import RtspHelperApi
+
+        return self._device.api(RtspHelperApi)
+
+    @cached_property
     def view_area(self) -> ViewAreaApi:
         from .view_area import ViewAreaApi
 
@@ -1352,6 +1485,12 @@ class AsyncApis:
         from .access_control_service import AsyncAccessControlServiceApi
 
         return self._device.api(AsyncAccessControlServiceApi)
+
+    @cached_property
+    def action_service(self) -> AsyncActionServiceApi:
+        from .action_service import AsyncActionServiceApi
+
+        return self._device.api(AsyncActionServiceApi)
 
     @cached_property
     def air_quality_monitor(self) -> AsyncAirQualityMonitorApi:
@@ -1400,6 +1539,12 @@ class AsyncApis:
         from .application_configuration import AsyncApplicationConfigurationApi
 
         return self._device.api(AsyncApplicationConfigurationApi)
+
+    @cached_property
+    def audio(self) -> AsyncAudioApi:
+        from .audio import AsyncAudioApi
+
+        return self._device.api(AsyncAudioApi)
 
     @cached_property
     def audio_analytics(self) -> AsyncAudioAnalyticsApi:
@@ -1456,6 +1601,24 @@ class AsyncApis:
         return self._device.api(AsyncAutopilotApi)
 
     @cached_property
+    def axis_audio_manager_edge(self) -> AsyncAxisAudioManagerEdgeApi:
+        from .axis_audio_manager_edge import AsyncAxisAudioManagerEdgeApi
+
+        return self._device.api(AsyncAxisAudioManagerEdgeApi)
+
+    @cached_property
+    def axis_audio_manager_pro(self) -> AsyncAxisAudioManagerProApi:
+        from .axis_audio_manager_pro import AsyncAxisAudioManagerProApi
+
+        return self._device.api(AsyncAxisAudioManagerProApi)
+
+    @cached_property
+    def axis_audio_manager_pro_ws(self) -> AsyncAxisAudioManagerProWsApi:
+        from .axis_audio_manager_pro_ws import AsyncAxisAudioManagerProWsApi
+
+        return self._device.api(AsyncAxisAudioManagerProWsApi)
+
+    @cached_property
     def axis_object_analytics(self) -> AsyncAxisObjectAnalyticsApi:
         from .axis_object_analytics import AsyncAxisObjectAnalyticsApi
 
@@ -1508,6 +1671,12 @@ class AsyncApis:
         from .cert_est import AsyncCertEstApi
 
         return self._device.api(AsyncCertEstApi)
+
+    @cached_property
+    def certificate_management(self) -> AsyncCertificateManagementApi:
+        from .certificate_management import AsyncCertificateManagementApi
+
+        return self._device.api(AsyncCertificateManagementApi)
 
     @cached_property
     def clear_view(self) -> AsyncClearViewApi:
@@ -1594,6 +1763,12 @@ class AsyncApis:
         return self._device.api(AsyncDemographicIdentifierApi)
 
     @cached_property
+    def device_data_hub_ws(self) -> AsyncDeviceDataHubWebSocketApi:
+        from .device_data_hub_ws import AsyncDeviceDataHubWebSocketApi
+
+        return self._device.api(AsyncDeviceDataHubWebSocketApi)
+
+    @cached_property
     def device_mode(self) -> AsyncDeviceModeApi:
         from .device_mode import AsyncDeviceModeApi
 
@@ -1654,6 +1829,18 @@ class AsyncApis:
         return self._device.api(AsyncDynamicTextApi)
 
     @cached_property
+    def entry_service(self) -> AsyncEntryServiceApi:
+        from .entry_service import AsyncEntryServiceApi
+
+        return self._device.api(AsyncEntryServiceApi)
+
+    @cached_property
+    def event_data_streaming(self) -> AsyncEventDataStreamingApi:
+        from .event_data_streaming import AsyncEventDataStreamingApi
+
+        return self._device.api(AsyncEventDataStreamingApi)
+
+    @cached_property
     def event_logger_service(self) -> AsyncEventLoggerServiceApi:
         from .event_logger_service import AsyncEventLoggerServiceApi
 
@@ -1664,6 +1851,18 @@ class AsyncApis:
         from .event_schedules import AsyncEventSchedulesApi
 
         return self._device.api(AsyncEventSchedulesApi)
+
+    @cached_property
+    def event_service(self) -> AsyncEventServiceApi:
+        from .event_service import AsyncEventServiceApi
+
+        return self._device.api(AsyncEventServiceApi)
+
+    @cached_property
+    def event_streaming_ws(self) -> AsyncEventStreamingWebSocketApi:
+        from .event_streaming_ws import AsyncEventStreamingWebSocketApi
+
+        return self._device.api(AsyncEventStreamingWebSocketApi)
 
     @cached_property
     def export_recording(self) -> AsyncExportRecordingApi:
@@ -1744,6 +1943,12 @@ class AsyncApis:
         return self._device.api(AsyncHeartbeatApi)
 
     @cached_property
+    def heartbeat_soap(self) -> AsyncHeartbeatSoapApi:
+        from .heartbeat_soap import AsyncHeartbeatSoapApi
+
+        return self._device.api(AsyncHeartbeatSoapApi)
+
+    @cached_property
     def id_point_service(self) -> AsyncIdPointServiceApi:
         from .id_point_service import AsyncIdPointServiceApi
 
@@ -1768,10 +1973,22 @@ class AsyncApis:
         return self._device.api(AsyncImagingApi)
 
     @cached_property
+    def intercom_configuration(self) -> AsyncIntercomConfigurationApi:
+        from .intercom_configuration import AsyncIntercomConfigurationApi
+
+        return self._device.api(AsyncIntercomConfigurationApi)
+
+    @cached_property
     def intercom_service(self) -> AsyncIntercomServiceApi:
         from .intercom_service import AsyncIntercomServiceApi
 
         return self._device.api(AsyncIntercomServiceApi)
+
+    @cached_property
+    def intercom_ws(self) -> AsyncIntercomWsApi:
+        from .intercom_ws import AsyncIntercomWsApi
+
+        return self._device.api(AsyncIntercomWsApi)
 
     @cached_property
     def io_assignment_service(self) -> AsyncIoAssignmentServiceApi:
@@ -1816,6 +2033,12 @@ class AsyncApis:
         return self._device.api(AsyncLightControlApi)
 
     @cached_property
+    def light_control_service(self) -> AsyncLightControlServiceApi:
+        from .light_control_service import AsyncLightControlServiceApi
+
+        return self._device.api(AsyncLightControlServiceApi)
+
+    @cached_property
     def lldp(self) -> AsyncLldpApi:
         from .lldp import AsyncLldpApi
 
@@ -1856,6 +2079,12 @@ class AsyncApis:
         from .media_clip import AsyncMediaClipApi
 
         return self._device.api(AsyncMediaClipApi)
+
+    @cached_property
+    def media_stream(self) -> AsyncMediaStreamApi:
+        from .media_stream import AsyncMediaStreamApi
+
+        return self._device.api(AsyncMediaStreamApi)
 
     @cached_property
     def motion_guard(self) -> AsyncMotionGuardApi:
@@ -1970,6 +2199,12 @@ class AsyncApis:
         from .onvif_replay_extension import AsyncOnvifReplayExtensionApi
 
         return self._device.api(AsyncOnvifReplayExtensionApi)
+
+    @cached_property
+    def open_casing_faulty_front_window(self) -> AsyncOpenCasingFaultyFrontWindowApi:
+        from .open_casing_faulty_front_window import AsyncOpenCasingFaultyFrontWindowApi
+
+        return self._device.api(AsyncOpenCasingFaultyFrontWindowApi)
 
     @cached_property
     def optics_control(self) -> AsyncOpticsControlApi:
@@ -2204,6 +2439,12 @@ class AsyncApis:
         from .remote_syslog import AsyncRemoteSyslogApi
 
         return self._device.api(AsyncRemoteSyslogApi)
+
+    @cached_property
+    def rtsp_adjustable_live_stream(self) -> AsyncRtspAdjustableLiveStreamApi:
+        from .rtsp_adjustable_live_stream import AsyncRtspAdjustableLiveStreamApi
+
+        return self._device.api(AsyncRtspAdjustableLiveStreamApi)
 
     @cached_property
     def scene_profile(self) -> AsyncSceneProfileApi:
@@ -2450,6 +2691,12 @@ class AsyncApis:
         from .video_streaming_indicator import AsyncVideoStreamingIndicatorApi
 
         return self._device.api(AsyncVideoStreamingIndicatorApi)
+
+    @cached_property
+    def video_streaming_rtsp(self) -> AsyncRtspHelperApi:
+        from .video_streaming_rtsp import AsyncRtspHelperApi
+
+        return self._device.api(AsyncRtspHelperApi)
 
     @cached_property
     def view_area(self) -> AsyncViewAreaApi:
