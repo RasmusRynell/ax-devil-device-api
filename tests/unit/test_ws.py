@@ -32,6 +32,11 @@ FILTERS = [
 QUICK = Heartbeat(None)
 
 
+def _cause(session: Any) -> str:
+    record = session._core.record  # noqa: SLF001
+    return record.termination[0] if record is not None and record.termination is not None else ""
+
+
 def device(camera: FakeWsCamera, **kw: Any) -> Device:
     return Device("cam.test", credentials=("root", "pass"), transport=camera.transport(), **kw)
 
@@ -281,22 +286,23 @@ def test_on_response_reports_handshake() -> None:
 # -- ledger (clock controlled) ---------------------------------------------
 
 
-def test_ledger_gap_start_depends_on_how_the_session_ended(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ledger_gap_start_depends_on_how_the_session_ended() -> None:
     now = [1000.0]
-    monkeypatch.setattr(time, "time", lambda: now[0])
-    ledger = SessionLedger()
-    assert ledger.begin("k") is None
+    ledger = SessionLedger(clock=lambda: now[0])
+    first, gap = ledger.open("k", lambda: None)
+    assert gap is None
     now[0] = 1010.0
-    ledger.touch("k")  # last frame at 1010
+    ledger.touch(first, 1010.0)  # last frame at 1010
     now[0] = 1030.0
-    ledger.end("k", graceful=False)  # lost: the loss was noticed at 1030, but data stopped at 1010
+    ledger.terminate(first, "network", None, 1030.0)  # lost: noticed at 1030, but data stopped at 1010
+    ledger.end(first)
     now[0] = 1100.0
-    gap = ledger.begin("k")
+    second, gap = ledger.open("k", lambda: None)
     assert gap is not None and gap.start.timestamp() == 1010.0 and gap.duration == 90.0
     now[0] = 1110.0
-    ledger.end("k", graceful=True)  # clean exit stamps the close time
+    ledger.end(second)  # no recorded end: our own close, now
     now[0] = 1120.0
-    gap = ledger.begin("k")
+    _, gap = ledger.open("k", lambda: None)
     assert gap is not None and gap.start.timestamp() == 1110.0 and gap.duration == 10.0
 
 
@@ -387,7 +393,7 @@ def test_send_failure_is_a_library_error_and_fails_the_session() -> None:
                 session.send("x")
             with pytest.raises(errors.ConnectionFailed):
                 session.send(b"x")
-            assert session._core.failed
+            assert _cause(session) in ('network', 'send_failure', 'abnormal_remote', 'oversize')
         time.sleep(0.05)
         with dev.connect_session(EVENTS, heartbeat=QUICK) as again:
             assert again.gap is not None and again.gap.duration > 0.04  # gap starts at the last good frame, not the failed close
@@ -406,7 +412,7 @@ async def test_async_send_failure_is_a_library_error_and_fails_the_session() -> 
             session._raw.send_text = broken  # type: ignore[method-assign]
             with pytest.raises(errors.ConnectionFailed):
                 await session.send("x")
-            assert session._core.failed
+            assert _cause(session) in ('network', 'send_failure', 'abnormal_remote', 'oversize')
 
 
 # -- review threads 32-38 ---------------------------------------------------
@@ -466,14 +472,14 @@ def test_failed_setup_does_not_touch_the_gap_ledger() -> None:
     with device(camera) as dev:
         with dev.connect_session(EVENTS, heartbeat=QUICK):
             pass
-        track = dev._ledger._tracks[EVENTS.key]  # noqa: SLF001
-        before = track.last_seen
+        before = dev._ledger.coverage(EVENTS.key)  # noqa: SLF001
+        assert before is not None
         time.sleep(0.02)
         camera.handler = None
         with pytest.raises(errors.ReadTimeout):
             with dev.connect_session(EVENTS, heartbeat=QUICK, event_filter_list=FILTERS, request_options=RequestOptions(timeout=0.1)):
                 pass
-        assert track.last_seen == before and track.active == 0
+        assert dev._ledger.coverage(EVENTS.key) == before and dev._ledger.live(EVENTS.key) == 0  # noqa: SLF001
         camera.handler = events_handler
         with dev.connect_session(EVENTS, heartbeat=QUICK) as again:
             assert again.gap is not None and abs(again.gap.start.timestamp() - before) < 1e-3
@@ -519,7 +525,7 @@ def test_oversized_messages_close_the_session_with_a_library_error(kind: str) ->
         camera.sockets[0].push_fragments(*parts)
         with pytest.raises(errors.ResponseFormatError, match="exceeds"):
             session.receive(timeout=5)
-        assert session._core.failed  # noqa: SLF001
+        assert _cause(session) in ('network', 'send_failure', 'abnormal_remote', 'oversize')
 
 
 @pytest.mark.anyio
@@ -530,7 +536,7 @@ async def test_async_oversized_messages_close_the_session_with_a_library_error(k
         camera.sockets[0].push_fragments(*_oversized(kind))
         with pytest.raises(errors.ResponseFormatError, match="exceeds"):
             await session.receive(timeout=5)
-        assert session._core.failed  # noqa: SLF001
+        assert _cause(session) in ('network', 'send_failure', 'abnormal_remote', 'oversize')
 
 
 def test_messages_under_the_cap_still_arrive() -> None:

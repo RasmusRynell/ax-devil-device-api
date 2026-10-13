@@ -14,10 +14,14 @@ import queue
 from collections.abc import Callable
 from typing import Any
 
+import httpcore
 import httpx
 import wsproto
 import wsproto.connection
 import wsproto.events
+
+_NETWORK_ERROR = b"<network error>"
+"""Queued on a stream to make its next ``read`` raise ``httpcore.ReadError`` (a connection that failed)."""
 
 Handler = Callable[["FakeSocket", Any], None]
 
@@ -72,6 +76,10 @@ class FakeSocket:
     def close(self, code: int = 1000, reason: str = "") -> None:
         self._emit(self.conn.send(wsproto.events.CloseConnection(code, reason)))
 
+    def network_error(self) -> None:
+        """The connection fails: the reader gets a read error."""
+        self._emit(_NETWORK_ERROR)
+
     def drop(self) -> None:
         """End of stream without a close frame."""
         self._emit(b"")
@@ -86,7 +94,10 @@ class SyncStream:
     def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
         if self.closed:
             return b""
-        return self._out.get()
+        data = self._out.get()
+        if data is _NETWORK_ERROR:
+            raise httpcore.ReadError("connection failed")
+        return data
 
     def write(self, buffer: bytes, timeout: float | None = None) -> None:
         self.socket.feed(buffer)
@@ -108,7 +119,10 @@ class AsyncStream:
     async def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
         if self.closed:
             return b""
-        return await self._out.get()
+        data = await self._out.get()
+        if data is _NETWORK_ERROR:
+            raise httpcore.ReadError("connection failed")
+        return data
 
     async def write(self, buffer: bytes, timeout: float | None = None) -> None:
         self.socket.feed(buffer)

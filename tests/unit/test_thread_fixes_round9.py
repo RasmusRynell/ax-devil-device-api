@@ -70,7 +70,7 @@ def test_send_after_device_close_ends_tracking() -> None:
                 for _ in range(300):
                     session.send({"x": 1})
                     time.sleep(0.01)
-            assert dev._ledger._tracks[EVENTS.key].active == 0  # noqa: SLF001
+            assert dev._ledger.live(EVENTS.key) == 0  # noqa: SLF001
 
 
 @pytest.mark.anyio
@@ -94,4 +94,4 @@ async def test_async_send_after_device_close_ends_tracking() -> None:
                 for _ in range(300):
                     await session.send({"x": 1})
                     await anyio.sleep(0.01)
-            assert dev._ledger._tracks[EVENTS.key].active == 0  # noqa: SLF001
+            assert dev._ledger.live(EVENTS.key) == 0  # noqa: SLF001

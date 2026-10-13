@@ -219,6 +219,8 @@ class _SizeGuard:
         self._inner = inner
         self._limit = limit
         self._size = 0
+        self.last_frame: float | None = None
+        """Arrival time of the last data frame."""
         self.remote_close: tuple[int, float] | None = None
         """``(code, arrival time)`` of the close frame the device sent. Recorded here, in the reader, before the
         session layer sees the event, so the time is that of the frame however late it is consumed."""
@@ -235,6 +237,7 @@ class _SizeGuard:
                     self._size = 0
                     yield wsproto.events.CloseConnection(LIMIT_CLOSE_CODE, LIMIT_CLOSE_REASON)
                     return
+                self.last_frame = _clock()  # only frames within the limit count as evidence of liveness
                 if event.message_finished:
                     self._size = 0
             if isinstance(event, wsproto.events.CloseConnection) and self.remote_close is None:

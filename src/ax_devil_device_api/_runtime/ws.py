@@ -36,7 +36,7 @@ from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 import httpcore
@@ -146,63 +146,104 @@ def _utc(stamp: float) -> datetime:
     return datetime.fromtimestamp(stamp, tz=UTC)
 
 
+Cause = Literal["normal_remote", "local_close", "abnormal_remote", "network", "oversize", "send_failure"]
+"""Why a session ended: a 1000/1001 close frame, our own close, any other close code, a transport error,
+the 8 MiB message limit, or a failed send."""
+_COVERED_UNTIL_TERMINATION: tuple[str, ...] = ("normal_remote", "local_close")
+
+
 @dataclass
-class _Track:
-    active: int = 0
-    last_seen: float = 0.0
-    ended_abnormally: bool = False
+class _Record:
+    """One session as the ledger knows it."""
+
+    key: Any
+    opened_ts: float
+    last_frame_ts: float
+    """The last data frame received: the last evidence that the session was alive."""
+    termination: tuple[Cause, int | None, float] | None = None
+    """``(cause, code, ts)``, set once by whichever layer observes the end first."""
+    ended: bool = False
+    poll: Callable[[], None] | None = None
+
+    def coverage_end(self) -> float:
+        """Until when this session is known to have been receiving."""
+        if self.termination is not None and self.termination[0] in _COVERED_UNTIL_TERMINATION:
+            return self.termination[2]
+        return self.last_frame_ts
 
 
 class SessionLedger:
-    """Per-device memory of when each session key last received data. Thread-safe."""
+    """Per-device record of sessions, from which the gap of a new session is *computed*. Thread-safe.
 
-    def __init__(self) -> None:
+    Nothing is overwritten: each session has its own record, a termination is set once, and the gap of a new
+    session for a key is derived from all earlier records, so the order in which sessions are finalized does not
+    matter. A new session has no gap while another one for the key is still live (coverage is continuous) and for
+    the first connect; otherwise the gap runs from the latest coverage end of the earlier sessions. Finished
+    records are folded into one number per key, so memory stays bounded.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.time) -> None:
+        self.now = clock
         self._lock = threading.Lock()
-        self._tracks: dict[Any, _Track] = {}
-        self._watchers: dict[Any, list[Callable[[], None]]] = {}
+        self._open: dict[Any, list[_Record]] = {}
+        self._folded: dict[Any, float] = {}
 
-    def watch(self, key: Any, check: Callable[[], None]) -> None:
-        """Register ``check`` for an active session; it ends the session's tracking if its reader has terminated."""
+    def open(self, key: Any, poll: Callable[[], None]) -> tuple[_Record, Gap | None]:
         with self._lock:
-            self._watchers.setdefault(key, []).append(check)
-
-    def unwatch(self, key: Any, check: Callable[[], None]) -> None:
+            known = list(self._open.get(key, ()))
+        for record in known:  # sessions whose socket died but nobody noticed yet terminate here
+            if record.termination is None and record.poll is not None:
+                record.poll()
+        now = self.now()
         with self._lock:
-            if check in self._watchers.get(key, []):
-                self._watchers[key].remove(check)
-
-    def begin(self, key: Any) -> Gap | None:
-        with self._lock:
-            checks = list(self._watchers.get(key, ()))
-        for check in checks:  # a session whose socket died is not "open", even if nobody has read the close yet
-            check()
-        now = time.time()
-        with self._lock:
-            track = self._tracks.get(key)
+            records = self._open.setdefault(key, [])
             gap: Gap | None = None
-            if track is None:
-                track = self._tracks[key] = _Track()
-            elif track.active == 0:
-                gap = Gap(_utc(track.last_seen), _utc(now))
-            track.active += 1
-            track.last_seen = now
-            return gap
+            live = any(r.termination is None for r in records)
+            if not live and (records or key in self._folded):
+                start = max([r.coverage_end() for r in records] + [self._folded.get(key, float("-inf"))])
+                gap = Gap(_utc(min(start, now)), _utc(now))
+            record = _Record(key, now, now, poll=poll)
+            records.append(record)
+            return record, gap
 
-    def touch(self, key: Any) -> None:
+    def touch(self, record: _Record, ts: float) -> None:
         with self._lock:
-            track = self._tracks.get(key)
-            if track is not None:
-                track.last_seen = time.time()
+            if not record.ended and record.termination is None:
+                record.last_frame_ts = max(record.last_frame_ts, ts)
 
-    def end(self, key: Any, *, graceful: bool, at: float | None = None) -> None:
-        """A session ended. Graceful: stamp ``at`` (default now). Abnormal: keep the last frame time."""
+    def terminate(self, record: _Record, cause: Cause, code: int | None, ts: float) -> None:
+        """Record why the session ended; a no-op if a termination is already set."""
         with self._lock:
-            track = self._tracks.get(key)
-            if track is None:
+            if record.termination is None:
+                record.termination = (cause, code, ts)
+
+    def end(self, record: _Record) -> None:
+        """The session object is finished (the ``with`` block exited). Never invents a time: without a recorded
+        termination the session ended by our own close, now."""
+        with self._lock:
+            if record.ended:
                 return
-            track.active = max(0, track.active - 1)
-            if graceful:
-                track.last_seen = time.time() if at is None else at
+            if record.termination is None:
+                record.termination = ("local_close", None, self.now())
+            record.ended = True
+            records = self._open.get(record.key, [])
+            if record in records:
+                records.remove(record)
+            self._folded[record.key] = max(self._folded.get(record.key, float("-inf")), record.coverage_end())
+
+    # -- inspection (tests, diagnostics) --
+
+    def live(self, key: Any) -> int:
+        with self._lock:
+            return sum(1 for r in self._open.get(key, ()) if r.termination is None)
+
+    def coverage(self, key: Any) -> float | None:
+        """Latest coverage end over the finished and terminated sessions of ``key`` (``None`` if there are none)."""
+        with self._lock:
+            ends = [r.coverage_end() for r in self._open.get(key, ()) if r.termination is not None]
+            if key in self._folded:
+                ends.append(self._folded[key])
+            return max(ends) if ends else None
 
 
 # ---------------------------------------------------------------------------
@@ -216,12 +257,12 @@ class _Core:
         self.response = response
         self.default_timeout = default_timeout
         self.gap: Gap | None = None
+        self.record: _Record | None = None
         self._begun = False
         self._parts: list[Any] = []
         self._parts_size = 0
         self.pending: deque[Any] = deque()
         self.closed: SessionClosed | None = None
-        self.failed = False
         self.overflowed = False
         self._counter = 0
         self._ended = False
@@ -233,8 +274,8 @@ class _Core:
         """Enter the gap ledger. Called once setup has succeeded, so a failed attempt leaves no trace."""
         if not self._begun and not self._ended:
             self._begun = True
-            self.gap = self.ledger.begin(self.spec.key)
-            self.ledger.watch(self.spec.key, self.check_alive)
+            self.record, self.gap = self.ledger.open(self.spec.key, self._poll_reader)
+            self._poll_reader()  # the socket may have died during setup
 
     def watch_reader(self, raw: Any) -> None:
         """Follow the socket's background reader: when it terminated (a private httpx-ws signal)."""
@@ -242,25 +283,50 @@ class _Core:
         self._reader_over = lambda: bool(getattr(raw, "_should_close").is_set())  # noqa: B009
 
     @property
+    def _connection(self) -> Any:
+        return getattr(self._raw, "connection", None)
+
+    @property
     def remote_close(self) -> tuple[int, float] | None:
         """``(code, arrival time)`` of the device's close frame, as recorded by the transport's connection wrapper."""
-        return getattr(getattr(self._raw, "connection", None), "remote_close", None)
+        return getattr(self._connection, "remote_close", None)
 
-    def check_alive(self) -> None:
-        """End tracking if the reader terminated, whatever the reason.
+    def _frame_time(self) -> float:
+        return getattr(self._connection, "last_frame", None) or self.ledger.now()
 
-        A close frame with a normal code (or our own ``close()``) ends the session normally, at the time the frame
-        arrived; anything else (network error, abnormal code) is abnormal: the gap starts at the last data frame.
-        """
-        if self._reader_over is None or self._ended or not self._reader_over():
+    def _poll_reader(self) -> None:
+        """If the reader terminated, record why (whatever the app has or has not read yet). A no-op once recorded."""
+        record = self.record
+        if record is None or record.ended or record.termination is not None:
             return
-        if self.remote_close is None and self.closing:
-            self.finish(user_exit_error=None)
-        elif self.remote_close is not None and self.remote_close[0] in _NORMAL_CLOSE:
-            self.finish(user_exit_error=None)
+        if self._reader_over is None or not self._reader_over():
+            return
+        closed = self.remote_close
+        if closed is not None:
+            self._record(record, "normal_remote" if closed[0] in _NORMAL_CLOSE else "abnormal_remote", closed[0], closed[1])
+        elif self.closing:
+            self._record(record, "local_close", None, None)
         else:
-            self.failed = True
-            self.finish(user_exit_error=None)
+            self._record(record, "network", None, None)
+
+    def _record(self, record: _Record, cause: Cause, code: int | None, ts: float | None) -> None:
+        seen = getattr(self._connection, "last_frame", None)
+        if seen is not None:
+            self.ledger.touch(record, seen)
+        self.ledger.terminate(record, cause, code, self.ledger.now() if ts is None else ts)
+
+    def close_locally(self) -> None:
+        """We are about to close the socket: an end the reader already saw is recorded first, then ours."""
+        self._poll_reader()
+        self.closing = True
+        self.terminate("local_close")
+
+    def terminate(self, cause: Cause, code: int | None = None, ts: float | None = None) -> None:
+        """Every observer reports the end of the session here; the first report wins."""
+        if self.record is None:
+            return  # never entered the ledger: a failed setup leaves no trace
+        self._poll_reader()  # an end the reader already saw comes first
+        self._record(self.record, cause, code, ts)
 
     def next_id(self) -> str:
         self._counter += 1
@@ -270,8 +336,8 @@ class _Core:
         """Turn a wsproto message into a Python value; ``None`` for non-message events."""
         if not isinstance(event, (wsproto.events.BytesMessage, wsproto.events.TextMessage)):
             return None
-        if self._begun and not self._ended:
-            self.ledger.touch(self.spec.key)
+        if self.record is not None and not self._ended:
+            self.ledger.touch(self.record, self._frame_time())
         is_text = isinstance(event, wsproto.events.TextMessage)
         self._parts.append(event.data if is_text else bytes(event.data))
         self._parts_size += len(event.data.encode("utf-8")) if is_text else len(event.data)
@@ -303,9 +369,8 @@ class _Core:
         return SessionClosed(LIMIT_CLOSE_CODE, LIMIT_CLOSE_REASON)
 
     def _too_large(self) -> ResponseFormatError:
-        self.failed = True
         self.overflowed = True
-        self.finish(user_exit_error=None)  # the session is over: stop gap tracking now, not when the ``with`` block exits
+        self.terminate("oversize", LIMIT_CLOSE_CODE)
         return ResponseFormatError(self.spec.api_id, "receive", f"message exceeds {MAX_WS_MESSAGE_BYTES} bytes; session closed")
 
     def on_disconnect(self, error: httpx_ws.WebSocketDisconnect) -> DeviceError:
@@ -313,16 +378,16 @@ class _Core:
             return self._too_large()
         if error.code in _NORMAL_CLOSE:
             self.closed = SessionClosed(error.code, error.reason)
-            self.finish(user_exit_error=None)
+            self.terminate("normal_remote", error.code)
             return self.closed
+        self.terminate("abnormal_remote", error.code)
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: device closed the session with code {error.code}: {error.reason}"))
 
     def on_network_error(self) -> DeviceError:
+        self.terminate("network")
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: connection lost (network error or heartbeat timeout)"))
 
     def _fail(self, error: TransportError) -> TransportError:
-        self.failed = True
-        self.finish(user_exit_error=None)
         return error
 
     def reply_for(self, message: Any, request_id: str, method: str) -> tuple[bool, Any]:
@@ -350,18 +415,15 @@ class _Core:
         request_id = self.next_id()
         return request_id, codec.encode_request(method, params, request_id)
 
-    def finish(self, *, user_exit_error: BaseException | None, at: float | None = None) -> None:
+    def finish(self, *, user_exit_error: BaseException | None) -> None:
+        """The session object is done. Only marks it ended: the termination was recorded by whoever saw the end."""
         if self._ended:
             return
         self._ended = True
-        if not self._begun:
+        if self.record is None:
             return
-        self.ledger.unwatch(self.spec.key, self.check_alive)
-        graceful = not self.failed and (user_exit_error is None or not isinstance(user_exit_error, TransportError))
-        closed = self.remote_close
-        if at is None and graceful and closed is not None and closed[0] in _NORMAL_CLOSE:
-            at = closed[1]  # a normal close ends the session when the frame arrived, not when we got around to it
-        self.ledger.end(self.spec.key, graceful=graceful, at=at)
+        self._poll_reader()  # an unread end must not be mistaken for our own close
+        self.ledger.end(self.record)
 
 
 def refusal_error(spec: SessionSpec, response: Response) -> DeviceError:
@@ -435,8 +497,7 @@ class Session:
             else:
                 self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
-            self._core.check_alive()
-            self._core.finish(user_exit_error=None)  # the connection is closed: stop gap tracking
+            self._core.terminate("send_failure")
             raise self._core.closed or SessionClosed() from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
@@ -517,9 +578,8 @@ class Session:
                 yield found.item
 
     def close(self) -> None:
-        self._core.closing = True
+        self._core.close_locally()  # before the socket closes, so it is not mistaken for a failure
         self._raw.close()
-        self._core.finish(user_exit_error=None)  # closed: the session no longer counts as active in the gap ledger
 
 
 @contextmanager
@@ -577,6 +637,9 @@ def connect_session(
             except BaseException as exc:  # noqa: BLE001 - recorded, re-raised
                 error = exc
                 raise
+            finally:
+                # Leaving the context closes the socket next: record that this end is ours (an end already seen wins).
+                core.close_locally()
     finally:
         core.finish(user_exit_error=error)
 
@@ -614,8 +677,7 @@ class AsyncSession:
             else:
                 await self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
-            self._core.check_alive()
-            self._core.finish(user_exit_error=None)  # the connection is closed: stop gap tracking
+            self._core.terminate("send_failure")
             raise self._core.closed or SessionClosed() from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             raise self._core.on_network_error() from error
@@ -698,9 +760,8 @@ class AsyncSession:
                 yield found.item
 
     async def close(self) -> None:
-        self._core.closing = True
+        self._core.close_locally()
         await self._raw.close()
-        self._core.finish(user_exit_error=None)  # closed: the session no longer counts as active in the gap ledger
 
 
 @asynccontextmanager
@@ -758,5 +819,8 @@ async def connect_session_async(
             except BaseException as exc:  # noqa: BLE001 - recorded, re-raised
                 error = exc
                 raise
+            finally:
+                # Leaving the context closes the socket next: record that this end is ours (an end already seen wins).
+                core.close_locally()
     finally:
         core.finish(user_exit_error=error)

@@ -171,7 +171,7 @@ def test_close_ends_gap_tracking_for_the_session() -> None:
     with Device("cam.test", credentials=("root", "pass"), transport=camera.transport()) as dev:
         with dev.connect_session(EVENTS, heartbeat=QUICK) as first:
             first.close()
-            assert dev._ledger._tracks[EVENTS.key].active == 0  # noqa: SLF001
+            assert dev._ledger.live(EVENTS.key) == 0  # noqa: SLF001
             with dev.connect_session(EVENTS, heartbeat=QUICK) as second:
                 assert second.gap is not None  # the closed session no longer counts as open
 
@@ -182,7 +182,7 @@ async def test_async_close_ends_gap_tracking_for_the_session() -> None:
     async with AsyncDevice("cam.test", credentials=("root", "pass"), transport=camera.async_transport()) as dev:
         async with dev.connect_session(EVENTS, heartbeat=QUICK) as first:
             await first.close()
-            assert dev._ledger._tracks[EVENTS.key].active == 0  # noqa: SLF001
+            assert dev._ledger.live(EVENTS.key) == 0  # noqa: SLF001
 
 
 def test_a_device_side_close_ends_gap_tracking() -> None:
@@ -192,7 +192,7 @@ def test_a_device_side_close_ends_gap_tracking() -> None:
             camera.sockets[0].close()
             with pytest.raises(SessionClosed):
                 session.receive(timeout=3)
-            assert dev._ledger._tracks[EVENTS.key].active == 0  # noqa: SLF001
+            assert dev._ledger.live(EVENTS.key) == 0  # noqa: SLF001
 
 
 # -- #13 subscription and filter mappings are validated -----------------------------

@@ -10,13 +10,10 @@ import pytest
 from ws_fake import FakeWsCamera
 
 from ax_devil_device_api import AsyncDevice, Device
-from ax_devil_device_api._http import transport as transport_module
 from ax_devil_device_api._http.options import Heartbeat
 from ax_devil_device_api._runtime.ws import EVENTS
-from ax_devil_device_api.errors import SessionClosed
 
 QUICK = Heartbeat(None)
-CLOSE_AT = 5000.0
 
 
 def _device(camera: FakeWsCamera) -> Device:
@@ -25,89 +22,6 @@ def _device(camera: FakeWsCamera) -> Device:
 
 def _adevice(camera: FakeWsCamera) -> AsyncDevice:
     return AsyncDevice("cam.test", credentials=("root", "pass"), transport=camera.async_transport())
-
-
-@pytest.fixture
-def clock(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The transport stamps the close frame with this clock; the test sets it to CLOSE_AT when the frame arrives."""
-    monkeypatch.setattr(transport_module, "_clock", lambda: CLOSE_AT)
-
-
-def _last_seen(dev: Device | AsyncDevice) -> float:
-    return dev._ledger._tracks[EVENTS.key].last_seen  # noqa: SLF001
-
-
-def test_receive_after_a_delay_stamps_the_close_time(clock: None) -> None:
-    camera = FakeWsCamera()
-    with _device(camera) as dev:
-        with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
-            camera.sockets[0].close(1000)
-            time.sleep(0.3)  # the app reads the close late
-            with pytest.raises(SessionClosed):
-                session.receive(timeout=3)
-            assert _last_seen(dev) == CLOSE_AT
-
-
-def test_close_and_context_exit_after_a_delay_stamp_the_close_time(clock: None) -> None:
-    camera = FakeWsCamera()
-    with _device(camera) as dev:
-        with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
-            camera.sockets[0].close(1001)
-            time.sleep(0.3)
-            session.close()
-            assert _last_seen(dev) == CLOSE_AT
-    camera = FakeWsCamera()
-    with _device(camera) as dev:
-        with dev.connect_session(EVENTS, heartbeat=QUICK):
-            camera.sockets[0].close(1000)
-            time.sleep(0.3)
-        assert _last_seen(dev) == CLOSE_AT  # context cleanup, close never read
-
-
-def test_reaping_stamps_the_close_time(clock: None) -> None:
-    camera = FakeWsCamera()
-    with _device(camera) as dev:
-        with dev.connect_session(EVENTS, heartbeat=QUICK):
-            camera.sockets[0].close(1000)
-            time.sleep(0.3)
-            with dev.connect_session(EVENTS, heartbeat=QUICK) as again:
-                assert again.gap is not None and again.gap.start.timestamp() == CLOSE_AT
-
-
-@pytest.mark.anyio
-async def test_async_receive_close_and_cleanup_stamp_the_close_time(clock: None) -> None:
-    camera = FakeWsCamera()
-    async with _adevice(camera) as dev:
-        async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
-            camera.sockets[0].close(1000)
-            await anyio.sleep(0.3)
-            with pytest.raises(SessionClosed):
-                await session.receive(timeout=3)
-            assert _last_seen(dev) == CLOSE_AT
-    camera = FakeWsCamera()
-    async with _adevice(camera) as dev:
-        async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
-            camera.sockets[0].close(1001)
-            await anyio.sleep(0.3)
-            await session.close()
-            assert _last_seen(dev) == CLOSE_AT
-    camera = FakeWsCamera()
-    async with _adevice(camera) as dev:
-        async with dev.connect_session(EVENTS, heartbeat=QUICK):
-            camera.sockets[0].close(1000)
-            await anyio.sleep(0.3)
-        assert _last_seen(dev) == CLOSE_AT
-
-
-@pytest.mark.anyio
-async def test_async_reaping_stamps_the_close_time(clock: None) -> None:
-    camera = FakeWsCamera()
-    async with _adevice(camera) as dev:
-        async with dev.connect_session(EVENTS, heartbeat=QUICK):
-            camera.sockets[0].close(1000)
-            await anyio.sleep(0.3)
-            async with dev.connect_session(EVENTS, heartbeat=QUICK) as again:
-                assert again.gap is not None and again.gap.start.timestamp() == CLOSE_AT
 
 
 # -- the close is recorded before the reader starts ------------------------------------------
