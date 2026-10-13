@@ -291,6 +291,10 @@ class _Core:
         """``(code, arrival time)`` of the device's close frame, as recorded by the transport's connection wrapper."""
         return getattr(self._connection, "remote_close", None)
 
+    @property
+    def write_failed(self) -> bool:
+        return bool(getattr(getattr(self._raw, "stream", None), "write_failed", False))
+
     def _frame_time(self) -> float:
         return getattr(self._connection, "last_frame", None) or self.ledger.now()
 
@@ -303,11 +307,11 @@ class _Core:
         if closed is not None:
             self._record(record, "normal_remote" if closed[0] in _NORMAL_CLOSE else "abnormal_remote", closed[0], closed[1])
             return
-        if self._reader_over is None or not self._reader_over():
-            return
-        if self.closing:
-            self._record(record, "local_close", None, None)
-        else:
+        if self.write_failed:
+            self._record(record, "network", None, None)  # a write that failed: the connection is broken
+        elif self.closing:
+            return  # the reader flag is our own close's doing, not evidence of anything
+        elif self._reader_over is not None and self._reader_over():
             self._record(record, "network", None, None)
 
     def _record(self, record: _Record, cause: Cause, code: int | None, ts: float | None) -> None:
@@ -320,12 +324,6 @@ class _Core:
         """We are about to close the socket: an end the reader already saw is recorded first."""
         self._poll_reader()
         self.closing = True
-
-    def close_locally(self) -> None:
-        """We are about to close the socket: an end the reader already saw is recorded first, then ours."""
-        self._poll_reader()
-        self.closing = True
-        self.terminate("local_close")
 
     def terminate(self, cause: Cause, code: int | None = None, ts: float | None = None) -> None:
         """Every observer reports the end of the session here; the first report wins."""
@@ -594,7 +592,7 @@ class Session:
         except _CLOSE_ERRORS:
             self._core.terminate("network")  # the connection was already dead; closing it again is a no-op
         else:
-            self._core.terminate("local_close")
+            self._core.terminate("network" if self._core.write_failed else "local_close")
 
 
 @contextmanager
@@ -654,7 +652,7 @@ def connect_session(
                 raise
             finally:
                 # Leaving the context closes the socket next: record that this end is ours (an end already seen wins).
-                core.close_locally()
+                core.closing_now()  # the socket closes next; finish() records how it ended
     finally:
         core.finish(user_exit_error=error)
 
@@ -781,7 +779,7 @@ class AsyncSession:
         except _CLOSE_ERRORS:
             self._core.terminate("network")
         else:
-            self._core.terminate("local_close")
+            self._core.terminate("network" if self._core.write_failed else "local_close")
 
 
 @asynccontextmanager
@@ -841,6 +839,6 @@ async def connect_session_async(
                 raise
             finally:
                 # Leaving the context closes the socket next: record that this end is ours (an end already seen wins).
-                core.close_locally()
+                core.closing_now()  # the socket closes next; finish() records how it ended
     finally:
         core.finish(user_exit_error=error)

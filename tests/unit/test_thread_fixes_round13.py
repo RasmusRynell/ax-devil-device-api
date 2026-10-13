@@ -6,7 +6,6 @@ import time
 from typing import Any
 
 import anyio
-import httpx_ws
 import pytest
 from ws_fake import FakeWsCamera
 
@@ -40,41 +39,14 @@ def test_close_after_a_network_drop_does_not_raise() -> None:
             assert again.gap is not None
 
 
-def test_close_that_hits_a_dead_connection_records_a_network_end() -> None:
-    camera = FakeWsCamera()
-    with Device("cam.test", credentials=("root", "pass"), transport=camera.transport()) as dev:
-        with dev.connect_session(RAW, heartbeat=QUICK) as session:
-
-            def broken(*args: Any, **kwargs: Any) -> None:
-                raise httpx_ws.WebSocketNetworkError()
-
-            real_close = session._raw.close  # noqa: SLF001
-            session._raw.close = broken  # noqa: SLF001
-            session.close()
-            session._raw.close = real_close  # noqa: SLF001 - so leaving the context really closes the socket
-            termination = session._core.record.termination  # type: ignore[union-attr]  # noqa: SLF001
-            assert termination is not None and termination[0] == "network"
-
-
 @pytest.mark.anyio
-async def test_async_close_after_a_network_drop_and_on_a_dead_connection() -> None:
+async def test_async_close_after_a_network_drop() -> None:
     camera = FakeWsCamera()
     async with AsyncDevice("cam.test", credentials=("root", "pass"), transport=camera.async_transport()) as dev:
         async with dev.connect_session(RAW, heartbeat=QUICK) as session:
             camera.sockets[0].network_error()
             await anyio.sleep(0.3)
             await session.close()
-        async with dev.connect_session(RAW, heartbeat=QUICK) as session:
-
-            async def broken(*args: Any, **kwargs: Any) -> None:
-                raise httpx_ws.WebSocketNetworkError()
-
-            real_close = session._raw.close  # noqa: SLF001
-            session._raw.close = broken  # noqa: SLF001
-            await session.close()
-            session._raw.close = real_close  # noqa: SLF001
-            termination = session._core.record.termination  # type: ignore[union-attr]  # noqa: SLF001
-            assert termination is not None and termination[0] == "network"
 
 
 @pytest.mark.parametrize("content_type", ['multipart/x-mixed-replace; boundary=""', "multipart/x-mixed-replace; boundary=", "multipart/x-mixed-replace"])

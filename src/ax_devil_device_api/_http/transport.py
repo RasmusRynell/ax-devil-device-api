@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import inspect
 import secrets
 import ssl
 import threading
@@ -249,8 +250,41 @@ def _clock() -> float:
     return time.time()
 
 
+class _WatchedStream:
+    """Wraps the network stream of a session to remember that a write failed.
+
+    httpx-ws swallows a ``WriteError`` while closing, and sets its own ``_should_close`` before it writes, so neither
+    tells the session layer that its close did not reach the device. This does.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+        self.write_failed = False
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    def write(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            result = self._inner.write(*args, **kwargs)
+        except BaseException:
+            self.write_failed = True
+            raise
+        if inspect.isawaitable(result):
+            return self._awaited(result)
+        return result
+
+    async def _awaited(self, awaitable: Any) -> Any:
+        try:
+            return await awaitable
+        except BaseException:
+            self.write_failed = True
+            raise
+
+
 def _guard(session: Any) -> None:
     session.connection = _SizeGuard(session.connection, MAX_WS_MESSAGE_BYTES)
+    session.stream = _WatchedStream(session.stream)
 
 
 def _ws_request(request: Request) -> Request:

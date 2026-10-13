@@ -25,6 +25,8 @@ from ._protocols.base import BytesDecoder, CallFlow, StreamDecoder
 from .errors import ConnectionFailed, ResponseFormatError
 
 DEFAULT_MAX_PART_BYTES = 32 * 1024 * 1024
+DEFAULT_MAX_LINE_BYTES = 1024 * 1024
+"""Longest line a lines decoder accepts; a stream without newlines would otherwise buffer without bound."""
 
 
 @dataclass(frozen=True)
@@ -189,13 +191,21 @@ def _length(headers: Headers) -> int | None:
 class LinesDecoder:
     """Split a text body into lines (without terminators). A final unterminated line is returned on ``close``."""
 
-    def __init__(self, encoding: str = "utf-8") -> None:
+    def __init__(self, encoding: str = "utf-8", *, api: str = "stream", max_line_bytes: int = DEFAULT_MAX_LINE_BYTES) -> None:
         self._encoding = encoding
+        self._api = api
+        self._max = max_line_bytes
         self._buffer = b""
+
+    def _too_long(self) -> ResponseFormatError:
+        return ResponseFormatError(self._api, "stream", f"a line exceeds {self._max} bytes; the stream has no line breaks")
 
     def feed(self, chunk: bytes) -> list[str]:
         self._buffer += chunk
         *lines, self._buffer = self._buffer.split(b"\n")
+        if len(self._buffer) > self._max or any(len(line) > self._max for line in lines):
+            self._buffer = b""
+            raise self._too_long()
         return [line.rstrip(b"\r").decode(self._encoding, errors="replace") for line in lines]
 
     def close(self) -> list[str]:
@@ -210,14 +220,22 @@ class MultipartLinesDecoder:
     are dropped: a part without content is the device's keep-alive, not an item.
     """
 
-    def __init__(self, parts: MixedReplaceDecoder, encoding: str = "utf-8") -> None:
+    def __init__(
+        self, parts: MixedReplaceDecoder, encoding: str = "utf-8", *, api: str = "stream", max_line_bytes: int = DEFAULT_MAX_LINE_BYTES
+    ) -> None:
         self._parts = parts
         self._encoding = encoding
+        self._api = api
+        self._max = max_line_bytes
 
     def _lines(self, parts: list[Part]) -> list[str]:
         out: list[str] = []
         for part in parts:
-            out.extend(line for line in part.body.decode(self._encoding, errors="replace").splitlines() if line.strip())
+            for line in part.body.decode(self._encoding, errors="replace").splitlines():
+                if len(line) > self._max:
+                    raise ResponseFormatError(self._api, "stream", f"a line exceeds {self._max} bytes")
+                if line.strip():
+                    out.append(line)
         return out
 
     def feed(self, chunk: bytes) -> list[str]:
@@ -248,7 +266,9 @@ def mjpeg_decoder(response: Response, *, api: str = "stream") -> StreamDecoder[P
     return MixedReplaceDecoder.for_response(response, api=api)
 
 
-def decoder_for(codec: object, response: Response, *, api: str = "stream") -> StreamDecoder[object]:
+def decoder_for(
+    codec: object, response: Response, *, api: str = "stream", max_line_bytes: int = DEFAULT_MAX_LINE_BYTES
+) -> StreamDecoder[object]:
     """Decoder for a streamed answer, chosen by a ``Stream`` reply codec (``decoder`` and ``encoding`` attributes).
 
     Anything without a ``decoder`` attribute gets the raw bytes.
@@ -259,9 +279,12 @@ def decoder_for(codec: object, response: Response, *, api: str = "stream") -> St
     if kind == "lines":
         encoding = getattr(codec, "encoding", "utf-8")
         content_type = response.headers.get("content-type", "")
-        if is_multipart_stream(content_type) and boundary_of(content_type) is not None:
-            return MultipartLinesDecoder(MixedReplaceDecoder.for_response(response, api=api), encoding)
-        return LinesDecoder(encoding)
+        if content_type.split(";", 1)[0].strip().lower().startswith("multipart/"):
+            # chosen by media type: a missing or empty boundary is then rejected, not read as plain lines
+            return MultipartLinesDecoder(
+                MixedReplaceDecoder.for_response(response, api=api), encoding, api=api, max_line_bytes=max_line_bytes
+            )
+        return LinesDecoder(encoding, api=api, max_line_bytes=max_line_bytes)
     if kind == "bytes":
         return BytesDecoder()
     raise ValueError(f"unknown stream decoder {kind!r}")
