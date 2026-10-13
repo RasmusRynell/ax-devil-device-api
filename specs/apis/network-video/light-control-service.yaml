@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: light-control-service
 name: Light control service API
@@ -14,6 +13,8 @@ docs:
 - https://developer.axis.com/vapix/network-video/light-control/
 - http://www.axis.com/vapix/ws/LightService.wsdl
 access: admin
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/light'}
 requires:
   firmware: '5.40'
 
@@ -96,6 +97,11 @@ operations:
       required: [LightID]
       properties:
         LightID: {type: string, description: The Light ID}
+    examples:
+    - title: Turn on the light
+      request:
+        params: {LightID: led0}
+      source: https://developer.axis.com/vapix/network-video/light-control/#enable-and-activate-the-light
   deactivate_light:
     summary: Deativate the light.
     effect: action
@@ -115,6 +121,11 @@ operations:
       required: [LightID]
       properties:
         LightID: {type: string, description: The Light ID}
+    examples:
+    - title: Enable the light
+      request:
+        params: {LightID: led0}
+      source: https://developer.axis.com/vapix/network-video/light-control/#enable-and-activate-the-light
   disable_light:
     summary: Disable the light functionality.
     effect: write
@@ -153,6 +164,11 @@ operations:
       required: [Status]
       properties:
         Status: {type: boolean, description: The light is active or inactive.}
+    examples:
+    - title: Check if the light is lit
+      request:
+        params: {LightID: led0}
+      source: https://developer.axis.com/vapix/network-video/light-control/#light-information
   get_light_information:
     summary: List light control information.
     effect: read
@@ -164,6 +180,11 @@ operations:
       required: [LightInfo]
       properties:
         LightInfo: {$ref: '#/types/LightInformationList', description: Available light information.}
+    examples:
+    - title: List the light information of all lights
+      request:
+        params: {}
+      source: https://developer.axis.com/vapix/network-video/light-control/#light-information
   get_service_capabilities:
     summary: List the light service capablilities.
     effect: read
@@ -177,6 +198,11 @@ operations:
         Capabilities:
           $ref: '#/types/Capabilities'
           description: Capabilities supported by the Light Control Service.
+    examples:
+    - title: List the service capabilities
+      request:
+        params: {}
+      source: https://developer.axis.com/vapix/network-video/light-control/#light-information
   set_automatic_intensity_mode:
     summary: Enable automatic light intensity control.
     effect: write
@@ -276,6 +302,11 @@ operations:
       required: [RangeList]
       properties:
         RangeList: {$ref: '#/types/IntRangeList', description: Valid intensity values.}
+    examples:
+    - title: List the valid light intensities
+      request:
+        params: {LightID: led0}
+      source: https://developer.axis.com/vapix/network-video/light-control/#light-intensity
   set_manual_angle_of_illumination:
     summary: Set the angle of illumination manually.
     effect: write
@@ -289,6 +320,11 @@ operations:
       properties:
         LightID: {type: string, description: The Light ID}
         AngleOfIllumination: {type: integer, description: The angle of illumination.}
+    examples:
+    - title: Set the angle of illumination to 50
+      request:
+        params: {LightID: led0, AngleOfIllumination: 50}
+      source: https://developer.axis.com/vapix/network-video/light-control/#angle-of-illumination
   get_manual_angle_of_illumination:
     summary: Get the angle of illumination sent in the SetManualAngleOfIllumination request.
     effect: read
@@ -321,6 +357,11 @@ operations:
       required: [AngleOfIllumination]
       properties:
         AngleOfIllumination: {type: integer, description: The current angle of illumination.}
+    examples:
+    - title: Get the current angle of illumination
+      request:
+        params: {LightID: led0}
+      source: https://developer.axis.com/vapix/network-video/light-control/#angle-of-illumination
   set_automatic_angle_of_illumination_mode:
     summary: Control the angle of illumination automatically.
     effect: write
@@ -334,6 +375,11 @@ operations:
       properties:
         LightID: {type: string, description: The Light ID}
         Automatic: {type: boolean}
+    examples:
+    - title: Turn off the automatic angle of illumination
+      request:
+        params: {LightID: led0, Automatic: false}
+      source: https://developer.axis.com/vapix/network-video/light-control/#angle-of-illumination
   get_valid_angle_of_illumination:
     summary: List valid angle of illumination values.
     effect: read
@@ -392,14 +438,10 @@ provenance:
   open_questions:
   - Access levels per operation not documented for the SOAP service.
   - 'Endpoint path: doc says to use Xaddr from GetServices; /vapix/services is an assumption.'
+  - SOAPAction values are not documented (the WSDL was checked for the request and reply element names, not for actions); <namespace>/<operation> is assumed.
   - GetNumberOfLeds exists in the WSDL but is not mentioned on the page.
-  - Fault elements in WSDL have no documented content/descriptions.
-  - Discovery method entry_service namespace only.
-  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; prefixed element
-    names (declared in binding.namespaces) are the exception; check the documented examples for other children in
-    foreign namespaces'
-  - 'migration: discovery: no discovery probe: Namespace http://www.axis.com/vapix/ws/light. Use Entry service GetServices
-    and look for this namespace; use the returned Xaddr.'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - Fault elements in the WSDL (for example InvalidLightIDFault) have no documented subcodes, so no errors are declared.
+  - 'The docs show the operations only as pseudocode (myLightService.GetLightStatus(lightID)); no XML request or reply is documented. The examples are derived from the pseudocode and carry no response, and the LightID led0 is a placeholder for the id that GetLightInformation returns.'
+  - 'Superseded by the Light control API (spec light-control, JSON over lightcontrol.cgi), which is preferred; this SOAP service is kept because older products only have it.'
   migrated_from: v1
-  curated: false
+  curated: true

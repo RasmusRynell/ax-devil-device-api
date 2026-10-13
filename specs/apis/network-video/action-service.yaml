@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: action-service
 name: Action service (VAPIX Action service API, action1)
@@ -13,6 +12,8 @@ python:
 docs:
 - https://developer.axis.com/vapix/network-video/event-and-action-services/
 access: admin
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/action1'}
 requires:
   firmware: '5.50'
 
@@ -25,43 +26,6 @@ binding:
     tnsaxis: http://www.axis.com/2009/event/topics
 
 types:
-  NewActionRule:
-    type: object
-    required: [Enabled, PrimaryAction]
-    properties:
-      Name: {type: string, description: User defined name for the action rule.}
-      Enabled:
-        type: boolean
-        description: Enable the rule. If false, the rule will be stored in idle state and action(s) will not be
-          activated.
-      StartEvent:
-        description: Start event. If specified, the action will be executed when the start event is emitted and
-          all conditions, if any, are fulfilled.
-      Conditions:
-        $ref: '#/types/Conditions'
-        description: List of conditions that must be fulfilled for the action to be executed. The order of the conditions
-          will be preserved in GetActionRules requests.
-      ActivationTimeout:
-        type: string
-        description: Minimum time between successive action executions. This is used to prevent the action rule
-          from being triggered repeatedly. If not specified, action will be executed as soon as possible. (format=duration)
-      PrimaryAction:
-        type: integer
-        description: The primary action to be executed, specified by its Action Configuration ID.
-      FailoverAction:
-        type: integer
-        description: Action Configuration ID for the fallback action. The fallback action will be executed if the
-          primary action fails.
-  Conditions:
-    type: object
-    required: [Condition]
-    properties:
-      Condition:
-        type: array
-        items:
-          type: object
-          description: wsnt:FilterType (OASIS WS-BaseNotification / WS-Topics type; e.g. TopicExpression + MessageContent
-            filters).
   ActionRules:
     type: object
     properties:
@@ -78,11 +42,6 @@ types:
       Enabled:
         type: boolean
         description: If false, then the rule is idle and the action is never executed. If true, the rule is active.
-      StartEvent: {description: The start event belonging to the rule.}
-      Conditions:
-        $ref: '#/types/Conditions'
-        description: List of conditions that must be fulfilled for the action to be executed. Conditions are listed
-          in the same order as specified in the AddActionRule request.
       ActivationTimeout:
         type: string
         description: Minimum time between successive action executions. This is used to prevent the action rule
@@ -108,7 +67,7 @@ types:
       ConfigurationID: {type: integer, description: Recipient Configuration ID.}
       TemplateToken: {type: string, description: 'Recipient type, specified as a recipient template token.'}
       Name: {type: string, description: User defined name for the recipient.}
-      Parameters: {$ref: '#/types/ActionParameters', description: Recipient parameter values.}
+      Parameters: {$ref: '#/types/StoredActionParameters', description: Recipient parameter values.}
   RecipientConfigurations:
     type: object
     properties:
@@ -149,13 +108,21 @@ types:
       ConfigurationID: {type: integer, description: Action Configuration ID.}
       Name: {type: string, description: User defined name for the action configuration.}
       TemplateToken: {type: string, description: 'Action type, specified as an action template token.'}
-      Parameters: {$ref: '#/types/ActionParameters', description: Action configuration parameter values.}
+      Parameters: {$ref: '#/types/StoredActionParameters', description: Action configuration parameter values.}
   ActionParameters:
     type: object
+    description: Parameter values to send, as Parameter elements with Name and Value attributes.
     properties:
       Parameter:
         type: array
         items: {$ref: '#/types/ActionParameter'}
+  StoredActionParameters:
+    type: object
+    description: Parameter values as stored, one Parameter element per parameter.
+    properties:
+      Parameter:
+        type: array
+        items: {$ref: '#/types/StoredActionParameter'}
   ActionTemplates:
     type: object
     properties:
@@ -165,10 +132,16 @@ types:
         description: Action template description.
   ActionParameter:
     type: object
+    required: ['@Name', '@Value']
+    properties:
+      '@Name': {type: string, description: Parameter name (XML attribute).}
+      '@Value': {type: string, description: Parameter value (XML attribute). All parameters of a template must be given; use an empty string for a parameter that is not used.}
+  StoredActionParameter:
+    type: object
     required: [Name, Value]
     properties:
-      Name: {type: string, description: Parameter name. (XML attribute)}
-      Value: {type: string, description: Parameter value. (XML attribute)}
+      Name: {type: string, x-xml: {attribute: Name}, description: Parameter name (XML attribute).}
+      Value: {type: string, x-xml: {attribute: Value}, description: Parameter value (XML attribute).}
   ActionTemplate:
     type: object
     required: [TemplateToken]
@@ -192,8 +165,8 @@ types:
     type: object
     required: [Name, Type]
     properties:
-      Name: {type: string, description: Parameter name. (XML attribute)}
-      Type: {type: string, description: Parameter data type. (XML attribute)}
+      Name: {type: string, x-xml: {attribute: Name}, description: Parameter name (XML attribute).}
+      Type: {type: string, x-xml: {attribute: Type}, description: Parameter data type (XML attribute).}
 
 operations:
   get_action_templates:
@@ -206,6 +179,12 @@ operations:
       type: object
       properties:
         ActionTemplates: {$ref: '#/types/ActionTemplates', description: List of supported action types.}
+    examples:
+    - title: List the action templates
+      request:
+        body: '<aa:GetActionTemplates xmlns:aa="http://www.axis.com/vapix/ws/action1" xmlns="http://www.axis.com/vapix/ws/action1" />'
+        params: {}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#action-templates
   add_action_configuration:
     summary: Add a new action configuration.
     effect: write
@@ -222,6 +201,44 @@ operations:
       type: object
       properties:
         ConfigurationID: {type: integer, description: Action Configuration ID.}
+    examples:
+    - title: Set output port 1 to high
+      request:
+        params:
+          NewActionConfiguration:
+            TemplateToken: com.axis.action.unlimited.io.toggle
+            Parameters:
+              Parameter:
+              - {'@Name': 'port', '@Value': '1'}
+              - {'@Name': 'state', '@Value': 'high'}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#create-an-action-configuration
+    - title: Send an HTTP notification
+      request:
+        params:
+          NewActionConfiguration:
+            TemplateToken: com.axis.action.fixed.notification.http
+            Parameters:
+              Parameter:
+              - {'@Name': 'message', '@Value': 'The message to send'}
+              - {'@Name': 'parameters', '@Value': ''}
+              - {'@Name': 'upload_url', '@Value': 'http://ip_address/cgi-bin/notify.cgi'}
+              - {'@Name': 'login', '@Value': 'myusername'}
+              - {'@Name': 'password', '@Value': 'mypassword'}
+              - {'@Name': 'proxy_host', '@Value': ''}
+              - {'@Name': 'proxy_port', '@Value': ''}
+              - {'@Name': 'proxy_login', '@Value': ''}
+              - {'@Name': 'proxy_password', '@Value': ''}
+              - {'@Name': 'qos', '@Value': '0'}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#using-recipients-in-an-action-configuration
+    - title: Play an audio clip
+      request:
+        params:
+          NewActionConfiguration:
+            TemplateToken: com.axis.action.fixed.play.audioclip
+            Parameters:
+              Parameter:
+              - {'@Name': 'location', '@Value': 'etc/audioclips/alarm.au'}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#setting-up-an-action-rule
   remove_action_configuration:
     summary: Remove an action configuration.
     effect: write
@@ -246,6 +263,12 @@ operations:
       type: object
       properties:
         ActionConfigurations: {$ref: '#/types/ActionConfigurations', description: List of stored action configurations.}
+    examples:
+    - title: List the action configurations
+      request:
+        body: '<aa:GetActionConfigurations xmlns:aa="http://www.axis.com/vapix/ws/action1" xmlns="http://www.axis.com/vapix/ws/action1" />'
+        params: {}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#action-configurations
   get_recipient_templates:
     summary: List the recipient templates supported by the Axis product.
     effect: read
@@ -256,6 +279,12 @@ operations:
       type: object
       properties:
         RecipientTemplates: {$ref: '#/types/RecipientTemplates', description: List of supported recipient types.}
+    examples:
+    - title: List the recipient templates
+      request:
+        body: '<aa:GetRecipientTemplates xmlns:aa="http://www.axis.com/vapix/ws/action1" xmlns="http://www.axis.com/vapix/ws/action1" />'
+        params: {}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#recipient-templates
   add_recipient_configuration:
     summary: Add a new recipient configuration.
     effect: write
@@ -272,6 +301,73 @@ operations:
       type: object
       properties:
         ConfigurationID: {type: integer, description: Recipient configuration ID.}
+    examples:
+    - title: Add an FTP recipient
+      request:
+        body: '<act:AddRecipientConfiguration xmlns:act="http://www.axis.com/vapix/ws/action1"><act:NewRecipientConfiguration><act:Name>FTP-Server</act:Name><act:TemplateToken>com.axis.recipient.ftp</act:TemplateToken><act:Parameters><act:Parameter Name="host" Value="172.25.200.100" /><act:Parameter Name="upload_path" Value="" /><act:Parameter Name="port" Value="21" /><act:Parameter Name="login" Value="test" /><act:Parameter Name="password" Value="test" /><act:Parameter Name="passive" Value="0" /><act:Parameter Name="temporary" Value="0" /><act:Parameter Name="qos" Value="0" /></act:Parameters></act:NewRecipientConfiguration></act:AddRecipientConfiguration>'
+        params:
+          NewRecipientConfiguration:
+            Name: 'FTP-Server'
+            TemplateToken: com.axis.recipient.ftp
+            Parameters:
+              Parameter:
+              - {'@Name': 'host', '@Value': '172.25.200.100'}
+              - {'@Name': 'upload_path', '@Value': ''}
+              - {'@Name': 'port', '@Value': '21'}
+              - {'@Name': 'login', '@Value': 'test'}
+              - {'@Name': 'password', '@Value': 'test'}
+              - {'@Name': 'passive', '@Value': '0'}
+              - {'@Name': 'temporary', '@Value': '0'}
+              - {'@Name': 'qos', '@Value': '0'}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#adding-recipients
+    - title: Add a TCP recipient
+      request:
+        params:
+          NewRecipientConfiguration:
+            Name: 'Test'
+            TemplateToken: com.axis.recipient.tcp
+            Parameters:
+              Parameter:
+              - {'@Name': 'host', '@Value': '172.25.200.100'}
+              - {'@Name': 'port', '@Value': '50000'}
+              - {'@Name': 'qos', '@Value': '0'}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#adding-recipients
+    - title: Add an HTTP recipient
+      request:
+        params:
+          NewRecipientConfiguration:
+            Name: '{{HTTP_NAME}}'
+            TemplateToken: com.axis.recipient.http
+            Parameters:
+              Parameter:
+              - {'@Name': 'upload_url', '@Value': '{{HTTP_URL}}'}
+              - {'@Name': 'login', '@Value': '{{HTTP_USER}}'}
+              - {'@Name': 'password', '@Value': '{{HTTP_PASSWD}}'}
+              - {'@Name': 'proxy_host', '@Value': '{{HTTP_PROXY}}'}
+              - {'@Name': 'proxy_port', '@Value': '{{HTTP_PROXY_PORT}}'}
+              - {'@Name': 'proxy_login', '@Value': '{{HTTP_PROXY_USER}}'}
+              - {'@Name': 'proxy_password', '@Value': '{{HTTP_PROXY_PASSWD}}'}
+              - {'@Name': 'qos', '@Value': '0'}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#adding-recipients
+    - title: Add an HTTPS recipient
+      request:
+        body: '<act:AddRecipientConfiguration xmlns:act="http://www.axis.com/vapix/ws/action1"><act:NewRecipientConfiguration><act:Name>MyHTTPSServer</act:Name><act:TemplateToken>com.axis.recipient.https</act:TemplateToken><act:Parameters><act:Parameter Name="validate_server_cert" Value="1" /><act:Parameter Name="upload_url" Value="{{HTTP_URL}}" /><act:Parameter Name="login" Value="{{HTTP_USER}}" /><act:Parameter Name="password" Value="{{HTTP_PASSWD}}" /><act:Parameter Name="proxy_host" Value="{{HTTP_PROXY}}" /><act:Parameter Name="proxy_port" Value="{{HTTP_PROXY_PORT}}" /><act:Parameter Name="proxy_login" Value="{{HTTP_PROXY_USER}}" /><act:Parameter Name="proxy_password" Value="{{HTTP_PROXY_PASSWD}}" /><act:Parameter Name="qos" Value="0" /></act:Parameters></act:NewRecipientConfiguration></act:AddRecipientConfiguration>'
+        params:
+          NewRecipientConfiguration:
+            Name: 'MyHTTPSServer'
+            TemplateToken: com.axis.recipient.https
+            Parameters:
+              Parameter:
+              - {'@Name': 'validate_server_cert', '@Value': '1'}
+              - {'@Name': 'upload_url', '@Value': '{{HTTP_URL}}'}
+              - {'@Name': 'login', '@Value': '{{HTTP_USER}}'}
+              - {'@Name': 'password', '@Value': '{{HTTP_PASSWD}}'}
+              - {'@Name': 'proxy_host', '@Value': '{{HTTP_PROXY}}'}
+              - {'@Name': 'proxy_port', '@Value': '{{HTTP_PROXY_PORT}}'}
+              - {'@Name': 'proxy_login', '@Value': '{{HTTP_PROXY_USER}}'}
+              - {'@Name': 'proxy_password', '@Value': '{{HTTP_PROXY_PASSWD}}'}
+              - {'@Name': 'qos', '@Value': '0'}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#adding-recipients
   remove_recipient_configuration:
     summary: Remove a recipient configuration.
     effect: write
@@ -296,20 +392,12 @@ operations:
       type: object
       properties:
         RecipientConfigurations: {$ref: '#/types/RecipientConfigurations', description: List of configured recipients.}
-  add_action_rule:
-    summary: Add a new action rule.
-    effect: write
-    write: create
-    binding: {action: 'http://www.axis.com/vapix/ws/action1/AddActionRule', element: AddActionRule}
-    params:
-      type: object
-      required: [NewActionRule]
-      properties:
-        NewActionRule: {$ref: '#/types/NewActionRule', description: Action rule description.}
-    result:
-      type: object
-      properties:
-        RuleID: {type: integer, description: Action Rule ID.}
+    examples:
+    - title: List the recipient configurations
+      request:
+        body: '<aa:GetRecipientConfigurations xmlns:aa="http://www.axis.com/vapix/ws/action1" xmlns="http://www.axis.com/vapix/ws/action1" />'
+        params: {}
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#recipient-configurations
   get_action_rules:
     summary: List currently stored action rules.
     effect: read
@@ -335,24 +423,18 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - Security levels per operation are not documented.
-  - WSDL includes FailoverAction and ActivationTimeout in action rules, but the page states fallback actions are
-    not supported.
-  - 'Fault name typo ParametersMissmatchFault as in WSDL; page refers to InvalidconditionFilterFault (WSDL: InvalidConditionFilterFault).'
+  - Security levels per operation are not documented; the API default (admin) is kept.
+  - SOAPAction values are not documented; <namespace>/<operation> is assumed.
+  - 'BLOCKED(soap-raw-xml-filters): add_action_rule is omitted. Its StartEvent and Conditions are wsnt:FilterType values: wsnt:TopicExpression and wsnt:MessageContent elements that carry a Dialect attribute and text (and xs:any content), which the soap request builder cannot render (an element is either text, or attributes plus children). Without them a rule has no trigger. The docs show it only as C# (FormatTopicExpression), so there is no example to run either. The same limitation removes StartEvent and Conditions from the ActionRule result of get_action_rules.'
+  - WSDL includes FailoverAction and ActivationTimeout in action rules, but the page states fallback actions are not supported.
+  - 'Fault name typo ParametersMissmatchFault as in WSDL; page refers to InvalidconditionFilterFault (WSDL: InvalidConditionFilterFault). No errors are declared because the subcodes are not documented.'
   - Overlay text C# sample checks template token com.axis.action.fixed.set_overay (typo).
-  - Send an MQTT message parameter names are capitalized in the table (Topic, QoS, Retained, Payload); actual wire
-    names may be lowercase.
-  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; prefixed element
-    names (declared in binding.namespaces) are the exception; check the documented examples for other children in
-    foreign namespaces'
-  - 'migration: discovery: no discovery probe: Entry service GetServices: namespace http://www.axis.com/vapix/ws/action1.'
-  - 'migration: types-dropped: types not referenced by any migrated operation: ActivateLightActionParams, DayNightModeActionParams,
-    FtpRecipientParams, HttpRecipientParams, HttpsRecipientParams, LedControlParams, NetworkShareRecipientParams,
-    OverlayTextActionParams, PlayAudioClipActionParams, SendAnMqttMessageParams, SendImagesActionParams, SendNotificationActionParams,
-    SendVideoClipActionParams, SftpRecipientParams, SmtpRecipientParams, TcpRecipientParams, UsedActionConfiguration,
-    UsedActionRule, UsedByActionConfigurations, UsedByActionRules'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - Send an MQTT message parameter names are capitalized in the table (Topic, QoS, Retained, Payload); actual wire names may be lowercase.
+  - The examples for add_action_configuration are derived from C# samples (Name is omitted there, so it is omitted here). The TCP and HTTP recipient examples in the docs put TemplateToken before Name, while the FTP and HTTPS ones (and the WSDL order modelled here) put Name first; only the latter two are compared against the documented XML.
+  - The {{HTTP_*}} values in the HTTP and HTTPS recipient examples are the docs' placeholders and are sent as literal strings.
+  - No example documents any reply, so the result types (from the WSDL via v1) are not exercised by the contract tests.
+  - The per-template parameter tables (Action templates, Recipient templates) are values for the Parameter elements and are not modelled as types.
   migrated_from: v1
-  curated: false
+  curated: true

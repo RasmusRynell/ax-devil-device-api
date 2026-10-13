@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: event-service
 name: Event service (VAPIX Event service API, event1)
@@ -13,6 +12,8 @@ python:
 docs:
 - https://developer.axis.com/vapix/network-video/event-and-action-services/
 access: admin
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/event1'}
 requires:
   firmware: '5.50'
 
@@ -55,15 +56,11 @@ types:
     description: Description of the schedule.
     required: [ICalendar]
     properties:
-      ICalendar: {$ref: '#/types/ICalendar', description: Schema specification in iCalendar format.}
-  ICalendar:
-    type: object
-    description: Simple content (xs:string) with attributes.
-    properties:
-      Dialect:
+      ICalendar:
         type: string
-        description: The dialect of the ICalendar value. Must be http://www.axis.com/vapix/ws/ical1 (XML attribute)
-      value: {type: string, description: Element text content.}
+        description: 'Schedule in the supported subset of iCalendar (RFC 5545): DTSTART, DTEND (interval schedules only) and
+          RRULE, e.g. "DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR". The start and end
+          are the product''s local time without a time zone.'
   ScheduleFilter:
     type: object
     properties:
@@ -78,10 +75,14 @@ operations:
     summary: List all events that can currently occur in the Axis product.
     effect: read
     binding: {action: 'http://www.axis.com/vapix/ws/event1/GetEventInstances', element: GetEventInstances}
-    result:
-      type: object
-      properties:
-        wstop:TopicSet: {description: 'wstop:TopicSet event topic tree (see notes).'}
+    examples:
+    - title: List the event instances
+      request:
+        body: '<m:GetEventInstances xmlns:m="http://www.axis.com/vapix/ws/event1" />'
+        params: {}
+      response:
+        text: '<aev:GetEventInstancesResponse xmlns:aev="http://www.axis.com/vapix/ws/event1" xmlns:wstop="http://docs.oasis-open.org/wsn/t-1" xmlns:tns1="http://www.onvif.org/ver10/topics" xmlns:tnsaxis="http://www.axis.com/2009/event/topics"><wstop:TopicSet><tns1:AudioSource><tnsaxis:TriggerLevel aev:NiceName="Audio detection" wstop:topic="true"><aev:MessageInstance aev:isProperty="true"><aev:SourceInstance><aev:SimpleItemInstance aev:NiceName="Channel" Type="xsd:int" Name="channel"><aev:Value>1</aev:Value></aev:SimpleItemInstance></aev:SourceInstance><aev:DataInstance><aev:SimpleItemInstance aev:NiceName="Above alarm level" Type="xsd:boolean" Name="triggered" isPropertyState="true" /></aev:DataInstance></aev:MessageInstance></tnsaxis:TriggerLevel></tns1:AudioSource></wstop:TopicSet></aev:GetEventInstancesResponse>'
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#list-events-using-http
   add_scheduled_event:
     summary: Add a scheduled event.
     effect: write
@@ -96,6 +97,15 @@ operations:
       type: object
       properties:
         EventID: {type: string, description: The Event ID.}
+    examples:
+    - title: Create an interval schedule, 6 am to 9 am Monday through Friday
+      request:
+        params:
+          NewScheduledEvent:
+            Name: My schedule
+            Schedule:
+              ICalendar: 'DTSTART:20111212T06:00 DTEND:20111212T09:00 RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'
+      source: https://developer.axis.com/vapix/network-video/event-and-action-services/#create-a-scheduled-event
   remove_scheduled_event:
     summary: Remove a schedule.
     effect: write
@@ -123,9 +133,8 @@ operations:
       properties:
         ScheduledEvents: {$ref: '#/types/ScheduledEvents', description: List of requested scheduled events.}
   change_virtual_input_state:
-    summary: Change the state of a virtual input port.
-    effect: write
-    write: patch
+    summary: Change the state of a virtual input port; this emits a (stateful) virtual input event.
+    effect: action
     binding:
       action: http://www.axis.com/vapix/ws/event1/ChangeVirtualInputState
       element: ChangeVirtualInputState
@@ -148,19 +157,15 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - Security levels for SOAP operations are not documented; access_level is set to admin for state-modifying operations
-    by assumption and unknown for Get* operations.
-  - 'Topic names for IP address added/removed lack the tnsaxis: prefix on the last segment (Network/AddressAdded)
-    as documented.'
+  - Security levels for SOAP operations are not documented; the API default (admin) is kept.
+  - 'Topic names for IP address added/removed lack the tnsaxis: prefix on the last segment (Network/AddressAdded) as documented.'
   - 'Media clip event topics are documented starting with tnsaxis:MediaClip (no tns1: root).'
   - 'Open casing event: Source instance "Not applicable" yet a value table (JunctionBox) is shown.'
-  - Fault SOAP subcodes/reasons are not documented beyond WSDL fault element names.
-  - 'migration: soap-namespaces: request child elements are sent in the request element''s namespace; prefixed element
-    names (declared in binding.namespaces) are the exception; check the documented examples for other children in
-    foreign namespaces'
-  - 'migration: discovery: no discovery probe: Use the Entry service GetServices (AXIS OS 5.60+) and look for namespace
-    http://www.axis.com/vapix/ws/event1; the returned Xaddr is the service address.'
-  - 'migration: dropped-section: v1 section events not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - Fault SOAP subcodes/reasons are not documented beyond WSDL fault element names, so no errors are declared.
+  - SOAPAction values are not documented; <namespace>/<operation> is assumed (the HTTP example for GetEventInstances confirms it for that operation).
+  - 'BLOCKED(soap-raw-result): get_event_instances replies with a wstop:TopicSet tree whose element names are the topics (dynamic), so it cannot be a typed result, and the soap binding requires an object result read through x-xml (it cannot return the parsed element as cgi does with result x-xml: true). The reply is ignored for now; the response example documents the shape.'
+  - The v1 spec typed ICalendar with a Dialect attribute (http://www.axis.com/vapix/ws/ical1, from the WSDL); the docs show <aev:ICalendar> without it and the SOAP request builder cannot send an element with both text and attributes, so ICalendar is the plain schedule string.
+  - 'The only documented examples for add_scheduled_event are C# code; the example is derived from it and has no response. Reply shapes of add_scheduled_event, get_scheduled_events, remove_scheduled_event and change_virtual_input_state are undocumented (taken from the WSDL via v1).'
+  - Duplicates no service_json spec; the event service is SOAP only.
   migrated_from: v1
-  curated: false
+  curated: true
