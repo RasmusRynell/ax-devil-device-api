@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: event-streaming-over-websocket
 name: Event streaming over WebSocket
@@ -26,18 +25,47 @@ errors:
   2103: {description: Required parameter missing., kind: invalid_argument}
   2104: {description: Invalid parameter value specified., kind: invalid_argument}
   2105: {description: Authorization failed., kind: access_denied}
-  2106: {description: Authentication failed.}
+  2106: {description: Authentication failed., kind: access_denied}
   2107: {description: Request too large., kind: invalid_argument}
 
 operations:
   connect:
-    summary: Open the data-stream WebSocket (HTTP Upgrade handshake).
+    summary: Open the data-stream WebSocket for events (HTTP Upgrade handshake) and optionally select the events.
+    description: 'Each connection is a separate, stateless session. `event_filter_list` sends `events:configure` right after
+      the handshake (each filter is a separate subscription, so an event that matches several filters is delivered several
+      times; use one filter with a logical topic expression to avoid it); send `session.request("events:configure", ...)`
+      to replace the filter later, only the latest applies. Events arrive as `events:notify` notifications
+      (`session.notifications()` yields `EventNotification`). The handshake uses Digest authentication, or a session token
+      from `wssession.cgi` (`use_token=True`; valid for 15 seconds).'
     effect: read
     binding:
       session:
         path: /vapix/ws-data-stream
         query: {sources: events}
         codec: events
+    examples:
+    - title: Establish a WebSocket connection
+      request: {}
+      source: https://developer.axis.com/vapix/network-video/event-streaming-over-websocket/#establish-websocket-connection
+    - title: Select events to receive
+      request:
+        connect:
+          event_filter_list:
+          - {topicFilter: 'tns1:PTZController/tnsaxis:PTZReady'}
+          - {contentFilter: 'boolean(//SimpleItem[@Name="ready" and @Value="1"])'}
+          - topicFilter: tns1:Device/tnsaxis:IO/VirtualPort
+            contentFilter: boolean(//SimpleItem[@Name="port" and @Value="1"]) and boolean(//SimpleItem[@Name="state"
+              and @Value="0"])
+        messages:
+        - method: events:configure
+          params:
+            eventFilterList:
+            - {topicFilter: 'tns1:PTZController/tnsaxis:PTZReady'}
+            - {contentFilter: 'boolean(//SimpleItem[@Name="ready" and @Value="1"])'}
+            - topicFilter: tns1:Device/tnsaxis:IO/VirtualPort
+              contentFilter: boolean(//SimpleItem[@Name="port" and @Value="1"]) and boolean(//SimpleItem[@Name="state"
+                and @Value="0"])
+      source: https://developer.axis.com/vapix/network-video/event-streaming-over-websocket/#select-events-to-receive
 
 sources:
 - url: https://developer.axis.com/vapix/network-video/event-streaming-over-websocket/
@@ -48,19 +76,11 @@ provenance:
   completeness: complete
   open_questions:
   - wssession.cgi response format and required access level are not documented.
-  - Topic filter example uses 'tns1:Device/axis:IO/VirtualPort' (prefix axis vs tnsaxis) — possible doc typo.
-  - timestamp unit not stated (example 1639385866198 looks like epoch ms).
+  - Topic filter list in the docs mentions 'tns1:Device/axis:IO/VirtualPort' (prefix axis vs tnsaxis) - possible doc typo;
+    the examples use tnsaxis.
+  - timestamp unit not stated (example 1639385866198 looks like epoch ms; the runtime reads it as epoch milliseconds).
   - AXIS OS minimum version not stated; access level required for events not stated.
-  - 'migration: op-skipped: get_session_token: the session token is handled by connect(use_token=True)'
-  - 'migration: op-skipped: configure: an in-session message: sent with session.request(method, params), or a notification
-    the codec parses (EventNotification, TopicSample)'
-  - 'migration: op-skipped: notify: an in-session message: sent with session.request(method, params), or a notification
-    the codec parses (EventNotification, TopicSample)'
-  - 'migration: anyof: anyOf converted to oneOf'
-  - 'migration: types-dropped: EventFilter: the runtime''s EventFilter/EventNotification replace it'
-  - 'migration: types-dropped: Notification: the runtime''s EventFilter/EventNotification replace it'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
-  - 'migration: dropped-section: v1 section notes not carried over'
+  - The in-session messages (events:configure request and reply, events:notify) are not operations; they are covered by
+    connect(event_filter_list=...), session.request(...) and session.notifications() of the events codec.
   migrated_from: v1
-  curated: false
+  curated: true

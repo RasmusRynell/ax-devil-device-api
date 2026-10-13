@@ -1,4 +1,3 @@
-# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
 format: 2
 id: intercom-ws
 name: Intercom service WebSocket
@@ -21,14 +20,23 @@ discovery:
 binding: {}
 
 operations:
-  websocket:
-    summary: WebSocket (ws/wss) endpoint for RPC calls (preferably Google JSON or JSONRPC 2.0) and event notifications.
-    description: Methods/types use namespace prefix axdsapi (e.g. axdsapi:UpdateConfiguration) when subscribing
-      to function notifications. Subscribe with axev:subscribe (topics + functions, functions must include axev:notify);
-      list events with axev:getSupported; notifications arrive as axev:notify.
+  connect:
+    summary: Open the Intercom service WebSocket (ws/wss) at /vapix/intercomws.
+    description: 'The same endpoint issues the Intercom API commands (the methods of /vapix/intercom, for example
+      `UpdateConfiguration`, `InjectTag`, `SetUiFeedback`) and initiates event notifications, as Google JSON or JSON-RPC 2.0
+      messages. Subscribe with `axev:subscribe` (style `ttMessage`, `topics` such as `Device/Intercom/RFID` and
+      `Device/Intercom/KeyPin`, and `functions` that must include `axev:notify`, optionally `axdsapi:SetUiFeedback`);
+      list the events with `axev:getSupported`; notifications arrive as `axev:notify` (`params.notifications[]` with `topic`,
+      `timestamp`, `data`). Methods and types that are functions use the namespace prefix `axdsapi` (for example
+      `axdsapi:UpdateConfiguration`). The session carries the frames unchanged (raw codec): there is no Google JSON
+      codec, so messages are not built or decoded for you.'
     effect: read
     binding:
       session: {path: /vapix/intercomws}
+    examples:
+    - title: Connect to the Intercom WebSocket endpoint
+      request: {}
+      source: https://developer.axis.com/vapix/intercom/intercom-service/#third-party-integration
 
 sources:
 - url: https://developer.axis.com/vapix/intercom/intercom-service/
@@ -36,12 +44,16 @@ sources:
   retrieved_at: '2026-10-11'
 
 provenance:
-  completeness: complete
+  completeness: partial
   open_questions:
-  - 'migration: session-codec: websocket: Google JSON / JSON-RPC messages (axev:subscribe ...) are not decoded;
-    send dicts, receive text and json.loads it'
-  - 'migration: dropped-section: v1 section events not carried over'
-  - 'migration: dropped-section: v1 section versioning not carried over'
-  - 'migration: dropped-section: v1 section envelope not carried over'
+  - 'BLOCKED(google-json-codec): axev:subscribe, axev:getSupported, axev:notify and the Intercom API methods sent over the
+    WebSocket (apiVersion/method/params/id/context messages, Google JSON style) need a codec that builds the requests and
+    classifies replies and notifications. The runtime has only the events, datahub and raw codecs, so the docs examples
+    (the axev:subscribe request, the UpdateConfiguration message, the axev:notify RFID notification) cannot be checked as
+    session examples; only the handshake is.'
+  - The docs do not say which of Google JSON and JSON-RPC 2.0 a given product accepts, the exact error format over the
+    WebSocket, or the access level of the endpoint (assumed admin).
+  - 'The Intercom API methods themselves (GetConfiguration, InjectTag, ...) are specified for POST /vapix/intercom in
+    the intercom service API, not in this spec.'
   migrated_from: v1
-  curated: false
+  curated: true
