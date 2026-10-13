@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import ssl
+from functools import lru_cache
 from typing import Any
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
@@ -42,11 +43,17 @@ _MAX_DEPTH = 32
 def register_secret_names(names: Any) -> None:
     """Treat these wire names (from ``x-masked`` in the specs) as secrets everywhere in request records."""
     _extra_secret_names.update(str(n).lower() for n in names)
+    _name_is_secret.cache_clear()
 
 
 def _is_secret_key(key: Any) -> bool:
     """Return whether a mapping key, header, element or attribute name identifies a secret."""
-    text = str(key)
+    return _name_is_secret(str(key))
+
+
+@lru_cache(maxsize=4096)
+def _name_is_secret(text: str) -> bool:
+    """Cached name test: the same few names recur in every record and in repeated free-text tokens."""
     lowered = text.lower()
     if _SECRET_KEY_RE.search(text) or lowered in _SECRET_EXACT or lowered in _extra_secret_names:
         return True
