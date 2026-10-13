@@ -148,3 +148,28 @@ def test_call_rtsp_operation_prints_url_without_credentials(monkeypatch: pytest.
     url = json.loads(out)["url"]
     assert url.startswith("rtsp://") and "videocodec=h264" in url and "@" not in url
     assert cam.requests == []
+
+
+def test_call_empty_binary_stream_truncates_output(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/media.cgi", text=b"", content_type="video/x-matroska")
+    target = tmp_path / "out.mkv"
+    target.write_bytes(b"stale")
+    code, out, _ = run(monkeypatch, cam, "call", "media_stream", "get_media_stream", "-o", str(target))
+    assert code == 0 and out == ""
+    assert target.read_bytes() == b""
+
+
+def test_call_binary_stream_limit_zero_creates_output(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/media.cgi", text=b"data", content_type="video/x-matroska")
+    target = tmp_path / "out.mkv"
+    code, _, _ = run(monkeypatch, cam, "call", "media_stream", "get_media_stream", "-o", str(target), "--limit", "0")
+    assert code == 0 and target.read_bytes() == b""
+
+
+def test_call_binary_stream_without_output_is_an_error_even_when_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/media.cgi", text=b"", content_type="video/x-matroska")
+    code, _, err = run(monkeypatch, cam, "call", "media_stream", "get_media_stream")
+    assert code == 2 and "--output" in err

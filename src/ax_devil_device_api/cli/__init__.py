@@ -218,6 +218,14 @@ def _cmd_ops(args: argparse.Namespace, out: TextIO) -> None:
     )
 
 
+def _stream_is_binary(op: Any) -> bool | None:
+    """Whether a stream operation yields bytes (``bytes``/``mjpeg`` decoder), ``False`` for ``lines``, ``None`` if unknown."""
+    decoder = getattr(getattr(op.binding, "reply", None), "decoder", None)
+    if decoder in ("bytes", "mjpeg"):
+        return True
+    return False if decoder == "lines" else None
+
+
 def _write_binary(chunks: Any, path: str | None) -> None:
     if not path:
         raise CliError("binary result: pass --output FILE")
@@ -243,9 +251,15 @@ def _cmd_call(args: argparse.Namespace, out: TextIO) -> None:
                 items = iter(result)
                 if args.limit is not None:
                     items = (item for _, item in zip(range(args.limit), items))
-                first = next(items, None)
-                if isinstance(first, (bytes, Part)):
-                    chunks = (i.body if isinstance(i, Part) else i for i in _chain(first, items))
+                binary = _stream_is_binary(op)
+                first = None
+                if binary is not True:
+                    first = next(items, None)
+                    binary = isinstance(first, (bytes, Part)) if binary is None else False
+                if binary:
+                    # Known from the decoder, so an empty stream still creates or truncates the file.
+                    rest = items if first is None else _chain(first, items)
+                    chunks = (i.body if isinstance(i, Part) else i for i in rest)
                     _write_binary(chunks, args.output)
                 else:
                     for item in _chain(first, items) if first is not None else ():

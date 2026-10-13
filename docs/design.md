@@ -371,7 +371,7 @@ For DCA APIs, importing the device-served `openapi.json` / model to report diffe
 |---|---|---|
 | `apis` | no (`--supported`: yes) | list generated APIs with family and operation count |
 | `ops <api>` | no | list an API's operations, access level, effect and parameters |
-| `call <api> <op> [key=value ...]` | yes | run any operation; values are parsed as JSON, else strings; `--json` for an object or `@file`; binary results and streams go to `--output FILE`; `--limit N` stops a stream |
+| `call <api> <op> [key=value ...]` | yes | run any operation; values are parsed as JSON, else strings; `--json` for an object or `@file`; binary results and streams go to `--output FILE` (created or truncated even when the stream is empty or `--limit 0`; the decoder of the stream operation decides whether it is binary); `--limit N` stops a stream |
 | `snapshot` | yes | write a JPEG to `--output` or raw to stdout |
 | `summary` | yes | `device_summary` as JSON |
 | `supported` | yes | `SupportResult` of every generated API |
