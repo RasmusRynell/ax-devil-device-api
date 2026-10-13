@@ -44,6 +44,10 @@ def _cases():
         if family not in FAMILIES:
             yield pytest.param(None, id=f"{sid}::*", marks=pytest.mark.skip(reason=f"{sid}: family {family!r} not covered"))
             continue
+        if not (spec.get("provenance") or {}).get("curated", True):
+            # Uncurated specs are not generated; a stale module from `generate --all` must not be tested.
+            yield pytest.param(None, id=f"{sid}::*", marks=pytest.mark.skip(reason=f"{sid}: spec is not curated"))
+            continue
         try:
             module = importlib.import_module(f"ax_devil_device_api.apis.{spec['python']['module']}")
             ops = module.OPS
