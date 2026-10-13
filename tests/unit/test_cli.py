@@ -173,3 +173,29 @@ def test_call_binary_stream_without_output_is_an_error_even_when_empty(monkeypat
     cam.cgi("/axis-cgi/media.cgi", text=b"", content_type="video/x-matroska")
     code, _, err = run(monkeypatch, cam, "call", "media_stream", "get_media_stream")
     assert code == 2 and "--output" in err
+
+
+def test_call_output_dash_writes_binary_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/media.cgi", text=b"data", content_type="video/x-matroska")
+    monkeypatch.setattr(cli, "make_device", lambda args: cam.device())
+    raw = io.BytesIO()
+    out = io.TextIOWrapper(raw, write_through=True)
+    assert cli.main(["call", "media_stream", "get_media_stream", "-o", "-"], out=out, err=io.StringIO()) == 0
+    assert raw.getvalue() == b"data"
+
+
+def test_call_output_dash_refuses_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/media.cgi", text=b"data", content_type="video/x-matroska")
+    monkeypatch.setattr(cli, "make_device", lambda args: cam.device())
+
+    class Tty(io.BytesIO):
+        def isatty(self) -> bool:
+            return True
+
+    raw = Tty()
+    out = io.TextIOWrapper(raw, write_through=True)
+    err = io.StringIO()
+    assert cli.main(["call", "media_stream", "get_media_stream", "-o", "-"], out=out, err=err) == 2
+    assert raw.getvalue() == b"" and "terminal" in err.getvalue()

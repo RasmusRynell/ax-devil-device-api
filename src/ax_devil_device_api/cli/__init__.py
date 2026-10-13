@@ -83,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("op")
     call.add_argument("args", nargs="*", metavar="key=value", help="parameters; values are parsed as JSON, else taken as strings")
     call.add_argument("--json", dest="json_args", metavar="JSON|@FILE", help="parameters as a JSON object, or @file")
-    call.add_argument("--output", "-o", metavar="FILE", help="write binary results (or stream bodies) here")
+    call.add_argument("--output", "-o", metavar="FILE", help="write binary results (or stream bodies) here; '-' means stdout")
     call.add_argument("--limit", type=int, help="stop a stream after this many items")
     call.set_defaults(run=_cmd_call)
 
@@ -226,9 +226,25 @@ def _stream_is_binary(op: Any) -> bool | None:
     return False if decoder == "lines" else None
 
 
-def _write_binary(chunks: Any, path: str | None) -> None:
+def _stdout_buffer(out: TextIO) -> Any:
+    """Binary buffer behind ``out`` (or ``sys.stdout``), refusing a terminal before anything is written."""
+    buffer = getattr(out, "buffer", None)
+    # Judge the stream the bytes would reach before writing anything to it.
+    target = out if buffer is not None else sys.stdout
+    if target.isatty():
+        raise CliError("refusing to write binary to a terminal: pass --output FILE")
+    return buffer if buffer is not None else sys.stdout.buffer
+
+
+def _write_binary(chunks: Any, path: str | None, out: TextIO) -> None:
     if not path:
         raise CliError("binary result: pass --output FILE")
+    if path == "-":
+        buffer = _stdout_buffer(out)
+        for chunk in chunks:
+            buffer.write(chunk)
+        buffer.flush()
+        return
     with open(path, "wb") as handle:
         for chunk in chunks:
             handle.write(chunk)
@@ -260,13 +276,13 @@ def _cmd_call(args: argparse.Namespace, out: TextIO) -> None:
                     # Known from the decoder, so an empty stream still creates or truncates the file.
                     rest = items if first is None else _chain(first, items)
                     chunks = (i.body if isinstance(i, Part) else i for i in rest)
-                    _write_binary(chunks, args.output)
+                    _write_binary(chunks, args.output, out)
                 else:
                     for item in _chain(first, items) if first is not None else ():
                         out.write(json.dumps(to_jsonable(item), ensure_ascii=False) + "\n")
             return
     if isinstance(result, (bytes, bytearray)):
-        _write_binary([bytes(result)], args.output)
+        _write_binary([bytes(result)], args.output, out)
         return
     emit(result, out)
 
@@ -283,13 +299,7 @@ def _cmd_snapshot(args: argparse.Namespace, out: TextIO) -> None:
     if args.output and args.output != "-":
         Path(args.output).write_bytes(data)
         return
-    buffer = getattr(out, "buffer", None)
-    # Judge the stream the bytes would reach before writing anything to it.
-    target = out if buffer is not None else sys.stdout
-    if target.isatty():
-        raise CliError("refusing to write binary to a terminal: pass --output FILE")
-    if buffer is None:
-        buffer = sys.stdout.buffer
+    buffer = _stdout_buffer(out)
     buffer.write(data)
     buffer.flush()
 
