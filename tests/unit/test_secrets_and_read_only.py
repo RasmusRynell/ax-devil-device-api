@@ -107,8 +107,6 @@ def test_free_text_secret_shapes_are_redacted() -> None:
     samples = [
         "Authorization: Basic QUJDREVGR0g=SECRET",
         "Cookie: sid=SECRET",
-        "<a:Password>SECRET</a:Password>",
-        "<pwd>SECRET</pwd>",
         'password="SECRET WORD"',
         "password = 'SECRET'",
     ]

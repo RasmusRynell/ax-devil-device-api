@@ -9,10 +9,13 @@ import time
 from typing import Any
 from urllib.parse import quote
 
+import httpx
 import pytest
 
+from ax_devil_device_api._http.config import ConnectionConfig
 from ax_devil_device_api._http.debug import emit_request, redact_url, serialize
-from ax_devil_device_api._http.types import FormBody, JsonBody, MultipartBody, Request
+from ax_devil_device_api._http.transport import AsyncTransport, SyncTransport
+from ax_devil_device_api._http.types import FormBody, JsonBody, MultipartBody, RawBody, Request
 from ax_devil_device_api.apis.remote_object_storage import S3Destination
 from ax_devil_device_api.testing import MockCamera
 
@@ -74,42 +77,80 @@ def test_non_sensitive_headers_are_kept() -> None:
     assert "abc" in text
 
 
-def test_xml_cdata_and_attributes() -> None:
-    samples = [
-        "<a:Password><![CDATA[SECRET]]></a:Password>",
-        '<Login password="SECRET" user="u"/>',
-        "<a:Token xmlns:a='x'>SECRET<b>SECRET</b></a:Token>",
-        '<Cred><Password>SECRET</Password></Cred>',
-        "<x><Password>SECRET",
-    ]
-    for sample in samples:
-        assert "SECRET" not in json.dumps(serialize(sample)), sample
-    assert "<Login" in serialize('<Login password="SECRET" user="u"/>') and 'user="u"' in serialize(
-        '<Login password="SECRET" user="u"/>'
-    )
-
-
 def test_name_value_parameters_hide_the_value_of_secret_names() -> None:
-    xml = [
-        '<Parameters><Parameter Name="Password" Value="SECRET"/><Parameter Name="Host" Value="smtp.example"/></Parameters>',
-        '<p name="smtpToken" value="SECRET"></p>',
-        "<Parameter key='ftp_password'>SECRET</Parameter>",
-        '<Parameter Name="password"><Value><![CDATA[SECRET]]></Value></Parameter>',
+    structured = [
+        {"name": "Password", "value": "SECRET"},
+        {"Key": "api_key", "Value": "SECRET"},
+        {"@Name": "smtp_password", "@Value": "SECRET"},
+        {"tt:Name": "Token", "tt:Value": "SECRET"},
+        {"Parameters": {"Parameter": [{"@Name": "Host", "@Value": "h"}, {"@NAME": "ftpPassword", "@VALUE": "SECRET"}]}},
     ]
-    for sample in xml:
-        assert "SECRET" not in json.dumps(serialize(sample)), sample
-    kept = serialize(xml[0])
-    assert "smtp.example" in kept and 'Name="Password"' in kept
-    for obj in ({"name": "Password", "value": "SECRET"}, {"Key": "api_key", "Value": "SECRET"}):
+    for obj in structured:
         assert "SECRET" not in json.dumps(serialize(obj)), obj
-    assert serialize({"name": "Host", "value": "h"}) == {"name": "Host", "value": "h"}
+    assert serialize({"@Name": "Host", "@Value": "h"}) == {"@Name": "Host", "@Value": "h"}
+    assert serialize({"name": "Password", "value": "SECRET"})["name"] == "Password"
 
 
-def test_soap_action_body_is_never_exposed_by_the_hook() -> None:
-    from ax_devil_device_api._http.types import RawBody
+def test_overlapping_and_odd_userinfo_is_redacted_through_the_hook() -> None:
+    for desc in (
+        "rtsp://a:FIRST@h,rtsp://b:SECOND@h",
+        "rtsp://u:ABC'SECRET@camera",
+        'x rtsp://u:a,b"SECRET@camera/p',
+        "rtsp://u@v:SECRET@camera",
+    ):
+        text = _hook_text(description=desc)
+        assert not any(w in text for w in ("FIRST", "SECOND", "SECRET")), desc
 
-    body = RawBody(b'<Parameter Name="Password" Value="SECRET"/>', "application/soap+xml")
-    assert "SECRET" not in _record(Request("POST", "/vapix/services", body=body))
+
+def test_markup_does_not_split_an_assignment_from_its_value() -> None:
+    for desc in ("password=<ABC123>", "password=ABC<foo>123", "x=1&token=<a href='SECRET'>"):
+        text = _hook_text(description=desc)
+        assert "ABC" not in text and "SECRET" not in text, desc
+
+
+def test_markup_comment_cannot_hide_a_value() -> None:
+    for desc in ("password=<!--x>SECRET-->", "password='<!-- > --> SECRET'"):
+        assert "SECRET" not in _hook_text(description=desc), desc
+
+
+def _raw_bodies() -> list[RawBody]:
+    def chunks() -> Any:
+        yield b"<Password>SECRET</Password>"
+
+    return [
+        RawBody(b"<Password>SECRET</Password>", "text/xml"),
+        RawBody(b"SECRET", "application/octet-stream"),
+        RawBody(b"password=SECRET", "text/plain"),
+        RawBody(b'<P Name="Password" Value="SECRET"/>', "application/soap+xml"),
+        RawBody(b'{"password": "SECRET"}', "application/json"),
+        RawBody(chunks(), "text/xml"),
+    ]
+
+
+def test_raw_bodies_are_never_logged() -> None:
+    for body in _raw_bodies():
+        text = _record(Request("POST", "/x", body=body))
+        assert "SECRET" not in text
+        assert body.content_type in text
+
+
+def test_raw_bodies_are_never_logged_by_the_sync_transport() -> None:
+    events: list[dict[str, Any]] = []
+    cfg = ConnectionConfig("cam", on_request=events.append)
+    with SyncTransport(cfg, transport=httpx.MockTransport(lambda r: httpx.Response(200))) as t:
+        for body in _raw_bodies():
+            t.send(Request("POST", "/x", body=body))
+    assert len(events) == 6 and "SECRET" not in json.dumps(events)
+
+
+@pytest.mark.anyio
+async def test_raw_bodies_are_never_logged_by_the_async_transport() -> None:
+    events: list[dict[str, Any]] = []
+    cfg = ConnectionConfig("cam", on_request=events.append)
+    async with AsyncTransport(cfg, transport=httpx.MockTransport(lambda r: httpx.Response(200))) as t:
+        for body in _raw_bodies()[:5]:
+            await t.send(Request("POST", "/x", body=body))
+    assert len(events) == 5 and "SECRET" not in json.dumps(events)
 
 
 def test_basic_prose_is_not_altered() -> None:
@@ -131,6 +172,23 @@ def test_large_json_string_and_separator_heavy_values_are_fast() -> None:
     start = time.perf_counter()
     big = json.dumps({"k": "a" * 1_000_000})
     assert serialize(big)
+    one_mb = 1_000_000
+    hostile_inputs = [
+        "<x " + "a" * one_mb + ">",
+        '<x a="b" ' * 100_000 + ">",
+        "<x " + "'a' " * 250_000 + ">",
+        "rtsp://a:b@h," * 70_000,
+        "@" * one_mb,
+        "://" * 330_000,
+        "://" + "@" * one_mb,
+        "password=" + "'" * one_mb,
+        "password=" + "a b " * 250_000,
+    ]
+    for hostile in hostile_inputs:
+        t0 = time.perf_counter()
+        serialize(hostile)
+        redact_url("https://g/?q=" + quote(hostile[:300_000]))
+        assert time.perf_counter() - t0 < 0.5, hostile[:20]
     for hostile in ("<a " * 300_000, "://" * 300_000, "a=" * 500_000, "%" * 1_000_000, "<![CDATA[" * 100_000):
         serialize(hostile)
         redact_url("https://g/?q=" + quote(hostile[:200_000]))
@@ -164,12 +222,12 @@ def _carriers(tok: str) -> list[tuple[str, Request, str]]:
     add("json-depth", Request("POST", "/x", body=JsonBody({"a": [{"b": {"clientSecret": tok}}]})))
     add("json-string", Request("POST", "/x", body=JsonBody({"a": json.dumps({"password": tok})})))
     add("multipart", Request("POST", "/x", body=MultipartBody(fields=(("token", tok),))))
-    add("xml-element", Request("POST", "/x", body=JsonBody({"x": f"<a:Password>{tok}</a:Password>"})))
-    add("xml-cdata", Request("POST", "/x", body=JsonBody({"x": f"<s><Token><![CDATA[{tok}]]></Token></s>"})))
-    add("xml-attr", Request("POST", "/x", body=JsonBody({"x": f'<s Password="{tok}"/>'})))
-    add("param-xml", Request("POST", "/x", body=JsonBody({"x": f'<P Name="smtp_password" Value="{tok}"/>'})))
-    add("param-xml-text", Request("POST", "/x", body=JsonBody({"x": f"<P key='token'>{tok}</P>"})))
+    add("param-soap", Request("POST", "/x", body=JsonBody({"Parameter": [{"@Name": "smtp_password", "@Value": tok}]})))
+    add("param-prefixed", Request("POST", "/x", body=JsonBody({"tt:Name": "Token", "tt:Value": tok})))
     add("param-json", Request("POST", "/x", body=JsonBody({"params": [{"Name": "password", "Value": tok}]})))
+    add("userinfo-overlap", Request("POST", "/x", body=JsonBody({"d": f"rtsp://a:{tok}@h,rtsp://b:{tok}@h"})))
+    add("userinfo-quote", Request("POST", "/x", body=JsonBody({"d": f"rtsp://u:a'{tok}@h"})))
+    add("kv-markup", Request("POST", "/x", body=JsonBody({"d": f"password=<{tok}>x<y>{tok}"})))
     add("userinfo-text", Request("POST", "/x", body=JsonBody({"d": f"see {url} now"})))
     add("userinfo-form", Request("POST", "/x", body=FormBody((("d", url),))))
     add("userinfo-query", Request("GET", "/x", query=(("u", url),)))

@@ -24,10 +24,9 @@ _SECRET_EXACT = {"sas", "sig", "psk", "signature", "sastoken", "sas_token"}
 _SENSITIVE_HEADERS = frozenset({"authorization", "proxy-authorization", "cookie", "set-cookie"})
 _extra_secret_names: set[str] = set()
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_.\-]+")
-_AUTHORITY_END = re.compile(r"[/?#\s\"'<>]")
+_AUTHORITY_END = re.compile(r"[/?#\s]")
+_WHITESPACE = re.compile(r"\s")
 _SEGMENT_RE = re.compile(r"[^&\r\n]+")
-_ATTR_RE = re.compile(r"""([^\s=/"'<>]+)(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'>]+)""")
-_NAME_RE = re.compile(r"[^\s/>]+")
 _MAX_DECODE_LAYERS = 4
 _MAX_DEPTH = 32
 
@@ -44,10 +43,6 @@ def _is_secret_key(key: Any) -> bool:
     return bool(_SECRET_KEY_RE.search(text) or lowered in _SECRET_EXACT or lowered in _extra_secret_names)
 
 
-def _is_secret_local(name: str) -> bool:
-    return _is_secret_key(name.rsplit(":", 1)[-1])
-
-
 def _text_has_secret_name(text: str) -> bool:
     """Whether free text names a secret (substring match, or an exact/registered whole token)."""
     if _SECRET_KEY_RE.search(text):
@@ -56,7 +51,11 @@ def _text_has_secret_name(text: str) -> bool:
 
 
 def _scrub_userinfo(text: str) -> str:
-    """Replace URL userinfo (``scheme://user:pass@host``) found by a linear scan for ``://``."""
+    """Redact URL userinfo (``scheme://user:pass@host``).
+
+    Every ``://`` is a candidate on its own (overlapping ones included). The userinfo runs to the last ``@`` before
+    the next ``/ ? #`` or whitespace, so quotes, commas and the like belong to it. One forward scan, linear.
+    """
     pos = text.find("://")
     if pos < 0:
         return text
@@ -68,17 +67,22 @@ def _scrub_userinfo(text: str) -> str:
         match = _AUTHORITY_END.search(text, start)
         end = match.start() if match else n
         at = text.rfind("@", start, end)
-        if at >= 0 and text[start:at] != _REDACTED:
+        if at >= 0 and text[start:at] != _REDACTED and start >= done:
             out.append(text[done:start])
             out.append(_REDACTED)
             done = at
-        pos = text.find("://", max(end, start))
+        pos = text.find("://", start)
     out.append(text[done:])
     return "".join(out)
 
 
 def _scrub_pairs(text: str) -> str:
-    """Redact everything after ``=`` once the text before it names a secret (``a=1&password=x``, ``Cookie: sid=x``)."""
+    """Redact the value of ``name=value`` pairs once the text before the ``=`` names a secret.
+
+    Pairs are split into segments on ``&`` and newlines; within a segment, after the first secret name every value is
+    redacted (``Cookie: sid=x; other=y``). A value runs to whitespace, or to the closing quote when quoted. Markup
+    characters are ordinary value characters.
+    """
     if "=" not in text:
         return text
     out: list[str] = []
@@ -86,134 +90,34 @@ def _scrub_pairs(text: str) -> str:
     for seg in _SEGMENT_RE.finditer(text):
         s, e = seg.span()
         scanned = s
+        armed = False
         eq = text.find("=", s, e)
         while eq >= 0:
-            if _text_has_secret_name(text[scanned:eq]):
-                value = text[eq + 1 : e]
-                if value and value != _REDACTED:
-                    out.append(text[done : eq + 1])
+            if not armed and _text_has_secret_name(text[scanned:eq]):
+                armed = True
+            end = eq + 1
+            if armed:
+                v = end
+                while v < e and text[v] in " \t":
+                    v += 1
+                if v < e and text[v] in "\"'":
+                    close = text.find(text[v], v + 1, e)
+                    end = e if close < 0 else close + 1
+                else:
+                    ws = _WHITESPACE.search(text, v, e)
+                    end = ws.start() if ws else e
+                if end > v and text[v:end] != _REDACTED:
+                    out.append(text[done:v])
                     out.append(_REDACTED)
-                    done = e
-                break
-            scanned = eq + 1
-            eq = text.find("=", eq + 1, e)
+                    done = end
+            scanned = end
+            eq = text.find("=", end, e)
     out.append(text[done:])
     return "".join(out)
 
 
 def _scrub_plain(text: str) -> str:
     return _scrub_userinfo(_scrub_pairs(text))
-
-
-def _tag_end(text: str, start: int) -> int:
-    """Index of the ``>`` closing the tag opened at ``start`` (quote-aware), or -1."""
-    i = start + 1
-    n = len(text)
-    while i < n:
-        gt = text.find(">", i)
-        if gt < 0:
-            return -1
-        quote = -1
-        for q in ('"', "'"):
-            k = text.find(q, i, gt)
-            if k >= 0 and (quote < 0 or k < quote):
-                quote = k
-        if quote < 0:
-            return gt
-        close = text.find(text[quote], quote + 1)
-        if close < 0:
-            return gt
-        i = close + 1
-    return -1
-
-
-_NAME_KEYS = frozenset({"name", "key"})
-
-
-def _scrub_tag(interior: str) -> tuple[str, str, bool, bool, bool]:
-    """Return (scrubbed interior, local name, is_end_tag, is_self_closing, names_a_secret_parameter)."""
-    closing = interior.startswith("/")
-    selfclose = interior.rstrip().endswith("/")
-    m = _NAME_RE.match(interior[1:] if closing else interior)
-    name = m.group(0).rsplit(":", 1)[-1] if m else ""
-    attrs = list(_ATTR_RE.finditer(interior))
-    # ``<Parameter Name="Password" Value="x"/>``: a secret-named parameter hides its value attribute and content.
-    param = not closing and any(
-        a.group(1).rsplit(":", 1)[-1].lower() in _NAME_KEYS and _text_has_secret_name(a.group(3).strip("\"'"))
-        for a in attrs
-    )
-
-    def attr(match: re.Match[str]) -> str:
-        key, eq, value = match.groups()
-        quote = value[0] if value[0] in "\"'" else ""
-        inner = value[1:-1] if quote else value
-        local = key.rsplit(":", 1)[-1]
-        hide = _is_secret_local(key) or (param and local.lower() == "value")
-        return f"{key}{eq}{quote}{_REDACTED if hide else _scrub_plain(inner)}{quote}"
-
-    return _ATTR_RE.sub(attr, interior), name, closing, selfclose, param
-
-
-def _scrub_markup(text: str) -> str:
-    """Redact XML/SOAP: values of secret-named elements (text, CDATA, children) and attributes, else plain scrub."""
-    out: list[str] = []
-    i = 0
-    n = len(text)
-    skip = 0  # nesting depth inside a secret element
-    while i < n:
-        lt = text.find("<", i)
-        if lt < 0:
-            if not skip:
-                out.append(_scrub_plain(text[i:]))
-            break
-        if lt > i and not skip:
-            out.append(_scrub_plain(text[i:lt]))
-        if text.startswith("<![CDATA[", lt):
-            close = text.find("]]>", lt)
-            end = n if close < 0 else close + 3
-            if not skip:
-                body = text[lt + 9 : end - 3 if close >= 0 else end]
-                out.append(f"<![CDATA[{_scrub_plain(body)}" + ("]]>" if close >= 0 else ""))
-            i = end
-            continue
-        nxt = text[lt + 1 : lt + 2]
-        if not (nxt.isalpha() or nxt in ("/", "!", "?", "_", ":")):
-            if not skip:
-                out.append("<")
-            i = lt + 1
-            continue
-        gt = _tag_end(text, lt)
-        if gt < 0:
-            if not skip:
-                out.append(_scrub_plain(text[lt:]))
-            break
-        interior = text[lt + 1 : gt]
-        if nxt in ("!", "?"):
-            if not skip:
-                out.append(f"<{_scrub_plain(interior)}>")
-            i = gt + 1
-            continue
-        scrubbed, name, closing, selfclose, param = _scrub_tag(interior)
-        if skip:
-            if closing:
-                skip -= 1
-                if not skip:
-                    out.append(f"<{scrubbed}>")
-            elif not selfclose:
-                skip += 1
-        else:
-            out.append(f"<{scrubbed}>")
-            if not closing and not selfclose and (param or _is_secret_key(name)):
-                out.append(_REDACTED)
-                skip = 1
-        i = gt + 1
-    return "".join(out)
-
-
-def _scrub_one(text: str) -> str:
-    if "<" in text and ">" in text:
-        return _scrub_markup(text)
-    return _scrub_plain(text)
 
 
 def _scrub_text(text: str) -> str:
@@ -224,7 +128,7 @@ def _scrub_text(text: str) -> str:
     found = False
     layers = 0
     while True:
-        redacted = _scrub_one(current)
+        redacted = _scrub_plain(current)
         if redacted != current:
             current, found = redacted, True
         decoded = unquote(current)
@@ -261,6 +165,14 @@ def redact_url(url: str) -> str:
     )
 
 
+_NAME_KEYS = frozenset({"name", "key"})
+
+
+def _local(key: Any) -> str:
+    """Key without a leading ``@`` and any ``prefix:``, lower-cased (``@Name``, ``tt:Name`` -> ``name``)."""
+    return str(key).lstrip("@").rsplit(":", 1)[-1].lower()
+
+
 def serialize(value: Any, key: Any = None, _depth: int = 0) -> Any:
     """Convert a value to JSON-safe output, recursively redacting secrets."""
     if _is_secret_key(key):
@@ -283,11 +195,9 @@ def serialize(value: Any, key: Any = None, _depth: int = 0) -> Any:
         return serialize(value.decode("utf-8", errors="replace"), key, _depth + 1)
     if isinstance(value, dict):
         # ``{"name": "password", "value": ...}``: a secret-named parameter hides its value.
-        param = any(
-            str(k).lower() in _NAME_KEYS and isinstance(v, str) and _text_has_secret_name(v) for k, v in value.items()
-        )
+        param = any(_local(k) in _NAME_KEYS and isinstance(v, str) and _text_has_secret_name(v) for k, v in value.items())
         return {
-            str(k): _REDACTED if param and str(k).lower() == "value" else serialize(v, k, _depth + 1)
+            str(k): _REDACTED if param and _local(k) == "value" else serialize(v, k, _depth + 1)
             for k, v in value.items()
         }
     if isinstance(value, (list, tuple, set)):
@@ -316,8 +226,8 @@ def _body(body: Any) -> Any:
         }
     if isinstance(body, RawBody):
         if isinstance(body.content, bytes):
-            return f"<{len(body.content)} bytes {body.content_type}>"
-        return f"<stream {body.content_type}>"
+            return f"<{len(body.content)} bytes {_scrub_text(body.content_type)}>"
+        return f"<stream {_scrub_text(body.content_type)}>"
     return _REDACTED
 
 
