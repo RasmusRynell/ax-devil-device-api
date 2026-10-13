@@ -334,7 +334,14 @@ class AcapDiscovery:
     name: str
 
 
-Discovery = ApiDiscovery | DcaDiscovery | ParamDiscovery | AcapDiscovery
+@dataclass(frozen=True)
+class ServiceDiscovery:
+    """A web service is offered: its namespace is listed by the Entry service ``GetServices``."""
+
+    namespace: str
+
+
+Discovery = ApiDiscovery | DcaDiscovery | ParamDiscovery | AcapDiscovery | ServiceDiscovery
 
 
 @dataclass(frozen=True)

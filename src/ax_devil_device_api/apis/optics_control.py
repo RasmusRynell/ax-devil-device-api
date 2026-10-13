@@ -412,7 +412,7 @@ class OpticsControlApi(SyncApi):
 
         This method sets a focus position for one or more optics.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_focus, request, kwargs, request_options)
 
@@ -436,7 +436,7 @@ class OpticsControlApi(SyncApi):
 
         This method changes the current focus with relative focus movement.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_relative_focus, request, kwargs, request_options)
 
@@ -462,7 +462,7 @@ class OpticsControlApi(SyncApi):
         on products with the capability zoom. See [getCapabilities](#getcapabilities) to find out if your
         product supports specific capabilities.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_magnification, request, kwargs, request_options)
 
@@ -490,7 +490,7 @@ class OpticsControlApi(SyncApi):
 
         This method changes the current magnification with relative magnification movement.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_relative_magnification, request, kwargs, request_options)
 
@@ -574,7 +574,7 @@ class OpticsControlApi(SyncApi):
 
         This method sets the window where the automatic focus search should optimize the focus.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_focus_window, request, kwargs, request_options)
 
@@ -604,7 +604,7 @@ class OpticsControlApi(SyncApi):
         available if `compensateTemperature` is true. Please note that the active focus compensation might
         not work as well if your device has a non-standard lens.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_temperature_compensation, request, kwargs, request_options)
 
@@ -630,7 +630,7 @@ class OpticsControlApi(SyncApi):
         and `off` reflect the manual state while `auto` leaves the decision of the IRCut filter state to the
         software algorithms.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         self._run(OPS.set_ir_cut_filter_state, request, kwargs, request_options)
 
@@ -654,7 +654,7 @@ class OpticsControlApi(SyncApi):
 
         This method decides if IR compensation should be used.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_ir_compensation, request, kwargs, request_options)
 
@@ -697,7 +697,7 @@ class AsyncOpticsControlApi(AsyncApi):
 
         This method sets a focus position for one or more optics.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_focus, request, kwargs, request_options)
 
@@ -721,7 +721,7 @@ class AsyncOpticsControlApi(AsyncApi):
 
         This method changes the current focus with relative focus movement.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_relative_focus, request, kwargs, request_options)
 
@@ -747,7 +747,7 @@ class AsyncOpticsControlApi(AsyncApi):
         on products with the capability zoom. See [getCapabilities](#getcapabilities) to find out if your
         product supports specific capabilities.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_magnification, request, kwargs, request_options)
 
@@ -775,7 +775,7 @@ class AsyncOpticsControlApi(AsyncApi):
 
         This method changes the current magnification with relative magnification movement.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_relative_magnification, request, kwargs, request_options)
 
@@ -861,7 +861,7 @@ class AsyncOpticsControlApi(AsyncApi):
 
         This method sets the window where the automatic focus search should optimize the focus.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_focus_window, request, kwargs, request_options)
 
@@ -891,7 +891,7 @@ class AsyncOpticsControlApi(AsyncApi):
         available if `compensateTemperature` is true. Please note that the active focus compensation might
         not work as well if your device has a non-standard lens.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_temperature_compensation, request, kwargs, request_options)
 
@@ -917,7 +917,7 @@ class AsyncOpticsControlApi(AsyncApi):
         and `off` reflect the manual state while `auto` leaves the decision of the IRCut filter state to the
         software algorithms.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         await self._run(OPS.set_ir_cut_filter_state, request, kwargs, request_options)
 
@@ -941,6 +941,6 @@ class AsyncOpticsControlApi(AsyncApi):
 
         This method decides if IR compensation should be used.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_ir_compensation, request, kwargs, request_options)

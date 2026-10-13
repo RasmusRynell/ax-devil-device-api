@@ -174,7 +174,7 @@ class OPS:
     get_service_capabilities = Operation(
         INFO,
         "get_service_capabilities",
-        ServiceJsonBinding(PATH, "axgpio:GetServiceCapabilities"),
+        ServiceJsonBinding(PATH, "axgpio:GetServiceCapabilities", auth="if_challenged"),
         result=GetServiceCapabilitiesResult,
         access="anonymous",
         effect="read",
@@ -258,7 +258,7 @@ class GpioServiceApi(SyncApi):
     ) -> SetPortResult:
         """Update one or more Port data structures (all fields except PortId optional).
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_port, request, kwargs, request_options)
 
@@ -303,6 +303,6 @@ class AsyncGpioServiceApi(AsyncApi):
     ) -> SetPortResult:
         """Update one or more Port data structures (all fields except PortId optional).
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_port, request, kwargs, request_options)

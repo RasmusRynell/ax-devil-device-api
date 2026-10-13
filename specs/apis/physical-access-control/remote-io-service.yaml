@@ -14,6 +14,9 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/event-logger-service/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/axrio'}
+
 binding: {path: /vapix/axrio}
 
 types:
@@ -81,6 +84,5 @@ provenance:
     - The Remote I/O service (axrio) is listed in the overview Identification table but has no API page; only SetDevice is documented, in the Peripherals guide. Operations to list or remove devices, the fault codes and the access class are not documented.
     - 'The guide says "if no token is specified, a token is generated automatically" but never shows the field name; `token` follows the other physical access control services.'
     - It is not documented whether SetDevice updates an existing device when a known token is given, whether the Token reply is a single string or a list when several devices are sent, or which Device fields are required.
-    - "No discovery probe: the service is found through the entry service's GetServices (SOAP) with its namespace from the overview table, which is not a supported discovery entry."
   migrated_from: v1
   curated: true

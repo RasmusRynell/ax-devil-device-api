@@ -18,6 +18,9 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/IdPoint'}
+
 binding: {path: /vapix/idpoint}
 
 errors:
@@ -429,7 +432,7 @@ operations:
     summary: Get the capabilities of the IdPoint service.
     effect: read
     access: anonymous
-    binding: {operation: "axtid:GetServiceCapabilities"}
+    binding: {operation: "axtid:GetServiceCapabilities", auth: if_challenged}
     result: {$ref: "#/types/GetServiceCapabilitiesResult"}
 
   get_id_point_info_list:
@@ -894,7 +897,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
     - 'Several message tables look copy-pasted. GetIdPointList is documented as returning `IdPointInfo` items (the guide says IdPoints with their configuration) and GetIdDataConfigurationList as returning `IdPointConfiguration` items (probably IdDataConfiguration); both are modelled as documented and need checking against a device.'
     - 'The tables name the IdPoint identifier `Token` in IdPointInfo, IdPoint and IdPointConfiguration, while every example and the XML use `token`; the examples win. IdPointInfo.token is left optional because no IdPointInfo response is shown.'
     - 'The JSON response examples show a single token as a plain string (`{"Token": "floor-idpoint-token"}`) although the tables say a list; Token in the set results accepts both.'

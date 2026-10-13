@@ -15,6 +15,9 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/peripherals/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/connection'}
+
 binding: {path: /vapix/aconn}
 
 types:
@@ -205,8 +208,7 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - 'The page does not give a discovery probe; it says to use the VAPIX Entry Service API (GetServices) and look for the
-    namespace http://www.axis.com/vapix/ws/connection. The API is only supported by AXIS A1001.'
+  - The API is only supported by AXIS A1001.
   - The peer field table is garbled in the source (ID rendered as I`D`, TrustState and ConnectionState merged into the
     DeviceUUID bullet); the types come from the PeerTrustState and PeerConnectionState sections and the GetPeerList example.
   - AddPeers takes aconn:Peer, but only ID and ExpectedAddress are meaningful in the request; the other Peer fields are

@@ -15,6 +15,9 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/peripherals/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/AxisIo'}
+
 binding: {path: /vapix/pin}
 
 types:
@@ -253,7 +256,6 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-    - "No discovery probe: the docs only say to look for the namespace http://www.axis.com/vapix/ws/AxisIo in the entry service's GetServices (SOAP), which is not a supported discovery entry."
     - The docs do not say which IoAssignment, IoUser and IoInfo fields are always present, so none are marked required. The assignment examples always send IoName, IoMode and IoUser.
     - The docs map the ONVIF access classes (READ_SYSTEM, READ_SYSTEM_SENSITIVE, WRITE_SYSTEM) to no VAPIX role; the API default admin is kept.
   migrated_from: v1

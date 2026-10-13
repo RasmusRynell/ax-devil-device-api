@@ -1249,7 +1249,7 @@ class NetworkSettingsApi(SyncApi):
         also to configure the network interface device to automatically switch to an IPv4 address
         configuration assigned by a DHCP server on the network.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_ipv4_address_configuration, request, kwargs, request_options)
 
@@ -1558,7 +1558,7 @@ class AsyncNetworkSettingsApi(AsyncApi):
         also to configure the network interface device to automatically switch to an IPv4 address
         configuration assigned by a DHCP server on the network.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_ipv4_address_configuration, request, kwargs, request_options)
 

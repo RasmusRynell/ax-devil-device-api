@@ -155,7 +155,7 @@ class PtzOrientationAidApi(SyncApi):
     ) -> None:
         """Show or hide the preset position tags in the device web interface.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         if request is MISSING:
             request = None
@@ -204,7 +204,7 @@ class AsyncPtzOrientationAidApi(AsyncApi):
     ) -> None:
         """Show or hide the preset position tags in the device web interface.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         if request is MISSING:
             request = None

@@ -12,7 +12,7 @@ from typing import Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -153,6 +153,7 @@ INFO = ApiInfo(
     id="user-service",
     name="User service",
     family=Family.SERVICE_JSON,
+    discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/user"),),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/user-service/",
         "https://developer.axis.com/vapix/physical-access-control/",
@@ -167,7 +168,7 @@ class OPS:
     get_service_capabilities = Operation(
         INFO,
         "get_service_capabilities",
-        ServiceJsonBinding(PATH, "axudb:GetServiceCapabilities"),
+        ServiceJsonBinding(PATH, "axudb:GetServiceCapabilities", auth="if_challenged"),
         result=GetServiceCapabilitiesResult,
         access="anonymous",
         effect="read",
@@ -346,7 +347,7 @@ class UserServiceApi(SyncApi):
         any other is added, and a user without a token gets one allocated by the device. All tokens are
         returned.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_user, request, kwargs, request_options)
 
@@ -455,7 +456,7 @@ class AsyncUserServiceApi(AsyncApi):
         any other is added, and a user without a token gets one allocated by the device. All tokens are
         returned.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_user, request, kwargs, request_options)
 

@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -729,6 +729,10 @@ INFO = ApiInfo(
     id="door-control-service",
     name="Door control service",
     family=Family.SERVICE_JSON,
+    discovery=(
+        ServiceDiscovery("http://www.onvif.org/ver10/doorcontrol/wsdl"),
+        ServiceDiscovery("http://www.axis.com/vapix/ws/DoorControl"),
+    ),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/door-control-service/",
         "https://developer.axis.com/vapix/physical-access-control/",
@@ -743,7 +747,7 @@ class OPS:
     get_service_capabilities = Operation(
         INFO,
         "get_service_capabilities",
-        ServiceJsonBinding(PATH, "tdc:GetServiceCapabilities"),
+        ServiceJsonBinding(PATH, "tdc:GetServiceCapabilities", auth="if_challenged"),
         result=GetServiceCapabilitiesResult,
         access="anonymous",
         effect="read",

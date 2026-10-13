@@ -178,7 +178,7 @@ class IoPortManagementApi(SyncApi):
     ) -> SetPortsResult:
         """Configure one to several ports (nice name, usage, direction, normal state, output state).
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         return self._run(OPS.set_ports, request, kwargs, request_options)
 
@@ -231,7 +231,7 @@ class AsyncIoPortManagementApi(AsyncApi):
     ) -> SetPortsResult:
         """Configure one to several ports (nice name, usage, direction, normal state, output state).
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         return await self._run(OPS.set_ports, request, kwargs, request_options)
 

@@ -12,7 +12,7 @@ from typing import Any, overload
 from pydantic import Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, Family, Model, Operation
+from .._protocols.base import ApiInfo, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -56,6 +56,7 @@ INFO = ApiInfo(
     id="remote-io-service",
     name="Remote I/O service",
     family=Family.SERVICE_JSON,
+    discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/axrio"),),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/peripherals/",
         "https://developer.axis.com/vapix/physical-access-control/",

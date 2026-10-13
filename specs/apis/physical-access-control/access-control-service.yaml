@@ -17,6 +17,10 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.onvif.org/ver10/accesscontrol/wsdl'}
+- service: {namespace: 'http://www.axis.com/vapix/ws/pacs'}
+
 binding: {path: /vapix/pacs}
 
 types:
@@ -520,7 +524,8 @@ operations:
     summary: This operation returns the capabilities of the Access Control service.
     description: An ONVIF compliant device which provides the Access Control service shall implement this method.
     effect: read
-    binding: {operation: 'tac:GetServiceCapabilities'}
+    access: anonymous
+    binding: {operation: 'tac:GetServiceCapabilities', auth: if_challenged}
     result:
       type: object
       required: [Capabilities]
@@ -2110,8 +2115,6 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-  - The page gives no discovery probe; use the VAPIX Entry Service API (GetServices) and look for the namespaces
-    http://www.onvif.org/ver10/accesscontrol/wsdl and http://www.axis.com/vapix/ws/pacs.
   - The access classes (PRE_AUTH, READ_SYSTEM, READ_SYSTEM_SENSITIVE, READ_SYSTEM_SECRET, ACTUATE, WRITE_SYSTEM)
     are not mapped to VAPIX roles; GetServiceCapabilities (PRE_AUTH) is anonymous and the API default admin is kept
     for the rest.

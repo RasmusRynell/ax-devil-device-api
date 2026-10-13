@@ -193,7 +193,7 @@ class StreamProfilesApi(SyncApi):
 
         You can not rename a profile unless you first delete it and create a new one with the required name.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         self._run(OPS.update, request, kwargs, request_options)
 
@@ -263,7 +263,7 @@ class AsyncStreamProfilesApi(AsyncApi):
 
         You can not rename a profile unless you first delete it and create a new one with the required name.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         await self._run(OPS.update, request, kwargs, request_options)
 

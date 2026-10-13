@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, Family, Model, Operation
+from .._protocols.base import ApiInfo, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -140,6 +140,7 @@ INFO = ApiInfo(
     id="io-assignment-service",
     name="I/O assignment service",
     family=Family.SERVICE_JSON,
+    discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/AxisIo"),),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/io-assignment-service/",
         "https://developer.axis.com/vapix/physical-access-control/",
@@ -228,7 +229,7 @@ class IoAssignmentServiceApi(SyncApi):
         the assignments that failed; it is empty when all succeeded. The call does not replace the
         assignments that are not mentioned in the request.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_io_assignment, request, kwargs, request_options)
 
@@ -272,6 +273,6 @@ class AsyncIoAssignmentServiceApi(AsyncApi):
         the assignments that failed; it is empty when all succeeded. The call does not replace the
         assignments that are not mentioned in the request.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_io_assignment, request, kwargs, request_options)

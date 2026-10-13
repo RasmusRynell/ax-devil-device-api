@@ -102,7 +102,7 @@ operations:
     summary: Retrieve the capabilities supported by the service.
     access: anonymous
     effect: read
-    binding: {operation: 'axgpio:GetServiceCapabilities'}
+    binding: {operation: 'axgpio:GetServiceCapabilities', auth: if_challenged}
     result:
       type: object
       required: [Capabilities]

@@ -12,7 +12,7 @@ from typing import Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -108,6 +108,7 @@ INFO = ApiInfo(
     id="keystore-service",
     name="Keystore service",
     family=Family.SERVICE_JSON,
+    discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/KeyStore"),),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/keystore-service/",
         "https://developer.axis.com/vapix/physical-access-control/",
@@ -213,7 +214,7 @@ class KeystoreServiceApi(SyncApi):
         Adds the keys, or updates the keys whose token already exists. The modification time is set by the
         device.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_encryption_key, request, kwargs, request_options)
 
@@ -274,7 +275,7 @@ class AsyncKeystoreServiceApi(AsyncApi):
         Adds the keys, or updates the keys whose token already exists. The modification time is set by the
         device.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_encryption_key, request, kwargs, request_options)
 

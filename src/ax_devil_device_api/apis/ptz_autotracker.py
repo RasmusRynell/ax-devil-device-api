@@ -993,7 +993,7 @@ class PtzAutotrackerApi(SyncApi):
     ) -> None:
         """Change radar autotracker settings; omitted objects keep previous settings.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         self._run(OPS.set_radar_autotracking_settings, request, kwargs, request_options)
 
@@ -1325,7 +1325,7 @@ class AsyncPtzAutotrackerApi(AsyncApi):
     ) -> None:
         """Change radar autotracker settings; omitted objects keep previous settings.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         await self._run(OPS.set_radar_autotracking_settings, request, kwargs, request_options)
 

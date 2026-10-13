@@ -5,7 +5,8 @@ Three probes describe what a device offers, and a fourth runs only for APIs that
 - classic API discovery (``apidiscovery.cgi`` ``getApiList``),
 - Device Configuration discovery (``/config/discover``),
 - the ``param.cgi`` ``Properties.API`` group,
-- installed ACAP applications (``applications/list.cgi``).
+- installed ACAP applications (``applications/list.cgi``),
+- the web services listed by the Entry service (``GetServices``).
 
 Each probe either succeeds (its result is cached until ``refresh()``) or
 fails (the error is reported and the probe is retried next time). A probe
@@ -23,7 +24,7 @@ from enum import Enum
 from typing import Any
 
 from ..errors import DeviceError, ResponseFormatError
-from .._http.types import Request
+from .._http.types import RawBody, Request
 from .._protocols.base import (
     AcapDiscovery,
     ApiDiscovery,
@@ -35,9 +36,11 @@ from .._protocols.base import (
     Model,
     Operation,
     ParamDiscovery,
+    ServiceDiscovery,
     http_error,
 )
 from .._protocols.cgi import CgiArg, CgiBinding, TextKv
+from .._protocols.soap import SoapBinding, build_envelope
 from .._protocols.jsonrpc import FixedVersion
 from .._protocols.jsonrpc import flow as jsonrpc_flow
 from .._protocols.cgi import flow as cgi_flow
@@ -100,6 +103,8 @@ class Capabilities:
     observed_at: datetime
     applications: Mapping[str, str] | None = None
     """Installed ACAP applications: ``Name`` -> ``Version``. ``None`` if the probe failed or was not run."""
+    services: Mapping[str, str] | None = None
+    """Web services listed by the Entry service: namespace -> ``XAddr``. ``None`` if the probe failed or was not run."""
 
     @classmethod
     def from_probes(cls, values: Mapping[str, Any], errors: Mapping[str, str]) -> Capabilities:
@@ -111,6 +116,7 @@ class Capabilities:
             errors=dict(errors),
             observed_at=datetime.now(timezone.utc),
             applications=values.get("applications"),
+            services=values.get("services"),
         )
 
 
@@ -152,6 +158,9 @@ _LIST_PROPERTIES = Operation(
 )
 _DISCOVER_OP = Operation(_INTERNAL, "config_discover", object(), effect="read")
 _APPLICATIONS_OP = Operation(_INTERNAL, "applications_list", object(), effect="read")
+_ENTRY_NS = "http://www.axis.com/vapix/ws/entry"
+_ENTRY_BINDING = SoapBinding(f"{_ENTRY_NS}/GetServices", "GetServices", _ENTRY_NS)
+_SERVICES_OP = Operation(_INTERNAL, "entry_get_services", object(), effect="read")
 
 
 # ---------------------------------------------------------------------------
@@ -229,20 +238,54 @@ def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     }
 
 
+def services_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
+    """Entry service ``GetServices``: namespace -> ``XAddr`` of every service the device offers."""
+    response = yield Request(
+        "POST",
+        _ENTRY_BINDING.path,
+        body=RawBody(
+            build_envelope(_ENTRY_BINDING, {"IncludeCapability": False}),
+            f'application/soap+xml; charset=utf-8; action="{_ENTRY_BINDING.action}"',
+        ),
+        accept="application/soap+xml",
+    )
+    if not 200 <= response.status < 300:
+        raise http_error(_SERVICES_OP, response)
+    try:
+        root = ET.fromstring(response.content)
+    except ET.ParseError as error:
+        raise ResponseFormatError("entry-service", "get_services", "response is not valid XML") from error
+    found: dict[str, str] = {}
+    for service in root.iter():
+        if service.tag.rpartition("}")[2] != "Service":
+            continue
+        children = {c.tag.rpartition("}")[2]: (c.text or "").strip() for c in service}
+        if children.get("Namespace"):
+            found[children["Namespace"]] = children.get("XAddr", "")
+    if not found:
+        raise ResponseFormatError("entry-service", "get_services", "response lists no services")
+    return found
+
+
 PROBES = {
     "classic_apis": classic_apis_flow,
     "dca_apis": dca_apis_flow,
     "properties": properties_flow,
 }
 
-OPTIONAL_PROBES = {"applications": applications_flow}
+OPTIONAL_PROBES = {"applications": applications_flow, "services": services_flow}
 """Probes that cost an extra (administrator) request and are only needed by some APIs.
 ``extra_probes(info)`` says which ones an API's discovery wants."""
 
 
 def extra_probes(info: ApiInfo) -> tuple[str, ...]:
     """Names of the ``OPTIONAL_PROBES`` that ``info``'s discovery needs."""
-    return ("applications",) if any(isinstance(m, AcapDiscovery) for m in info.discovery) else ()
+    wanted = []
+    if any(isinstance(m, AcapDiscovery) for m in info.discovery):
+        wanted.append("applications")
+    if any(isinstance(m, ServiceDiscovery) for m in info.discovery):
+        wanted.append("services")
+    return tuple(wanted)
 
 
 # ---------------------------------------------------------------------------
@@ -288,6 +331,13 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
             for name, version in caps.applications.items():
                 if name.casefold() == method.name.casefold():
                     return SupportResult(Support.YES, f"application {name} {version} is installed", observed_at=caps.observed_at)
+
+        elif isinstance(method, ServiceDiscovery):
+            if caps.services is None:
+                unknown.append(f"entry service probe failed: {caps.errors.get('services', 'not run')}")
+                continue
+            if method.namespace in caps.services:
+                return SupportResult(Support.YES, f"listed by the entry service as {method.namespace}", observed_at=caps.observed_at)
 
     if unknown:
         return SupportResult(Support.UNKNOWN, "discovery was incomplete", tuple(unknown), caps.observed_at)

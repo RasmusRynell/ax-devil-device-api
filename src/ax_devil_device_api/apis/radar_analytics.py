@@ -561,7 +561,7 @@ class RadarAnalyticsApi(SyncApi):
     ) -> None:
         """Enable or disable global filters, for example the swaying object filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_global_filters, request, kwargs, request_options)
 
@@ -756,7 +756,7 @@ class AsyncRadarAnalyticsApi(AsyncApi):
     ) -> None:
         """Enable or disable global filters, for example the swaying object filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_global_filters, request, kwargs, request_options)
 

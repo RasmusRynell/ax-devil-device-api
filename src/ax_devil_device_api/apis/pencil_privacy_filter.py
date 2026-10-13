@@ -156,7 +156,7 @@ class PencilPrivacyFilterApi(SyncApi):
     ) -> None:
         """Set the flag values of one or more filter types.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_filter_settings, None, {"settings": settings}, request_options)
 
@@ -169,7 +169,7 @@ class PencilPrivacyFilterApi(SyncApi):
     def set_selected_filter(self, filters: list[FilterType], *, request_options: RequestOptions | None = None) -> None:
         """Select which filter is active; ``none`` deactivates the filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         self._run(OPS.set_selected_filter, None, {"filters": filters}, request_options)
 
@@ -192,7 +192,7 @@ class AsyncPencilPrivacyFilterApi(AsyncApi):
     ) -> None:
         """Set the flag values of one or more filter types.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_filter_settings, None, {"settings": settings}, request_options)
 
@@ -207,7 +207,7 @@ class AsyncPencilPrivacyFilterApi(AsyncApi):
     ) -> None:
         """Select which filter is active; ``none`` deactivates the filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         await self._run(OPS.set_selected_filter, None, {"filters": filters}, request_options)
 

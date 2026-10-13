@@ -169,7 +169,7 @@ class AnalyticsMetadataConfigApi(SyncApi):
         Error if a video channel the producer does not support is specified; error if a fault occurs on any
         of the producer's channels, in which case no updates are applied.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         self._run(OPS.set_enabled_producers, request, kwargs, request_options)
 
@@ -224,7 +224,7 @@ class AsyncAnalyticsMetadataConfigApi(AsyncApi):
         Error if a video channel the producer does not support is specified; error if a fault occurs on any
         of the producer's channels, in which case no updates are applied.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         await self._run(OPS.set_enabled_producers, request, kwargs, request_options)
 

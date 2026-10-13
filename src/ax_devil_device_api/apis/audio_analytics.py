@@ -196,7 +196,7 @@ class AudioAnalyticsApi(SyncApi):
 
         The settings returned by get_plugins_settings can be sent back to configure the plugins.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         self._run(OPS.set_plugins_settings, request, kwargs, request_options)
 
@@ -239,6 +239,6 @@ class AsyncAudioAnalyticsApi(AsyncApi):
 
         The settings returned by get_plugins_settings can be sent back to configure the plugins.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         await self._run(OPS.set_plugins_settings, request, kwargs, request_options)

@@ -14,6 +14,9 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/AxisServiceDiscovery'}
+
 binding: {path: /vapix/axissd}
 
 types:
@@ -163,6 +166,5 @@ provenance:
     - The Service discovery service (axissd) is listed in the overview Identification table but has no API page; the fields come from the Peripherals examples. The unit of Timeout, the full parameter list, other Status values, the faults and the access class are not documented.
     - 'The overview table calls the API "Service discovery service" while the Peripherals page calls it "Axis Discovery Service (axissd)".'
     - The first call starts a discovery process on the device; the operation is modelled as a read because it changes no configuration.
-    - "No discovery probe: the service is found through the entry service's GetServices (SOAP) with its namespace from the overview table, which is not a supported discovery entry."
   migrated_from: v1
   curated: true

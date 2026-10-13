@@ -12,7 +12,7 @@ from typing import Any, ClassVar, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -364,6 +364,7 @@ INFO = ApiInfo(
     id="third-party-credential-service",
     name="Third party credential service",
     family=Family.SERVICE_JSON,
+    discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/thirdpartycredential"),),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/third-party-credential-service/",
         "https://developer.axis.com/vapix/physical-access-control/",

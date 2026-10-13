@@ -16,6 +16,9 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/user'}
+
 binding: {path: /vapix/pacs}
 
 errors:
@@ -158,7 +161,7 @@ operations:
     summary: Get the capabilities of the user service.
     effect: read
     access: anonymous
-    binding: {operation: "axudb:GetServiceCapabilities"}
+    binding: {operation: "axudb:GetServiceCapabilities", auth: if_challenged}
     result: {$ref: "#/types/GetServiceCapabilitiesResult"}
 
   get_user_info_list:
@@ -299,7 +302,6 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
     - 'The message tables say GetUserInfoResponse and GetUserListResponse "shall be empty"; this is taken as a copy-paste error and the responses are modelled as UserInfo and User lists, like GetUserInfoListResponse and GetUserResponse. GetUserList is also assumed to return NextStartReference.'
     - 'The tables name the MaxLimit capability a "GetList" limit and give no type; it is modelled as an integer. Because the capabilities are extendable and MaxLimit is not marked optional or required, it is left optional.'
     - 'Only the fields the docs list apart from "optional fields" (token, Name) are required in responses. The User Extension field ("for future extension") is not modelled, and the type of the Attribute `type` field is only shown as `string`.'

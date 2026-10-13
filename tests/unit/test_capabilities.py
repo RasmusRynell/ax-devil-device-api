@@ -525,3 +525,85 @@ async def test_async_supports_acap_lazy_probe() -> None:
         assert (await dev.capabilities()).applications == {"LoiteringGuard": "2.1"}
 
     assert count(camera, APPLICATIONS) == 1
+
+
+# -- service discovery (Entry service GetServices) ---------------------------------
+
+SERVICES = "/vapix/services"
+_LIGHT_NS = "http://www.axis.com/vapix/ws/light"
+_SERVICES_XML = (
+    '<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"><env:Body>'
+    '<aentry:GetServicesResponse xmlns:aentry="http://www.axis.com/vapix/ws/entry">'
+    f"<aentry:Service><aentry:Namespace>{_LIGHT_NS}</aentry:Namespace><aentry:XAddr>http://camera.test/vapix/services</aentry:XAddr>"
+    "<aentry:Version><aentry:Major>1</aentry:Major><aentry:Minor>0</aentry:Minor></aentry:Version></aentry:Service>"
+    "</aentry:GetServicesResponse></env:Body></env:Envelope>"
+)
+
+
+def _service_api(namespace: str):  # type: ignore[no-untyped-def]
+    from types import SimpleNamespace
+
+    from ax_devil_device_api._protocols.base import ServiceDiscovery
+
+    return SimpleNamespace(INFO=_info(ServiceDiscovery(namespace)))
+
+
+def test_service_discovery_yes_no_and_unknown() -> None:
+    from ax_devil_device_api._protocols.base import ServiceDiscovery
+    from ax_devil_device_api._runtime.capabilities import decide_support
+
+    info = _info(ServiceDiscovery(_LIGHT_NS))
+    assert decide_support(info, _caps(services={_LIGHT_NS: "http://x"})).status is Support.YES
+    assert decide_support(info, _caps(services={"urn:other": ""})).status is Support.NO
+    unknown = decide_support(info, _caps(errors={"services": "AuthError: denied"}))
+    assert unknown.status is Support.UNKNOWN and "denied" in unknown.errors[0]
+
+
+def test_services_probe_request_and_parse() -> None:
+    from ax_devil_device_api._http.types import Headers, Response
+    from ax_devil_device_api._protocols.base import ServiceDiscovery
+    from ax_devil_device_api._protocols.state import DeviceState
+    from ax_devil_device_api._runtime.capabilities import extra_probes, services_flow
+
+    flow = services_flow(DeviceState())
+    request = next(flow)
+    assert (request.method, request.path) == ("POST", SERVICES)
+    body = request.body.content.decode()  # type: ignore[union-attr]
+    assert "GetServices" in body and "IncludeCapability>false<" in body
+    with pytest.raises(StopIteration) as done:
+        flow.send(Response(200, Headers(), _SERVICES_XML.encode(), request))
+    assert done.value.value == {_LIGHT_NS: "http://camera.test/vapix/services"}
+    assert extra_probes(_info(ServiceDiscovery(_LIGHT_NS))) == ("services",)
+
+
+def test_supports_service_probe_is_lazy_and_cached() -> None:
+    camera = MockCamera()
+    camera.cgi(SERVICES, text=_SERVICES_XML, content_type="application/soap+xml", method="POST")
+
+    with camera.device() as dev:
+        dev.capabilities()
+        assert count(camera, SERVICES) == 0
+        assert dev.supports(_service_api(_LIGHT_NS)).status is Support.YES  # type: ignore[arg-type]
+        assert dev.supports(_service_api("urn:missing")).status is Support.NO  # type: ignore[arg-type]
+        assert count(camera, SERVICES) == 1
+        assert dev.capabilities().services == {_LIGHT_NS: "http://camera.test/vapix/services"}
+
+
+def test_supports_service_unknown_when_probe_fails() -> None:
+    camera = MockCamera()
+    camera.cgi(SERVICES, text="denied", status=401, method="POST")
+
+    with camera.device() as dev:
+        result = dev.supports(_service_api(_LIGHT_NS))  # type: ignore[arg-type]
+
+    assert result.status is Support.UNKNOWN
+    assert "entry service" in result.errors[0]
+
+
+@pytest.mark.anyio
+async def test_async_supports_service() -> None:
+    camera = MockCamera()
+    camera.cgi(SERVICES, text=_SERVICES_XML, content_type="application/soap+xml", method="POST")
+
+    async with camera.async_device() as dev:
+        assert (await dev.supports(_service_api(_LIGHT_NS))).status is Support.YES  # type: ignore[arg-type]

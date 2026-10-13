@@ -188,7 +188,7 @@ class AudioMixerApi(SyncApi):
         Only parameters that are changed need to be specified; non-specified parameters retain their
         existing values.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         self._run(OPS.set_plugins_settings, request, kwargs, request_options)
 
@@ -233,6 +233,6 @@ class AsyncAudioMixerApi(AsyncApi):
         Only parameters that are changed need to be specified; non-specified parameters retain their
         existing values.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         await self._run(OPS.set_plugins_settings, request, kwargs, request_options)

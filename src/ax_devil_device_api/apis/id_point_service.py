@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -464,6 +464,7 @@ INFO = ApiInfo(
     id="idpoint-service",
     name="IdPoint service",
     family=Family.SERVICE_JSON,
+    discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/IdPoint"),),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/idpoint-service/",
         "https://developer.axis.com/vapix/physical-access-control/",
@@ -481,7 +482,7 @@ class OPS:
     get_service_capabilities = Operation(
         INFO,
         "get_service_capabilities",
-        ServiceJsonBinding(PATH, "axtid:GetServiceCapabilities"),
+        ServiceJsonBinding(PATH, "axtid:GetServiceCapabilities", auth="if_challenged"),
         result=GetServiceCapabilitiesResult,
         access="anonymous",
         effect="read",
@@ -859,7 +860,7 @@ class IdPointServiceApi(SyncApi):
         token from the device. The tokens are returned. An IdPoint works only once an IdPointConfiguration
         with the same token exists.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_id_point, request, kwargs, request_options)
 
@@ -956,7 +957,7 @@ class IdPointServiceApi(SyncApi):
         (the first valid value). Settings such as the reader type create IoUsers that are assigned to pins
         with the I/O assignment service.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_id_point_configuration, request, kwargs, request_options)
 
@@ -1043,7 +1044,7 @@ class IdPointServiceApi(SyncApi):
         A configuration with an empty token gets a token from the device. All supplied and generated tokens
         are returned.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_id_data_configuration, request, kwargs, request_options)
 
@@ -1219,7 +1220,7 @@ class AsyncIdPointServiceApi(AsyncApi):
         token from the device. The tokens are returned. An IdPoint works only once an IdPointConfiguration
         with the same token exists.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_id_point, request, kwargs, request_options)
 
@@ -1318,7 +1319,7 @@ class AsyncIdPointServiceApi(AsyncApi):
         (the first valid value). Settings such as the reader type create IoUsers that are assigned to pins
         with the I/O assignment service.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_id_point_configuration, request, kwargs, request_options)
 
@@ -1405,7 +1406,7 @@ class AsyncIdPointServiceApi(AsyncApi):
         A configuration with an empty token gets a token from the device. All supplied and generated tokens
         are returned.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_id_data_configuration, request, kwargs, request_options)
 

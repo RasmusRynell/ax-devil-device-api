@@ -19,6 +19,14 @@ WRITE_SENTENCES = {
     "replace": "Replaces the whole configuration; fields left out return to their defaults.",
     "patch": "Changes only the fields given.",
 }
+PATCH_ENTRIES_SENTENCE = "Changes only the entries given; entries that do not exist yet may be created."
+
+
+def write_sentence(op: OpDef) -> str | None:
+    """Docstring sentence for ``write``. A patch whose arguments include a list of models acts per entry (upsert style)."""
+    if op.write == "patch" and any(f.model_name and f.ann.startswith("list[") for f in op.args):
+        return PATCH_ENTRIES_SENTENCE
+    return WRITE_SENTENCES.get(op.write or "")
 
 
 # -- signatures (shared with the API surface listing) --------------------------
@@ -129,8 +137,8 @@ def op_doc(op: OpDef) -> str:
     tail = []
     if op.kind in KIND_SENTENCES:
         tail.append(KIND_SENTENCES[op.kind])
-    if op.write in WRITE_SENTENCES:
-        tail.append(WRITE_SENTENCES[op.write])
+    if sentence_for_write := write_sentence(op):
+        tail.append(sentence_for_write)
     tail.append(f"Access: {op.access}.")
     tail_text = " ".join(tail)
     summary = sentence(op.summary)
@@ -273,6 +281,8 @@ def discovery_code(api: ApiDef) -> str:
             items.append(f"ParamDiscovery({value['name']!r}{extra})")
         elif kind == "acap":
             items.append(f"AcapDiscovery({value['name']!r})")
+        elif kind == "service":
+            items.append(f"ServiceDiscovery({value['namespace']!r})")
         else:
             raise SpecError(f"unknown discovery kind {kind!r}")
     return tup(items)
@@ -693,7 +703,7 @@ from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
 from .._http.upload import UploadSource, UploadSpec
-from .._protocols.base import AcapDiscovery, ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery
+from .._protocols.base import AcapDiscovery, ApiDiscovery, ApiInfo, ApiVersion, Applicability, DcaDiscovery, ErrorCode, Family, Model, Operation, ParamDiscovery, ServiceDiscovery
 from .._protocols.cgi import Binary, CgiArg, CgiBinding, JsonReply, Text, TextKv, TextLines, TextOk, Xml
 from .._protocols.dca import DcaBinding
 from .._protocols.rest import RestBinding

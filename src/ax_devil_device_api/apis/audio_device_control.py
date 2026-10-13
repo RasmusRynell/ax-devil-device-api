@@ -268,7 +268,7 @@ class AudioDeviceControlApi(SyncApi):
     ) -> None:
         """Change the audio settings for one or multiple audio devices.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         self._run(OPS.set_devices_settings, request, kwargs, request_options)
 
@@ -314,7 +314,7 @@ class AsyncAudioDeviceControlApi(AsyncApi):
     ) -> None:
         """Change the audio settings for one or multiple audio devices.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         await self._run(OPS.set_devices_settings, request, kwargs, request_options)
 

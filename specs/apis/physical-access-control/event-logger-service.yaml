@@ -15,6 +15,10 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/peripherals/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/EventLogger'}
+- service: {namespace: 'http://www.axis.com/vapix/ws/EventLoggerConfig'}
+
 binding: {path: /vapix/eventlogger}
 
 errors:
@@ -458,7 +462,7 @@ operations:
     summary: Get the capabilities of the event logger config service.
     effect: read
     access: anonymous
-    binding: {operation: "axloc:GetServiceCapabilities"}
+    binding: {operation: "axloc:GetServiceCapabilities", auth: if_challenged}
     result: {$ref: "#/types/GetServiceCapabilitiesResult"}
 
   enable_global_distribution:
@@ -515,7 +519,6 @@ sources:
 provenance:
   completeness: partial
   open_questions:
-    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
     - 'FetchEvents2 and FetchAlarms2 are described only in the guide, not in the API specification. Their parameters are those of FetchEvents plus FilterSets, and the response shape is assumed to be the same.'
     - 'The GetEventDistributionConfig message table puts EventDistributionConfig in the request and leaves the response empty; the guide shows it in the response (as an array) and says the call takes no arguments. The guide wins.'
     - 'The FetchEvents "response" JSON example filters with `{"topic0": "AccessControl"}`; the filter structure and its XML form are Key and Value, so the example is corrected to `{Key: topic0, Value: AccessControl}`.'

@@ -270,7 +270,7 @@ class SupervisedIoApi(SyncApi):
 
         Each port is reported separately in the result; a ``code`` of 1 means success.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         return self._run(OPS.set_supervised, None, {"ports": ports}, request_options)
 
@@ -335,7 +335,7 @@ class AsyncSupervisedIoApi(AsyncApi):
 
         Each port is reported separately in the result; a ``code`` of 1 means success.
 
-        Changes only the fields given. Access: operator.
+        Changes only the entries given; entries that do not exist yet may be created. Access: operator.
         """
         return await self._run(OPS.set_supervised, None, {"ports": ports}, request_options)
 

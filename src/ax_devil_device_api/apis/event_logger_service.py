@@ -12,7 +12,7 @@ from typing import Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation
+from .._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -206,6 +206,10 @@ INFO = ApiInfo(
     id="event-logger-service",
     name="Event logger service",
     family=Family.SERVICE_JSON,
+    discovery=(
+        ServiceDiscovery("http://www.axis.com/vapix/ws/EventLogger"),
+        ServiceDiscovery("http://www.axis.com/vapix/ws/EventLoggerConfig"),
+    ),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/event-logger-service/",
         "https://developer.axis.com/vapix/physical-access-control/",
@@ -342,7 +346,7 @@ class OPS:
     get_service_capabilities = Operation(
         INFO,
         "get_service_capabilities",
-        ServiceJsonBinding(PATH, "axloc:GetServiceCapabilities"),
+        ServiceJsonBinding(PATH, "axloc:GetServiceCapabilities", auth="if_challenged"),
         result=GetServiceCapabilitiesResult,
         access="anonymous",
         effect="read",
@@ -546,7 +550,7 @@ class EventLoggerServiceApi(SyncApi):
         A filter whose token exists is updated; any other is created. Events that match an ignore filter are
         not stored, unless they also match an alarm filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_ignore_filter, request, kwargs, request_options)
 
@@ -581,7 +585,7 @@ class EventLoggerServiceApi(SyncApi):
         A filter whose token exists is updated; any other is created. An event that matches an alarm filter
         is stored as an alarm as well as an event, even if it matches an ignore filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return self._run(OPS.set_alarm_filter, request, kwargs, request_options)
 
@@ -792,7 +796,7 @@ class AsyncEventLoggerServiceApi(AsyncApi):
         A filter whose token exists is updated; any other is created. Events that match an ignore filter are
         not stored, unless they also match an alarm filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_ignore_filter, request, kwargs, request_options)
 
@@ -827,7 +831,7 @@ class AsyncEventLoggerServiceApi(AsyncApi):
         A filter whose token exists is updated; any other is created. An event that matches an alarm filter
         is stored as an alarm as well as an event, even if it matches an ignore filter.
 
-        Changes only the fields given. Access: admin.
+        Changes only the entries given; entries that do not exist yet may be created. Access: admin.
         """
         return await self._run(OPS.set_alarm_filter, request, kwargs, request_options)
 

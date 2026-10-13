@@ -12,7 +12,7 @@ from typing import Any, overload
 from pydantic import MISSING, Field
 
 from .._http.options import RequestOptions
-from .._protocols.base import ApiInfo, Family, Model, Operation
+from .._protocols.base import ApiInfo, Family, Model, Operation, ServiceDiscovery
 from .._protocols.service_json import ServiceJsonBinding
 from ._base import AsyncApi, SyncApi
 
@@ -88,6 +88,7 @@ INFO = ApiInfo(
     id="service-discovery-service",
     name="Service discovery service",
     family=Family.SERVICE_JSON,
+    discovery=(ServiceDiscovery("http://www.axis.com/vapix/ws/AxisServiceDiscovery"),),
     docs=(
         "https://developer.axis.com/vapix/physical-access-control/peripherals/",
         "https://developer.axis.com/vapix/physical-access-control/",

@@ -1179,8 +1179,6 @@ provenance:
   - AllowedURIs and AccessList are typed String in the table while the examples show arrays; modelled as arrays
     of strings. AllowedUsers has the undefined type UserAuthentication and is an untyped list.
   - SIPAccountStatus.IsDefault appears in examples but not in the table; RegURI is null in the simple response.
-  - Responses with a single item in a list (for example the plural Set* results) may be returned as a scalar by
-    the device (see GAP(single-element-list) in other specs); no example here shows it.
   - The simplified Call response CallId differs from the JSON example.
   - The version history is not on the page; since values come from the 'Supported from API version' notes. The service
     has no version negotiation, so they are documentation only.

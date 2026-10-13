@@ -16,6 +16,9 @@ docs:
 - https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
 access: admin
 
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/schedule'}
+
 binding: {path: /vapix/schedule}
 
 errors:
@@ -198,7 +201,7 @@ operations:
     summary: Get the capabilities of the schedule service.
     effect: read
     access: anonymous
-    binding: {operation: "axsch:GetServiceCapabilities"}
+    binding: {operation: "axsch:GetServiceCapabilities", auth: if_challenged}
     result: {$ref: "#/types/GetServiceCapabilitiesResult"}
 
   get_schedule_info_list:
@@ -350,7 +353,6 @@ sources:
 provenance:
   completeness: complete
   open_questions:
-    - "No discovery probe: the docs only say the service is found through the entry service's GetServices (SOAP), which is not a supported discovery entry."
     - 'The ScheduleStatusReport example sends no Token, and the guide describes it as a report for all schedules, but the message table makes Token mandatory ([1][unbounded]). The table wins here, so the example is skipped; the device apparently accepts omission, which would make Token optional.'
     - 'The encoding of ServiceCapabilities.Component (a list of supported iCalendar components) is not documented; it is left untyped.'
     - 'The Interval and Pulse notification topics are spelled `tns1:Schedule/Interval` and `tns1:Schedule/Pulse` on the service page but `tns1:Schedule/tnsaxis:Interval` and `tns1:Schedule/tnsaxis:Pulse` in the event logger notification topics table.'
