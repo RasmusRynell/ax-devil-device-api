@@ -809,17 +809,17 @@ def api_error(
     )
 
 
-def http_error(op: Operation[Any], response: Response, *, documented: bool = False) -> DeviceError:
+def http_error(op: Operation[Any], response: Response, *, documented: bool | frozenset[int] = False) -> DeviceError:
     """Build the error for a failure status that carried no API error envelope.
 
-    With ``documented=True`` (protocols whose error maps are keyed by HTTP status: cgi, rest) a status the
-    operation or API documents wins over the generic mapping below, except 401 and 403, which always keep
-    ``AuthError`` / ``AccessDenied``. In the other protocols the map is keyed by API error codes, so a number that
-    happens to equal an HTTP status must not be taken for it."""
+    With ``documented=True`` (rest, whose error maps are keyed by HTTP status) a status the operation or API
+    documents wins over the generic mapping below; a set of statuses (cgi: ``{404}``) limits that to those
+    statuses. 401 and 403 always keep ``AuthError`` / ``AccessDenied``. Elsewhere the map is keyed by API error
+    codes (a CGI map may mix both), so a number that happens to equal an HTTP status must not be taken for it."""
     status = response.status
-    if documented and status not in (401, 403) and op.error_code(status) is not None:
+    if (documented is True or (not isinstance(documented, bool) and status in documented)) and status not in (401, 403) and op.error_code(status) is not None:
         # The operation documents this status (for example a 404 that means "not found", not "unsupported").
-        return api_error(op, status, response.excerpt(), http_status=status, details=response.text)
+        return api_error(op, status, response.excerpt(), http_status=status, details=response.safe_text)
     if status == 401:
         return AuthError(f"{op.api.id}.{op.id}: the device requires authentication and no usable credentials were configured")
     if status == 403:

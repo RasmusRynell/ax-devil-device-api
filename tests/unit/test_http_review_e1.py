@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -322,14 +323,14 @@ def test_documented_404_is_an_api_error_not_not_supported() -> None:
     op = media_stream.OPS.get_media_stream
     request = Request("GET", "/axis-media/media.amp")
     response = Response(404, Headers(()), b"not here", request)
-    error = http_error(op, response, documented=True)
+    error = http_error(op, response, documented=frozenset({404}))
     assert isinstance(error, ApiError) and error.kind == "not_found" and error.http_status == 404
     with pytest.raises(ApiError):
         _decode(op, response)
     # an operation that documents nothing for the status keeps the generic mapping
     undocumented = media_stream.OPS.get_media_stream
     assert isinstance(http_error(undocumented, Response(418, Headers(()), b"", request)), Exception)
-    assert not isinstance(http_error(op, response, documented=True), NotSupported)
+    assert not isinstance(http_error(op, response, documented=frozenset({404})), NotSupported)
 
 
 # --- a reused one-shot upload source never silently sends an empty body ---------------------------------------------
@@ -426,3 +427,73 @@ def test_http_keyed_protocols_use_documented_statuses_except_401_and_403() -> No
     assert info.value.kind == "invalid_argument"
     assert isinstance(http_error(op, Response(403, Headers(()), b"", request), documented=True), AccessDenied)
     assert isinstance(http_error(op, Response(401, Headers(()), b"", request), documented=True), AuthError)
+
+
+# --- error details never fail on an unknown charset ------------------------------------------------------------------
+
+
+def test_documented_status_with_an_unknown_charset_keeps_its_kind() -> None:
+    from ax_devil_device_api._protocols.base import http_error
+    from ax_devil_device_api.apis import media_stream
+    from ax_devil_device_api.errors import ApiError
+
+    request = Request("GET", "/axis-media/media.amp")
+    response = Response(404, Headers([("Content-Type", "text/plain; charset=nonsense-9")]), b"gone", request)
+    error = http_error(media_stream.OPS.get_media_stream, response, documented=frozenset({404}))
+    assert isinstance(error, ApiError) and error.kind == "not_found" and "gone" in str(error.details)
+    assert response.safe_text == "gone"
+
+
+# --- host must not carry a port ---------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("host", ["camera.local:8443", "10.0.0.5:80", "cam:", "[bad:host]", "::zz"])
+def test_host_with_a_port_is_a_configuration_error(host: str) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="port"):
+        ConnectionConfig(host)
+
+
+@pytest.mark.parametrize("host", ["2001:db8::1", "[2001:db8::1]", "::1", "fe80::1%eth0", "camera.local"])
+def test_ipv6_literals_and_names_are_accepted(host: str) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+
+    assert ConnectionConfig(host).host == host
+
+
+def test_cli_reports_host_with_port_as_json_not_a_traceback() -> None:
+    import io
+
+    from ax_devil_device_api.cli import main
+
+    out, err = io.StringIO(), io.StringIO()
+    code = main(["--host", "camera.local:8443", "--user", "u", "--password", "p", "call", "mqtt_client", "get_client_status"], out=out, err=err)
+    text = err.getvalue()
+    assert code != 0 and "Traceback" not in text
+    assert "port" in json.loads(text.splitlines()[-1])["error"]["message"]
+
+
+def test_invalid_url_from_httpx_is_a_configuration_error() -> None:
+    import httpx
+
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import SyncTransport
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with SyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(lambda r: httpx.Response(200))) as t:
+        with pytest.raises(ConfigurationError):
+            t.send(Request("GET", "/ok\x00x"))
+
+
+def test_cgi_http_503_is_unavailable_even_when_the_api_has_code_503() -> None:
+    """Focus Recall's API code 503 ('Unknown index') arrives in a 200 envelope; an HTTP 503 is still unavailable."""
+    from ax_devil_device_api._protocols.cgi import _decode
+    from ax_devil_device_api.apis import focus_recall
+    from ax_devil_device_api.errors import Unavailable
+
+    op = focus_recall.OPS.add_memory_zone
+    assert op.error_code(503) is not None
+    with pytest.raises(Unavailable):
+        _decode(op, Response(503, Headers(()), b"", Request("GET", "/axis-cgi/opticssetup.cgi")))

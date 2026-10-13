@@ -70,6 +70,10 @@ async def _aslot(semaphore: asyncio.Semaphore, timeout: float) -> AsyncIterator[
         semaphore.release()
 
 
+def _invalid_url(error: httpx.InvalidURL) -> errors.ConfigurationError:
+    return errors.ConfigurationError(f"the device address or request path does not make a valid URL: {error}")
+
+
 def _preflight_request(request: Request) -> Request | None:
     """The preflight for ``request``, or ``None`` when it needs none."""
     if request.replayable or request.auth != "required":
@@ -398,7 +402,10 @@ class SyncTransport:
         self._auth = AxisAuth(config.credentials)
         self._slots = threading.BoundedSemaphore(config.max_concurrency)
         self._stream_slots = threading.BoundedSemaphore(config.max_streams)
-        self._client = httpx.Client(transport=transport, **_client_args(config))
+        try:
+            self._client = httpx.Client(transport=transport, **_client_args(config))
+        except httpx.InvalidURL as error:
+            raise _invalid_url(error) from error
         self._client.headers.pop("Accept", None)  # Accept is set only when a request asks for it
 
     def _send(self, request: Request, *, stream: bool) -> httpx.Response:
@@ -422,6 +429,8 @@ class SyncTransport:
                 auth=self._auth.for_request(request.auth, request.replayable),
                 stream=stream,
             )
+        except httpx.InvalidURL as error:
+            raise _invalid_url(error) from error
         except httpx.TransportError as error:
             raise map_error(error) from error
         finally:
@@ -513,7 +522,10 @@ class AsyncTransport:
         self._auth = AxisAuth(config.credentials)
         self._slots: asyncio.Semaphore | None = None  # created on first use, inside a running loop
         self._stream_slots: asyncio.Semaphore | None = None
-        self._client = httpx.AsyncClient(transport=transport, **_client_args(config))
+        try:
+            self._client = httpx.AsyncClient(transport=transport, **_client_args(config))
+        except httpx.InvalidURL as error:
+            raise _invalid_url(error) from error
         self._client.headers.pop("Accept", None)
 
     def _semaphores(self) -> tuple[asyncio.Semaphore, asyncio.Semaphore]:
@@ -543,6 +555,8 @@ class AsyncTransport:
                 auth=self._auth.for_request(request.auth, request.replayable),
                 stream=stream,
             )
+        except httpx.InvalidURL as error:
+            raise _invalid_url(error) from error
         except httpx.TransportError as error:
             raise map_error(error) from error
         finally:

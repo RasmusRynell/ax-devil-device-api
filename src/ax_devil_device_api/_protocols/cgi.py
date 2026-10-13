@@ -416,8 +416,8 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
         # A 401 may carry a plain-text API error (pwdgrp.cgi: "Error: initial admin user must be created first.")
         # when the request was sent without a challenge; any other 401 body is the device's login page.
         if not isinstance(codec, Binary) and (response.status not in (401, 403, 404) or (response.status == 401 and op.binding.auth == "if_challenged")):
-            _text_errors(op, response.text, response.status)
-        raise http_error(op, response, documented=True)
+            _text_errors(op, response.safe_text, response.status)
+        raise http_error(op, response, documented=frozenset({404}))
 
     if isinstance(codec, Binary):
         if codec.media_types and response.media_type not in codec.media_types:

@@ -283,13 +283,17 @@ class Response:
                 "http", f"{self.request.method} {self.request.path}", f"unsupported response charset {charset!r}"
             ) from None
 
+    @property
+    def safe_text(self) -> str:
+        """``text`` for error reporting, which must never fail: an unusable charset falls back to UTF-8."""
+        try:
+            return self.text
+        except ResponseFormatError:
+            return self.content.decode("utf-8", errors="replace")
+
     def excerpt(self, limit: int = 200) -> str:
         """The start of the body for error messages; never raises (an unusable charset falls back to UTF-8)."""
-        try:
-            text = self.text
-        except ResponseFormatError:
-            text = self.content.decode("utf-8", errors="replace")
-        text = text.strip()
+        text = self.safe_text.strip()
         return text if len(text) <= limit else text[:limit] + "…"
 
 

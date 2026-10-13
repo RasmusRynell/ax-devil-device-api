@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import math
 import ssl
 from collections.abc import Callable
@@ -67,6 +68,16 @@ ResponseHook = Callable[[dict[str, Any]], None]
 ``{api, operation, method, path, status, error, duration_ms, attempt}``."""
 
 
+def _is_ipv6(host: str) -> bool:
+    """Whether ``host`` is an IPv6 literal, with or without brackets (a zone id is allowed)."""
+    inner = host[1:-1] if host.startswith("[") and host.endswith("]") else host
+    try:
+        ipaddress.IPv6Address(inner)
+    except ValueError:
+        return False
+    return True
+
+
 @dataclass(frozen=True)
 class ConnectionConfig:
     """Everything needed to reach one device. Immutable once created."""
@@ -92,6 +103,10 @@ class ConnectionConfig:
     def __post_init__(self) -> None:
         if not self.host or any(c in self.host for c in "/?#@ "):
             raise ConfigurationError(f"Invalid host: {self.host!r}")
+        if ":" in self.host and not _is_ipv6(self.host):
+            raise ConfigurationError(
+                f"Invalid host: {self.host!r}; a host name or IP address only. Pass the port with port=... (or --port)"
+            )
         if self.scheme not in ("https", "http"):
             raise ConfigurationError(f"Invalid scheme: {self.scheme!r}")
         if self.scheme == "http" and not self.allow_http:
