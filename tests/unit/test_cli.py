@@ -237,3 +237,33 @@ def test_user_without_any_password_still_asks_for_both(monkeypatch: pytest.Monke
     args = cli.build_parser().parse_args(["--host", "10.0.0.1", "--user", "root", "summary"])
     with pytest.raises(cli.CliError, match="both"):
         cli.make_device(args)
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["call", "mqtt_client", "get_client_status", "--json", ""], "not valid JSON"),
+        (["call", "mqtt_client", "get_client_status", "--json", "@"], "file name"),
+        (["--host", "", "summary"], "--host must not be empty"),
+        (["--host", "cam", "--user", "", "summary"], "--user must not be empty"),
+        (["--host", "cam", "--ca-bundle", "", "summary"], "--ca-bundle must not be empty"),
+        (["call", "mqtt_client", "get_client_status", "-o", ""], "--output must not be empty"),
+        (["snapshot", "-o", ""], "--output must not be empty"),
+        (["snapshot", "--resolution", ""], "--resolution must not be empty"),
+        (["snapshot", "--camera", ""], "--camera must not be empty"),
+    ],
+)
+def test_empty_cli_values_are_usage_errors_not_absent_options(monkeypatch: pytest.MonkeyPatch, argv: list[str], message: str) -> None:
+    for name in ("AX_DEVIL_HOST", "AX_DEVIL_USER", "CAM_USER", "AX_DEVIL_PASSWORD", "CAM_PASS"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("AX_DEVIL_HOST", "cam")
+    out, err = io.StringIO(), io.StringIO()
+    code = cli.main(argv, out=out, err=err)
+    assert code == 2 and "Traceback" not in err.getvalue()
+    assert message in json.loads(err.getvalue().splitlines()[-1])["error"]["message"]
+
+
+def test_explicit_empty_host_does_not_fall_back_to_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AX_DEVIL_HOST", "envhost")
+    args = cli.build_parser().parse_args(["--host", "other", "summary"])
+    assert cli.make_device(args).config.host == "other"

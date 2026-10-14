@@ -56,6 +56,17 @@ def _env(names: Sequence[str], *, keep_empty: bool = False) -> str | None:
     return None
 
 
+def _nonempty(option: str) -> Callable[[str], str]:
+    """An argparse ``type=`` for a value that has no meaning when empty (an unset shell variable, say): a usage error."""
+
+    def convert(text: str) -> str:
+        if not text:
+            raise argparse.ArgumentTypeError(f"{option} must not be empty")
+        return text
+
+    return convert
+
+
 def _arg(check: Callable[[Any], Any], kind: type) -> Callable[[str], Any]:
     """An argparse ``type=``: parse as ``kind``, then validate (errors become a usage message)."""
 
@@ -75,13 +86,13 @@ def build_parser() -> argparse.ArgumentParser:
     conn = parser.add_argument_group(
         "connection", f"host, user and password default to ${ENV_HOST}, ${ENV_USER[0]} (or $CAM_USER) and ${ENV_PASSWORD[0]} (or $CAM_PASS)"
     )
-    conn.add_argument("--host", "-H", help="device address (host or IP)")
-    conn.add_argument("--user", "-u", help="user name")
+    conn.add_argument("--host", "-H", type=_nonempty("--host"), help="device address (host or IP)")
+    conn.add_argument("--user", "-u", type=_nonempty("--user"), help="user name")
     conn.add_argument("--password", "-p", help="password (prefer the environment: arguments show up in process lists)")
     conn.add_argument("--port", type=_arg(lambda v: bounded_int("--port", v, 1, 65535), int))
     conn.add_argument("--http", action="store_true", help="use plain HTTP (default is HTTPS)")
     conn.add_argument("--insecure", "-k", action="store_true", help="do not verify the TLS certificate")
-    conn.add_argument("--ca-bundle", metavar="PATH", help="CA bundle used to verify the TLS certificate")
+    conn.add_argument("--ca-bundle", metavar="PATH", type=_nonempty("--ca-bundle"), help="CA bundle used to verify the TLS certificate")
     conn.add_argument("--base-path", default="", help="path prefix of a reverse proxy or VMS")
     conn.add_argument("--timeout", type=_arg(lambda v: positive_finite("--timeout", v), float), default=10.0, help="seconds (default 10)")
 
@@ -100,14 +111,14 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("op")
     call.add_argument("args", nargs="*", metavar="key=value", help="parameters; values are parsed as JSON, else taken as strings")
     call.add_argument("--json", dest="json_args", metavar="JSON|@FILE", help="parameters as a JSON object, or @file")
-    call.add_argument("--output", "-o", metavar="FILE", help="write binary results (or stream bodies) here; '-' means stdout")
+    call.add_argument("--output", "-o", metavar="FILE", type=_nonempty("--output"), help="write binary results (or stream bodies) here; '-' means stdout")
     call.add_argument("--limit", type=_arg(lambda v: non_negative_int("--limit", v), int), help="stop a stream after this many items")
     call.set_defaults(run=_cmd_call)
 
     snap = sub.add_parser("snapshot", help="fetch a JPEG image; writes to --output FILE, or raw to stdout")
-    snap.add_argument("--output", "-o", metavar="FILE", help="file to write (default: stdout, '-' also means stdout)")
-    snap.add_argument("--resolution", help="for example 640x480")
-    snap.add_argument("--camera", help="camera number or 'quad'")
+    snap.add_argument("--output", "-o", metavar="FILE", type=_nonempty("--output"), help="file to write (default: stdout, '-' also means stdout)")
+    snap.add_argument("--resolution", type=_nonempty("--resolution"), help="for example 640x480")
+    snap.add_argument("--camera", type=_nonempty("--camera"), help="camera number or 'quad'")
     snap.add_argument("--compression", type=int, help="0-100, higher is smaller")
     snap.add_argument("--color", type=int, choices=(0, 1))
     snap.add_argument("--rotation", type=int, choices=(0, 90, 180, 270))
@@ -123,7 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def make_device(args: argparse.Namespace) -> Device:
-    host = args.host or os.environ.get(ENV_HOST)
+    host = args.host if args.host is not None else os.environ.get(ENV_HOST)
     if not host:
         raise CliError(f"no device: pass --host or set ${ENV_HOST}")
     # ``is None`` checks: an explicit empty value (an empty password) must not fall back to the environment.
@@ -160,7 +171,9 @@ def parse_value(text: str) -> Any:
 
 def parse_params(args: list[str], json_arg: str | None) -> dict[str, Any]:
     params: dict[str, Any] = {}
-    if json_arg:
+    if json_arg is not None:  # an empty --json (an unset shell variable) is invalid JSON, not "absent"
+        if json_arg == "@":
+            raise CliError("--json @FILE needs a file name")
         raw = Path(json_arg[1:]).read_text() if json_arg.startswith("@") else json_arg
         try:
             loaded = json.loads(raw)
@@ -256,7 +269,7 @@ def _stdout_buffer(out: TextIO) -> Any:
 
 
 def _write_binary(chunks: Any, path: str | None, out: TextIO) -> None:
-    if not path:
+    if path is None:
         raise CliError("binary result: pass --output FILE")
     if path == "-":
         buffer = _stdout_buffer(out)
@@ -315,7 +328,7 @@ def _cmd_snapshot(args: argparse.Namespace, out: TextIO) -> None:
     options = {k: getattr(args, k) for k in ("resolution", "camera", "compression", "color", "rotation", "mirror")}
     with make_device(args) as dev:
         data = snapshot(dev, **options)
-    if args.output and args.output != "-":
+    if args.output is not None and args.output != "-":
         Path(args.output).write_bytes(data)
         return
     buffer = _stdout_buffer(out)
