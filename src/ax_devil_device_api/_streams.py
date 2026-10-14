@@ -274,9 +274,13 @@ class MultipartLinesDecoder:
     def _lines(self, parts: list[Part]) -> list[str]:
         out: list[str] = []
         for part in parts:
-            for line in part.body.decode(self._encoding, errors="replace").splitlines():
-                if len(line) > self._max:
+            # Split the raw bytes on LF (like LinesDecoder), never on Unicode separators such as U+2028 / U+0085,
+            # and enforce the limit on bytes, before decoding.
+            for raw in part.body.split(b"\n"):
+                raw = raw.removesuffix(b"\r")
+                if len(raw) > self._max:
                     raise ResponseFormatError(self._api, "stream", f"a line exceeds {self._max} bytes")
+                line = raw.decode(self._encoding, errors="replace")
                 if line.strip():
                     out.append(line)
         return out
