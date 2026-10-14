@@ -76,9 +76,17 @@ def build_all(paths: list[Path], only: list[str] | None = None, include_uncurate
         if only is None or api.id in only or spec.path.stem in only:
             res.files[module_path(api)] = text
     res.apis.sort(key=lambda a: a.module)
-    res.files[APIS_PKG / "__init__.py"] = render_namespace(res.apis)
-    res.files[SURFACE_PATH] = render_surface(res.apis)
+    # The shared outputs list only modules that exist after this run: written now, or generated earlier and still on
+    # disk. With --only, an API whose module is not written (an uncurated one included by --all, say) must not appear
+    # in the namespace, or importing it would fail.
+    present = [a for a in res.apis if module_path(a) in res.files or _generated_on_disk(module_path(a))]
+    res.files[APIS_PKG / "__init__.py"] = render_namespace(present)
+    res.files[SURFACE_PATH] = render_surface(present)
     return res
+
+
+def _generated_on_disk(path: Path) -> bool:
+    return path.is_file() and path.read_text().startswith(GENERATED_MARK)
 
 
 def report(res: Result) -> None:
