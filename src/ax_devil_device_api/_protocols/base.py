@@ -793,13 +793,16 @@ def api_error(
 
     One rule for every protocol: **the HTTP status decides the category** when it fixes one. 401 is ``AuthError``,
     403 ``ApiAccessDenied`` (an ``AccessDenied``), 503 ``ApiUnavailable`` (an ``Unavailable``); a 401 is an ``AuthError``
-    unless the spec documents that very 401 as an API error. The documented code and description are kept on the
+    unless it is a message-keyed error the spec documents (a text ``Error:`` line on a 401). The documented code and description are kept on the
     exception (``code``, ``description``, ``details``) and the documented ``kind`` stays as its refinement. Only when the status fixes no category (a 2xx
     envelope, 404 and the other non-auth 4xx) does the documented ``kind`` pick the class (a 500 fixes none: SOAP carries every fault in a 500).
     """
     info = op.error_code(code, message, _sub_code(details))
     documented = info.kind if info else None
-    if http_status == 401 and info is None:  # a 401 the spec documents as an API error (add_user: no admin yet) stays one
+    # A 401 stays an API error only for the message-keyed errors a spec labels as such (add_user: "initial admin user
+    # must be created first", HTTP 401); a documented numeric code on a 401 is still an authentication failure.
+    message_keyed = info is not None and (info.message is not None or info.message_prefix is not None)
+    if http_status == 401 and not message_keyed:
         reason = f" ({message})" if message else ""
         return AuthError(f"{op.api.id}.{op.id}: the device requires authentication and no usable credentials were configured{reason}")
     if http_status == 403:

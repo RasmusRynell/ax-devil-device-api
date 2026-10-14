@@ -123,3 +123,18 @@ def test_rest_statuses_decide_the_category() -> None:
     assert isinstance(error_for(503), Unavailable)
     conflict = error_for(409)
     assert isinstance(conflict, ApiError) and conflict.kind == "invalid_argument"
+
+
+def test_jsonrpc_401_with_a_documented_numeric_code_is_an_auth_error() -> None:
+    error = _invoke("jsonrpc", 7, 401)  # code 7 is documented as invalid_argument
+    assert isinstance(error, AuthError)
+
+
+def test_a_message_keyed_401_the_spec_documents_stays_an_api_error() -> None:
+    from ax_devil_device_api._protocols.base import api_error
+
+    text = "initial admin user must be created first."
+    errors: dict[int | str, ErrorCode] = {"first": ErrorCode("No admin yet", "access_denied", message=text)}
+    info = ApiInfo(id="t", name="T", family=Family.CGI, errors=errors)
+    error = api_error(Operation(info, "op", binding=object()), None, text, http_status=401, details="")
+    assert isinstance(error, ApiError) and isinstance(error, AccessDenied)
