@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from typing import Any
 
 import httpx
 import pytest
@@ -242,3 +243,91 @@ def test_a_failure_while_sending_the_body_is_still_not_retried() -> None:
     with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
         with pytest.raises(TransportError):
             run_sync(t, _one_shot_flow(upload()), call)
+
+
+# --- a stale nonce must not demote the verified credential; a demotion before the body is retried ---------------------------
+
+
+class StaleCamera(Camera):
+    """Answers one authorized GET /other with a stale-nonce challenge, noting the auth state it sees on the retry."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stale_next = False
+        self.state_probe: Any = None
+        self.state_on_retry: list[bool] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/other" and "authorization" in request.headers:
+            if self.stale_next:
+                self.stale_next = False
+                return httpx.Response(401, headers={"WWW-Authenticate": CHALLENGE + ", stale=true"})
+            if self.state_probe is not None:
+                self.state_on_retry.append(self.state_probe())
+        return super().__call__(request)
+
+
+def test_stale_nonce_keeps_the_verified_state_while_the_request_is_retried() -> None:
+    cam = StaleCamera()
+    with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        t.send(Request("GET", "/other"))  # verified now
+        cam.stale_next = True
+        cam.state_probe = lambda: t._auth.has_verified_state
+        assert t.send(Request("GET", "/other")).status == 200
+        assert cam.state_on_retry and all(cam.state_on_retry)
+        assert t._auth.has_verified_state
+
+
+@pytest.mark.anyio
+async def test_async_stale_nonce_keeps_the_verified_state_while_the_request_is_retried() -> None:
+    cam = StaleCamera()
+    async with AsyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        await t.send(Request("GET", "/other"))
+        cam.stale_next = True
+        cam.state_probe = lambda: t._auth.has_verified_state
+        assert (await t.send(Request("GET", "/other"))).status == 200
+        assert cam.state_on_retry and all(cam.state_on_retry)
+
+
+def test_a_genuine_rejection_still_demotes() -> None:
+    cam = StaleCamera()
+    with SyncTransport(cfg(), transport=httpx.MockTransport(cam)) as t:
+        t.send(Request("GET", "/other"))
+        cam.password = "changed"
+        with pytest.raises(AuthError):
+            t.send(Request("GET", "/other"))
+        assert not t._auth.has_verified_state
+
+
+def test_upload_demoted_after_the_preflight_is_reverified_and_sent_once() -> None:
+    cam = Camera()
+    demoted: list[bool] = []
+
+    class Racing(SyncTransport):
+        def _send_once(self, request: Request, *, stream: bool) -> Any:
+            if request.path == "/up" and not demoted:
+                demoted.append(True)
+                self._auth.reset()  # another request lost the verified state right after the preflight
+            return super()._send_once(request, stream=stream)
+
+    with Racing(cfg(), transport=httpx.MockTransport(cam)) as t:
+        assert t.send(upload()).status == 200
+    assert [p for p in cam.paths if p[0] == "POST"] == [("POST", "/up")]
+    assert [p for p in cam.paths if p[1] == PREFLIGHT_PATH and p[0] == "GET"]
+
+
+@pytest.mark.anyio
+async def test_async_upload_demoted_after_the_preflight_is_reverified_and_sent_once() -> None:
+    cam = Camera()
+    demoted: list[bool] = []
+
+    class Racing(AsyncTransport):
+        async def _send_once(self, request: Request, *, stream: bool) -> Any:
+            if request.path == "/up" and not demoted:
+                demoted.append(True)
+                self._auth.reset()
+            return await super()._send_once(request, stream=stream)
+
+    async with Racing(cfg(), transport=httpx.MockTransport(cam)) as t:
+        assert (await t.send(upload())).status == 200
+    assert [p for p in cam.paths if p[0] == "POST"] == [("POST", "/up")]

@@ -462,16 +462,25 @@ class SyncTransport:
 
     def _send(self, request: Request, *, stream: bool) -> httpx.Response:
         probe = _preflight_request(request) if self._auth.uses_password else None
-        if probe is not None:
-            _emit(self.config, probe)
+        for attempt in range(2 if probe is not None else 1):
+            if probe is not None:
+                _emit(self.config, probe)
+                try:
+                    reply = self._send_once(probe, stream=False)
+                except errors.TransportError as error:
+                    error.during_preflight = True
+                    raise
+                if not reply.is_success or self._auth.needs_verification:
+                    raise _preflight_failure(reply.status_code)
             try:
-                reply = self._send_once(probe, stream=False)
-            except errors.TransportError as error:
-                error.during_preflight = True
+                return self._send_once(request, stream=stream)
+            except errors.AuthError as error:
+                # A concurrent request demoted the verified credential after the preflight and before this body
+                # was signed: nothing was sent yet, so verify once more. A failure after the body went out is final.
+                if attempt == 0 and probe is not None and getattr(error, "body_untouched", False):
+                    continue
                 raise
-            if not reply.is_success or self._auth.needs_verification:
-                raise _preflight_failure(reply.status_code)
-        return self._send_once(request, stream=stream)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
         opened: list[Any] = []
@@ -589,16 +598,25 @@ class AsyncTransport:
 
     async def _send(self, request: Request, *, stream: bool) -> httpx.Response:
         probe = _preflight_request(request) if self._auth.uses_password else None
-        if probe is not None:
-            _emit(self.config, probe)
+        for attempt in range(2 if probe is not None else 1):
+            if probe is not None:
+                _emit(self.config, probe)
+                try:
+                    reply = await self._send_once(probe, stream=False)
+                except errors.TransportError as error:
+                    error.during_preflight = True
+                    raise
+                if not reply.is_success or self._auth.needs_verification:
+                    raise _preflight_failure(reply.status_code)
             try:
-                reply = await self._send_once(probe, stream=False)
-            except errors.TransportError as error:
-                error.during_preflight = True
+                return await self._send_once(request, stream=stream)
+            except errors.AuthError as error:
+                # A concurrent request demoted the verified credential after the preflight and before this body
+                # was signed: nothing was sent yet, so verify once more. A failure after the body went out is final.
+                if attempt == 0 and probe is not None and getattr(error, "body_untouched", False):
+                    continue
                 raise
-            if not reply.is_success or self._auth.needs_verification:
-                raise _preflight_failure(reply.status_code)
-        return await self._send_once(request, stream=stream)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     async def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
         opened: list[Any] = []

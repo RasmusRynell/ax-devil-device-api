@@ -301,6 +301,14 @@ class AxisAuth:
         return _Flow(self, policy, replayable)
 
 
+def _is_stale(response: httpx.Response) -> bool:
+    """Whether a 401 only reports an expired Digest nonce (``stale=true``)."""
+    return any(
+        c.scheme == "digest" and c.params.get("stale", "").lower() == "true"
+        for c in parse_challenges(response.headers.get_list("www-authenticate"))
+    )
+
+
 class _Flow(httpx.Auth):
     """Per-request auth flow bound to an ``AxisAuth``."""
 
@@ -331,7 +339,8 @@ class _Flow(httpx.Auth):
 
     def _sign(self, state: _State, request: httpx.Request) -> None:
         credentials = self._owner._credentials
-        assert isinstance(credentials, Credentials)
+        if not isinstance(credentials, Credentials):  # not an assert: those vanish under -O
+            raise AuthError("authentication failed: a username and password are needed for this challenge")
         uri = request.url.raw_path.decode("ascii")
         request.headers["Authorization"] = state.header(credentials, request.method, uri)
 
@@ -350,7 +359,10 @@ class _Flow(httpx.Auth):
             response = yield request
             if response.status_code != 401:
                 return
-            owner._demote(verified)
+            if not _is_stale(response):
+                # A stale nonce only needs refreshing: keep the verified state until its replacement is promoted,
+                # so a concurrent one-shot upload is not left without credentials.
+                owner._demote(verified)
             if not self._replayable:
                 raise AuthError(
                     "authentication failed: the device rejected the stored credentials, and the request "
@@ -359,7 +371,9 @@ class _Flow(httpx.Auth):
             request.headers.pop("Authorization", None)
         else:
             if not self._replayable:
-                raise AuthError(_REPLAY_MESSAGE)
+                error = AuthError(_REPLAY_MESSAGE)
+                error.body_untouched = True  # type: ignore[attr-defined]  # raised before anything was sent
+                raise error
             response = yield request
             if response.status_code != 401:
                 return
@@ -377,13 +391,11 @@ class _Flow(httpx.Auth):
                 return
             if response.status_code != 401:
                 return
-            stale = isinstance(candidate, _DigestState) and any(
-                c.scheme == "digest" and c.params.get("stale", "").lower() == "true"
-                for c in parse_challenges(response.headers.get_list("www-authenticate"))
-            )
+            stale = isinstance(candidate, _DigestState) and _is_stale(response)
             if not stale or attempt == 1:
                 break
             request.headers.pop("Authorization", None)
+        owner._demote(verified) if verified is not None else None
         raise AuthError("authentication failed: the device rejected the credentials")
 
 
