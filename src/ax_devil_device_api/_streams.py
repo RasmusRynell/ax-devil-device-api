@@ -133,11 +133,10 @@ class MixedReplaceDecoder:
             if buf.startswith((b"\r\n", b"\n")):  # a part without headers: blank line right away
                 end, terminator = 0, (b"\r\n" if buf.startswith(b"\r\n") else b"\n")
             else:
-                for candidate in _HEADERS_END:
+                for candidate in _HEADERS_END:  # whichever terminator comes first ends the headers, not the first listed
                     found = buf.find(candidate)
-                    if found >= 0:
+                    if found >= 0 and (end < 0 or found < end):
                         end, terminator = found, candidate
-                        break
             if end < 0:
                 if len(buf) > 64 * 1024:
                     raise ResponseFormatError(self._api, "stream", "part headers are too large")
