@@ -117,6 +117,10 @@ class Capabilities:
     """``param.cgi`` groups that were actually listed. A property outside them was never asked for."""
     firmware: str | None = None
     """Firmware (AXIS OS) version from the device identity; ``None`` if it is not known (not fetched, or the request failed)."""
+    applications_problems: tuple[str, ...] = ()
+    """Entries of the applications list that had no usable name; an absent application is then unknown."""
+    services_problems: tuple[str, ...] = ()
+    """Entries of the entry-service list that had no namespace; an absent service is then unknown."""
     classic_versions: Mapping[str, Advertised] | None = None
     """Per classic API id: every advertised version and the malformed entries seen (``classic_apis`` shows the versions
     joined as text). ``None`` if the probe failed."""
@@ -151,7 +155,23 @@ class Capabilities:
             for name, reason in malformed.items():
                 errors[f"dca_apis[{name}]"] = reason
             dca = dict(dca.apis)
+        applications = values.get("applications")
+        applications_problems: tuple[str, ...] = ()
+        if isinstance(applications, NamedListing):
+            applications_problems = applications.problems
+            if applications_problems:
+                errors["applications"] = "; ".join(applications_problems)
+            applications = dict(applications.items)
+        services = values.get("services")
+        services_problems: tuple[str, ...] = ()
+        if isinstance(services, NamedListing):
+            services_problems = services.problems
+            if services_problems:
+                errors["services"] = "; ".join(services_problems)
+            services = dict(services.items)
         return cls(
+            applications_problems=applications_problems,
+            services_problems=services_problems,
             classic_apis=classic,
             dca_apis=dca,
             classic_versions=classic_versions,
@@ -160,8 +180,8 @@ class Capabilities:
             property_groups=groups,
             errors=errors,
             observed_at=datetime.now(UTC),
-            applications=values.get("applications"),
-            services=values.get("services"),
+            applications=applications,
+            services=services,
             firmware=values.get("firmware"),
         )
 
@@ -250,8 +270,12 @@ def classic_apis_flow(state: DeviceState) -> CallFlow[ClassicListing]:
             problems.setdefault(f"<entry {index}>", []).append(malformed_reason("apiList", index, entry, "an object with an id"))
             continue
         version = entry.get("version")
-        if not isinstance(version, str) or not version:
-            problems.setdefault(ident, []).append(malformed_reason("apiList", ident, entry, "an entry with a version"))
+        try:
+            if not isinstance(version, str):
+                raise ValueError
+            ApiVersion.parse(version)  # the same major.minor rule as negotiated API versions
+        except ValueError:
+            problems.setdefault(ident, []).append(malformed_reason("apiList", ident, entry, "an entry with a major.minor version"))
             continue
         versions.setdefault(ident, []).append(version)  # every advertised version is kept (1.0 and 2.0)
     result = {ident: Advertised(tuple(found), tuple(problems.pop(ident, ()))) for ident, found in versions.items()}
@@ -282,6 +306,15 @@ class ClassicListing:
 
 
 @dataclass(frozen=True)
+class NamedListing:
+    """A name -> text listing (installed applications, entry-service namespaces) and the entries that could not be read
+    (no usable name). Those could have been the one asked for, so an absent name is *unknown* while any exist."""
+
+    items: Mapping[str, str]
+    problems: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class DcaListing:
     """What ``/config/discover`` listed: the readable APIs, and the ones listed in the wrong shape (name -> reason)."""
 
@@ -296,6 +329,8 @@ def probe_is_complete(value: Any) -> bool:
         return not any(entry.problems for entry in value.entries.values())
     if isinstance(value, DcaListing):
         return not value.malformed
+    if isinstance(value, NamedListing):
+        return not value.problems
     return True
 
 
@@ -353,7 +388,7 @@ def _attr(element: ET.Element, name: str) -> str:
     return ""
 
 
-def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
+def applications_flow(state: DeviceState) -> CallFlow[NamedListing]:
     response = yield Request("POST", "/axis-cgi/applications/list.cgi", accept="text/xml")
     if not 200 <= response.status < 300:
         raise http_error(_APPLICATIONS_OP, response)
@@ -363,14 +398,18 @@ def applications_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
         raise ResponseFormatError("applications", "list", "response is not valid XML") from error
     if root.get("result") not in (None, "ok"):
         raise ResponseFormatError("applications", "list", f"device answered result={root.get('result')!r}")
-    return {
-        name: _attr(app, "Version")
-        for app in root.iter()
-        if app.tag.rpartition("}")[2] == "application" and (name := _attr(app, "Name"))
-    }
+    found: dict[str, str] = {}
+    problems: list[str] = []
+    for index, app in enumerate(a for a in root.iter() if a.tag.rpartition("}")[2] == "application"):
+        name = _attr(app, "Name")
+        if name:
+            found[name] = _attr(app, "Version")
+        else:
+            problems.append(malformed_reason("applications/list.cgi", f"application {index}", dict(app.attrib), "an application with a Name"))
+    return NamedListing(found, tuple(problems))
 
 
-def services_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
+def services_flow(state: DeviceState) -> CallFlow[NamedListing]:
     """Entry service ``GetServices``: namespace -> ``XAddr`` of every service the device offers."""
     response = yield Request(
         "POST",
@@ -388,15 +427,16 @@ def services_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     except ET.ParseError as error:
         raise ResponseFormatError("entry-service", "get_services", "response is not valid XML") from error
     found: dict[str, str] = {}
-    for service in root.iter():
-        if service.tag.rpartition("}")[2] != "Service":
-            continue
+    problems: list[str] = []
+    for index, service in enumerate(s for s in root.iter() if s.tag.rpartition("}")[2] == "Service"):
         children = {c.tag.rpartition("}")[2]: (c.text or "").strip() for c in service}
         if children.get("Namespace"):
             found[children["Namespace"]] = children.get("XAddr", "")
-    if not found:
+        else:
+            problems.append(malformed_reason("GetServices", f"service {index}", children, "a service with a Namespace"))
+    if not found and not problems:
         raise ResponseFormatError("entry-service", "get_services", "response lists no services")
-    return found
+    return NamedListing(found, tuple(problems))
 
 
 PROBES = {
@@ -557,6 +597,8 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
             for name, version in caps.applications.items():
                 if name.casefold() == method.name.casefold():
                     return SupportResult(Support.YES, f"application {name} {version} is installed", observed_at=caps.observed_at)
+            if caps.applications_problems:  # an entry without a usable name could have been this application
+                unknown.extend(caps.applications_problems)
 
         elif isinstance(method, ServiceDiscovery):
             if caps.services is None:
@@ -564,6 +606,8 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
                 continue
             if method.namespace in caps.services:
                 return SupportResult(Support.YES, f"listed by the entry service as {method.namespace}", observed_at=caps.observed_at)
+            if caps.services_problems:
+                unknown.extend(caps.services_problems)
 
     if unknown:
         return SupportResult(Support.UNKNOWN, "discovery was incomplete", tuple(unknown), caps.observed_at)

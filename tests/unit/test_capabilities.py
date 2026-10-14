@@ -460,7 +460,7 @@ def test_applications_probe_reads_installed_names() -> None:
     xml = b'<reply result="ok"><application Name="loiteringguard" Version="2.1"/><application Name="vmd" Version="4.9"/></reply>'
     with pytest.raises(StopIteration) as done:
         flow.send(Response(200, Headers(), xml, request))
-    assert done.value.value == {"loiteringguard": "2.1", "vmd": "4.9"}
+    assert done.value.value.items == {"loiteringguard": "2.1", "vmd": "4.9"}
     assert extra_probes(_info(AcapDiscovery("vmd"))) == ("applications",)
     assert extra_probes(_info()) == ()
 
@@ -574,7 +574,7 @@ def test_services_probe_request_and_parse() -> None:
     assert "GetServices" in body and "IncludeCapability>false<" in body
     with pytest.raises(StopIteration) as done:
         flow.send(Response(200, Headers(), _SERVICES_XML.encode(), request))
-    assert done.value.value == {_LIGHT_NS: "http://camera.test/vapix/services"}
+    assert done.value.value.items == {_LIGHT_NS: "http://camera.test/vapix/services"}
     assert extra_probes(_info(ServiceDiscovery(_LIGHT_NS))) == ("services",)
 
 
@@ -747,7 +747,7 @@ def test_applications_probe_reads_lowercase_attribute_names() -> None:
     xml = b'<reply result="ok"><application name="VMD3" version="3.1"/><application NAME="Foo"/></reply>'
     with pytest.raises(StopIteration) as done:
         flow.send(Response(200, Headers(), xml, request))
-    assert done.value.value == {"VMD3": "3.1", "Foo": ""}
+    assert done.value.value.items == {"VMD3": "3.1", "Foo": ""}
 
 
 def test_failed_probes_run_once_for_many_apis() -> None:

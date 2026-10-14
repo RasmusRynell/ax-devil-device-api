@@ -199,7 +199,7 @@ Generated RTSP methods (for example `stream_casing_events_url`) take `port=None,
 
 ## Capabilities and discovery
 
-`dev.capabilities()` runs classic API discovery, `/config/discover` and the `param.cgi` `Properties.API` group. APIs may also be recognised by an installed ACAP application (`applications/list.cgi`, administrator) or by a web-service namespace listed by the Entry service (`GetServices`, administrator); those probes run on demand and a failed probe gives `UNKNOWN`, never `NO`. Fields: `classic_apis`, `dca_apis`, `properties`, `applications`, `services`, `errors`, `observed_at`.
+`dev.capabilities()` runs classic API discovery, `/config/discover` and the `param.cgi` `Properties.API` group. APIs may also be recognised by an installed ACAP application (`applications/list.cgi`, administrator) or by a web-service namespace listed by the Entry service (`GetServices`, administrator); those probes run on demand and a failed probe gives `UNKNOWN`, never `NO`. Fields: `classic_apis`, `dca_apis`, `properties`, `applications`, `services`, `errors`, `observed_at`. `classic_apis` maps an id to its advertised versions as text (`"1.0, 2.0"`); `classic_versions` has the same data as `Advertised(versions, problems)` values, and `dca_malformed` names the `/config/discover` entries listed in the wrong shape (with the reason). A malformed entry in any discovery list (no readable id, a version that is not `major.minor`, an application without a `Name`, a service without a namespace) makes the affected API `UNKNOWN`, is recorded in `errors` (for example `classic_apis[mqtt-client]`), and keeps that probe result from being cached, so the next call asks again.
 
 ## Features
 
