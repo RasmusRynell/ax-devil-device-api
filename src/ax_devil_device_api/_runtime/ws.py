@@ -521,7 +521,10 @@ class _Core:
         """Route one decoded frame: the reply to a registered request goes to that request, everything else
         (notifications, unmatched replies, other frames) is queued for ``receive()`` / ``notifications()``."""
         codec = self.spec.codec
-        kind = codec.classify(message) if codec is not None else None
+        try:
+            kind = codec.classify(message) if codec is not None else None
+        except ResponseFormatError:
+            kind = None  # a malformed sample is queued as it is; the consumer that parses it gets the error
         if isinstance(kind, Reply) and kind.request_id in waiters:
             slot = waiters[kind.request_id]
             if kind.error is not None and codec is not None:

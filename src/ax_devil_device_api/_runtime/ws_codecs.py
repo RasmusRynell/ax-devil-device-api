@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from ..errors import ApiAccessDenied, ApiError, ApiUnavailable, ErrorKind
+from ..errors import ApiAccessDenied, ApiError, ApiUnavailable, ErrorKind, ResponseFormatError
 
 JsonObject = Mapping[str, Any]
 
@@ -268,10 +268,15 @@ class DataHubCodec:
                 stamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
             except (ValueError, OverflowError):
                 stamp = None
+        historical = params.get("isHistorical", False)  # absent means not historical; present must be a JSON boolean
+        if not isinstance(historical, bool):
+            raise ResponseFormatError(
+                "datahub-streaming-over-websocket", "receive", f"isHistorical must be true or false, got {historical!r}"
+            )
         return Notification(
             TopicSample(
                 subscription, topic, _mapping(params.get("instance")), _mapping(params.get("data")), stamp,
-                bool(params.get("isHistorical", False)), params,
+                historical, params,
             )
         )
 
