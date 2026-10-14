@@ -16,7 +16,7 @@ from enum import Enum
 from typing import Any, Literal
 from urllib.parse import quote
 
-from .._http.types import AuthPolicy, JsonBody, Request, Response
+from .._http.types import AuthPolicy, JsonBody, Request, Response, check_path_param
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .dca import _alias, _field_for
@@ -73,6 +73,7 @@ def _build(op: Operation[RestBinding], params: Model | None) -> Request:
         if isinstance(value, Enum):
             value = value.value
         text = str(value)
+        check_path_param(f"{op.api.id}.{op.id}", name, text)
         if text in ("", ".", ".."):
             raise ValueError(f"{op.api.id}.{op.id}: {name}={text!r} is not a valid path segment")
         path_values[name] = quote(text, safe="")

@@ -56,7 +56,7 @@ from .._http.transport import (
     SyncTransport,
     UpgradeRefused,
 )
-from .._http.types import Request, Response
+from .._http.types import Request, Response, check_path_param
 from .._protocols.base import CallFlow
 from .._validate import optional_non_negative_finite, optional_positive_finite
 from ..errors import (
@@ -113,6 +113,7 @@ class SessionSpec:
     def bind(self, values: Mapping[str, Any]) -> SessionSpec:
         """A copy with the ``{name}`` placeholders of ``path`` filled in (percent-encoded, one path segment each)."""
         for name, value in values.items():
+            check_path_param(self.api_id, name, value)
             if str(value) in ("", ".", ".."):
                 raise ValueError(f"{self.api_id}: {name}={str(value)!r} is not a valid path segment")
         try:

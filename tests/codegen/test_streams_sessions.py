@@ -170,12 +170,12 @@ def test_session_path_placeholders_become_arguments() -> None:
     module = load_module(WS_SPEC)
     camera = FakeWsCamera()
     with Device("cam.test", credentials=("root", "pass"), transport=camera.transport()) as dev:
-        with dev.api(module.DemoApi).audio_session("a/b 1", heartbeat=QUICK) as session:
+        with dev.api(module.DemoApi).audio_session("a#b 1", heartbeat=QUICK) as session:
             camera.sockets[0].push_bytes(b"\x01")
             assert session.receive(2) == b"\x01"
         with pytest.raises(TypeError):
             dev.api(module.DemoApi).audio_session()  # type: ignore[call-arg]
-    assert camera.ws_requests[0].url.raw_path.startswith(b"/api/v1.2/audioSessions/a%2Fb%201/ws/recv")
+    assert camera.ws_requests[0].url.raw_path.startswith(b"/api/v1.2/audioSessions/a%23b%201/ws/recv")
 
 
 def test_session_spec_errors() -> None:

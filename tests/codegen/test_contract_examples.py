@@ -205,7 +205,7 @@ WS_SPEC = base_spec(
         ),
         "audio_session": op(
             {"session": {"path": "/api/v1.2/audioSessions/{audioSessionId}/ws/recv"}},
-            [{"title": "One session", "request": {"params": {"audioSessionId": "a/b 1"}, "path": "/api/v1.2/audioSessions/a%2Fb%201/ws/recv"}},
+            [{"title": "One session", "request": {"params": {"audioSessionId": "a#b 1"}, "path": "/api/v1.2/audioSessions/a%23b%201/ws/recv"}},
              {"title": "Path from the binding", "request": {"params": {"audioSessionId": "s1"}}}],
             params={"type": "object", "required": ["audioSessionId"], "properties": {"audioSessionId": {"type": "string"}}},
         ),

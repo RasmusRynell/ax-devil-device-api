@@ -48,6 +48,19 @@ def unsafe_path(path: str, *, strict: bool = False) -> bool:
     return True
 
 
+def check_path_param(label: str, name: str, value: Any, *, multi_segment: bool = False) -> None:
+    """Reject a raw path-parameter value that would address more than the one resource it names.
+
+    A single-segment parameter may not contain ``/`` (a proxy or device that decodes ``%2F`` would read it as a
+    separator, and ``%252F`` after two decodes), nor ``\\``. Parameters declared multi-segment (``key_styles`` ``path``
+    in the spec) may contain ``/`` but still not ``\\``. The value is checked as given, before any encoding.
+    """
+    text = str(value)
+    if "\\" in text or (not multi_segment and "/" in text):
+        what = "backslashes" if multi_segment else "'/' or backslashes"
+        raise ValueError(f"{label}: {name}={text!r} must not contain {what}; it is a single path segment")
+
+
 def check_header_text(name: str, value: Any) -> None:
     """Reject CR, LF and NUL in a value that ends up in a header (or a multipart part header).
 

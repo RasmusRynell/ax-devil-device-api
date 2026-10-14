@@ -424,7 +424,7 @@ def test_bind_rejects_dot_segments(value: str) -> None:
     with pytest.raises(ValueError):
         spec.bind({"id": value})
     assert spec.bind({"id": "a.b"}).path.endswith("/a.b/ws/recv")
-    assert spec.bind({"id": "a/b"}).path.endswith("/a%2Fb/ws/recv")
+    assert spec.bind({"id": "a#b"}).path.endswith("/a%23b/ws/recv")
 
 
 def test_fragmented_messages_are_reassembled() -> None:

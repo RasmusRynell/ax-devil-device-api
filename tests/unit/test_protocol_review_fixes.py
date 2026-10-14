@@ -340,7 +340,7 @@ def _nested_op(style: str) -> Operation[DcaBinding]:
 
 @pytest.mark.parametrize(
     ("style", "value", "path"),
-    [("path", "a/b c", "/r/a/b%20c/x"), ("segment", "a/b", "/r/a%2Fb/x"), ("dots_to_slashes", "a.b", "/r/a/b/x")],
+    [("path", "a/b c", "/r/a/b%20c/x"), ("segment", "a#b", "/r/a%23b/x"), ("dots_to_slashes", "a.b", "/r/a/b/x")],
 )
 def test_key_styles(style: str, value: str, path: str) -> None:
     assert _build(_nested_op(style), _Key(key=value)).path == path

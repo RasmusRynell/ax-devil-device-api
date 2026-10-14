@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import quote
 
-from .._http.types import AuthPolicy, JsonBody, Request, Response
+from .._http.types import AuthPolicy, JsonBody, Request, Response, check_path_param
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
@@ -67,6 +67,7 @@ def _build(op: Operation[DcaBinding], params: Model | None) -> Request:
             raise TypeError(f"{op.api.id}.{op.id}: missing path parameter {name!r}")
         text = str(value)
         style = dict(binding.key_styles).get(name)
+        check_path_param(f"{op.api.id}.{op.id}", name, text, multi_segment=style == "path")
         segments = text.split(".") if style == "dots_to_slashes" else text.split("/") if style == "path" else [text]
         for segment in segments:
             if segment in ("", ".", ".."):

@@ -82,12 +82,12 @@ def test_list_publishers_ignores_unknown_response_fields() -> None:
 
 
 def test_get_publisher_percent_encodes_path_parameter() -> None:
-    dev, handler = connect(success({"id": "a/b c", "data_source_key": "tns1:Foo", "mqtt_topic": "a"}))
+    dev, handler = connect(success({"id": "a#b c", "data_source_key": "tns1:Foo", "mqtt_topic": "a"}))
     with dev:
-        publisher = dev.apis.analytics_mqtt.get_publisher("a/b c")
+        publisher = dev.apis.analytics_mqtt.get_publisher("a#b c")
 
-    assert publisher.id == "a/b c"
-    assert handler.last.url.raw_path == f"{ROOT}/publishers/a%2Fb%20c".encode()
+    assert publisher.id == "a#b c"
+    assert handler.last.url.raw_path == f"{ROOT}/publishers/a%23b%20c".encode()
 
 
 def test_add_publisher_sends_data_object_without_unset_fields() -> None:

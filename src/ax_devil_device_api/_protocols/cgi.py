@@ -21,7 +21,7 @@ from urllib.parse import quote
 
 from pydantic_core import to_json
 
-from .._http.types import AuthPolicy, FormBody, MultipartBody, RawBody, Request, Response
+from .._http.types import AuthPolicy, FormBody, MultipartBody, RawBody, Request, Response, check_path_param
 from .._http.upload import UploadSpec, deferred_upload, file_part
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
@@ -117,6 +117,9 @@ def _fill_values(op: Operation[CgiBinding], params: Model | None) -> dict[str, s
 def _fill(template: str, values: Mapping[str, str], *, quoted: bool = False) -> str:
     if "{" not in template:
         return template
+    if quoted:
+        for name in _PLACEHOLDER.findall(template):
+            check_path_param("path", name, values[name])
     return _PLACEHOLDER.sub(lambda m: quote(values[m.group(1)], safe="") if quoted else values[m.group(1)], template)
 
 

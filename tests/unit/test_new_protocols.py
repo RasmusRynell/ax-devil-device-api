@@ -381,12 +381,12 @@ REST_VALUE = Operation(
 
 
 def test_rest_get_with_path_and_query_and_bare_response() -> None:
-    rec = Recorder(httpx.Response(200, json={"id": "a/b", "size": 4, "extra": True}))
+    rec = Recorder(httpx.Response(200, json={"id": "a#b", "size": 4, "extra": True}))
     with connect(rec) as dev:
-        thing = dev.invoke(REST_GET, id="a/b", verbose=True, labels=["x", "y"])
+        thing = dev.invoke(REST_GET, id="a#b", verbose=True, labels=["x", "y"])
     assert thing.size == 4
     assert rec.last.method == "GET"
-    assert rec.last.url.raw_path.decode().startswith("/api/things/a%2Fb?")
+    assert rec.last.url.raw_path.decode().startswith("/api/things/a%23b?")
     assert rec.last.url.params.get_list("label") == ["x", "y"]
     assert rec.last.url.params["verbose"] == "true"
     assert not rec.last.content
