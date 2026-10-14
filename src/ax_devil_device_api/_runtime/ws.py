@@ -538,8 +538,15 @@ class _Core:
         codec = self.spec.codec
         try:
             kind = codec.classify(message) if codec is not None else None
-        except ResponseFormatError:
-            kind = None  # a malformed sample is queued as it is; the consumer that parses it gets the error
+        except ResponseFormatError as malformed:
+            kind = None  # a malformed notification is queued as it is; the consumer that parses it gets the error
+            # A malformed *reply* to a pending request completes that request with the format error (its key is read
+            # without strict parsing); otherwise the request would wait for a reply that was already consumed.
+            key = codec.correlation_id(message) if codec is not None else None
+            if key is not None and key in waiters:
+                waiters[key].error = malformed
+                waiters[key].done = True
+                return
         if isinstance(kind, Reply) and kind.request_id in waiters:
             slot = waiters[kind.request_id]
             if kind.error is not None and codec is not None:

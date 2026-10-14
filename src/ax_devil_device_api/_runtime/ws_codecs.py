@@ -52,6 +52,10 @@ class WsCodec(Protocol):
         """``None`` for anything that is neither a reply nor a known notification."""
         ...
 
+    def correlation_id(self, message: Any) -> str | None:
+        """The id a reply carries, read without any strict parsing (``None`` if it is not a reply)."""
+        ...
+
     def error_kind(self, code: int | str | None) -> ErrorKind | None: ...
 
 
@@ -155,6 +159,11 @@ class EventsCodec:
             message["params"] = _params(params)
         return message
 
+    def correlation_id(self, message: Any) -> str | None:
+        if not isinstance(message, Mapping) or message.get("method") == self.notify_method:
+            return None
+        return _ctx(message)
+
     def classify(self, message: Any) -> Reply | Notification | None:
         if not isinstance(message, Mapping):
             return None
@@ -257,6 +266,12 @@ class DataHubCodec:
 
     def encode_request(self, method: str, params: JsonObject | None, request_id: str) -> dict[str, Any]:
         return {"jsonrpc": "2.0", "id": request_id, "method": method, "params": _params(params)}
+
+    def correlation_id(self, message: Any) -> str | None:
+        if not isinstance(message, Mapping) or message.get("method") == self.sample_method:
+            return None
+        identifier = message.get("id")
+        return None if identifier is None else str(identifier)
 
     def classify(self, message: Any) -> Reply | Notification | None:
         if not isinstance(message, Mapping):
