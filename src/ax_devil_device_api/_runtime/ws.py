@@ -254,6 +254,10 @@ class SessionLedger:
 # Shared (I/O free) session logic
 
 
+_POLL_SLICE = 0.1
+"""Longest blocking wait for the transport before the reader looks at the session's terminal state again (a close or
+failure published by another thread or task interrupts the owning read within this time)."""
+
 NO_MESSAGE: Any = object()
 """Private marker for "no complete message yet" (control frame, unfinished fragment); never a real message, ``None`` included."""
 
@@ -300,6 +304,7 @@ class _Core:
         self._raw: Any = None
         self.closing = False
         self.failure: TransportError | None = None
+        self.local_closed = False
 
     def begin(self) -> None:
         """Enter the gap ledger. Called once setup has succeeded, so a failed attempt leaves no trace."""
@@ -414,7 +419,15 @@ class _Core:
         self.terminate("oversize", LIMIT_CLOSE_CODE)
         return ResponseFormatError(self.spec.api_id, "receive", f"message exceeds {MAX_WS_MESSAGE_BYTES} bytes; session closed")
 
+    def close_locally(self) -> None:
+        """Publish our own ``close()`` as the terminal outcome: pending and later reads raise ``SessionClosed``."""
+        if self.closed is None and self.failure is None:
+            self.closed = SessionClosed(1000, "closed by this client")
+            self.local_closed = True
+
     def on_disconnect(self, error: httpx_ws.WebSocketDisconnect) -> DeviceError:
+        if self.local_closed and self.closed is not None:
+            return self.closed  # the transport errors that follow our own close are not failures
         if error.code == LIMIT_CLOSE_CODE and error.reason == LIMIT_CLOSE_REASON:
             return self._too_large()
         if error.code in _NORMAL_CLOSE:
@@ -441,6 +454,8 @@ class _Core:
         return SessionClosed()
 
     def on_network_error(self) -> DeviceError:
+        if self.local_closed and self.closed is not None:
+            return self.closed
         self.terminate("network")
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: connection lost (network error or heartbeat timeout)"))
 
@@ -599,9 +614,18 @@ class Session:
             else:
                 self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
-            raise self._core.send_refused() from error
+            outcome = self._core.send_refused()
+            self._publish()
+            raise outcome from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
-            raise self._core.on_network_error() from error
+            outcome = self._core.on_network_error()
+            self._publish()
+            raise outcome from error
+
+    def _publish(self) -> None:
+        """A terminal outcome is stored on the core: wake every waiter (the reader owner notices within a poll slice)."""
+        with self._cond:
+            self._cond.notify_all()
 
     def receive(self, timeout: float | None = None) -> Any:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
@@ -623,6 +647,10 @@ class Session:
                 found = poll()
                 if found is not NO_MESSAGE:
                     return found
+                if core.failure is not None:
+                    raise core.failure  # terminal state first, before any wait
+                if core.closed is not None:
+                    raise core.closed
                 remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
                 if self._reading:
                     if remaining == 0:
@@ -652,9 +680,15 @@ class Session:
         while True:
             remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
             try:
-                event = self._raw.receive(remaining)
+                event = self._raw.receive(_POLL_SLICE if remaining is None else min(remaining, _POLL_SLICE))
             except queue.Empty:
-                raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s") from None
+                if core.failure is not None:
+                    raise core.failure from None
+                if core.closed is not None:
+                    raise core.closed from None
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s") from None
+                continue
             except httpx_ws.WebSocketDisconnect as error:
                 raised = core.on_disconnect(error)
                 if core.overflowed:
@@ -711,6 +745,8 @@ class Session:
 
     def close(self) -> None:
         self._core.closing_now()  # before the socket closes, so it is not mistaken for a failure
+        self._core.close_locally()
+        self._publish()  # pending requests and the reader owner see SessionClosed now, not at their timeout
         try:
             self._raw.close()
         except _CLOSE_ERRORS:
@@ -822,9 +858,13 @@ class AsyncSession:
             else:
                 await self._raw.send_text(data)
         except wsproto.utilities.LocalProtocolError as error:
-            raise self._core.send_refused() from error
+            outcome = self._core.send_refused()
+            self._wake()
+            raise outcome from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
-            raise self._core.on_network_error() from error
+            outcome = self._core.on_network_error()
+            self._wake()
+            raise outcome from error
 
     async def receive(self, timeout: float | None = None) -> Any:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
@@ -846,6 +886,10 @@ class AsyncSession:
             found = poll()
             if found is not NO_MESSAGE:
                 return found
+            if core.failure is not None:
+                raise core.failure  # terminal state first, before any wait
+            if core.closed is not None:
+                raise core.closed
             remaining = None if deadline is None else max(0.0, deadline - loop.time())
             if self._reading:
                 if remaining == 0:
@@ -894,9 +938,15 @@ class AsyncSession:
         while True:
             remaining = None if deadline is None else max(0.0, deadline - loop.time())
             try:
-                event = await self._next_event(remaining)
+                event = await self._next_event(_POLL_SLICE if remaining is None else min(remaining, _POLL_SLICE))
             except TimeoutError:
-                raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s") from None
+                if core.failure is not None:
+                    raise core.failure from None
+                if core.closed is not None:
+                    raise core.closed from None
+                if deadline is not None and loop.time() >= deadline:
+                    raise ReadTimeout(f"{core.spec.api_id}: no message within {timeout} s") from None
+                continue
             except httpx_ws.WebSocketDisconnect as error:
                 raised = core.on_disconnect(error)
                 if core.overflowed:
@@ -951,6 +1001,8 @@ class AsyncSession:
 
     async def close(self) -> None:
         self._core.closing_now()
+        self._core.close_locally()
+        self._wake()
         try:
             await self._raw.close()
         except _CLOSE_ERRORS:
