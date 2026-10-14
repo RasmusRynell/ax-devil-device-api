@@ -359,3 +359,28 @@ def test_none_retry_keeps_the_default_policy() -> None:
     assert RequestOptions(retry=None).retry is None
     custom = RetryPolicy(attempts=3)
     assert ConnectionConfig("cam", retry=custom).retry is custom and RequestOptions(retry=custom).retry is custom
+
+
+# --- scoped IPv6 hosts: the zone id's '%' is encoded as '%25' in every URL ------------------------------------------------------
+
+
+@pytest.mark.parametrize("host", ["fe80::1%eth0", "[fe80::1%eth0]"])
+def test_scoped_ipv6_host_is_encoded_in_every_url_builder(host: str) -> None:
+    from ax_devil_device_api._http.config import url_host
+    from ax_devil_device_api._http.transport import SyncTransport
+
+    assert url_host(host) == "[fe80::1%25eth0]"
+    assert ConnectionConfig(host).base_url == "https://[fe80::1%25eth0]"
+    assert build_rtsp_url(host).safe.startswith("rtsp://[fe80::1%25eth0]:554/")
+    assert str(RtspUrl(host, username="u", password="p")).startswith("rtsp://u:p@[fe80::1%25eth0]:554/")
+    assert MediaStream().url(host).safe.startswith("rtsp://[fe80::1%25eth0]:554/")
+    transport = SyncTransport(ConnectionConfig(host))
+    assert str(transport._client.base_url).startswith("https://[fe80::1%25eth0]")  # the client URL the WS handshake uses too
+    transport.close()
+
+
+def test_plain_hosts_are_not_touched() -> None:
+    from ax_devil_device_api._http.config import url_host
+
+    assert url_host("cam.local") == "cam.local" and url_host("2001:db8::1") == "[2001:db8::1]"
+    assert build_rtsp_url("2001:db8::1").safe.startswith("rtsp://[2001:db8::1]:554/")

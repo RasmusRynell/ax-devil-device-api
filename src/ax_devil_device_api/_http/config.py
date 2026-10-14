@@ -122,6 +122,14 @@ def _check_proxy(proxy: str) -> None:
         )
 
 
+def url_host(host: str) -> str:
+    """``host`` as the authority of a URL: IPv6 literals in brackets, with a zone id's ``%`` encoded as ``%25`` (RFC 6874)."""
+    if ":" not in host:
+        return host
+    inner = host[1:-1] if host.startswith("[") and host.endswith("]") else host
+    return f"[{inner.replace('%', '%25')}]"
+
+
 def _is_ipv6(host: str) -> bool:
     """Whether ``host`` is an IPv6 literal, with or without brackets (a zone id is allowed)."""
     inner = host[1:-1] if host.startswith("[") and host.endswith("]") else host
@@ -197,7 +205,7 @@ class ConnectionConfig:
     @property
     def base_url(self) -> str:
         """Scheme, host and port; ``base_path`` is applied separately to request paths."""
-        host = f"[{self.host}]" if ":" in self.host and not self.host.startswith("[") else self.host
+        host = url_host(self.host)
         default_port = 443 if self.scheme == "https" else 80
         port = f":{self.port}" if self.port is not None and self.port != default_port else ""
         return f"{self.scheme}://{host}{port}"

@@ -23,7 +23,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
-from ._http.config import BearerToken, Credentials, check_host
+from ._http.config import BearerToken, Credentials, check_host, url_host
 from ._http.types import unsafe_path
 from ._protocols.base import CallFlow, Model, Operation, register_binding
 from ._validate import boolean, bounded_int, non_negative_int
@@ -69,7 +69,7 @@ class RtspUrl:
             raise ConfigurationError("a password needs a username")
 
     def _build(self, *, with_credentials: bool) -> str:
-        host = f"[{self.host}]" if ":" in self.host and not self.host.startswith("[") else self.host
+        host = url_host(self.host)
         userinfo = ""
         if with_credentials and self.username is not None:
             userinfo = quote(self.username, safe="")
