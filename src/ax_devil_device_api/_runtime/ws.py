@@ -29,7 +29,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import math
 import queue
 import threading
 import time
@@ -47,7 +46,7 @@ import httpx_ws
 import wsproto.events
 import wsproto.utilities
 
-from .._http.options import DEFAULT_HEARTBEAT, Heartbeat, RequestOptions
+from .._http.options import DEFAULT_HEARTBEAT, Heartbeat
 from .._http.transport import (
     LIMIT_CLOSE_CODE,
     LIMIT_CLOSE_REASON,
@@ -59,6 +58,7 @@ from .._http.transport import (
 )
 from .._http.types import Request, Response
 from .._protocols.base import CallFlow
+from .._validate import optional_non_negative_finite, optional_positive_finite
 from ..errors import (
     AuthError,
     ConnectionFailed,
@@ -529,8 +529,7 @@ _CLOSE_ERRORS = (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.N
 
 def _check_receive_timeout(timeout: float | None) -> None:
     """``receive`` timeouts are finite and 0 or more (0 polls); ``None`` waits as long as the session lives."""
-    if timeout is not None and not (isinstance(timeout, (int, float)) and not isinstance(timeout, bool) and 0 <= timeout < math.inf):
-        raise ValueError(f"timeout must be a finite number of seconds, 0 or more, or None; got {timeout!r}")
+    optional_non_negative_finite("timeout", timeout)
 
 
 def refusal_error(spec: SessionSpec, response: Response) -> DeviceError:
@@ -716,7 +715,7 @@ class Session:
         """Send a request and return its result; other messages that arrive meanwhile stay queued for ``receive()``."""
         core = self._core
         if timeout is not None:
-            RequestOptions(timeout=timeout)  # positive and finite, like every other timeout; nothing is sent otherwise
+            optional_positive_finite("timeout", timeout)  # nothing is sent otherwise
         limit = core.default_timeout if timeout is None else timeout
         deadline = time.monotonic() + limit  # the caller's total budget: registration, sending and waiting
         slot = _Slot(method)
@@ -975,7 +974,7 @@ class AsyncSession:
         """Send a request and return its result; other messages that arrive meanwhile stay queued for ``receive()``."""
         core = self._core
         if timeout is not None:
-            RequestOptions(timeout=timeout)
+            optional_positive_finite("timeout", timeout)
         limit = core.default_timeout if timeout is None else timeout
         deadline = asyncio.get_running_loop().time() + limit  # the caller's total budget
         request_id, message = core.request_message(method, params)

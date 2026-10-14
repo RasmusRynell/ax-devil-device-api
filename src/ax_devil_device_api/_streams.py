@@ -20,9 +20,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
-from ._http.options import require_int
 from ._http.types import Headers, Request, Response
 from ._protocols.base import BytesDecoder, CallFlow, StreamDecoder
+from ._validate import positive_int
 from .errors import ConnectionFailed, ResponseFormatError
 
 DEFAULT_MAX_PART_BYTES = 32 * 1024 * 1024
@@ -68,7 +68,7 @@ class MixedReplaceDecoder:
     """
 
     def __init__(self, boundary: str, *, api: str = "stream", max_part_bytes: int = DEFAULT_MAX_PART_BYTES) -> None:
-        require_int("max_part_bytes", max_part_bytes, 1)
+        positive_int("max_part_bytes", max_part_bytes)
         if not boundary or not boundary.strip("-"):
             raise ResponseFormatError(api, "stream", "the multipart boundary is empty")
         self._delimiter = (boundary if boundary.startswith("--") else "--" + boundary).encode("latin-1")
@@ -236,7 +236,7 @@ class LinesDecoder:
     """Split a text body into lines (without terminators). A final unterminated line is returned on ``close``."""
 
     def __init__(self, encoding: str = "utf-8", *, api: str = "stream", max_line_bytes: int = DEFAULT_MAX_LINE_BYTES) -> None:
-        require_int("max_line_bytes", max_line_bytes, 1)
+        positive_int("max_line_bytes", max_line_bytes)
         self._encoding = encoding
         self._api = api
         self._max = max_line_bytes
@@ -268,7 +268,7 @@ class MultipartLinesDecoder:
     def __init__(
         self, parts: MixedReplaceDecoder, encoding: str = "utf-8", *, api: str = "stream", max_line_bytes: int = DEFAULT_MAX_LINE_BYTES
     ) -> None:
-        require_int("max_line_bytes", max_line_bytes, 1)
+        positive_int("max_line_bytes", max_line_bytes)
         self._parts = parts
         self._encoding = encoding
         self._api = api

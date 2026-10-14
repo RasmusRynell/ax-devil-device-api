@@ -46,7 +46,7 @@ def test_receive_timeout_is_validated(bad: float) -> None:
     camera = FakeWsCamera()
     with Device("cam.test", credentials=("root", "pass"), transport=camera.transport()) as dev:
         with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
-            with pytest.raises(ValueError, match="timeout must be a finite"):
+            with pytest.raises(ValueError, match="timeout must be finite and not negative"):
                 session.receive(timeout=bad)
             with pytest.raises(ReadTimeout):
                 session.receive(timeout=0)  # 0 polls
@@ -60,7 +60,7 @@ async def test_async_receive_timeout_is_validated(bad: float) -> None:
     camera = FakeWsCamera()
     async with AsyncDevice("cam.test", credentials=("root", "pass"), transport=camera.async_transport()) as dev:
         async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
-            with pytest.raises(ValueError, match="timeout must be a finite"):
+            with pytest.raises(ValueError, match="timeout must be finite and not negative"):
                 await session.receive(timeout=bad)
             with pytest.raises(ReadTimeout):
                 await session.receive(timeout=0)
