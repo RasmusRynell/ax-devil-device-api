@@ -293,6 +293,12 @@ class _WatchedStream:
         self._inner = inner
         self._write_timeout = write_timeout
         self.write_failed = False
+        self._unfinished = 0
+
+    @property
+    def write_in_flight(self) -> bool:
+        """A write was started and has neither finished nor failed: cancelling it leaves a partly written frame."""
+        return self._unfinished > 0
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
@@ -300,25 +306,33 @@ class _WatchedStream:
     def write(self, *args: Any, **kwargs: Any) -> Any:
         if self._write_timeout is not None and len(args) < 2:
             kwargs.setdefault("timeout", self._write_timeout)  # httpx-ws writes without one; a blocked peer must not hang
+        self._unfinished += 1
         try:
             result = self._inner.write(*args, **kwargs)
         except httpcore.WriteTimeout as error:
+            self._unfinished -= 1
             self.write_failed = True
             raise httpcore.WriteError(str(error)) from error  # a stalled write is a broken connection (and close() copes)
         except Exception:  # not BaseException: a write cancelled by closing the session is not a failure
+            self._unfinished -= 1
             self.write_failed = True
             raise
         if inspect.isawaitable(result):
             return self._awaited(result)
+        self._unfinished -= 1
         return result
 
     async def _awaited(self, awaitable: Any) -> Any:
         try:
-            return await awaitable
+            result = await awaitable
+            self._unfinished -= 1
+            return result
         except httpcore.WriteTimeout as error:
+            self._unfinished -= 1
             self.write_failed = True
             raise httpcore.WriteError(str(error)) from error
         except Exception:  # not BaseException: a write cancelled by closing the session is not a failure
+            self._unfinished -= 1
             self.write_failed = True
             raise
 

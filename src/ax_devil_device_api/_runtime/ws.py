@@ -328,6 +328,11 @@ class _Core:
         return getattr(self._connection, "remote_close", None)
 
     @property
+    def write_in_flight(self) -> bool:
+        """Whether a write to the socket was started and has not finished (its frame may be partly written)."""
+        return bool(getattr(getattr(self._raw, "stream", None), "write_in_flight", False))
+
+    @property
     def write_failed(self) -> bool:
         return bool(getattr(getattr(self._raw, "stream", None), "write_failed", False))
 
@@ -419,10 +424,33 @@ class _Core:
         self.terminate("oversize", LIMIT_CLOSE_CODE)
         return ResponseFormatError(self.spec.api_id, "receive", f"message exceeds {MAX_WS_MESSAGE_BYTES} bytes; session closed")
 
+    def publish_outcome(self, outcome: DeviceError) -> DeviceError:
+        """The one place that stores the session's terminal outcome. Set-once: the first outcome wins and is
+        returned to every later caller, so a later error never replaces the reason a session ended."""
+        if self.closed is not None:
+            return self.closed
+        if self.failure is not None:
+            return self.failure
+        if isinstance(outcome, SessionClosed):
+            self.closed = outcome
+        else:
+            assert isinstance(outcome, TransportError)
+            self.failure = outcome
+        return outcome
+
+    def raise_if_over(self) -> None:
+        """Every send and request looks at the terminal state first and raises before anything is written."""
+        if self.closed is not None:
+            raise self.closed
+        if self.failure is not None:
+            raise self.failure
+        if self.overflowed:
+            raise self.overflow_closed()
+
     def close_locally(self) -> None:
         """Publish our own ``close()`` as the terminal outcome: pending and later reads raise ``SessionClosed``."""
         if self.closed is None and self.failure is None:
-            self.closed = SessionClosed(1000, "closed by this client")
+            self.publish_outcome(SessionClosed(1000, "closed by this client"))
             self.local_closed = True
 
     def on_disconnect(self, error: httpx_ws.WebSocketDisconnect) -> DeviceError:
@@ -431,9 +459,9 @@ class _Core:
         if error.code == LIMIT_CLOSE_CODE and error.reason == LIMIT_CLOSE_REASON:
             return self._too_large()
         if error.code in _NORMAL_CLOSE:
-            self.closed = SessionClosed(error.code, error.reason)
+            outcome = self.publish_outcome(SessionClosed(error.code, error.reason))
             self.terminate("normal_remote", error.code)
-            return self.closed
+            return outcome
         self.terminate("abnormal_remote", error.code)
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: device closed the session with code {error.code}: {error.reason}"))
 
@@ -451,16 +479,14 @@ class _Core:
         if stamped is not None:
             return self.on_disconnect(httpx_ws.WebSocketDisconnect(stamped[0], ""))
         self.terminate("send_failure")
-        outcome = SessionClosed()
-        self.closed = outcome  # stored (set-once): every current and later read raises it, not only this send
-        return outcome
+        return self.publish_outcome(SessionClosed())  # stored (set-once): every current and later read raises it
 
     def fail_with(self, error: TransportError, cause: Cause = "network") -> TransportError:
         """Store a transport failure as the terminal outcome (set-once; an existing outcome is kept and returned)."""
         self.terminate(cause)
-        if self.failure is None and self.closed is None:
-            self.failure = error
-        return self.failure if self.failure is not None else error
+        outcome = self.publish_outcome(error)
+        assert isinstance(outcome, (TransportError, SessionClosed))
+        return outcome  # type: ignore[return-value]
 
     def on_network_error(self) -> DeviceError:
         if self.local_closed and self.closed is not None:
@@ -468,9 +494,8 @@ class _Core:
         self.terminate("network")
         return self._fail(ConnectionFailed(f"{self.spec.api_id}: connection lost (network error or heartbeat timeout)"))
 
-    def _fail(self, error: TransportError) -> TransportError:
-        self.failure = error  # the terminal event is queued once: later reads raise this again
-        return error
+    def _fail(self, error: TransportError) -> DeviceError:
+        return self.publish_outcome(error)  # the terminal event is queued once: later reads raise this again
 
     def dispatch(self, message: Any, waiters: dict[str, _Slot]) -> None:
         """Route one decoded frame: the reply to a registered request goes to that request, everything else
@@ -613,8 +638,7 @@ class Session:
 
     def send(self, message: Any) -> None:
         """Send ``bytes`` as a binary frame, ``str`` as text, anything else as JSON text."""
-        if self._core.overflowed:
-            raise self._core.overflow_closed()
+        self._core.raise_if_over()
         data = self._core.encode(message)
         try:
             if isinstance(data, bytes):
@@ -627,8 +651,16 @@ class Session:
             raise outcome from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             outcome = self._core.on_network_error()
+            self._abort_connection()
             self._publish()
             raise outcome from error
+
+    def _abort_connection(self) -> None:
+        """Drop the socket without a close frame: after a failed write the connection cannot be trusted."""
+        try:
+            self._raw.stream.close()
+        except Exception:  # noqa: BLE001 - best effort
+            pass
 
     def _publish(self) -> None:
         """A terminal outcome is stored on the core: wake every waiter (the reader owner notices within a poll slice)."""
@@ -727,6 +759,7 @@ class Session:
             optional_positive_finite("timeout", timeout)  # nothing is sent otherwise
         limit = core.default_timeout if timeout is None else timeout
         deadline = time.monotonic() + limit  # the caller's total budget: registration, sending and waiting
+        core.raise_if_over()
         slot = _Slot(method)
         with self._cond:
             request_id, message = core.request_message(method, params)
@@ -820,8 +853,11 @@ def connect_session(
                 error = exc
                 raise
             finally:
-                # Leaving the context closes the socket next: record that this end is ours (an end already seen wins).
-                core.closing_now()  # the socket closes next; finish() records how it ended
+                # Leaving the context closes the socket next: that is our own close, published like close() does (an
+                # end already seen wins); retained sessions and pending readers see SessionClosed from now on.
+                core.closing_now()
+                core.close_locally()
+                session._publish()
     finally:
         core.finish(user_exit_error=error)
 
@@ -862,8 +898,7 @@ class AsyncSession:
 
     async def _send(self, message: Any, timeout: float | None) -> None:
         """``send`` bounded by ``timeout`` seconds (``request()`` passes what is left of its budget)."""
-        if self._core.overflowed:
-            raise self._core.overflow_closed()
+        self._core.raise_if_over()
         data = self._core.encode(message)
         try:
             with anyio.fail_after(timeout):
@@ -871,9 +906,18 @@ class AsyncSession:
                     await self._raw.send_bytes(data)
                 else:
                     await self._raw.send_text(data)
+        except asyncio.CancelledError:
+            # Cancelled from outside (wait_for, a timeout scope): if a write was under way the frame may be half
+            # written and later traffic would be corrupt, so the session ends; the cancellation itself goes on unchanged.
+            if self._core.write_in_flight:
+                self._core.fail_with(ConnectionFailed(f"{self._core.spec.api_id}: a send was cancelled half way; the connection is unusable"))
+                await self._abort_connection()
+                self._wake()
+            raise
         except TimeoutError as error:
             # The frame may be half written: the connection is unusable, so this ends the session as a network failure.
             failure = self._core.fail_with(ReadTimeout(f"{self._core.spec.api_id}: sending did not finish within {timeout} s"))
+            await self._abort_connection()
             self._wake()
             raise failure from error
         except wsproto.utilities.LocalProtocolError as error:
@@ -882,8 +926,17 @@ class AsyncSession:
             raise outcome from error
         except (httpx_ws.WebSocketNetworkError, httpcore.WriteError, httpcore.NetworkError) as error:
             outcome = self._core.on_network_error()
+            await self._abort_connection()
             self._wake()
             raise outcome from error
+
+    async def _abort_connection(self) -> None:
+        """Drop the socket without a close frame (shielded: this runs while a cancellation is propagating)."""
+        with anyio.CancelScope(shield=True):
+            try:
+                await self._raw.stream.aclose()
+            except Exception:  # noqa: BLE001 - best effort
+                pass
 
     async def receive(self, timeout: float | None = None) -> Any:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
@@ -996,6 +1049,7 @@ class AsyncSession:
             optional_positive_finite("timeout", timeout)
         limit = core.default_timeout if timeout is None else timeout
         deadline = asyncio.get_running_loop().time() + limit  # the caller's total budget
+        core.raise_if_over()
         request_id, message = core.request_message(method, params)
         slot = _Slot(method)
         self._waiters[request_id] = slot  # registered before the request is sent, so its reply cannot be missed
@@ -1086,7 +1140,8 @@ async def connect_session_async(
                 error = exc
                 raise
             finally:
-                # Leaving the context closes the socket next: record that this end is ours (an end already seen wins).
+                # Leaving the context closes the socket next: that is our own close, published like close() does (an
+                # end already seen wins); retained sessions and pending readers see SessionClosed from now on.
                 core.closing_now()  # the socket closes next; finish() records how it ended
     finally:
         core.finish(user_exit_error=error)
