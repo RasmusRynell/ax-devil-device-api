@@ -138,7 +138,7 @@ class EventsCodec:
     def encode_request(self, method: str, params: JsonObject | None, request_id: str) -> dict[str, Any]:
         message: dict[str, Any] = {"apiVersion": self.api_version, "context": request_id, "method": method}
         if params is not None:
-            message["params"] = dict(params)
+            message["params"] = _params(params)
         return message
 
     def classify(self, message: Any) -> Reply | Notification | None:
@@ -178,6 +178,15 @@ def _epoch_millis(value: Any) -> datetime | None:
         return None
 
 
+def _params(params: Any) -> dict[str, Any]:
+    """Request params: ``None`` is empty; anything else must be a mapping (``""`` or ``0`` are not silently dropped)."""
+    if params is None:
+        return {}
+    if not isinstance(params, Mapping):
+        raise TypeError(f"request params must be a mapping or None, got {type(params).__name__}")
+    return dict(params)
+
+
 def _ctx(message: Mapping[str, Any]) -> str | None:
     value = message.get("context")
     return None if value is None else str(value)
@@ -191,7 +200,7 @@ def events_setup(options: Mapping[str, Any]) -> list[tuple[str, JsonObject | Non
     filters = options.get("event_filter_list")
     if filters is None:
         return []
-    if isinstance(filters, (str, bytes, Mapping)):
+    if isinstance(filters, (str, bytes, Mapping)) or not isinstance(filters, Sequence):
         raise TypeError("event_filter_list must be a sequence of EventFilter objects or {'topicFilter': ...} mappings")
     # Every entry is checked here, so a malformed filter fails locally instead of being rejected by the device.
     wire = [(f if isinstance(f, EventFilter) else EventFilter.from_wire(f)).to_wire() for f in filters]
@@ -232,7 +241,7 @@ class DataHubCodec:
     sample_method = "data-hub_v1:topicSample"
 
     def encode_request(self, method: str, params: JsonObject | None, request_id: str) -> dict[str, Any]:
-        return {"jsonrpc": "2.0", "id": request_id, "method": method, "params": dict(params or {})}
+        return {"jsonrpc": "2.0", "id": request_id, "method": method, "params": _params(params)}
 
     def classify(self, message: Any) -> Reply | Notification | None:
         if not isinstance(message, Mapping):
@@ -278,8 +287,11 @@ def datahub_setup(options: Mapping[str, Any]) -> list[tuple[str, JsonObject | No
     # The generated schema, imported late because that module imports this one.
     from ..apis.device_data_hub_ws import Subscription
 
-    subscriptions: Sequence[JsonObject | Subscription] = options.get("subscriptions") or ()
-    if isinstance(subscriptions, (str, bytes, Mapping)):
+    subscriptions: Any = options.get("subscriptions")
+    if subscriptions is None:
+        subscriptions = ()
+    # Only None means "no subscriptions": {}, "", 0 and False are wrong types and must not open a silent session.
+    if isinstance(subscriptions, (str, bytes, Mapping)) or not isinstance(subscriptions, Sequence):
         raise TypeError("subscriptions must be a sequence of Subscription objects or mappings")
     requests: list[tuple[str, JsonObject | None]] = []
     for sub in subscriptions:
