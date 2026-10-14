@@ -47,10 +47,12 @@ class _Parser(argparse.ArgumentParser):
         raise CliError(f"{message} (see `{self.prog} --help`)")
 
 
-def _env(names: Sequence[str]) -> str | None:
+def _env(names: Sequence[str], *, keep_empty: bool = False) -> str | None:
+    """The first set environment variable; an empty value counts only with ``keep_empty`` (a password may be empty)."""
     for name in names:
-        if os.environ.get(name):
-            return os.environ[name]
+        value = os.environ.get(name)
+        if value is not None and (value or keep_empty):
+            return value
     return None
 
 
@@ -124,13 +126,15 @@ def make_device(args: argparse.Namespace) -> Device:
     host = args.host or os.environ.get(ENV_HOST)
     if not host:
         raise CliError(f"no device: pass --host or set ${ENV_HOST}")
-    user, password = args.user or _env(ENV_USER), args.password or _env(ENV_PASSWORD)
-    if bool(user) != bool(password):
+    # ``is None`` checks: an explicit empty value (an empty password) must not fall back to the environment.
+    user = args.user if args.user is not None else _env(ENV_USER)
+    password = args.password if args.password is not None else _env(ENV_PASSWORD, keep_empty=True)
+    if (user is None) != (password is None):
         raise CliError("give both user and password, or neither")
-    verify: bool | str = args.ca_bundle or (not args.insecure)
+    verify: bool | str = args.ca_bundle if args.ca_bundle is not None else (not args.insecure)
     return Device(
         host,
-        credentials=(user, password) if user and password else None,
+        credentials=(user, password) if user is not None and password is not None else None,
         scheme="http" if args.http else "https",
         allow_http=args.http,
         port=args.port,

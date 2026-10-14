@@ -213,3 +213,27 @@ def test_configuration_error_keeps_the_library_error_shape(monkeypatch: pytest.M
     code = cli.main(["--host", "camera.local:8443", "--user", "u", "--password", "p", "call", "mqtt_client", "get_client_status"], out=out, err=err)
     error = json.loads(err.getvalue().splitlines()[-1])["error"]
     assert code == 1 and error["type"] == "ConfigurationError" and "port" in error["message"]
+
+
+def test_explicit_empty_password_is_kept_not_replaced_by_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CAM_USER", "envuser")
+    monkeypatch.setenv("CAM_PASS", "envpass")
+    args = cli.build_parser().parse_args(["--host", "10.0.0.1", "--user", "root", "--password", "", "summary"])
+    dev = cli.make_device(args)
+    assert dev.config.credentials is not None
+    assert (dev.config.credentials.username, dev.config.credentials.password) == ("root", "")  # type: ignore[union-attr]
+
+
+def test_empty_password_without_environment_is_not_a_missing_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("AX_DEVIL_USER", "CAM_USER", "AX_DEVIL_PASSWORD", "CAM_PASS"):
+        monkeypatch.delenv(name, raising=False)
+    args = cli.build_parser().parse_args(["--host", "10.0.0.1", "--user", "root", "--password", "", "summary"])
+    assert cli.make_device(args).config.credentials is not None
+
+
+def test_user_without_any_password_still_asks_for_both(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("AX_DEVIL_USER", "CAM_USER", "AX_DEVIL_PASSWORD", "CAM_PASS"):
+        monkeypatch.delenv(name, raising=False)
+    args = cli.build_parser().parse_args(["--host", "10.0.0.1", "--user", "root", "summary"])
+    with pytest.raises(cli.CliError, match="both"):
+        cli.make_device(args)
