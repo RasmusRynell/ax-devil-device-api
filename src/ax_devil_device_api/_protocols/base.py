@@ -216,6 +216,17 @@ class Model(BaseModel):
             raise ValueError(f"field(s) cannot be null; leave them unset instead: {', '.join(nulls)}")
         return data
 
+    @field_validator("*", mode="before")
+    @classmethod
+    def _strict_scalar_kinds(cls, value: Any, info: ValidationInfo) -> Any:
+        """Requests are strict about booleans: a bool is not a number, and a boolean field takes only a real bool."""
+        if info.field_name is None or is_response(info) or value is None:
+            return value
+        problem = _scalar_problem(cls.model_fields[info.field_name].annotation, value)
+        if problem:
+            raise ValueError(problem)
+        return value
+
     @field_validator("*", mode="wrap")
     @classmethod
     def _tolerate_new_enum_values(cls, value: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo) -> Any:
@@ -534,6 +545,56 @@ def _masked_wire_names(model: type[Model]) -> frozenset[str]:
 
     walk(model)
     return frozenset(names)
+
+
+def _scalar_types(annotation: Any) -> set[type]:
+    """The scalar types an annotation accepts (``bool``, ``int``, ``float``, ``str``), through ``Annotated``, unions,
+    lists and ``Literal`` values; anything else (models, mappings, ``Any``) contributes a marker type ``object``."""
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _scalar_types(get_args(annotation)[0])
+    if origin in (Union, UnionType):
+        return set().union(*(_scalar_types(arg) for arg in get_args(annotation) if arg is not type(None)))
+    if origin is list:
+        return _scalar_types(get_args(annotation)[0]) if get_args(annotation) else {object}
+    if origin is Literal:
+        return {type(v) for v in get_args(annotation)}
+    if annotation in (bool, int, float, str):
+        return {annotation}
+    return {object}
+
+
+def _scalar_problem(annotation: Any, value: Any) -> str | None:
+    """Why ``value`` is the wrong kind of scalar for a request field, or ``None``. A request is strict about what a
+    boolean is: a bool is not a number, and a boolean field takes only a real bool. Text that spells a number is still
+    accepted (the CLI passes text), and so is a whole float for an integer (``2.0``); a fraction is left to the
+    model's own integer check."""
+    if isinstance(value, list) and get_origin(_unwrap(annotation)) is list:
+        item = get_args(_unwrap(annotation))[0] if get_args(_unwrap(annotation)) else Any
+        for entry in value:
+            problem = _scalar_problem(item, entry)
+            if problem:
+                return problem
+        return None
+    types = _scalar_types(annotation)
+    if object in types or not types:
+        return None
+    if isinstance(value, bool):
+        return None if bool in types else "a boolean is not a number"
+    if types == {bool}:
+        return f"expected true or false, got {value!r}"
+    return None
+
+
+def _unwrap(annotation: Any) -> Any:
+    """``annotation`` without ``Annotated`` and ``| None``."""
+    if get_origin(annotation) is Annotated:
+        return _unwrap(get_args(annotation)[0])
+    if get_origin(annotation) in (Union, UnionType):
+        arms = [arg for arg in get_args(annotation) if arg is not type(None)]
+        if len(arms) == 1:
+            return _unwrap(arms[0])
+    return annotation
 
 
 def _has_non_finite(value: Any) -> bool:
