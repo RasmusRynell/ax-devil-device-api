@@ -38,11 +38,10 @@ def test_bytes_body_layout_and_order() -> None:
 
 
 def test_names_are_escaped() -> None:
-    body = MultipartBody((), (FilePart('we"ird', 'a"b\r\nc.bin', b"x"),), boundary="B")
+    body = MultipartBody((), (FilePart('we"ird', 'a"b\\c.bin', b"x"),), boundary="B")
     encoded = encode_multipart(body)
     assert isinstance(encoded.content, bytes)
-    assert b'name="we%22ird"' in encoded.content and b'filename="a%22b%0D%0Ac.bin"' in encoded.content
-    assert b"\r\nc.bin" not in encoded.content
+    assert b'name="we%22ird"' in encoded.content and b'filename="a%22b\\\\c.bin"' in encoded.content
 
 
 def test_generated_boundary_is_unique_and_valid() -> None:

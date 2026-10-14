@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 from pydantic import PlainValidator
 
 from .._validate import non_negative_int
-from .types import DeferredContent, FilePart
+from .types import DeferredContent, FilePart, check_header_text
 
 CHUNK_SIZE = 64 * 1024
 INLINE_LIMIT = 8 * 1024 * 1024
@@ -54,6 +54,10 @@ class Upload:
 
     def __post_init__(self) -> None:
         non_negative_int("Upload size", self.size)
+        if self.filename is not None:
+            check_header_text("Upload filename", self.filename)
+        if self.content_type is not None:
+            check_header_text("Upload content_type", self.content_type)
 
     def _buffered(self) -> bytes:
         """The whole content of a small upload, read once under the lock and kept; a failed read stays failed."""

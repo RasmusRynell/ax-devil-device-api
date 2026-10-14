@@ -11,7 +11,7 @@ import secrets
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from .types import DeferredContent, FilePart, MultipartBody
+from .types import DeferredContent, FilePart, MultipartBody, check_header_text
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,7 @@ def _check_boundary(boundary: str) -> None:
 
 
 def _field_head(boundary: str, name: str, value: str) -> bytes:
+    check_header_text("multipart field name", name)
     head = f'--{boundary}\r\nContent-Disposition: form-data; name="{_quote(name)}"\r\n\r\n'
     return head.encode("utf-8") + value.encode("utf-8") + b"\r\n"
 

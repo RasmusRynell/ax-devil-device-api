@@ -10,6 +10,7 @@ import pytest
 
 from ax_devil_device_api._http.config import ConnectionConfig
 from ax_devil_device_api._http.options import Heartbeat, RequestOptions, RetryPolicy
+from ax_devil_device_api._http.types import FilePart, MultipartBody
 from ax_devil_device_api._http.upload import Upload
 from ax_devil_device_api.errors import ConfigurationError
 from ax_devil_device_api.rtsp import MediaStream, RtspUrl, build_rtsp_url
@@ -138,3 +139,48 @@ def test_plain_http_needs_a_real_true() -> None:
     assert ConnectionConfig("cam", scheme="http", allow_http=True).allow_http is True
     with pytest.raises(ConfigurationError):
         ConnectionConfig("cam", scheme="http", allow_http=False)
+
+
+# --- CR/LF/NUL never reach a header ---------------------------------------------------------------------------------------
+
+PAYLOADS = ["text/plain\r\nX-Injected: 1", "a\nb", "a\rb", "a\x00b"]
+
+
+@pytest.mark.parametrize("payload", PAYLOADS)
+def test_multipart_part_fields_reject_header_injection(payload: str) -> None:
+    from ax_devil_device_api._http.multipart import encode_multipart
+
+    with pytest.raises(ConfigurationError):
+        FilePart("f", None, b"x", content_type=payload)
+    with pytest.raises(ConfigurationError):
+        FilePart("f", payload, b"x")
+    with pytest.raises(ConfigurationError):
+        FilePart(payload, "n.bin", b"x")
+    with pytest.raises(ConfigurationError):
+        encode_multipart(MultipartBody((("field" + payload, "v"),), ()))
+
+
+@pytest.mark.parametrize("payload", PAYLOADS)
+def test_upload_and_request_header_values_reject_header_injection(payload: str) -> None:
+    from ax_devil_device_api._http.types import RawBody, Request
+
+    with pytest.raises(ConfigurationError):
+        Upload(io.BytesIO(b""), 0, content_type=payload)
+    with pytest.raises(ConfigurationError):
+        Upload(io.BytesIO(b""), 0, filename=payload)
+    with pytest.raises(ConfigurationError):
+        RawBody(b"x", payload)
+    with pytest.raises(ConfigurationError):
+        Request("GET", "/x", headers=(("X-Test", payload),))
+    with pytest.raises(ConfigurationError):
+        Request("GET", "/x", headers=((payload, "v"),))
+    with pytest.raises(ConfigurationError):
+        Request("GET", "/x", accept=payload)
+
+
+def test_quotes_and_backslashes_in_names_are_still_escaped_not_rejected() -> None:
+    from ax_devil_device_api._http.multipart import encode_multipart
+
+    encoded = encode_multipart(MultipartBody((), (FilePart('a"b', 'c\\d"e.bin', b"x"),), boundary="B"))
+    assert isinstance(encoded.content, bytes) and b'name="a%22b"' in encoded.content
+    assert b'filename="c\\\\d%22e.bin"' in encoded.content

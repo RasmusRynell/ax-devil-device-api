@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 from urllib.parse import unquote
 
-from ..errors import ResponseFormatError
+from ..errors import ConfigurationError, ResponseFormatError
 
 AuthPolicy = Literal["required", "anonymous", "if_challenged"]
 """How a request authenticates.
@@ -46,6 +46,16 @@ def unsafe_path(path: str, *, strict: bool = False) -> bool:
             return False
         current = decoded
     return True
+
+
+def check_header_text(name: str, value: Any) -> None:
+    """Reject CR, LF and NUL in a value that ends up in a header (or a multipart part header).
+
+    A caller-supplied file name or content type is often end-user data; unchecked, it could end the header and
+    inject another, or end the part early.
+    """
+    if not isinstance(value, str) or any(c in value for c in "\r\n\0"):
+        raise ConfigurationError(f"{name} must be a string without CR, LF or NUL characters, got {value!r}")
 
 
 class DeferredContent:
@@ -101,6 +111,9 @@ class RawBody:
     size: int | None = None
     """Byte count of a streamed ``content``; with it the request gets a ``Content-Length`` header."""
 
+    def __post_init__(self) -> None:
+        check_header_text("content type", self.content_type)
+
     @property
     def replayable(self) -> bool:
         return isinstance(self.content, bytes)
@@ -123,6 +136,12 @@ class FilePart:
     content: bytes | Iterable[bytes] | DeferredContent
     content_type: str = "application/octet-stream"
     size: int | None = None
+
+    def __post_init__(self) -> None:
+        check_header_text("multipart part name", self.name)
+        if self.filename is not None:
+            check_header_text("multipart file name", self.filename)
+        check_header_text("multipart part content type", self.content_type)
 
     @property
     def length(self) -> int | None:
@@ -179,6 +198,11 @@ class Request:
             raise ValueError(f"Request path must not contain a query; use query=: {self.path!r}")
         if unsafe_path(self.path):
             raise ValueError(f"Request path must not contain '.' or '..' segments or backslashes (also percent-encoded): {self.path!r}")
+        for header, value in self.headers:
+            check_header_text("header name", header)
+            check_header_text(f"header {header!r}", value)
+        if self.accept is not None:
+            check_header_text("accept", self.accept)
 
     @property
     def replayable(self) -> bool:
