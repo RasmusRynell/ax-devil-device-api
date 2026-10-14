@@ -8,6 +8,7 @@ protocol modules, which are sans-IO: a call is a generator that yields
 
 from __future__ import annotations
 
+import collections.abc
 import math
 import re
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -547,54 +548,75 @@ def _masked_wire_names(model: type[Model]) -> frozenset[str]:
     return frozenset(names)
 
 
-def _scalar_types(annotation: Any) -> set[type]:
-    """The scalar types an annotation accepts (``bool``, ``int``, ``float``, ``str``), through ``Annotated``, unions,
-    lists and ``Literal`` values; anything else (models, mappings, ``Any``) contributes a marker type ``object``."""
-    origin = get_origin(annotation)
-    if origin is Annotated:
-        return _scalar_types(get_args(annotation)[0])
-    if origin in (Union, UnionType):
-        return set().union(*(_scalar_types(arg) for arg in get_args(annotation) if arg is not type(None)))
-    if origin is list:
-        return _scalar_types(get_args(annotation)[0]) if get_args(annotation) else {object}
-    if origin is Literal:
-        return {type(v) for v in get_args(annotation)}
-    if annotation in (bool, int, float, str):
-        return {annotation}
-    return {object}
-
-
 def _scalar_problem(annotation: Any, value: Any) -> str | None:
-    """Why ``value`` is the wrong kind of scalar for a request field, or ``None``. A request is strict about what a
-    boolean is: a bool is not a number, and a boolean field takes only a real bool. Text that spells a number is still
-    accepted (the CLI passes text), and so is a whole float for an integer (``2.0``); a fraction is left to the
-    model's own integer check."""
-    if isinstance(value, list) and get_origin(_unwrap(annotation)) is list:
-        item = get_args(_unwrap(annotation))[0] if get_args(_unwrap(annotation)) else Any
-        for entry in value:
-            problem = _scalar_problem(item, entry)
-            if problem:
-                return problem
+    """Why ``value`` is the wrong *kind* for a request field, or ``None``.
+
+    A request is strict about what a boolean is: a bool is not a number (or text), a boolean field takes only a real
+    bool, and an integer field refuses a fraction (``2.0`` is accepted as 2, ``2.5`` is not). Text that spells a number
+    is still accepted (the CLI passes text). The rule applies at every depth: list, tuple (fixed and variadic), set and
+    mapping items, ``Annotated``, ``Literal`` and unions (accepted if any branch accepts). Nested models check their own
+    fields when pydantic validates them. Anything not described here is left to pydantic."""
+    origin = get_origin(annotation)
+    if value is None or annotation is Any:
         return None
-    types = _scalar_types(annotation)
-    if object in types or not types:
+    if origin is Annotated:
+        return _scalar_problem(get_args(annotation)[0], value)
+    if origin in (Union, UnionType):
+        problems = []
+        for arm in get_args(annotation):
+            if arm is type(None):
+                continue
+            problem = _scalar_problem(arm, value)
+            if problem is None:
+                return None  # one branch accepts it
+            problems.append(problem)
+        return problems[0] if problems else None
+    if origin is Literal:
+        literals = get_args(annotation)
+        if isinstance(value, bool):
+            return None if any(isinstance(v, bool) for v in literals) else "a boolean is not one of the allowed values"
         return None
-    if isinstance(value, bool):
-        return None if bool in types else "a boolean is not a number"
-    if types == {bool}:
-        return f"expected true or false, got {value!r}"
+    if origin in (list, set, frozenset, collections.abc.Sequence, collections.abc.Set):
+        if not isinstance(value, (list, tuple, set, frozenset)):
+            return None
+        args = get_args(annotation)
+        return _first_problem((args[0], entry) for entry in value) if args else None
+    if origin is tuple:
+        if not isinstance(value, (list, tuple)):
+            return None
+        args = get_args(annotation)
+        if not args:
+            return None
+        if len(args) == 2 and args[1] is Ellipsis:
+            return _first_problem((args[0], entry) for entry in value)
+        return _first_problem(zip(args, value, strict=False))
+    if origin in (dict, collections.abc.Mapping):
+        if not isinstance(value, dict):
+            return None
+        args = get_args(annotation)
+        if len(args) != 2:
+            return None
+        pairs = [pair for key, entry in value.items() for pair in ((args[0], key), (args[1], entry))]
+        return _first_problem(pairs)
+    if annotation is bool:
+        return None if isinstance(value, bool) else f"expected true or false, got {value!r}"
+    if annotation in (int, float):
+        if isinstance(value, bool):
+            return "a boolean is not a number"
+        if annotation is int and isinstance(value, float) and not value.is_integer():
+            return f"{value!r} is not a whole number"
+        return None
+    if annotation is str:
+        return "a boolean is not text" if isinstance(value, bool) else None
     return None
 
 
-def _unwrap(annotation: Any) -> Any:
-    """``annotation`` without ``Annotated`` and ``| None``."""
-    if get_origin(annotation) is Annotated:
-        return _unwrap(get_args(annotation)[0])
-    if get_origin(annotation) in (Union, UnionType):
-        arms = [arg for arg in get_args(annotation) if arg is not type(None)]
-        if len(arms) == 1:
-            return _unwrap(arms[0])
-    return annotation
+def _first_problem(pairs: Any) -> str | None:
+    for annotation, value in pairs:
+        problem = _scalar_problem(annotation, value)
+        if problem:
+            return problem
+    return None
 
 
 def _has_non_finite(value: Any) -> bool:
