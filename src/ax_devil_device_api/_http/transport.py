@@ -16,6 +16,7 @@ from dataclasses import replace
 from typing import Any
 from urllib.parse import quote_plus, urlencode
 
+import httpcore
 import httpx
 import wsproto.events
 from httpx_ws import AsyncWebSocketSession, WebSocketSession
@@ -288,16 +289,22 @@ class _WatchedStream:
     tells the session layer that its close did not reach the device. This does.
     """
 
-    def __init__(self, inner: Any) -> None:
+    def __init__(self, inner: Any, write_timeout: float | None = None) -> None:
         self._inner = inner
+        self._write_timeout = write_timeout
         self.write_failed = False
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
 
     def write(self, *args: Any, **kwargs: Any) -> Any:
+        if self._write_timeout is not None and len(args) < 2:
+            kwargs.setdefault("timeout", self._write_timeout)  # httpx-ws writes without one; a blocked peer must not hang
         try:
             result = self._inner.write(*args, **kwargs)
+        except httpcore.WriteTimeout as error:
+            self.write_failed = True
+            raise httpcore.WriteError(str(error)) from error  # a stalled write is a broken connection (and close() copes)
         except Exception:  # not BaseException: a write cancelled by closing the session is not a failure
             self.write_failed = True
             raise
@@ -308,14 +315,17 @@ class _WatchedStream:
     async def _awaited(self, awaitable: Any) -> Any:
         try:
             return await awaitable
+        except httpcore.WriteTimeout as error:
+            self.write_failed = True
+            raise httpcore.WriteError(str(error)) from error
         except Exception:  # not BaseException: a write cancelled by closing the session is not a failure
             self.write_failed = True
             raise
 
 
-def _guard(session: Any) -> None:
+def _guard(session: Any, write_timeout: float | None = None) -> None:
     session.connection = _SizeGuard(session.connection, MAX_WS_MESSAGE_BYTES)
-    session.stream = _WatchedStream(session.stream)
+    session.stream = _WatchedStream(session.stream, write_timeout)
 
 
 def _ws_request(request: Request) -> Request:
@@ -519,7 +529,7 @@ class SyncTransport:
                     keepalive_ping_timeout_seconds=heartbeat.timeout,
                     response=raw,
                 )
-                _guard(session)
+                _guard(session, self.config.timeout)
                 with session:
                     yield _response(raw, request, b""), session
             finally:
@@ -651,7 +661,7 @@ class AsyncTransport:
                     keepalive_ping_timeout_seconds=heartbeat.timeout,
                     response=raw,
                 )
-                _guard(session)
+                _guard(session, self.config.timeout)
                 try:
                     async with session:
                         yield _response(raw, request, b""), session

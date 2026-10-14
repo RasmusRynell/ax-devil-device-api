@@ -455,6 +455,13 @@ class _Core:
         self.closed = outcome  # stored (set-once): every current and later read raises it, not only this send
         return outcome
 
+    def fail_with(self, error: TransportError, cause: Cause = "network") -> TransportError:
+        """Store a transport failure as the terminal outcome (set-once; an existing outcome is kept and returned)."""
+        self.terminate(cause)
+        if self.failure is None and self.closed is None:
+            self.failure = error
+        return self.failure if self.failure is not None else error
+
     def on_network_error(self) -> DeviceError:
         if self.local_closed and self.closed is not None:
             return self.closed
@@ -851,14 +858,24 @@ class AsyncSession:
 
     async def send(self, message: Any) -> None:
         """Send ``bytes`` as a binary frame, ``str`` as text, anything else as JSON text."""
+        await self._send(message, None)
+
+    async def _send(self, message: Any, timeout: float | None) -> None:
+        """``send`` bounded by ``timeout`` seconds (``request()`` passes what is left of its budget)."""
         if self._core.overflowed:
             raise self._core.overflow_closed()
         data = self._core.encode(message)
         try:
-            if isinstance(data, bytes):
-                await self._raw.send_bytes(data)
-            else:
-                await self._raw.send_text(data)
+            with anyio.fail_after(timeout):
+                if isinstance(data, bytes):
+                    await self._raw.send_bytes(data)
+                else:
+                    await self._raw.send_text(data)
+        except TimeoutError as error:
+            # The frame may be half written: the connection is unusable, so this ends the session as a network failure.
+            failure = self._core.fail_with(ReadTimeout(f"{self._core.spec.api_id}: sending did not finish within {timeout} s"))
+            self._wake()
+            raise failure from error
         except wsproto.utilities.LocalProtocolError as error:
             outcome = self._core.send_refused()
             self._wake()
@@ -983,7 +1000,7 @@ class AsyncSession:
         slot = _Slot(method)
         self._waiters[request_id] = slot  # registered before the request is sent, so its reply cannot be missed
         try:
-            await self.send(message)
+            await self._send(message, max(0.0, deadline - asyncio.get_running_loop().time()))
             return await self._await(slot.poll, max(0.0, deadline - asyncio.get_running_loop().time()))
         finally:
             self._waiters.pop(request_id, None)

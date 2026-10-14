@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 import anyio
+import httpcore
 import pytest
 import wsproto.utilities
 from ws_fake import FakeWsCamera
@@ -15,7 +16,7 @@ from ws_fake import FakeWsCamera
 from ax_devil_device_api import AsyncDevice, Device
 from ax_devil_device_api._http.options import Heartbeat
 from ax_devil_device_api._runtime.ws import EVENTS
-from ax_devil_device_api.errors import SessionClosed
+from ax_devil_device_api.errors import ConnectionFailed, ReadTimeout, SessionClosed
 
 QUICK = Heartbeat(None)
 
@@ -92,3 +93,47 @@ async def test_async_refused_send_is_stored_and_wakes_the_pending_request_and_re
             assert len(outcomes) == 2 and all(isinstance(e, SessionClosed) for e in outcomes)
             with pytest.raises(SessionClosed):
                 await session.receive(timeout=0.1)
+
+
+# -- F: bounded sends ---------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_async_request_bounds_a_stalled_send_by_its_deadline() -> None:
+    camera = FakeWsCamera()
+    async with AsyncDevice("cam.test", credentials=("root", "pass"), transport=camera.async_transport()) as dev:
+        async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+
+            async def stalled(buffer: bytes, timeout: float | None = None) -> None:
+                await anyio.sleep(30)
+
+            camera.streams[0].write = stalled  # type: ignore[method-assign]
+            started = time.monotonic()
+            with pytest.raises(ReadTimeout):
+                await session.request("m", {}, timeout=0.3)
+            assert time.monotonic() - started < 2
+            termination = session._core.record.termination  # type: ignore[union-attr]  # noqa: SLF001
+            assert termination is not None and termination[0] == "network"  # a half-written frame ends the session
+            with pytest.raises(ReadTimeout):  # and every later read raises the stored outcome
+                await session.receive(timeout=0.1)
+
+
+def test_sync_sends_get_the_transport_write_timeout() -> None:
+    camera = FakeWsCamera()
+    seen: list[float | None] = []
+    with Device("cam.test", credentials=("root", "pass"), transport=camera.transport(), timeout=0.25) as dev:
+        with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+            real = camera.streams[0].write
+
+            def stalled(buffer: bytes, timeout: float | None = None) -> None:
+                seen.append(timeout)
+                if timeout is not None and timeout < 1:
+                    raise httpcore.WriteTimeout("stalled")  # what the real socket does when the peer does not read
+                real(buffer, timeout)
+
+            camera.streams[0].write = stalled  # type: ignore[method-assign]
+            with pytest.raises(ConnectionFailed):
+                session.send(b"x")
+            assert seen[0] == 0.25  # httpx-ws writes without a timeout; the transport supplies the device timeout
+            termination = session._core.record.termination  # type: ignore[union-attr]  # noqa: SLF001
+            assert termination is not None and termination[0] == "network"
