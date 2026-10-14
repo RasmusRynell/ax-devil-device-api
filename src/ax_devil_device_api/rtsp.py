@@ -24,9 +24,9 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
 from ._http.config import BearerToken, Credentials, check_host
-from ._http.options import require_int
 from ._http.types import unsafe_path
 from ._protocols.base import CallFlow, Model, Operation, register_binding
+from ._validate import bounded_int, non_negative_int
 from .errors import ConfigurationError
 
 if TYPE_CHECKING:
@@ -60,9 +60,7 @@ class RtspUrl:
 
     def __post_init__(self) -> None:
         check_host(self.host)
-        require_int("port", self.port, 1)
-        if self.port >= 65536:
-            raise ConfigurationError(f"Invalid RTSP port: {self.port!r}")
+        bounded_int("port", self.port, 1, 65535)
         if not self.path.startswith("/") or "?" in self.path:
             raise ConfigurationError(f"RTSP path must be absolute and without a query: {self.path!r}")
         if unsafe_path(self.path):
@@ -164,12 +162,12 @@ class MediaStream:
     def __post_init__(self) -> None:
         if self.resolution is not None and not _RESOLUTION.match(self.resolution):
             raise ConfigurationError(f"resolution must look like 1280x720: {self.resolution!r}")
-        if self.fps is not None and self.fps < 0:
-            raise ConfigurationError("fps must not be negative")
-        if self.compression is not None and not 0 <= self.compression <= 100:
-            raise ConfigurationError("compression must be between 0 and 100")
-        if self.camera is not None and self.camera != "quad" and (not isinstance(self.camera, int) or self.camera < 1):
-            raise ConfigurationError("camera must be a positive integer or 'quad'")
+        if self.fps is not None:
+            non_negative_int("fps", self.fps)
+        if self.compression is not None:
+            bounded_int("compression", self.compression, 0, 100)
+        if self.camera is not None and self.camera != "quad":
+            bounded_int("camera", self.camera, 1)
         if self.streamprofile is not None and self.recordingid is not None:
             raise ConfigurationError("streamprofile and recordingid are mutually exclusive")
 

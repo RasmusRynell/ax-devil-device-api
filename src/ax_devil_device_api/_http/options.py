@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import Any
 
-from ..errors import ConfigurationError
+from .._validate import (
+    boolean,
+    bounded_int,
+    non_negative_finite,
+    optional_positive_finite,
+    positive_finite,
+    positive_int,
+)
 
 
 def require_int(name: str, value: Any, minimum: int) -> None:
-    """Raise ``ConfigurationError`` unless ``value`` is a real ``int`` (not a ``bool``, float or string) >= ``minimum``."""
-    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
-        raise ConfigurationError(f"{name} must be an integer of at least {minimum}, got {value!r}")
-
-
-def require_bool(name: str, value: Any) -> None:
-    if not isinstance(value, bool):
-        raise ConfigurationError(f"{name} must be True or False, got {value!r}")
+    """Kept for existing callers: ``bounded_int(name, value, minimum)``."""
+    bounded_int(name, value, minimum)
 
 
 @dataclass(frozen=True)
@@ -43,13 +43,11 @@ class RetryPolicy:
     max_backoff: float = 5.0
 
     def __post_init__(self) -> None:
-        require_int("attempts", self.attempts, 1)
-        require_bool("retry_unsent", self.retry_unsent)
-        require_bool("retry_reads", self.retry_reads)
-        if not 0 <= self.backoff < math.inf:
-            raise ValueError(f"backoff must be finite and not negative, got {self.backoff!r}")
-        if not 0 <= self.max_backoff < math.inf:
-            raise ValueError(f"max_backoff must be finite and not negative, got {self.max_backoff!r}")
+        positive_int("attempts", self.attempts)
+        boolean("retry_unsent", self.retry_unsent)
+        boolean("retry_reads", self.retry_reads)
+        non_negative_finite("backoff", self.backoff)
+        non_negative_finite("max_backoff", self.max_backoff)
 
     def delay(self, retry_number: int) -> float:
         """Delay before retry ``retry_number`` (1 = first retry)."""
@@ -69,11 +67,9 @@ class RequestOptions:
     """Replaces the device retry policy for this call."""
 
     def __post_init__(self) -> None:
-        if self.timeout is not None and not (isinstance(self.timeout, (int, float)) and 0 < self.timeout < math.inf):
-            raise ValueError(
-                f"timeout must be a positive, finite number of seconds, got {self.timeout!r}; "
-                "use None to keep the device timeout (there is no way to disable timeouts)"
-            )
+        optional_positive_finite(
+            "timeout", self.timeout, "; use None to keep the device timeout (there is no way to disable timeouts)"
+        )
 
 
 @dataclass(frozen=True)
@@ -92,10 +88,8 @@ class Heartbeat:
     timeout: float = 20.0
 
     def __post_init__(self) -> None:
-        if self.interval is not None and not 0 < self.interval < math.inf:
-            raise ValueError("interval must be positive and finite (use Heartbeat(None) to disable pings)")
-        if not 0 < self.timeout < math.inf:
-            raise ValueError("timeout must be positive and finite")
+        optional_positive_finite("interval", self.interval, " (use Heartbeat(None) to disable pings)")
+        positive_finite("timeout", self.timeout)
 
 
 DEFAULT_HEARTBEAT = Heartbeat()

@@ -1,0 +1,80 @@
+"""Validators for public numeric inputs.
+
+Every check rejects ``bool`` (``True`` is an ``int`` in Python but never a count or a duration), accepts only real
+``int`` for counts and real numbers for durations, and raises ``ConfigurationError`` (a ``ValueError``) naming the
+setting and the offending value.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Any
+
+from .errors import ConfigurationError
+
+
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def bounded_int(name: str, value: Any, lo: int | None = None, hi: int | None = None) -> int:
+    """``value`` as an ``int`` within ``lo``..``hi`` (either bound optional)."""
+    if not _is_int(value) or (lo is not None and value < lo) or (hi is not None and value > hi):
+        if lo is not None and hi is not None:
+            expected = f"an integer between {lo} and {hi}"
+        elif lo is not None:
+            expected = f"an integer of at least {lo}"
+        else:
+            expected = "an integer"
+        raise ConfigurationError(f"{name} must be {expected}, got {value!r}")
+    return value
+
+
+def positive_int(name: str, value: Any) -> int:
+    return bounded_int(name, value, 1)
+
+
+def non_negative_int(name: str, value: Any) -> int:
+    return bounded_int(name, value, 0)
+
+
+def positive_finite(name: str, value: Any, hint: str = "") -> float:
+    if not _is_number(value) or not 0 < value < math.inf:
+        raise ConfigurationError(f"{name} must be a positive, finite number, got {value!r}{hint}")
+    return value
+
+
+def non_negative_finite(name: str, value: Any) -> float:
+    if not _is_number(value) or not 0 <= value < math.inf:
+        raise ConfigurationError(f"{name} must be finite and not negative, got {value!r}")
+    return value
+
+
+def boolean(name: str, value: Any) -> bool:
+    if not isinstance(value, bool):
+        raise ConfigurationError(f"{name} must be True or False, got {value!r}")
+    return value
+
+
+def optional_bounded_int(name: str, value: Any, lo: int | None = None, hi: int | None = None) -> int | None:
+    return None if value is None else bounded_int(name, value, lo, hi)
+
+
+def optional_positive_int(name: str, value: Any) -> int | None:
+    return None if value is None else positive_int(name, value)
+
+
+def optional_non_negative_int(name: str, value: Any) -> int | None:
+    return None if value is None else non_negative_int(name, value)
+
+
+def optional_positive_finite(name: str, value: Any, hint: str = "") -> float | None:
+    return None if value is None else positive_finite(name, value, hint)
+
+
+def optional_non_negative_finite(name: str, value: Any) -> float | None:
+    return None if value is None else non_negative_finite(name, value)

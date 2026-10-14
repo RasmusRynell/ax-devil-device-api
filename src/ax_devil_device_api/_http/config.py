@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import ipaddress
-import math
 import ssl
 from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
+from .._validate import bounded_int, positive_finite, positive_int
 from ..errors import ConfigurationError
-from .options import RetryPolicy, require_int
+from .options import RetryPolicy
 from .types import unsafe_path
 
 
@@ -133,17 +133,14 @@ class ConnectionConfig:
         if self.scheme == "http" and not self.allow_http:
             raise ConfigurationError("HTTP sends credentials and data unencrypted; pass allow_http=True to use it")
         if self.port is not None:
-            require_int("port", self.port, 1)
-            if self.port >= 65536:
-                raise ConfigurationError(f"Invalid port: {self.port}")
+            bounded_int("port", self.port, 1, 65535)
         if self.base_path and (not self.base_path.startswith("/") or self.base_path.endswith("/") or "?" in self.base_path or "#" in self.base_path):
             raise ConfigurationError("base_path must start with '/', not end with '/', and contain no query or fragment")
         if self.base_path and unsafe_path(self.base_path, strict=True):
             raise ConfigurationError("base_path must not contain '.', '..', empty segments or backslashes (also percent-encoded)")
-        if not 0 < self.timeout < math.inf:
-            raise ConfigurationError("timeout must be positive and finite")
-        require_int("max_concurrency", self.max_concurrency, 1)
-        require_int("max_streams", self.max_streams, 1)
+        positive_finite("timeout", self.timeout)
+        positive_int("max_concurrency", self.max_concurrency)
+        positive_int("max_streams", self.max_streams)
         if not isinstance(self.verify, (bool, str, ssl.SSLContext)):
             raise ConfigurationError("verify must be a bool, a CA bundle path, or an ssl.SSLContext")
         if isinstance(self.credentials, BearerToken) and self.scheme == "http":

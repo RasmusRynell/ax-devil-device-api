@@ -23,7 +23,8 @@ from .. import Device
 from .._protocols.base import Operation
 from .._runtime.driver import StreamResult
 from .._streams import Part
-from ..errors import ApiError, DeviceError, HttpError
+from .._validate import bounded_int, non_negative_int, positive_finite
+from ..errors import ApiError, ConfigurationError, DeviceError, HttpError
 from ..features import api_support, device_summary, load_all, load_api, snapshot
 from ..features.registry import ApiEntry
 from ..rtsp import RtspBinding
@@ -53,6 +54,20 @@ def _env(names: Sequence[str]) -> str | None:
     return None
 
 
+def _arg(check: Callable[[Any], Any], kind: type) -> Callable[[str], Any]:
+    """An argparse ``type=``: parse as ``kind``, then validate (errors become a usage message)."""
+
+    def convert(text: str) -> Any:
+        try:
+            return check(kind(text))
+        except ConfigurationError as error:
+            raise argparse.ArgumentTypeError(str(error)) from None
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"invalid {kind.__name__} value: {text!r}") from None
+
+    return convert
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="ax-devil", description="Call VAPIX APIs of an Axis device. Output is JSON.")
     conn = parser.add_argument_group(
@@ -61,12 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
     conn.add_argument("--host", "-H", help="device address (host or IP)")
     conn.add_argument("--user", "-u", help="user name")
     conn.add_argument("--password", "-p", help="password (prefer the environment: arguments show up in process lists)")
-    conn.add_argument("--port", type=int)
+    conn.add_argument("--port", type=_arg(lambda v: bounded_int("--port", v, 1, 65535), int))
     conn.add_argument("--http", action="store_true", help="use plain HTTP (default is HTTPS)")
     conn.add_argument("--insecure", "-k", action="store_true", help="do not verify the TLS certificate")
     conn.add_argument("--ca-bundle", metavar="PATH", help="CA bundle used to verify the TLS certificate")
     conn.add_argument("--base-path", default="", help="path prefix of a reverse proxy or VMS")
-    conn.add_argument("--timeout", type=float, default=10.0, help="seconds (default 10)")
+    conn.add_argument("--timeout", type=_arg(lambda v: positive_finite("--timeout", v), float), default=10.0, help="seconds (default 10)")
 
     sub = parser.add_subparsers(dest="command", required=True, metavar="command")
 
@@ -84,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("args", nargs="*", metavar="key=value", help="parameters; values are parsed as JSON, else taken as strings")
     call.add_argument("--json", dest="json_args", metavar="JSON|@FILE", help="parameters as a JSON object, or @file")
     call.add_argument("--output", "-o", metavar="FILE", help="write binary results (or stream bodies) here; '-' means stdout")
-    call.add_argument("--limit", type=int, help="stop a stream after this many items")
+    call.add_argument("--limit", type=_arg(lambda v: non_negative_int("--limit", v), int), help="stop a stream after this many items")
     call.set_defaults(run=_cmd_call)
 
     snap = sub.add_parser("snapshot", help="fetch a JPEG image; writes to --output FILE, or raw to stdout")

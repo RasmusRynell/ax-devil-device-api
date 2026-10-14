@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 
 from pydantic import PlainValidator
 
-from .options import require_int
+from .._validate import non_negative_int
 from .types import DeferredContent, FilePart
 
 CHUNK_SIZE = 64 * 1024
@@ -53,7 +53,7 @@ class Upload:
     the body was sent (no free slot, a failing hook, a connection error) can be repeated with the same source."""
 
     def __post_init__(self) -> None:
-        require_int("Upload size", self.size, 0)
+        non_negative_int("Upload size", self.size)
 
     def _buffered(self) -> bytes:
         """The whole content of a small upload, read once under the lock and kept; a failed read stays failed."""
