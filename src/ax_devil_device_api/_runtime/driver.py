@@ -59,6 +59,7 @@ class StreamResult(Generic[T]):
         self._decoder = decoder
         self._stack = stack
         self._closed = False
+        self._items: Iterator[T] | None = None
 
     def __enter__(self) -> StreamResult[T]:
         return self
@@ -66,13 +67,23 @@ class StreamResult(Generic[T]):
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> StreamResult[T]:
+        return self  # one iterator per result: `next(stream)` followed by more iteration continues, it does not restart
+
+    def __next__(self) -> T:
+        if self._closed:
+            raise StopIteration  # exhausted, or closed by the caller
+        if self._items is None:
+            self._items = self._generate()
+        return next(self._items)
+
+    def _generate(self) -> Iterator[T]:
         try:
             for chunk in self._chunks:
                 yield from self._decoder.feed(chunk)
             yield from self._decoder.close()
         finally:
-            self.close()
+            self.close()  # on exhaustion or an error; an abandoned iteration is released by close() / leaving ``with``
 
     def close(self) -> None:
         if not self._closed:
@@ -91,6 +102,7 @@ class AsyncStreamResult(Generic[T]):
         self._decoder = decoder
         self._stack = stack
         self._closed = False
+        self._items: AsyncIterator[T] | None = None
 
     async def __aenter__(self) -> AsyncStreamResult[T]:
         return self
@@ -98,7 +110,17 @@ class AsyncStreamResult(Generic[T]):
     async def __aexit__(self, *exc: object) -> None:
         await self.aclose()
 
-    async def __aiter__(self) -> AsyncIterator[T]:
+    def __aiter__(self) -> AsyncStreamResult[T]:
+        return self  # one iterator per result (see StreamResult)
+
+    async def __anext__(self) -> T:
+        if self._closed:
+            raise StopAsyncIteration
+        if self._items is None:
+            self._items = self._generate()
+        return await self._items.__anext__()
+
+    async def _generate(self) -> AsyncIterator[T]:
         try:
             async for chunk in self._chunks:
                 for item in self._decoder.feed(chunk):
