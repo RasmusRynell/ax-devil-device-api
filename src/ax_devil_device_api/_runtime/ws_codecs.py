@@ -59,6 +59,14 @@ def api_error(codec: WsCodec, method: str, error: WsError) -> ApiError:
     return cls(codec.api_id, method, error.code, error.message, kind=kind, details=error.data)
 
 
+def _required_object(params: Mapping[str, Any], name: str) -> Mapping[str, Any]:
+    """A field the schema requires to be a JSON object: missing or of another type is a malformed message."""
+    value = params.get(name)
+    if not isinstance(value, Mapping):
+        raise ResponseFormatError("datahub-streaming-over-websocket", "receive", f"topicSample.{name} must be an object, got {value!r}")
+    return value
+
+
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
@@ -275,7 +283,7 @@ class DataHubCodec:
             )
         return Notification(
             TopicSample(
-                subscription, topic, _mapping(params.get("instance")), _mapping(params.get("data")), stamp,
+                subscription, topic, _required_object(params, "instance"), _required_object(params, "data"), stamp,
                 historical, params,
             )
         )

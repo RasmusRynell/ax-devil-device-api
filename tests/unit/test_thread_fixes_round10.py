@@ -35,7 +35,7 @@ def test_good_event_timestamp_still_parses() -> None:
 
 @pytest.mark.parametrize("text", ["9999-12-31T23:59:59-23:59", "not a time", "0000-00-00T00:00:00Z"])
 def test_bad_data_hub_timestamps_leave_the_timestamp_unset(text: str) -> None:
-    message = {"method": "data-hub_v1:topicSample", "params": {"topic": "t", "subscriptionId": "s", "timestamp": text}}
+    message = {"method": "data-hub_v1:topicSample", "params": {"topic": "t", "subscriptionId": "s", "instance": {}, "data": {}, "timestamp": text}}
     note = DataHubCodec().classify(message)
     assert note is not None  # classified without raising
 

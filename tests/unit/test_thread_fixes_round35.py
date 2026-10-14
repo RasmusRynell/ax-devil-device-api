@@ -33,6 +33,18 @@ def test_booleans_and_an_absent_flag_behave_as_before(extra: dict[str, Any], exp
     assert note is not None and isinstance(note.item, TopicSample) and note.item.is_historical is expected  # type: ignore[union-attr]
 
 
+@pytest.mark.parametrize("field", ["instance", "data"])
+@pytest.mark.parametrize("bad", ["missing", None, "text", [], 5])
+def test_a_missing_or_non_object_required_field_is_a_response_format_error(field: str, bad: Any) -> None:
+    message = _sample()
+    if bad == "missing":
+        del message["params"][field]
+    else:
+        message["params"][field] = bad
+    with pytest.raises(ResponseFormatError, match=field):
+        DataHubCodec().classify(message)
+
+
 def test_sync_session_reports_the_bad_sample_to_the_consumer_and_stays_usable() -> None:
     camera = FakeWsCamera()
     with Device("cam.test", credentials=("root", "pass"), transport=camera.transport()) as dev:
