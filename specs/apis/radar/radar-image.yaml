@@ -14,7 +14,6 @@ docs:
 access: operator
 discovery:
 - param: {name: Properties.Radar.Radar, value: 'yes'}
-- param: {name: Properties.AddOnFramework.AddOnFramework, value: 'yes'}
 requires:
   firmware: '7.10'
   application: axis-rmd
@@ -385,6 +384,7 @@ sources:
 provenance:
   completeness: partial
   open_questions:
+  - 'Discovery: the docs list Properties.Radar.Radar=yes together with Properties.AddOnFramework.AddOnFramework=yes and Properties.AddOnFramework.Version 1.0 or higher. Entries are any-of and each must identify the API alone, so only Radar.Radar is listed; the generic Add-on Framework markers would match any camera with application support. The Add-on Framework prerequisites are not checked.'
   - uploadRadarImage (/axis-cgi/radar/uploadradarimage.cgi) and replaceRadarImage (/axis-cgi/radar/replaceradarimage.cgi) send multipart/form-data and are not JSON-RPC methods; they are not modelled, and the multipart part name ('<name>') is unspecified. The calibration workflow needs them to upload the reference map.
   - The Restart calibration example uses method startCalibration (and step 3 starCalibrationTracking); the documented method startCalibrationTracking is used. https://developer.axis.com/vapix/radar/radar-image/#restart-calibration
   - Error code 5002 is FILE_CONTENT_INVALID_ERROR for the uploads and FILE_NOT_UPLOADED_ERROR for getFilename; only the latter is modelled.

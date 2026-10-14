@@ -43,7 +43,7 @@ provenance: {...}                # completeness, open questions, verification
 
 ### Discovery entries
 
-Entries are alternatives (any-of): the first one that matches makes `Device.supports()` answer `YES`. Each entry must therefore identify the API on its own. Do not list a generic prerequisite such as `Properties.API.HTTP.Version=3` next to API-specific entries; it matches every device with VAPIX HTTP v3 and would turn the whole list into "yes". Use such a marker only as the sole entry of a core API that the documentation defines by it.
+Entries are alternatives (any-of): the first one that matches makes `Device.supports()` answer `YES`. Each entry must therefore identify the API on its own. Do not list a generic prerequisite such as `Properties.API.HTTP.Version=3` next to API-specific entries; it matches every device with VAPIX HTTP v3 and would turn the whole list into "yes". Use such a marker only as the sole entry of a core API that the documentation defines by it. Each entry must therefore identify the API on its own: a generic platform marker (Package Manager, the Add-on Framework flag, the shared HTTP API version) is only allowed as the sole entry, never as one alternative next to a more specific one (a test enforces it). When the docs require two conditions that no single marker implies, list the more specific marker and record the other prerequisite in `provenance.open_questions`.
 
 - `api_discovery: <id>`: listed by API discovery (`apidiscovery.cgi`).
 - `dca: {api, version}`: listed by `/config/discover`.

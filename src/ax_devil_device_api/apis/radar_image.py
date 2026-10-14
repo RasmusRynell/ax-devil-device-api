@@ -127,10 +127,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0),),
-    discovery=(
-        ParamDiscovery("Properties.Radar.Radar", "yes"),
-        ParamDiscovery("Properties.AddOnFramework.AddOnFramework", "yes"),
-    ),
+    discovery=(ParamDiscovery("Properties.Radar.Radar", "yes"),),
     requires_firmware="7.10",
     requires_application="axis-rmd",
     docs=("https://developer.axis.com/vapix/radar/radar-image/",),

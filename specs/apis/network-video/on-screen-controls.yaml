@@ -13,8 +13,7 @@ docs:
 - https://developer.axis.com/vapix/network-video/on-screen-controls/
 access: admin
 discovery:
-- param: {name: Properties.PackageManager.PackageManager, value: 'yes'}
-- param: {name: Properties.AddOnFramework.Version, value: '1.0'}
+- param: {name: Properties.AddOnFramework.Version, value: '1.0', compare: '>='}
 requires:
   firmware: '7.10'
 
@@ -552,6 +551,7 @@ sources:
 provenance:
   completeness: complete
   open_questions:
+  - 'Discovery: the docs list two prerequisites, Properties.PackageManager.PackageManager=yes and Properties.AddOnFramework.Version 1.0 or higher. Entries are any-of and each must identify the API alone, so only the Add-on Framework version is listed; the generic Package Manager marker would satisfy discovery without the framework version. The Package Manager prerequisite is not checked.'
   - 'Versions: the method pages and examples use 1.0 to 1.4 (since: getAllFeatures 1.1, enableFeature and disableFeature 1.3), but the getSupportedVersions example returns ["1.1", "2.0"] with apiVersion 2.0. The spec binds major 1; major 2 is not documented beyond that example.'
   - The channel parameter of features is gated at 1.4 because only the 1.4 example uses it; the field table gives no version.
   - Per-method apiVersion lines are minimum versions; the docs do not say when later minors changed behaviour.

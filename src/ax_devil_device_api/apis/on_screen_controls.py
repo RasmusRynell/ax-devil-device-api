@@ -214,10 +214,7 @@ INFO = ApiInfo(
     family=Family.JSONRPC,
     major=1,
     known_versions=(ApiVersion(1, 0), ApiVersion(1, 1), ApiVersion(1, 3), ApiVersion(1, 4)),
-    discovery=(
-        ParamDiscovery("Properties.PackageManager.PackageManager", "yes"),
-        ParamDiscovery("Properties.AddOnFramework.Version", "1.0"),
-    ),
+    discovery=(ParamDiscovery("Properties.AddOnFramework.Version", "1.0", ">="),),
     requires_firmware="7.10",
     docs=("https://developer.axis.com/vapix/network-video/on-screen-controls/",),
     errors={
