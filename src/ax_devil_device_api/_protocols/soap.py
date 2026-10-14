@@ -37,7 +37,7 @@ from .._http.types import AuthPolicy, RawBody, Request, Response
 from ..errors import ConfigurationError, ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
-from .xmlmap import XmlMap, extract, local, parse_xml, prune_empty
+from .xmlmap import XmlMap, element_text, extract, local, parse_xml, prune_empty
 
 ENVELOPE_NS = "http://www.w3.org/2003/05/soap-envelope"
 SERVICES_PATH = "/vapix/services"
@@ -163,7 +163,7 @@ def _fault_error(op: Operation[SoapBinding], fault: ET.Element, status: int) -> 
         detail = _child(fault, "Detail")
         message = "".join(detail.itertext()).strip() if detail is not None else ""
     return api_error(
-        op, code, message or "SOAP fault", http_status=status, details=ET.tostring(fault, encoding="unicode")
+        op, code, message or "SOAP fault", http_status=status, details=element_text(fault)
     )
 
 

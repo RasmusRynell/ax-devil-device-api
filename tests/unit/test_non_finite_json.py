@@ -93,3 +93,55 @@ def test_websocket_messages_refuse_non_finite_constants(constant: str) -> None:
         camera.sockets[0].push({"v": float(constant.lower().replace("infinity", "inf"))})  # json.dumps writes NaN/Infinity
         with pytest.raises(ResponseFormatError):
             session.receive(timeout=2)
+
+
+# --- absurdly deep nesting is a malformed response, never a RecursionError ------------------------------------------------------
+
+DEEP = 100_000
+
+
+def test_loads_json_turns_a_recursion_error_into_a_value_error() -> None:
+    with pytest.raises(ValueError, match="nested too deeply"):
+        loads_json("[" * DEEP + "]" * DEEP)
+    assert loads_json("[" * 50 + "]" * 50) is not None
+
+
+@pytest.mark.parametrize("name", sorted(DECODERS))
+def test_decoders_refuse_deeply_nested_json(name: str) -> None:
+    with pytest.raises(ResponseFormatError):
+        DECODERS[name]("[" * DEEP + "]" * DEEP)
+
+
+def test_websocket_messages_refuse_deeply_nested_json() -> None:
+    import wsproto.events
+    from ws_fake import FakeWsCamera
+
+    from ax_devil_device_api import Device
+    from ax_devil_device_api._http.options import Heartbeat
+    from ax_devil_device_api._runtime.ws import EVENTS
+
+    camera = FakeWsCamera()
+    dev = Device("cam.test", credentials=("root", "pass"), transport=camera.transport())
+    with dev.connect_session(EVENTS, heartbeat=Heartbeat(None)) as session:
+        sock = camera.sockets[0]
+        sock._emit(sock.conn.send(wsproto.events.TextMessage("[" * DEEP + "]" * DEEP)))
+        with pytest.raises(ResponseFormatError):
+            session.receive(timeout=2)
+
+
+def test_error_details_of_deeply_nested_xml_do_not_overflow_the_stack() -> None:
+    from ax_devil_device_api._protocols import soap
+    from ax_devil_device_api.apis import certificate_management, export_recording
+    from ax_devil_device_api.errors import ApiError
+
+    deep = "<a>" * DEEP + "</a>" * DEEP
+    envelope = (
+        '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><s:Fault><s:Code><s:Value>x</s:Value></s:Code>'
+        "<s:Reason><s:Text>t</s:Text></s:Reason><s:Detail>" + deep + "</s:Detail></s:Fault></s:Body></s:Envelope>"
+    )
+    fault = Response(500, Headers([("Content-Type", "application/soap+xml")]), envelope.encode(), Request("POST", "/x"))
+    with pytest.raises(ApiError):
+        soap._decode(certificate_management.OPS.load_pkcs12, fault)
+    body = "<GeneralError><ErrorCode>1</ErrorCode><ErrorDescription>x</ErrorDescription>" + deep + "</GeneralError>"
+    with pytest.raises(ApiError):
+        cgi._decode(export_recording.OPS.get_properties, response(body))

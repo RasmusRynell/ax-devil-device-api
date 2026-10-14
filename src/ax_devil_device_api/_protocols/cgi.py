@@ -29,6 +29,7 @@ from .xmlmap import (
     XmlDeclarationError,
     XmlMap,
     XmlStatusError,
+    element_text,
     extract,
     is_list_type,
     parse_xml,
@@ -460,7 +461,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
                 code: int | str | None = int(code_text) if code_text and code_text.strip().isdigit() else code_text
                 raise api_error(
                     op, code, message or _local(element.tag), http_status=response.status,
-                    details=ET.tostring(element, encoding="unicode"),
+                    details=element_text(element),
                 )
         if codec.status_error is not None:
             failure = status_error(root, codec.status_error)

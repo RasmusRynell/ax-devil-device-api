@@ -21,6 +21,7 @@ from pydantic import BaseModel, ValidationError
 
 from .. import Device
 from .._protocols.base import Operation
+from .._protocols.xmlmap import element_text
 from .._runtime.driver import StreamResult
 from .._streams import Part
 from .._validate import bounded_int, non_negative_int, positive_finite
@@ -194,7 +195,7 @@ def to_jsonable(value: Any) -> Any:
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json", by_alias=False)
     if isinstance(value, ET.Element):
-        return ET.tostring(value, encoding="unicode")
+        return element_text(value)
     if isinstance(value, dict):
         return {str(k): to_jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple, set, frozenset)):

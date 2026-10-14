@@ -34,6 +34,14 @@ def parse_xml(content: bytes | str) -> ET.Element:
         raise XmlDeclarationError(str(error)) from error
 
 
+def element_text(element: ET.Element) -> str:
+    """The XML text of ``element`` for error details; a document nested past the recursion limit gives a placeholder."""
+    try:
+        return ET.tostring(element, encoding="unicode")
+    except RecursionError:
+        return f"<{element.tag.rsplit('}', 1)[-1]} ...> (nested too deeply to show)"
+
+
 @dataclass(frozen=True)
 class XmlField:
     """Where one model field comes from, relative to the element of its model.

@@ -69,9 +69,13 @@ def _no_constant(name: str) -> Any:
 def loads_json(data: str | bytes) -> Any:
     """``json.loads`` that refuses ``NaN``, ``Infinity`` and ``-Infinity`` (Python accepts them, JSON does not).
 
-    Raises ``ValueError`` (``json.JSONDecodeError`` is one too); decoders map it to ``ResponseFormatError``.
+    Raises ``ValueError`` (``json.JSONDecodeError`` is one too); decoders map it to ``ResponseFormatError``. Valid but
+    absurdly deep nesting overflows Python's recursion limit: that is a ``ValueError`` too, never a ``RecursionError``.
     """
-    return json.loads(data, parse_constant=_no_constant)
+    try:
+        return json.loads(data, parse_constant=_no_constant)
+    except RecursionError:
+        raise ValueError("JSON is nested too deeply") from None
 
 
 def check_header_text(name: str, value: Any) -> None:
