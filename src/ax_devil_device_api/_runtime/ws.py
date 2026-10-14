@@ -1011,6 +1011,13 @@ class AsyncSession:
             remaining = None if deadline is None else max(0.0, deadline - loop.time())
             try:
                 event = await self._next_event(_POLL_SLICE if remaining is None else min(remaining, _POLL_SLICE))
+            except (anyio.EndOfStream, anyio.ClosedResourceError, anyio.BrokenResourceError):
+                # The session's event stream was closed under this reader (the context exited): report the outcome.
+                if core.closed is not None:
+                    raise core.closed from None
+                if core.failure is not None:
+                    raise core.failure from None
+                raise core.on_network_error() from None
             except TimeoutError:
                 if core.failure is not None:
                     raise core.failure from None
@@ -1142,6 +1149,8 @@ async def connect_session_async(
             finally:
                 # Leaving the context closes the socket next: that is our own close, published like close() does (an
                 # end already seen wins); retained sessions and pending readers see SessionClosed from now on.
-                core.closing_now()  # the socket closes next; finish() records how it ended
+                core.closing_now()
+                core.close_locally()
+                session._wake()
     finally:
         core.finish(user_exit_error=error)

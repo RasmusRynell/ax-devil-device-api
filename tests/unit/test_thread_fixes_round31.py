@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import threading
 import time
+from typing import Any
 
 import anyio
 import pytest
@@ -11,7 +13,7 @@ from ws_fake import FakeWsCamera
 from ax_devil_device_api import AsyncDevice, Device
 from ax_devil_device_api._http.options import Heartbeat
 from ax_devil_device_api._runtime.ws import EVENTS
-from ax_devil_device_api.errors import ConnectionFailed, ReadTimeout
+from ax_devil_device_api.errors import ConnectionFailed, ReadTimeout, SessionClosed
 
 QUICK = Heartbeat(None)
 
@@ -116,3 +118,72 @@ def test_sync_terminal_outcome_is_set_once_a_later_network_error_does_not_replac
             session.receive(timeout=1)
         assert caught.value is stored
         assert session._core.on_network_error() is stored  # noqa: SLF001
+
+
+# -- J: leaving the context is a local close ----------------------------------------------------------------------------
+
+
+def test_sync_retained_session_raises_session_closed_after_the_with_block() -> None:
+    camera = FakeWsCamera()
+    with _device(camera) as dev:
+        with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+            pass
+        with pytest.raises(SessionClosed):
+            session.receive(timeout=0.2)
+        with pytest.raises(SessionClosed):
+            session.request("m", {}, timeout=0.2)
+        with pytest.raises(SessionClosed):
+            session.send(b"x")
+
+
+def test_sync_pending_reader_is_woken_when_the_context_exits() -> None:
+    camera = FakeWsCamera()
+    with _device(camera) as dev:
+        outcome: list[BaseException] = []
+        with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+
+            def read() -> None:
+                try:
+                    session.receive(None)
+                except BaseException as error:  # noqa: BLE001
+                    outcome.append(error)
+
+            thread = threading.Thread(target=read, daemon=True)
+            thread.start()
+            time.sleep(0.3)
+        thread.join(3)
+        assert not thread.is_alive() and len(outcome) == 1 and isinstance(outcome[0], SessionClosed)
+
+
+@pytest.mark.anyio
+async def test_async_retained_session_raises_session_closed_after_the_with_block() -> None:
+    camera = FakeWsCamera()
+    async with _adevice(camera) as dev:
+        async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+            pass
+        with pytest.raises(SessionClosed):
+            await session.receive(timeout=0.2)
+        with pytest.raises(SessionClosed):
+            await session.request("m", {}, timeout=0.2)
+        with pytest.raises(SessionClosed):
+            await session.send(b"x")
+
+
+@pytest.mark.anyio
+async def test_async_pending_reader_is_woken_when_the_context_exits() -> None:
+    camera = FakeWsCamera()
+    async with _adevice(camera) as dev:
+        outcome: list[BaseException] = []
+
+        async def read(session: Any) -> None:
+            try:
+                await session.receive(None)
+            except BaseException as error:  # noqa: BLE001
+                outcome.append(error)
+
+        async with anyio.create_task_group() as tg:
+            async with dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+                tg.start_soon(read, session)
+                await anyio.sleep(0.3)
+            await anyio.sleep(0.3)
+        assert len(outcome) == 1 and isinstance(outcome[0], SessionClosed)
