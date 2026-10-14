@@ -469,6 +469,12 @@ class _Core:
 
     def close_locally(self) -> None:
         """Publish our own ``close()`` as the terminal outcome: pending and later reads raise ``SessionClosed``."""
+        stamped = self.remote_close
+        if stamped is not None:
+            # The device had already closed (the transport stamped it): that is how the session ended, whatever the
+            # app does next. Map it like a close the app received, abnormal codes included.
+            self.on_disconnect(httpx_ws.WebSocketDisconnect(stamped[0], ""))
+            return
         published = SessionClosed(1000, "closed by this client")
         if self.publish_outcome(published) is published:
             self.local_closed = True
