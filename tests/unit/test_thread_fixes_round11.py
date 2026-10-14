@@ -11,7 +11,7 @@ from ax_devil_device_api._http.options import Heartbeat
 from ax_devil_device_api._protocols.base import ApiInfo, ErrorCode, Family, Model, Operation, api_error
 from ax_devil_device_api.apis import axis_object_analytics as aoa
 from ax_devil_device_api.apis.network_settings_api import OPS as NETWORK
-from ax_devil_device_api.errors import ApiUnavailable
+from ax_devil_device_api.errors import ApiError, ApiUnavailable
 
 QUICK = Heartbeat(None)
 
@@ -68,6 +68,11 @@ def test_add_vlan_sub_code_202_is_unavailable() -> None:
     assert isinstance(error, ApiUnavailable) and error.kind == "unavailable"
 
 
+def _kind(error: object) -> str | None:
+    assert isinstance(error, ApiError)
+    return error.kind
+
+
 def test_sub_code_falls_back_to_the_plain_code_and_reads_both_placements() -> None:
     info = ApiInfo(id="t", name="T", family=Family.JSONRPC)
     op = Operation(
@@ -76,8 +81,8 @@ def test_sub_code_falls_back_to_the_plain_code_and_reads_both_placements() -> No
         binding=object(),
         errors={4004: ErrorCode("plain", "invalid_argument"), "4004/subCode 9": ErrorCode("nine", "unavailable")},
     )
-    assert api_error(op, 4004, "m", http_status=200, details={"subCode": 9}).kind == "unavailable"
-    assert api_error(op, 4004, "m", http_status=200, details={"details": {"subCode": 9}}).kind == "unavailable"
-    assert api_error(op, 4004, "m", http_status=200, details=[{"details": {"subCode": 9}}]).kind == "unavailable"
-    assert api_error(op, 4004, "m", http_status=200, details={"subCode": 77}).kind == "invalid_argument"
-    assert api_error(op, 4004, "m", http_status=200, details="text").kind == "invalid_argument"
+    assert _kind(api_error(op, 4004, "m", http_status=200, details={"subCode": 9})) == "unavailable"
+    assert _kind(api_error(op, 4004, "m", http_status=200, details={"details": {"subCode": 9}})) == "unavailable"
+    assert _kind(api_error(op, 4004, "m", http_status=200, details=[{"details": {"subCode": 9}}])) == "unavailable"
+    assert _kind(api_error(op, 4004, "m", http_status=200, details={"subCode": 77})) == "invalid_argument"
+    assert _kind(api_error(op, 4004, "m", http_status=200, details="text")) == "invalid_argument"

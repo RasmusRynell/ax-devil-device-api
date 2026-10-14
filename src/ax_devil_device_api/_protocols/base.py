@@ -788,15 +788,28 @@ def _sub_code(details: Any) -> int | str | None:
 
 def api_error(
     op: Operation[Any], code: int | str | None, message: str, *, http_status: int | None, details: Any
-) -> ApiError:
-    """Build the right ``ApiError`` subclass for a documented (or unknown) code."""
+) -> DeviceError:
+    """Build the right error for an API error reported by the device.
+
+    One rule for every protocol: **the HTTP status decides the category** when it fixes one. 401 is ``AuthError``,
+    403 ``ApiAccessDenied`` (an ``AccessDenied``), 503 ``ApiUnavailable`` (an ``Unavailable``); a 401 is an ``AuthError``
+    unless the spec documents that very 401 as an API error. The documented code and description are kept on the
+    exception (``code``, ``description``, ``details``) and the documented ``kind`` stays as its refinement. Only when the status fixes no category (a 2xx
+    envelope, 404 and the other non-auth 4xx) does the documented ``kind`` pick the class (a 500 fixes none: SOAP carries every fault in a 500).
+    """
     info = op.error_code(code, message, _sub_code(details))
-    kind = info.kind if info else None
-    if kind is None and http_status == 403:
-        kind = "access_denied"
-    elif kind is None and http_status == 503:
-        kind = "unavailable"
-    cls = {"access_denied": ApiAccessDenied, "unavailable": ApiUnavailable}.get(kind or "", ApiError)
+    documented = info.kind if info else None
+    if http_status == 401 and info is None:  # a 401 the spec documents as an API error (add_user: no admin yet) stays one
+        reason = f" ({message})" if message else ""
+        return AuthError(f"{op.api.id}.{op.id}: the device requires authentication and no usable credentials were configured{reason}")
+    if http_status == 403:
+        category = "access_denied"
+    elif http_status == 503:
+        category = "unavailable"
+    else:
+        category = documented  # 2xx envelopes, 404 and other 4xx, and 5xx other than 503 (SOAP sends every fault as 500)
+    kind = documented or category
+    cls = {"access_denied": ApiAccessDenied, "unavailable": ApiUnavailable}.get(category or "", ApiError)
     return cls(
         op.api.id,
         op.id,
