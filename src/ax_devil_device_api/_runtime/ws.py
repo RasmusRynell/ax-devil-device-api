@@ -58,7 +58,7 @@ from .._http.transport import (
 )
 from .._http.types import Request, Response, check_path_param, loads_json
 from .._protocols.base import CallFlow
-from .._validate import optional_non_negative_finite, optional_positive_finite
+from .._validate import optional_non_negative_finite, optional_positive_finite, positive_int
 from ..errors import (
     AuthError,
     ConnectionFailed,
@@ -272,6 +272,10 @@ class SessionLedger:
 # Shared (I/O free) session logic
 
 
+MAX_UNREAD_BYTES = 64 * 1024 * 1024
+"""Aggregate raw size of the unread messages a session keeps (besides the 512-message limit): past it the oldest are
+dropped. A message can be up to 8 MiB, so the count alone would allow gigabytes."""
+
 _POLL_SLICE = 0.1
 """Longest blocking wait for the transport before the reader looks at the session's terminal state again (a close or
 failure published by another thread or task interrupts the owning read within this time)."""
@@ -312,6 +316,10 @@ class _Core:
         self._parts: list[Any] = []
         self._parts_size = 0
         self.pending: deque[Any] = deque()
+        self._pending_sizes: deque[int] = deque()
+        self.pending_bytes = 0
+        self.max_unread_bytes = positive_int("max_unread_bytes", MAX_UNREAD_BYTES)
+        self.last_frame_bytes = 0
         self.dropped = 0
         self._overflowing = False
         self.closed: SessionClosed | None = None
@@ -414,6 +422,7 @@ class _Core:
             raise self._too_large()
         if not event.message_finished:
             return NO_MESSAGE
+        self.last_frame_bytes = self._parts_size  # the raw size of this message, for the unread-bytes budget
         parts, self._parts, self._parts_size = self._parts, [], 0
         if not is_text:
             return b"".join(parts)
@@ -539,25 +548,32 @@ class _Core:
                 slot.value = kind.result
             slot.done = True
             return
-        if len(self.pending) >= WS_QUEUE_SIZE:
-            # Nobody is draining the queue (a request is waiting for its reply, or the app is slow): keep the newest,
-            # drop the oldest, and keep reading so replies are always dispatched.
+        size = self.last_frame_bytes
+        # Nobody is draining the queue (a request is waiting for its reply, or the app is slow): keep the newest, drop
+        # the oldest while there are too many messages or too many bytes, and keep reading so replies are always
+        # dispatched (a reply to a registered request never enters this queue).
+        while self.pending and (len(self.pending) >= WS_QUEUE_SIZE or self.pending_bytes + size > self.max_unread_bytes):
             self.pending.popleft()
+            self.pending_bytes -= self._pending_sizes.popleft()
             self.dropped += 1
             if not self._overflowing:
                 self._overflowing = True
                 _log.warning(
-                    "%s: %d unread messages; dropping the oldest ones (see Session.dropped_notifications)",
-                    self.spec.api_id, WS_QUEUE_SIZE,
+                    "%s: too many unread messages (limit %d messages / %d bytes); dropping the oldest ones "
+                    "(see Session.dropped_notifications)",
+                    self.spec.api_id, WS_QUEUE_SIZE, self.max_unread_bytes,
                 )
         self.pending.append(message)
+        self._pending_sizes.append(size)
+        self.pending_bytes += size
 
     def take_pending(self) -> Any:
         """The oldest queued message, or ``NO_MESSAGE``."""
         if not self.pending:
             return NO_MESSAGE
         message = self.pending.popleft()
-        if len(self.pending) < WS_QUEUE_SIZE:
+        self.pending_bytes -= self._pending_sizes.popleft()
+        if len(self.pending) < WS_QUEUE_SIZE and self.pending_bytes < self.max_unread_bytes:
             self._overflowing = False  # the next overflow is a new episode with its own warning
         return message
 
