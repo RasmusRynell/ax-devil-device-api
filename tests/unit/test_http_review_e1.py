@@ -857,3 +857,56 @@ def test_retry_delay_stays_finite_for_many_retries() -> None:
 
     policy = RetryPolicy(attempts=5000, backoff=0.2, max_backoff=5.0)
     assert policy.delay(1) == 0.2 and policy.delay(4000) == 5.0
+
+
+# --- count settings must be real integers ---------------------------------------------------------------------------------
+
+BAD_COUNTS = [1.5, True, 0, -1, "2"]
+
+
+@pytest.mark.parametrize("value", BAD_COUNTS)
+@pytest.mark.parametrize("field", ["max_concurrency", "max_streams", "port"])
+def test_connection_counts_must_be_integers_of_at_least_one(field: str, value: Any) -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match=field):
+        ConnectionConfig("cam", **{field: value})
+
+
+@pytest.mark.parametrize("value", BAD_COUNTS)
+def test_retry_attempts_must_be_an_integer_of_at_least_one(value: Any) -> None:
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="attempts"):
+        RetryPolicy(attempts=value)
+
+
+@pytest.mark.parametrize("field", ["retry_unsent", "retry_reads"])
+@pytest.mark.parametrize("value", [1, 0, "yes", 1.0])
+def test_retry_flags_must_be_booleans(field: str, value: Any) -> None:
+    from ax_devil_device_api._http.options import RetryPolicy
+    from ax_devil_device_api.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match=field):
+        RetryPolicy(**{field: value})
+
+
+@pytest.mark.parametrize("value", [1.5, True, -1, "2"])
+def test_upload_size_and_rtsp_port_must_be_integers(value: Any) -> None:
+    from ax_devil_device_api.errors import ConfigurationError
+    from ax_devil_device_api.rtsp import build_rtsp_url
+
+    with pytest.raises(ConfigurationError):
+        Upload(io.BytesIO(b"x"), value)
+    with pytest.raises(ConfigurationError):
+        build_rtsp_url("cam", port=value)
+    assert Upload(io.BytesIO(b""), 0).size == 0
+
+
+def test_valid_counts_are_accepted() -> None:
+    from ax_devil_device_api._http.config import ConnectionConfig
+
+    config = ConnectionConfig("cam", port=8443, max_concurrency=1, max_streams=3)
+    assert (config.port, config.max_concurrency, config.max_streams) == (8443, 1, 3)

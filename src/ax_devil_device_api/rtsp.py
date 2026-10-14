@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
 from ._http.config import BearerToken, Credentials, check_host
+from ._http.options import require_int
 from ._http.types import unsafe_path
 from ._protocols.base import CallFlow, Model, Operation, register_binding
 from .errors import ConfigurationError
@@ -59,7 +60,8 @@ class RtspUrl:
 
     def __post_init__(self) -> None:
         check_host(self.host)
-        if not 0 < self.port < 65536:
+        require_int("port", self.port, 1)
+        if self.port >= 65536:
             raise ConfigurationError(f"Invalid RTSP port: {self.port!r}")
         if not self.path.startswith("/") or "?" in self.path:
             raise ConfigurationError(f"RTSP path must be absolute and without a query: {self.path!r}")

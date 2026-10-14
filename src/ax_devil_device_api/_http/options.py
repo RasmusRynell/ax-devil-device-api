@@ -4,6 +4,20 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
+
+from ..errors import ConfigurationError
+
+
+def require_int(name: str, value: Any, minimum: int) -> None:
+    """Raise ``ConfigurationError`` unless ``value`` is a real ``int`` (not a ``bool``, float or string) >= ``minimum``."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise ConfigurationError(f"{name} must be an integer of at least {minimum}, got {value!r}")
+
+
+def require_bool(name: str, value: Any) -> None:
+    if not isinstance(value, bool):
+        raise ConfigurationError(f"{name} must be True or False, got {value!r}")
 
 
 @dataclass(frozen=True)
@@ -29,8 +43,9 @@ class RetryPolicy:
     max_backoff: float = 5.0
 
     def __post_init__(self) -> None:
-        if self.attempts < 1:
-            raise ValueError("attempts must be at least 1")
+        require_int("attempts", self.attempts, 1)
+        require_bool("retry_unsent", self.retry_unsent)
+        require_bool("retry_reads", self.retry_reads)
         if not 0 <= self.backoff < math.inf:
             raise ValueError(f"backoff must be finite and not negative, got {self.backoff!r}")
         if not 0 <= self.max_backoff < math.inf:

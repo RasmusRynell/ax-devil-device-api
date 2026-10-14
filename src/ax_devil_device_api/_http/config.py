@@ -11,7 +11,7 @@ from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from ..errors import ConfigurationError
-from .options import RetryPolicy
+from .options import RetryPolicy, require_int
 from .types import unsafe_path
 
 
@@ -132,16 +132,18 @@ class ConnectionConfig:
             _check_proxy(self.proxy)
         if self.scheme == "http" and not self.allow_http:
             raise ConfigurationError("HTTP sends credentials and data unencrypted; pass allow_http=True to use it")
-        if self.port is not None and not (0 < self.port < 65536):
-            raise ConfigurationError(f"Invalid port: {self.port}")
+        if self.port is not None:
+            require_int("port", self.port, 1)
+            if self.port >= 65536:
+                raise ConfigurationError(f"Invalid port: {self.port}")
         if self.base_path and (not self.base_path.startswith("/") or self.base_path.endswith("/") or "?" in self.base_path or "#" in self.base_path):
             raise ConfigurationError("base_path must start with '/', not end with '/', and contain no query or fragment")
         if self.base_path and unsafe_path(self.base_path, strict=True):
             raise ConfigurationError("base_path must not contain '.', '..', empty segments or backslashes (also percent-encoded)")
         if not 0 < self.timeout < math.inf:
             raise ConfigurationError("timeout must be positive and finite")
-        if self.max_concurrency < 1 or self.max_streams < 1:
-            raise ConfigurationError("max_concurrency and max_streams must be at least 1")
+        require_int("max_concurrency", self.max_concurrency, 1)
+        require_int("max_streams", self.max_streams, 1)
         if not isinstance(self.verify, (bool, str, ssl.SSLContext)):
             raise ConfigurationError("verify must be a bool, a CA bundle path, or an ssl.SSLContext")
         if isinstance(self.credentials, BearerToken) and self.scheme == "http":
