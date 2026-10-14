@@ -56,7 +56,7 @@ from .._http.transport import (
     SyncTransport,
     UpgradeRefused,
 )
-from .._http.types import Request, Response, check_path_param
+from .._http.types import Request, Response, check_path_param, loads_json
 from .._protocols.base import CallFlow
 from .._validate import optional_non_negative_finite, optional_positive_finite
 from ..errors import (
@@ -421,7 +421,7 @@ class _Core:
         if self.spec.codec is None:
             return text
         try:
-            return json.loads(text)
+            return loads_json(text)
         except ValueError as error:
             raise ResponseFormatError(self.spec.api_id, "receive", f"invalid JSON message: {error}") from error
 

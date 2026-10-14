@@ -12,12 +12,11 @@ status. The error code is ``FaultSubCode`` when present, else ``FaultCode``
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from types import UnionType
 from typing import Annotated, Any, Union, get_args, get_origin
 
-from .._http.types import AuthPolicy, JsonBody, Request, Response
+from .._http.types import AuthPolicy, JsonBody, Request, Response, loads_json
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
@@ -46,7 +45,7 @@ def _decode(op: Operation[ServiceJsonBinding], response: Response) -> Any:
     payload: Any = None
     if response.content:
         try:
-            payload = json.loads(response.content)
+            payload = loads_json(response.content)
         except ValueError:
             payload = None
 

@@ -9,7 +9,6 @@ that classic CGIs return with HTTP 200.
 
 from __future__ import annotations
 
-import json
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
@@ -21,7 +20,7 @@ from urllib.parse import quote
 
 from pydantic_core import to_json
 
-from .._http.types import AuthPolicy, FormBody, MultipartBody, RawBody, Request, Response, check_path_param
+from .._http.types import AuthPolicy, FormBody, MultipartBody, RawBody, Request, Response, check_path_param, loads_json
 from .._http.upload import UploadSpec, deferred_upload, file_part
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
@@ -374,7 +373,7 @@ def _json_error(text: Any) -> tuple[int | str | None, str] | None:
         if not stripped.startswith("{"):
             return None
         try:
-            text = json.loads(stripped)
+            text = loads_json(stripped)
         except ValueError:
             return None
     if not (isinstance(text, dict) and list(text) == ["error"] and isinstance(text["error"], dict)):
@@ -498,7 +497,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
         if not response.content.strip():
             return None
         try:
-            return json.loads(response.content)
+            return loads_json(response.content)
         except ValueError as error:
             raise ResponseFormatError(op.api.id, op.id, "response is not valid JSON") from error
     return text

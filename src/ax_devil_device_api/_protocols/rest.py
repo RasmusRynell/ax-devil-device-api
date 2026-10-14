@@ -9,14 +9,13 @@ carrying the response text; other failures use the generic HTTP errors
 
 from __future__ import annotations
 
-import json
 import string
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal
 from urllib.parse import quote
 
-from .._http.types import AuthPolicy, JsonBody, Request, Response, check_path_param
+from .._http.types import AuthPolicy, JsonBody, Request, Response, check_path_param, loads_json
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .dca import _alias, _field_for
@@ -114,7 +113,7 @@ def _decode(op: Operation[RestBinding], response: Response) -> Any:
     if not response.content.strip():
         return None
     try:
-        return json.loads(response.content)
+        return loads_json(response.content)
     except ValueError as error:
         raise ResponseFormatError(op.api.id, op.id, "response is not valid JSON") from error
 

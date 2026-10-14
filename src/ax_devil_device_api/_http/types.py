@@ -6,6 +6,7 @@ values and parse ``Response`` values without doing I/O.
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
@@ -59,6 +60,18 @@ def check_path_param(label: str, name: str, value: Any, *, multi_segment: bool =
     if "\\" in text or (not multi_segment and "/" in text):
         what = "backslashes" if multi_segment else "'/' or backslashes"
         raise ValueError(f"{label}: {name}={text!r} must not contain {what}; it is a single path segment")
+
+
+def _no_constant(name: str) -> Any:
+    raise ValueError(f"{name} is not valid JSON: non-finite numbers are not accepted")
+
+
+def loads_json(data: str | bytes) -> Any:
+    """``json.loads`` that refuses ``NaN``, ``Infinity`` and ``-Infinity`` (Python accepts them, JSON does not).
+
+    Raises ``ValueError`` (``json.JSONDecodeError`` is one too); decoders map it to ``ResponseFormatError``.
+    """
+    return json.loads(data, parse_constant=_no_constant)
 
 
 def check_header_text(name: str, value: Any) -> None:

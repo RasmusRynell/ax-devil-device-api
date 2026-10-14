@@ -19,7 +19,6 @@ any other probe error is unknown.
 
 from __future__ import annotations
 
-import json
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Mapping
@@ -28,7 +27,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from .._http.types import RawBody, Request
+from .._http.types import RawBody, Request, loads_json
 from .._protocols.base import (
     AcapDiscovery,
     ApiDiscovery,
@@ -226,7 +225,7 @@ def dca_apis_flow(state: DeviceState) -> CallFlow[dict[str, frozenset[str]]]:
     if not 200 <= response.status < 300:
         raise http_error(_DISCOVER_OP, response)
     try:
-        payload: Any = json.loads(response.content)
+        payload: Any = loads_json(response.content)
     except ValueError as error:
         raise ResponseFormatError("device", "config_discover", "response is not valid JSON") from error
     apis = payload.get("apis") if isinstance(payload, dict) else None

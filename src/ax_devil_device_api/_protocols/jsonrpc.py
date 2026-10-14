@@ -16,7 +16,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from .._http.types import AuthPolicy, FilePart, JsonBody, MultipartBody, Request, Response
+from .._http.types import AuthPolicy, FilePart, JsonBody, MultipartBody, Request, Response, loads_json
 from .._http.upload import UploadSpec, file_part
 from ..errors import ApiError, NotSupported, ResponseFormatError
 from .base import (
@@ -101,7 +101,7 @@ def _decode(op: Operation[Any], response: Response) -> dict[str, Any]:
     payload: Any = None
     if response.content:
         try:
-            payload = json.loads(response.content)
+            payload = loads_json(response.content)
         except ValueError:
             payload = None
 

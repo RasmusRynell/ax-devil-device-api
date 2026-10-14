@@ -10,13 +10,12 @@ the device's code and message are kept.
 
 from __future__ import annotations
 
-import json
 import string
 from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import quote
 
-from .._http.types import AuthPolicy, JsonBody, Request, Response, check_path_param
+from .._http.types import AuthPolicy, JsonBody, Request, Response, check_path_param, loads_json
 from ..errors import ResponseFormatError
 from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
 from .state import DeviceState
@@ -114,7 +113,7 @@ def _decode(op: Operation[DcaBinding], response: Response) -> Any:
     payload: Any = None
     if response.content:
         try:
-            payload = json.loads(response.content)
+            payload = loads_json(response.content)
         except ValueError:
             payload = None
 
