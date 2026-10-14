@@ -40,7 +40,7 @@ MEDIA_PATH = "/axis-media/media.amp"
 DEFAULT_PORT = 554
 
 _SAFE_VALUE = ",:/-_.~"
-_RESOLUTION = re.compile(r"^\d+x\d+$")
+_RESOLUTION = re.compile(r"[0-9]+x[0-9]+")
 
 
 def _flag(value: bool) -> str:
@@ -172,7 +172,7 @@ class MediaStream:
     extra: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        if self.resolution is not None and not (isinstance(self.resolution, str) and _RESOLUTION.match(self.resolution)):
+        if self.resolution is not None and not (isinstance(self.resolution, str) and _RESOLUTION.fullmatch(self.resolution)):
             raise ConfigurationError(f"resolution must look like 1280x720: {self.resolution!r}")
         for flag in _MEDIA_FLAGS:
             if getattr(self, flag) is not None:

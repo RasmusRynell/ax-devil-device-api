@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import ssl
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from typing import Any, Literal
@@ -70,8 +71,15 @@ ResponseHook = Callable[[dict[str, Any]], None]
 
 def check_host(host: str) -> None:
     """Raise ``ConfigurationError`` unless ``host`` is a name or IP address (colons only in an IPv6 literal)."""
-    if not host or any(c in host for c in "/?#@ "):
+    if not isinstance(host, str) or not host or any(c in host for c in "/?#@\\"):
         raise ConfigurationError(f"Invalid host: {host!r}")
+    if any(c.isspace() or unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in host):
+        raise ConfigurationError(f"Invalid host: {host!r}; whitespace and control characters are not allowed")
+    if not host.isascii():
+        try:
+            host.encode("idna")
+        except UnicodeError:
+            raise ConfigurationError(f"Invalid host: {host!r}; not a valid internationalised host name") from None
     if ":" in host and not _is_ipv6(host):
         raise ConfigurationError(
             f"Invalid host: {host!r}; a host name or IP address only. Pass the port with port=... (or --port)"
@@ -79,12 +87,17 @@ def check_host(host: str) -> None:
 
 
 def _check_proxy(proxy: str) -> None:
+    # urlsplit silently drops tabs and newlines, so look for them first.
+    if any(c.isspace() or unicodedata.category(c) in ("Cc", "Cf") for c in proxy):
+        raise ConfigurationError("Invalid proxy URL: whitespace and control characters are not allowed")
     try:
         parts = urlsplit(proxy)
         hostname = parts.hostname
         parts.port  # noqa: B018  (validates the port)
     except ValueError as error:
         raise ConfigurationError(f"Invalid proxy URL: {error}") from error
+    if hostname:
+        check_host(hostname)
     if parts.scheme not in ("http", "https", "socks5", "socks5h") or not hostname:
         raise ConfigurationError(
             "Invalid proxy URL: it needs a scheme (http, https or socks5) and a host, "
@@ -126,6 +139,10 @@ class ConnectionConfig:
 
     def __post_init__(self) -> None:
         check_host(self.host)
+        if self.credentials is not None and not isinstance(self.credentials, (Credentials, BearerToken)):
+            raise ConfigurationError(
+                f"credentials must be None, Credentials(user, password) or BearerToken(...), got {type(self.credentials).__name__}"
+            )
         boolean("allow_http", self.allow_http)
         if self.scheme not in ("https", "http"):
             raise ConfigurationError(f"Invalid scheme: {self.scheme!r}")

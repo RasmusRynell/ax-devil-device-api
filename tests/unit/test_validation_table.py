@@ -222,3 +222,64 @@ def test_media_stream_accepts_documented_values() -> None:
     )
     assert ("rotation", "90") in stream.query() and ("audio", "0") in stream.query()
     assert MediaStream(rotation=0).query() == (("rotation", "0"),)
+
+
+# --- resolution, credentials and host strictness ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("resolution", ["640x480\n", "٦٤٠x٤٨٠", "640x480 ", "640X480", "x480", "640x"])
+def test_media_stream_resolution_is_strict(resolution: str) -> None:
+    with pytest.raises(ConfigurationError):
+        MediaStream(resolution=resolution)
+    assert MediaStream(resolution="640x480").resolution == "640x480"
+
+
+@pytest.mark.parametrize("credentials", ["root:pass", ("root", "pass"), 5, {"user": "u"}, object()])
+def test_connection_config_credentials_must_be_credentials_or_a_token(credentials: Any) -> None:
+    with pytest.raises(ConfigurationError, match="credentials"):
+        ConnectionConfig("cam", credentials=credentials)
+
+
+def test_connection_config_accepts_credentials_token_and_none() -> None:
+    from ax_devil_device_api._http.config import BearerToken, Credentials
+
+    ConnectionConfig("cam")
+    ConnectionConfig("cam", credentials=Credentials("u", "p"))
+    ConnectionConfig("cam", credentials=BearerToken("t"))
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["cam\n", "cam\tx", "ca m", "cam\r\nHost: evil", "cam\x00", "cam\x7f", "cam\x85", "cam ", "cam​", "ca\\m", "bad\ud800host"],
+)
+def test_hosts_reject_whitespace_and_control_characters(host: str) -> None:
+    with pytest.raises(ConfigurationError):
+        ConnectionConfig(host)
+    with pytest.raises(ConfigurationError):
+        RtspUrl(host)
+
+
+def test_hosts_allow_idna_names_and_reject_non_encodable_ones() -> None:
+    assert ConnectionConfig("bücher.example").host == "bücher.example"
+    with pytest.raises(ConfigurationError):
+        ConnectionConfig("a" * 70 + ".exämple")  # label too long for IDNA
+
+
+@pytest.mark.parametrize("proxy", ["http://proxy.local\n:8080", "http://prox y.local", "http://proxy.local\t", "http://pro\x00xy"])
+def test_proxy_rejects_whitespace_and_control_characters(proxy: str) -> None:
+    with pytest.raises(ConfigurationError):
+        ConnectionConfig("cam", proxy=proxy)
+
+
+def test_missing_password_credentials_give_a_library_error_not_an_assert() -> None:
+    import httpx
+
+    from ax_devil_device_api._http.auth import AxisAuth
+    from ax_devil_device_api._http.config import BearerToken
+    from ax_devil_device_api.errors import AuthError
+
+    flow = AxisAuth(BearerToken("t")).for_request("required", True)
+    request = httpx.Request("GET", "https://cam/x")
+    state = type("S", (), {"header": lambda *a: "x"})()
+    with pytest.raises(AuthError):
+        flow._sign(state, request)  # type: ignore[attr-defined]
