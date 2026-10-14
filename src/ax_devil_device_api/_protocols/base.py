@@ -649,7 +649,10 @@ def adapter(tp: Any) -> TypeAdapter[Any]:
 
 def parse_result(op: Operation[Any], data: Any) -> Any:
     """Validate response data against the operation's result type (and refuse non-finite numbers, whatever the protocol)."""
-    result = _validated_result(op, data)
+    try:
+        result = _validated_result(op, data)
+    except RecursionError:  # a pathologically nested answer: a malformed response, not a crash
+        raise ResponseFormatError(op.api.id, op.id, "the response is nested too deeply") from None
     if _holds_non_finite(result):
         raise ResponseFormatError(op.api.id, op.id, "the response holds a NaN or infinite number, which no device reports")
     return result
@@ -657,15 +660,20 @@ def parse_result(op: Operation[Any], data: Any) -> Any:
 
 def _holds_non_finite(value: Any) -> bool:
     """Whether a parsed result holds a NaN or infinite float at any depth (models, lists, tuples, sets, mappings).
-    Text such as ``"NaN"`` or ``"inf"`` is coerced into a float by pydantic, so this looks at the parsed values."""
-    if isinstance(value, float):
-        return not math.isfinite(value)
-    if isinstance(value, BaseModel):
-        return any(_holds_non_finite(getattr(value, name)) for name in type(value).model_fields)
-    if isinstance(value, dict):
-        return any(_holds_non_finite(item) for item in value.values())
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return any(_holds_non_finite(item) for item in value)
+    Text such as ``"NaN"`` or ``"inf"`` is coerced into a float by pydantic, so this looks at the parsed values.
+    Iterative, so a deeply nested answer cannot exhaust the stack."""
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, float):
+            if not math.isfinite(item):
+                return True
+        elif isinstance(item, BaseModel):
+            stack.extend(getattr(item, name) for name in type(item).model_fields)
+        elif isinstance(item, dict):
+            stack.extend(item.values())
+        elif isinstance(item, (list, tuple, set, frozenset)):
+            stack.extend(item)
     return False
 
 
@@ -903,6 +911,13 @@ def api_error(
     exception (``code``, ``description``, ``details``) and the documented ``kind`` stays as its refinement. Only when the status fixes no category (a 2xx
     envelope, 404 and the other non-auth 4xx) does the documented ``kind`` pick the class (a 500 fixes none: SOAP carries every fault in a 500).
     """
+    if isinstance(code, bool) or not (code is None or isinstance(code, (int, str))) or not isinstance(message, str):
+        # The device sent an error object whose fields are not what the protocol allows: never look it up in the
+        # error tables. The HTTP status still decides the category where it fixes one; otherwise it is a format error.
+        if http_status in (401, 403, 503):
+            code, message = None, "the device sent a malformed error object"
+        else:
+            return ResponseFormatError(op.api.id, op.id, f"malformed error object: code={code!r}, message={message!r}")
     info = op.error_code(code, message, _sub_code(details))
     documented = info.kind if info else None
     # A 401 stays an API error only for the message-keyed errors a spec labels as such (add_user: "initial admin user
