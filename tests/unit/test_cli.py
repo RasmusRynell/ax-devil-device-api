@@ -267,3 +267,56 @@ def test_explicit_empty_host_does_not_fall_back_to_the_environment(monkeypatch: 
     monkeypatch.setenv("AX_DEVIL_HOST", "envhost")
     args = cli.build_parser().parse_args(["--host", "other", "summary"])
     assert cli.make_device(args).config.host == "other"
+
+
+# --- --output behaves the same for every kind of result ------------------------------------------------------------------------
+
+PORT_CGI = "/axis-cgi/io/port.cgi"
+
+
+def _monitor(monkeypatch: pytest.MonkeyPatch, text: str, *extra: str) -> tuple[int, str, str]:
+    cam = MockCamera()
+    cam.cgi(PORT_CGI, text=text)
+    return run(monkeypatch, cam, "call", "io_port", "monitor_ports", "monitor=[1]", *extra)
+
+
+def test_line_stream_goes_to_the_output_file(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    target = tmp_path / "events.log"
+    code, out, err = _monitor(monkeypatch, "1=active\n2=inactive\n", "--output", str(target))
+    assert code == 0, err
+    assert out == ""
+    lines = target.read_text(encoding="utf-8").splitlines()
+    assert [json.loads(line) for line in lines] == ["1=active", "2=inactive"]
+
+
+def test_empty_line_stream_still_creates_and_truncates_the_output_file(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    target = tmp_path / "events.log"
+    target.write_text("stale content\n")
+    code, out, err = _monitor(monkeypatch, "", "--output", str(target))
+    assert code == 0, err
+    assert out == "" and target.read_text() == ""
+    fresh = tmp_path / "new.log"
+    assert _monitor(monkeypatch, "", "--output", str(fresh))[0] == 0 and fresh.exists()
+
+
+def test_dash_output_means_stdout_for_a_line_stream(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    code, out, err = _monitor(monkeypatch, "1=active\n", "--output", "-")
+    assert code == 0, err
+    assert [json.loads(line) for line in out.splitlines()] == ["1=active"]
+    assert not list(tmp_path.iterdir())
+
+
+def test_line_stream_without_output_still_prints_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    code, out, _ = _monitor(monkeypatch, "1=active\n")
+    assert code == 0 and [json.loads(line) for line in out.splitlines()] == ["1=active"]
+
+
+def test_json_result_goes_to_the_output_file_too(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    cam = MockCamera()
+    cam.jsonrpc(MQTT, "getClientStatus", data={"status": {"state": "active", "connectionStatus": "connected"}})
+    target = tmp_path / "result.json"
+    code, out, err = run(monkeypatch, cam, "call", "mqtt_client", "get_client_status", "-o", str(target))
+    assert code == 0, err
+    assert out == "" and json.loads(target.read_text(encoding="utf-8")) is not None
+    code, out, _ = run(monkeypatch, cam, "call", "mqtt_client", "get_client_status", "-o", "-")
+    assert code == 0 and json.loads(out) is not None

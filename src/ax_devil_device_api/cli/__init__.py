@@ -13,7 +13,8 @@ import json
 import os
 import sys
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, NoReturn, TextIO
 
@@ -269,6 +270,21 @@ def _stdout_buffer(out: TextIO) -> Any:
     return buffer if buffer is not None else sys.stdout.buffer
 
 
+@contextmanager
+def _text_sink(path: str | None, out: TextIO) -> Iterator[TextIO]:
+    """Where JSON text goes: ``out`` without ``--output`` or with ``-``, else the file (created or truncated, UTF-8)."""
+    if path is None or path == "-":
+        yield out
+        return
+    with open(path, "w", encoding="utf-8") as handle:
+        yield handle
+
+
+def _write_line(sink: TextIO, text: str) -> None:
+    sink.write(text + "\n")
+    sink.flush()  # a long-running monitor can be followed with tail -f
+
+
 def _write_binary(chunks: Any, path: str | None, out: TextIO) -> None:
     if path is None:
         raise CliError("binary result: pass --output FILE")
@@ -292,7 +308,8 @@ def _cmd_call(args: argparse.Namespace, out: TextIO) -> None:
     with make_device(args) as dev:
         if isinstance(op.binding, RtspBinding):
             # RTSP operations build a URL (no request); credentials are never put into it.
-            emit({"url": dev.rtsp_url_for(op, params).safe}, out)
+            with _text_sink(args.output, out) as sink:
+                emit({"url": dev.rtsp_url_for(op, params).safe}, sink)
             return
         result = dev.invoke(op, **params)
         if isinstance(result, StreamResult):
@@ -302,22 +319,25 @@ def _cmd_call(args: argparse.Namespace, out: TextIO) -> None:
                     items = (item for _, item in zip(range(args.limit), items))
                 binary = _stream_is_binary(op)
                 first = None
-                if binary is not True:
+                if binary is None:  # decoder unknown: the first item tells
                     first = next(items, None)
-                    binary = isinstance(first, (bytes, Part)) if binary is None else False
+                    binary = isinstance(first, (bytes, Part))
                 if binary:
                     # Known from the decoder, so an empty stream still creates or truncates the file.
                     rest = items if first is None else _chain(first, items)
                     chunks = (i.body if isinstance(i, Part) else i for i in rest)
                     _write_binary(chunks, args.output, out)
                 else:
-                    for item in _chain(first, items) if first is not None else ():
-                        out.write(json.dumps(to_jsonable(item), ensure_ascii=False) + "\n")
+                    # The sink is opened before the first item arrives: an empty stream still creates or truncates the file.
+                    with _text_sink(args.output, out) as sink:
+                        for item in _chain(first, items) if first is not None else items:
+                            _write_line(sink, json.dumps(to_jsonable(item), ensure_ascii=False))
             return
     if isinstance(result, (bytes, bytearray)):
         _write_binary([bytes(result)], args.output, out)
         return
-    emit(result, out)
+    with _text_sink(args.output, out) as sink:
+        emit(result, sink)
 
 
 def _chain(first: Any, rest: Any) -> Any:
