@@ -304,6 +304,7 @@ class _Core:
         self._raw: Any = None
         self.closing = False
         self.failure: TransportError | None = None
+        self._outcome_lock = threading.Lock()
         self.local_closed = False
 
     def begin(self) -> None:
@@ -427,16 +428,17 @@ class _Core:
     def publish_outcome(self, outcome: DeviceError) -> DeviceError:
         """The one place that stores the session's terminal outcome. Set-once: the first outcome wins and is
         returned to every later caller, so a later error never replaces the reason a session ended."""
-        if self.closed is not None:
-            return self.closed
-        if self.failure is not None:
-            return self.failure
-        if isinstance(outcome, SessionClosed):
-            self.closed = outcome
-        else:
-            assert isinstance(outcome, TransportError)
-            self.failure = outcome
-        return outcome
+        with self._outcome_lock:  # a reader thread and a closer can race: exactly one outcome wins
+            if self.closed is not None:
+                return self.closed
+            if self.failure is not None:
+                return self.failure
+            if isinstance(outcome, SessionClosed):
+                self.closed = outcome
+            else:
+                assert isinstance(outcome, TransportError)
+                self.failure = outcome
+            return outcome
 
     def raise_if_over(self) -> None:
         """Every send and request looks at the terminal state first and raises before anything is written."""
@@ -449,8 +451,8 @@ class _Core:
 
     def close_locally(self) -> None:
         """Publish our own ``close()`` as the terminal outcome: pending and later reads raise ``SessionClosed``."""
-        if self.closed is None and self.failure is None:
-            self.publish_outcome(SessionClosed(1000, "closed by this client"))
+        published = SessionClosed(1000, "closed by this client")
+        if self.publish_outcome(published) is published:
             self.local_closed = True
 
     def on_disconnect(self, error: httpx_ws.WebSocketDisconnect) -> DeviceError:
