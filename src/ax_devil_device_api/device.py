@@ -48,6 +48,7 @@ from ._runtime.capabilities import (
     extra_probes,
     identity_flow,
     probe_error,
+    probe_is_complete,
 )
 from ._runtime.driver import Call, run_async, run_sync
 from ._runtime.ws import (
@@ -258,7 +259,8 @@ class Device(_DeviceBase):
                 return found
             token = self._state.token(key)
             value = self._execute(None, make_flow(self._state), label=key)
-            self._state.set(key, value, token)
+            if probe_is_complete(value):  # a probe with a malformed entry is not cached: the next call asks again
+                self._state.set(key, value, token)
             return value
 
     def identity(self, *, refresh: bool = False) -> DeviceIdentity:
@@ -423,7 +425,8 @@ class AsyncDevice(_DeviceBase):
                 return found
             token = self._state.token(key)
             value = await self._execute(None, make_flow(self._state), label=key)
-            self._state.set(key, value, token)
+            if probe_is_complete(value):  # a probe with a malformed entry is not cached: the next call asks again
+                self._state.set(key, value, token)
             return value
 
     async def identity(self, *, refresh: bool = False) -> DeviceIdentity:

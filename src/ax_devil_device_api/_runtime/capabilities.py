@@ -130,12 +130,16 @@ class Capabilities:
             for found in extra.values():
                 properties.update(found)
             groups |= {k[len(PROPERTY_SCOPE_PREFIX):] for k in extra}
+        errors = dict(errors)
+        for name, versions in (values.get("dca_apis") or {}).items():
+            if isinstance(versions, MalformedEntry):
+                errors[f"dca_apis[{name}]"] = versions.reason  # recorded with the probe errors; the probe itself worked
         return cls(
             classic_apis=values.get("classic_apis"),
             dca_apis=values.get("dca_apis"),
             properties=properties,
             property_groups=groups,
-            errors=dict(errors),
+            errors=errors,
             observed_at=datetime.now(UTC),
             applications=values.get("applications"),
             services=values.get("services"),
@@ -220,6 +224,23 @@ def classic_apis_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
     }
 
 
+class MalformedEntry(frozenset[str]):
+    """An API the discovery lists in the wrong shape: it has no readable versions, so support for it is unknown
+    (never a definitive NO), while the other entries of the same answer still count."""
+
+    reason: str
+
+    def __new__(cls, reason: str) -> MalformedEntry:
+        entry = super().__new__(cls)
+        entry.reason = reason
+        return entry
+
+
+def probe_is_complete(value: Any) -> bool:
+    """Whether a probe result is definitive and may be cached (a result with a malformed entry is not)."""
+    return not (isinstance(value, Mapping) and any(isinstance(item, MalformedEntry) for item in value.values()))
+
+
 def dca_apis_flow(state: DeviceState) -> CallFlow[dict[str, frozenset[str]]]:
     response = yield Request("GET", "/config/discover", accept="application/json")
     if not 200 <= response.status < 300:
@@ -233,8 +254,9 @@ def dca_apis_flow(state: DeviceState) -> CallFlow[dict[str, frozenset[str]]]:
         raise ResponseFormatError("device", "config_discover", "response has no apis object")
     return {
         str(name): frozenset(str(v) for v in versions)
-        for name, versions in apis.items()
         if isinstance(versions, dict)
+        else MalformedEntry(f"/config/discover lists {name!r} as {versions!r}, not an object of versions")
+        for name, versions in apis.items()
     }
 
 
@@ -430,7 +452,11 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
             if caps.dca_apis is None:
                 unknown.append(f"Device Configuration discovery failed: {caps.errors.get('dca_apis')}")
                 continue
-            if method.version in caps.dca_apis.get(method.api, frozenset()):
+            listed = caps.dca_apis.get(method.api, frozenset())
+            if isinstance(listed, MalformedEntry):
+                unknown.append(listed.reason)
+                continue
+            if method.version in listed:
                 return SupportResult(Support.YES, f"listed by /config/discover as {method.api} {method.version}", observed_at=caps.observed_at)
         elif isinstance(method, ParamDiscovery):
             name = _normalized(method.name)
