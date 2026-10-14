@@ -8,7 +8,7 @@ from ws_fake import FakeWsCamera
 
 from ax_devil_device_api import Device
 from ax_devil_device_api._http.options import Heartbeat
-from ax_devil_device_api._runtime.ws import EVENTS
+from ax_devil_device_api._runtime.ws import EVENTS, SessionLedger
 from ax_devil_device_api.errors import ConnectionFailed, SessionClosed
 
 QUICK = Heartbeat(None)
@@ -44,3 +44,21 @@ def test_racing_reader_and_closer_publish_exactly_one_outcome() -> None:
                 assert stored is not None and len(got) == 3
                 assert all(outcome is stored for outcome in got)  # every caller got the one winning exception
                 assert (core.closed is None) != (core.failure is None)  # and only one of the two slots was set
+
+
+def test_ledger_caps_finished_keys_and_never_evicts_an_open_session() -> None:
+    now = [100.0]
+    ledger = SessionLedger(clock=lambda: now[0], max_folded=3)
+    first, _ = ledger.open("a", lambda: None)
+    for key in ("b", "c", "d", "e"):
+        record, _ = ledger.open(key, lambda: None)
+        now[0] += 1
+        ledger.end(record)
+    assert len(ledger._folded) <= 3  # noqa: SLF001
+    ledger.end(first)  # "a" was open the whole time and is folded last: it is remembered
+    _, gap = ledger.open("a", lambda: None)
+    assert gap is not None
+    _, evicted = ledger.open("b", lambda: None)
+    assert evicted is None  # the oldest finished key was forgotten: unknown, reported like a first connect
+    _, remembered = ledger.open("e", lambda: None)
+    assert remembered is not None

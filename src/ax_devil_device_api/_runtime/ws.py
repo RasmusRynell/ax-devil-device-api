@@ -32,7 +32,7 @@ import logging
 import queue
 import threading
 import time
-from collections import deque
+from collections import OrderedDict, deque
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass, replace
@@ -176,6 +176,11 @@ class _Record:
         return self.last_frame_ts
 
 
+MAX_FOLDED_KEYS = 1024
+"""How many finished session keys the ledger remembers. A reconnect to a key that was evicted has no gap (``None``:
+unknown), which is the same answer as for the first connect."""
+
+
 class SessionLedger:
     """Per-device record of sessions, from which the gap of a new session is *computed*. Thread-safe.
 
@@ -186,11 +191,12 @@ class SessionLedger:
     records are folded into one number per key, so memory stays bounded.
     """
 
-    def __init__(self, clock: Callable[[], float] = time.time) -> None:
+    def __init__(self, clock: Callable[[], float] = time.time, max_folded: int = MAX_FOLDED_KEYS) -> None:
         self.now = clock
+        self._max_folded = max_folded
         self._lock = threading.Lock()
         self._open: dict[Any, list[_Record]] = {}
-        self._folded: dict[Any, float] = {}
+        self._folded: OrderedDict[Any, float] = OrderedDict()
 
     def open(self, key: Any, poll: Callable[[], None]) -> tuple[_Record, Gap | None]:
         with self._lock:
@@ -233,7 +239,18 @@ class SessionLedger:
             records = self._open.get(record.key, [])
             if record in records:
                 records.remove(record)
+            if not records:
+                self._open.pop(record.key, None)
             self._folded[record.key] = max(self._folded.get(record.key, float("-inf")), record.coverage_end())
+            self._folded.move_to_end(record.key)
+            while len(self._folded) > self._max_folded:  # forget the least recently ended key, never an open session
+                oldest = next(iter(self._folded))
+                if oldest in self._open:
+                    self._folded.move_to_end(oldest)
+                    if all(key in self._open for key in self._folded):
+                        break
+                    continue
+                del self._folded[oldest]
 
     # -- inspection (tests, diagnostics) --
 
