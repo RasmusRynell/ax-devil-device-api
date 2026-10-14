@@ -141,7 +141,7 @@ class DeviceDataHubWebSocketApi(SyncApi):
 
     def connect(
         self,
-        subscriptions: Sequence[Mapping[str, Any]] | None = None,
+        subscriptions: Sequence[Subscription | Mapping[str, Any]] | None = None,
         *,
         heartbeat: Heartbeat = DEFAULT_HEARTBEAT,
         use_token: bool = False,
@@ -176,7 +176,7 @@ class AsyncDeviceDataHubWebSocketApi(AsyncApi):
 
     def connect(
         self,
-        subscriptions: Sequence[Mapping[str, Any]] | None = None,
+        subscriptions: Sequence[Subscription | Mapping[str, Any]] | None = None,
         *,
         heartbeat: Heartbeat = DEFAULT_HEARTBEAT,
         use_token: bool = False,

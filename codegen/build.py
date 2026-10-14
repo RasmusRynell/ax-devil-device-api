@@ -18,7 +18,7 @@ SUPPORTED_FAMILIES = ("jsonrpc", "dca", "cgi", "service_json", "soap", "rest", "
 SESSION_CODECS = {"events": "events", "datahub": "datahub", "raw": "none"}
 SESSION_SETUPS: dict[str, list[tuple[str, str]]] = {
     "events": [("event_filter_list", "Sequence[EventFilter | Mapping[str, str]] | None = None")],
-    "datahub": [("subscriptions", "Sequence[Mapping[str, Any]] | None = None")],
+    "datahub": [("subscriptions", "Sequence[Subscription | Mapping[str, Any]] | None = None")],
     "none": [],
 }
 STREAM_DECODERS = ("bytes", "mjpeg", "lines")

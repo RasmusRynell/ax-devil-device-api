@@ -2026,8 +2026,8 @@ demographic_identifier.LiveTrack(time_start: float, time_end: float, gender_aver
 demographic_identifier.LiveTracks(tracks: list[LiveTrack])
 demographic_identifier.LiveTracksResult(live: LiveTracks)
 demographic_identifier.TracksWindow(time: int | None)
-device_data_hub_ws.AsyncDeviceDataHubWebSocketApi.connect(self, subscriptions: Sequence[Mapping[str, Any]] | None = None, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractAsyncContextManager[AsyncSession]
-device_data_hub_ws.DeviceDataHubWebSocketApi.connect(self, subscriptions: Sequence[Mapping[str, Any]] | None = None, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractContextManager[Session]
+device_data_hub_ws.AsyncDeviceDataHubWebSocketApi.connect(self, subscriptions: Sequence[Subscription | Mapping[str, Any]] | None = None, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractAsyncContextManager[AsyncSession]
+device_data_hub_ws.DeviceDataHubWebSocketApi.connect(self, subscriptions: Sequence[Subscription | Mapping[str, Any]] | None = None, *, heartbeat: Heartbeat = DEFAULT_HEARTBEAT, use_token: bool = False, request_options: RequestOptions | None = None) -> AbstractContextManager[Session]
 device_data_hub_ws.Filter(topics: list[str], instance_filter: list[dict[str, str]] | None [instanceFilter], data_filter: list[str] | None [dataFilter])
 device_data_hub_ws.PtzOpticalZoomStateV1(channel_id: str [channelId], hfov_deg: float | None, vfov_deg: float | None, zoom_mag: float | None, zoom_moving: bool | None)
 device_data_hub_ws.PtzPanTiltStateV1(channel_id: str [channelId], pan_deg: float | None, pan_moving: bool | None, pan_speed_deg_s: float | None, tilt_deg: float | None, tilt_moving: bool | None, tilt_speed_deg_s: float | None)

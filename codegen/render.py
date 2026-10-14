@@ -812,7 +812,12 @@ def render_module(api: ApiDef) -> str:
     out += [f'"""{summary}', ""]
     out += [f"Docs: {d}" for d in api.docs[:1]]
     out += ['"""', ""]
-    out.append(IMPORTS + "".join(line + "\n" for f in sorted(api_features(api)) for line in FEATURE_IMPORTS[f]))
+    features = api_features(api)
+    imports = [line for f in sorted(features) for line in FEATURE_IMPORTS[f]]
+    if "datahub" in features and not any(t.name == "Subscription" for t in api.types):
+        # The connect() annotation names Subscription; a module that does not define it borrows the Data Hub one.
+        imports.append("from .device_data_hub_ws import Subscription")
+    out.append(IMPORTS + "".join(line + "\n" for line in imports))
     out += ["# " + "-" * 75, "# Models", ""]
     for td in api.types:
         out += render_type(td, types)
