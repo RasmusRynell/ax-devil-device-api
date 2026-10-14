@@ -48,7 +48,7 @@ def _summary(host: str, identity: DeviceIdentity, caps: Capabilities) -> DeviceS
         firmware_version=identity.firmware_version,
         hardware_id=identity.hardware_id,
         architecture=identity.architecture,
-        classic_apis={k: str(v) for k, v in caps.classic_apis.items() if str(v)} if caps.classic_apis is not None else None,
+        classic_apis=dict(caps.classic_apis) if caps.classic_apis is not None else None,
         dca_apis={k: tuple(sorted(v)) for k, v in caps.dca_apis.items()} if caps.dca_apis is not None else None,
         applications=dict(caps.applications) if caps.applications is not None else None,
         probe_errors=dict(caps.errors),
