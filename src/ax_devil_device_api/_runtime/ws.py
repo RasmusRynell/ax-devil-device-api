@@ -451,7 +451,9 @@ class _Core:
         if stamped is not None:
             return self.on_disconnect(httpx_ws.WebSocketDisconnect(stamped[0], ""))
         self.terminate("send_failure")
-        return SessionClosed()
+        outcome = SessionClosed()
+        self.closed = outcome  # stored (set-once): every current and later read raises it, not only this send
+        return outcome
 
     def on_network_error(self) -> DeviceError:
         if self.local_closed and self.closed is not None:
