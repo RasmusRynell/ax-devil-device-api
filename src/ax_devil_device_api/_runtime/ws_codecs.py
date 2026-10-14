@@ -286,7 +286,7 @@ class DataHubCodec:
             return Reply(rid, error=_error(self.api_id, message["error"]))
         if "result" in message:
             return Reply(rid, result=message["result"])
-        if rid is not None and "method" not in message:  # a response with neither result nor error
+        if rid is not None and message.get("method") is None:  # a response (no method, or an explicit null) with neither result nor error
             raise ResponseFormatError(self.api_id, "receive", "a reply with neither result nor error")
         return None
 
