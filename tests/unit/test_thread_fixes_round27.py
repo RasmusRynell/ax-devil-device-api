@@ -14,7 +14,7 @@ from ws_fake import FakeWsCamera
 from ax_devil_device_api import AsyncDevice, Device
 from ax_devil_device_api._http.options import Heartbeat
 from ax_devil_device_api._runtime.ws import EVENTS
-from ax_devil_device_api.errors import ConnectionFailed, SessionClosed
+from ax_devil_device_api.errors import ConnectionFailed, ReadTimeout, SessionClosed
 
 QUICK = Heartbeat(None)
 
@@ -143,3 +143,39 @@ async def test_async_local_close_makes_pending_requests_raise_session_closed(ack
                 camera.sockets[0].feed = lambda data: None  # type: ignore[method-assign]
             await session.close()
         assert len(outcomes) == 2 and all(isinstance(e, SessionClosed) for e in outcomes)  # not ConnectionFailed
+
+
+# -- the request timeout is the total budget --------------------------------------------------------------------------
+
+
+def test_sync_request_timeout_includes_a_slow_send() -> None:
+    camera = FakeWsCamera()
+    with _device(camera) as dev, dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+        real = camera.streams[0].write
+
+        def slow(buffer: bytes, timeout: float | None = None) -> None:
+            time.sleep(0.4)
+            real(buffer, timeout)
+
+        camera.streams[0].write = slow  # type: ignore[method-assign]
+        started = time.monotonic()
+        with pytest.raises(ReadTimeout):
+            session.request("silent", {}, timeout=0.1)
+        assert time.monotonic() - started < 0.47  # the write took 0.4; waiting for a reply did not start another 0.1
+
+
+@pytest.mark.anyio
+async def test_async_request_timeout_includes_a_slow_send() -> None:
+    camera = FakeWsCamera()
+    async with _adevice(camera) as dev, dev.connect_session(EVENTS, heartbeat=QUICK) as session:
+        real: Any = camera.streams[0].write
+
+        async def slow(buffer: bytes, timeout: float | None = None) -> None:
+            await anyio.sleep(0.4)
+            await real(buffer, timeout)
+
+        camera.streams[0].write = slow  # type: ignore[method-assign]
+        started = time.monotonic()
+        with pytest.raises(ReadTimeout):
+            await session.request("silent", {}, timeout=0.1)
+        assert time.monotonic() - started < 0.47

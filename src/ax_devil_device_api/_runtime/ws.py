@@ -718,13 +718,14 @@ class Session:
         if timeout is not None:
             RequestOptions(timeout=timeout)  # positive and finite, like every other timeout; nothing is sent otherwise
         limit = core.default_timeout if timeout is None else timeout
+        deadline = time.monotonic() + limit  # the caller's total budget: registration, sending and waiting
         slot = _Slot(method)
         with self._cond:
             request_id, message = core.request_message(method, params)
             self._waiters[request_id] = slot  # registered before the request is sent, so its reply cannot be missed
         try:
             self.send(message)
-            return self._await(slot.poll, limit)
+            return self._await(slot.poll, max(0.0, deadline - time.monotonic()))
         finally:
             with self._cond:
                 self._waiters.pop(request_id, None)
@@ -976,12 +977,13 @@ class AsyncSession:
         if timeout is not None:
             RequestOptions(timeout=timeout)
         limit = core.default_timeout if timeout is None else timeout
+        deadline = asyncio.get_running_loop().time() + limit  # the caller's total budget
         request_id, message = core.request_message(method, params)
         slot = _Slot(method)
         self._waiters[request_id] = slot  # registered before the request is sent, so its reply cannot be missed
         try:
             await self.send(message)
-            return await self._await(slot.poll, limit)
+            return await self._await(slot.poll, max(0.0, deadline - asyncio.get_running_loop().time()))
         finally:
             self._waiters.pop(request_id, None)
 
