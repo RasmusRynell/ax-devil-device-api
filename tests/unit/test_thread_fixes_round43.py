@@ -6,6 +6,7 @@ import asyncio
 import json
 import threading
 import time
+from contextlib import AsyncExitStack
 
 import pytest
 import wsproto.events
@@ -13,7 +14,9 @@ from ws_fake import FakeWsCamera, notify
 
 from ax_devil_device_api import AsyncDevice, Device
 from ax_devil_device_api._http.options import Heartbeat
+from ax_devil_device_api._runtime.driver import AsyncStreamResult
 from ax_devil_device_api._runtime.ws import EVENTS
+from ax_devil_device_api._streams import LinesDecoder
 
 QUICK = Heartbeat(None)
 FRAMES = 150  # far more than the upstream queue holds, delivered in ONE read
@@ -69,3 +72,37 @@ async def test_async_context_exit_with_many_coalesced_frames_does_not_hang() -> 
                 data = b"".join(socket.conn.send(wsproto.events.TextMessage(json.dumps(notify(f"t/{n}")))) for n in range(FRAMES))
                 camera.streams[0]._out.put_nowait(data)  # type: ignore[union-attr]  # noqa: SLF001
                 await asyncio.sleep(0.3)
+
+
+# -- a direct Task.cancel() during aclose ------------------------------------------------------------------------------
+
+
+async def _chunks():  # type: ignore[no-untyped-def]
+    yield b"one\n"
+
+
+@pytest.mark.anyio
+async def test_direct_task_cancel_during_aclose_still_completes_the_teardown() -> None:
+    events: list[str] = []
+
+    async def teardown() -> None:
+        events.append("start")
+        await asyncio.sleep(0.2)
+        events.append("closed")
+
+    stack = AsyncExitStack()
+    stack.push_async_callback(teardown)
+    stream: AsyncStreamResult[str] = AsyncStreamResult(None, _chunks(), LinesDecoder(), stack)  # type: ignore[arg-type]
+
+    task = asyncio.create_task(stream.aclose())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    await asyncio.sleep(0.02)
+    task.cancel()  # repeated cancels are absorbed while the teardown finishes
+    second = asyncio.create_task(stream.aclose())  # a second aclose() during the teardown awaits the same one
+    with pytest.raises(asyncio.CancelledError):
+        await task  # the cancellation propagates after the teardown
+    await second
+    assert events == ["start", "closed"]
+    await stream.aclose()
+    assert events == ["start", "closed"]

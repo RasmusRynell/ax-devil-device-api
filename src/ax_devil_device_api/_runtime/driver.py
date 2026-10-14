@@ -15,8 +15,6 @@ from contextlib import AsyncExitStack, ExitStack
 from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
-import anyio
-
 from .._http.config import ResponseHook
 from .._http.options import RetryPolicy
 from .._http.types import Request, Response, has_deferred, resolve_deferred
@@ -104,6 +102,7 @@ class AsyncStreamResult(Generic[T]):
         self._decoder = decoder
         self._stack = stack
         self._closed = False
+        self._teardown: asyncio.Future[None] | None = None
         self._items: AsyncIterator[T] | None = None
 
     async def __aenter__(self) -> AsyncStreamResult[T]:
@@ -135,12 +134,24 @@ class AsyncStreamResult(Generic[T]):
     async def aclose(self) -> None:
         if self._closed:
             return
-        # Shielded: a cancellation must not leave the response and its pooled connection open. It is delivered
-        # right after the teardown (the checkpoint), and ``_closed`` is set only once the teardown has completed.
-        with anyio.CancelScope(shield=True):
-            await self._stack.aclose()
+        # The teardown is a task of its own: cancelling the caller (even with a direct ``Task.cancel()``, which an
+        # AnyIO shield does not stop) cannot interrupt it half way. A second aclose() awaits the same task. The
+        # result is marked closed only after the teardown finished; the cancellation is re-raised after that.
+        if self._teardown is None:
+            self._teardown = asyncio.ensure_future(self._stack.aclose())
+        task = self._teardown
+        cancelled: asyncio.CancelledError | None = None
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError as error:
+                if not task.cancelled():
+                    cancelled = error  # the caller was cancelled (again): keep waiting for the teardown
         self._closed = True
-        await anyio.lowlevel.checkpoint()
+        if not task.cancelled():
+            task.result()
+        if cancelled is not None:
+            raise cancelled
 
 
 @dataclass(frozen=True)
