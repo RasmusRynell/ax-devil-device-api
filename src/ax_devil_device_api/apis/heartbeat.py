@@ -37,10 +37,7 @@ INFO = ApiInfo(
     id="heartbeat",
     name="Heartbeat service API",
     family=Family.SERVICE_JSON,
-    discovery=(
-        ParamDiscovery("Properties.API.Heartbeat.Heartbeat", "yes"),
-        ParamDiscovery("Properties.API.Heartbeat.Version", "1.0", ">="),
-    ),
+    discovery=(ParamDiscovery("Properties.API.Heartbeat.Version", "1.0", ">="),),
     docs=("https://developer.axis.com/vapix/network-video/heartbeat-service-api/",),
 )
 

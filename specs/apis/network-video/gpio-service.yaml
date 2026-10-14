@@ -12,7 +12,6 @@ docs:
 - https://developer.axis.com/vapix/network-video/input-and-outputs/
 access: admin
 discovery:
-- param: {name: Properties.API.GPIO.GPIO, value: 'yes'}
 - param: {name: Properties.API.GPIO.Version, value: '1.0', compare: '>='}
 
 binding: {path: /vapix/axgpio}

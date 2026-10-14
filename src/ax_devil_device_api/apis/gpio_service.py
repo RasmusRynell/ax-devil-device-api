@@ -164,10 +164,7 @@ INFO = ApiInfo(
     id="gpio-service",
     name="General purpose I/O service",
     family=Family.SERVICE_JSON,
-    discovery=(
-        ParamDiscovery("Properties.API.GPIO.GPIO", "yes"),
-        ParamDiscovery("Properties.API.GPIO.Version", "1.0", ">="),
-    ),
+    discovery=(ParamDiscovery("Properties.API.GPIO.Version", "1.0", ">="),),
     docs=("https://developer.axis.com/vapix/network-video/input-and-outputs/",),
 )
 

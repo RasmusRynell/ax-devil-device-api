@@ -161,6 +161,10 @@ class ConnectionConfig:
                 f"credentials must be None, Credentials(user, password) or BearerToken(...), got {type(self.credentials).__name__}"
             )
         boolean("allow_http", self.allow_http)
+        if self.retry is None:
+            object.__setattr__(self, "retry", RetryPolicy())  # None keeps the default policy
+        elif not isinstance(self.retry, RetryPolicy):
+            raise ConfigurationError(f"retry must be a RetryPolicy or None, got {self.retry!r}")
         if self.scheme not in ("https", "http"):
             raise ConfigurationError(f"Invalid scheme: {self.scheme!r}")
         if self.proxy is not None:

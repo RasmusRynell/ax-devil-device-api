@@ -39,7 +39,6 @@ INFO = ApiInfo(
     name="Heartbeat service API (SOAP)",
     family=Family.SOAP,
     discovery=(
-        ParamDiscovery("Properties.API.Heartbeat.Heartbeat", "yes"),
         ParamDiscovery("Properties.API.Heartbeat.Version", "1.0", ">="),
         ServiceDiscovery("http://www.axis.com/vapix/ws/Heartbeat"),
     ),

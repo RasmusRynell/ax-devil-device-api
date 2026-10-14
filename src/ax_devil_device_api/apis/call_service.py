@@ -726,10 +726,7 @@ INFO = ApiInfo(
     id="call-service-api",
     name="Call service API",
     family=Family.SERVICE_JSON,
-    discovery=(
-        ParamDiscovery("Properties.API.SIP.SIP", "yes"),
-        ParamDiscovery("Properties.API.SIP.Version", "2.0", ">="),
-    ),
+    discovery=(ParamDiscovery("Properties.API.SIP.Version", "2.0", ">="),),
     docs=("https://developer.axis.com/vapix/intercom/call-service-api/",),
     errors={
         "ter:NotFound": ErrorCode("Not found.", "not_found"),

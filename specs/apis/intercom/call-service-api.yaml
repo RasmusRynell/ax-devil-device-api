@@ -13,7 +13,6 @@ docs:
 - https://developer.axis.com/vapix/intercom/call-service-api/
 access: admin
 discovery:
-- param: {name: Properties.API.SIP.SIP, value: 'yes'}
 - param: {name: Properties.API.SIP.Version, value: '2.0', compare: '>='}
 
 binding: {path: /vapix/call}

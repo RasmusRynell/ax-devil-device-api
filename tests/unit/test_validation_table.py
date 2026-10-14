@@ -344,3 +344,18 @@ def test_a_bearer_token_callable_must_return_a_string() -> None:
     assert _bearer(lambda: "t").current() == "t"
     with pytest.raises(ConfigurationError):
         _bearer(lambda: None).current()
+
+
+@pytest.mark.parametrize("retry", [{}, False, 0, "default", RetryPolicy, (2,), 3])
+def test_retry_must_be_a_retry_policy_or_none(retry: Any) -> None:
+    with pytest.raises(ConfigurationError, match="RetryPolicy"):
+        ConnectionConfig("cam", retry=retry)
+    with pytest.raises(ConfigurationError, match="RetryPolicy"):
+        RequestOptions(retry=retry)
+
+
+def test_none_retry_keeps_the_default_policy() -> None:
+    assert ConnectionConfig("cam", retry=None).retry == RetryPolicy()  # type: ignore[arg-type]
+    assert RequestOptions(retry=None).retry is None
+    custom = RetryPolicy(attempts=3)
+    assert ConnectionConfig("cam", retry=custom).retry is custom and RequestOptions(retry=custom).retry is custom

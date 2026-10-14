@@ -13,7 +13,6 @@ docs:
 - https://developer.axis.com/vapix/network-video/heartbeat-service-api/
 access: admin
 discovery:
-- param: {name: Properties.API.Heartbeat.Heartbeat, value: 'yes'}
 - param: {name: Properties.API.Heartbeat.Version, value: '1.0', compare: '>='}
 - service: {namespace: 'http://www.axis.com/vapix/ws/Heartbeat'}
 

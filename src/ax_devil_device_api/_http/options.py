@@ -13,6 +13,7 @@ from .._validate import (
     positive_finite,
     positive_int,
 )
+from ..errors import ConfigurationError
 
 
 def require_int(name: str, value: Any, minimum: int) -> None:
@@ -67,6 +68,8 @@ class RequestOptions:
     """Replaces the device retry policy for this call."""
 
     def __post_init__(self) -> None:
+        if self.retry is not None and not isinstance(self.retry, RetryPolicy):
+            raise ConfigurationError(f"retry must be a RetryPolicy or None, got {self.retry!r}")
         optional_positive_finite(
             "timeout", self.timeout, "; use None to keep the device timeout (there is no way to disable timeouts)"
         )
