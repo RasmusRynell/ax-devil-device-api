@@ -61,21 +61,25 @@ def api_error(codec: WsCodec, method: str, error: WsError) -> ApiError:
     return cls(codec.api_id, method, error.code, error.message, kind=kind, details=error.data)
 
 
-def _required_object(params: Mapping[str, Any], name: str) -> Mapping[str, Any]:
-    """A field the schema requires to be a JSON object: missing or of another type is a malformed message."""
-    value = params.get(name)
+def _object(api: str, where: str, value: Any) -> Mapping[str, Any]:
+    """A REQUIRED JSON object: missing or of another type is a malformed message, never an empty default."""
     if not isinstance(value, Mapping):
-        raise ResponseFormatError("datahub-streaming-over-websocket", "receive", f"topicSample.{name} must be an object, got {value!r}")
+        raise ResponseFormatError(api, "receive", f"{where} must be an object, got {value!r}")
     return value
 
 
-def _mapping(value: Any) -> Mapping[str, Any]:
-    return value if isinstance(value, Mapping) else {}
+def _optional_object(api: str, where: str, value: Any) -> Mapping[str, Any]:
+    """An optional JSON object: absent (or null) is empty, but a value of another type is malformed."""
+    return {} if value is None else _object(api, where, value)
 
 
-def _error(value: Any) -> WsError:
-    err = _mapping(value)
-    return WsError(err.get("code"), str(err.get("message", "")), err.get("data"))
+def _error(api: str, value: Any) -> WsError:
+    """The error object of a failed reply: JSON-RPC requires an integer or text ``code`` and a text ``message``."""
+    err = _object(api, "the error of a reply", value)
+    code, message = err.get("code"), err.get("message")
+    if isinstance(code, bool) or not isinstance(code, (int, str)) or not isinstance(message, str):
+        raise ResponseFormatError(api, "receive", f"a reply error needs a code and a message, got {dict(err)!r}")
+    return WsError(code, message, err.get("data"))
 
 
 # ---------------------------------------------------------------------------
@@ -158,22 +162,22 @@ class EventsCodec:
         if method == self.notify_method:
             return self._notification(message)
         if "error" in message:
-            return Reply(_ctx(message), error=_error(message["error"]))
+            return Reply(_ctx(message), error=_error(self.api_id, message["error"]))
         if "data" in message:
             return Reply(_ctx(message), result=message["data"])
         return None
 
     @staticmethod
     def _notification(message: Mapping[str, Any]) -> Notification | None:
-        raw = _mapping(message.get("params")).get("notification")
-        topic = raw.get("topic") if isinstance(raw, Mapping) else None
-        if not isinstance(raw, Mapping) or not isinstance(topic, str):
-            # events:notify carries a notification object with a topic; anything else is malformed, not droppable
-            raise ResponseFormatError("event-streaming-over-websocket", "receive", "events:notify without a notification topic")
-        body = _mapping(raw.get("message"))
-        millis = raw.get("timestamp")
-        stamp = _epoch_millis(millis)
-        return Notification(EventNotification(topic, stamp, _mapping(body.get("source")), _mapping(body.get("key")), _mapping(body.get("data")), raw))
+        api = "event-streaming-over-websocket"
+        params = _object(api, "events:notify params", message.get("params"))
+        raw = _object(api, "events:notify notification", params.get("notification"))
+        topic = raw.get("topic")
+        if not isinstance(topic, str):
+            raise ResponseFormatError(api, "receive", f"events:notify notification.topic must be text, got {topic!r}")
+        body = _object(api, "events:notify notification.message", raw.get("message"))
+        source, key, data = (_optional_object(api, f"notification.message.{name}", body.get(name)) for name in ("source", "key", "data"))
+        return Notification(EventNotification(topic, _epoch_millis(raw.get("timestamp")), source, key, data, raw))
 
     def error_kind(self, code: int | str | None) -> ErrorKind | None:
         return None if code is None else _EVENTS_KINDS.get(code)
@@ -258,11 +262,11 @@ class DataHubCodec:
         if not isinstance(message, Mapping):
             return None
         if message.get("method") == self.sample_method:
-            return self._sample(_mapping(message.get("params")))
+            return self._sample(_object(self.api_id, "topicSample params", message.get("params")))
         identifier = message.get("id")
         rid = None if identifier is None else str(identifier)
         if "error" in message:
-            return Reply(rid, error=_error(message["error"]))
+            return Reply(rid, error=_error(self.api_id, message["error"]))
         if "result" in message:
             return Reply(rid, result=message["result"])
         return None
