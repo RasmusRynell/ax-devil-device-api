@@ -15,6 +15,8 @@ from contextlib import AsyncExitStack, ExitStack
 from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
+import anyio
+
 from .._http.config import ResponseHook
 from .._http.options import RetryPolicy
 from .._http.types import Request, Response, has_deferred, resolve_deferred
@@ -131,9 +133,14 @@ class AsyncStreamResult(Generic[T]):
             await self.aclose()
 
     async def aclose(self) -> None:
-        if not self._closed:
-            self._closed = True
+        if self._closed:
+            return
+        # Shielded: a cancellation must not leave the response and its pooled connection open. It is delivered
+        # right after the teardown (the checkpoint), and ``_closed`` is set only once the teardown has completed.
+        with anyio.CancelScope(shield=True):
             await self._stack.aclose()
+        self._closed = True
+        await anyio.lowlevel.checkpoint()
 
 
 @dataclass(frozen=True)
