@@ -648,7 +648,28 @@ def adapter(tp: Any) -> TypeAdapter[Any]:
 
 
 def parse_result(op: Operation[Any], data: Any) -> Any:
-    """Validate response data against the operation's result type."""
+    """Validate response data against the operation's result type (and refuse non-finite numbers, whatever the protocol)."""
+    result = _validated_result(op, data)
+    if _holds_non_finite(result):
+        raise ResponseFormatError(op.api.id, op.id, "the response holds a NaN or infinite number, which no device reports")
+    return result
+
+
+def _holds_non_finite(value: Any) -> bool:
+    """Whether a parsed result holds a NaN or infinite float at any depth (models, lists, tuples, sets, mappings).
+    Text such as ``"NaN"`` or ``"inf"`` is coerced into a float by pydantic, so this looks at the parsed values."""
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, BaseModel):
+        return any(_holds_non_finite(getattr(value, name)) for name in type(value).model_fields)
+    if isinstance(value, dict):
+        return any(_holds_non_finite(item) for item in value.values())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_holds_non_finite(item) for item in value)
+    return False
+
+
+def _validated_result(op: Operation[Any], data: Any) -> Any:
     if op.result is None:
         return None
     try:
