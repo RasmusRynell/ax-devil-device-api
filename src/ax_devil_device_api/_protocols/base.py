@@ -578,12 +578,12 @@ def _scalar_problem(annotation: Any, value: Any) -> str | None:
         return None
     if origin in (list, set, frozenset, collections.abc.Sequence, collections.abc.Set):
         if not isinstance(value, (list, tuple, set, frozenset)):
-            return None
+            return f"expected a list, got {value!r}"  # in a union this branch must not accept a scalar
         args = get_args(annotation)
         return _first_problem((args[0], entry) for entry in value) if args else None
     if origin is tuple:
         if not isinstance(value, (list, tuple)):
-            return None
+            return f"expected a list, got {value!r}"
         args = get_args(annotation)
         if not args:
             return None
@@ -592,12 +592,14 @@ def _scalar_problem(annotation: Any, value: Any) -> str | None:
         return _first_problem(zip(args, value, strict=False))
     if origin in (dict, collections.abc.Mapping):
         if not isinstance(value, dict):
-            return None
+            return f"expected an object, got {value!r}"
         args = get_args(annotation)
         if len(args) != 2:
             return None
         pairs = [pair for key, entry in value.items() for pair in ((args[0], key), (args[1], entry))]
         return _first_problem(pairs)
+    if annotation in (bool, int, float, str) and isinstance(value, (list, tuple, set, frozenset, dict)):
+        return f"expected a single value, got {value!r}"  # in a union a scalar branch must not accept a container
     if annotation is bool:
         return None if isinstance(value, bool) else f"expected true or false, got {value!r}"
     if annotation in (int, float):
