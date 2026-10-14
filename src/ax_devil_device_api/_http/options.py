@@ -31,14 +31,14 @@ class RetryPolicy:
     def __post_init__(self) -> None:
         if self.attempts < 1:
             raise ValueError("attempts must be at least 1")
-        if not self.backoff >= 0:
-            raise ValueError("backoff must not be negative")
-        if not self.max_backoff >= 0:
-            raise ValueError("max_backoff must not be negative")
+        if not 0 <= self.backoff < math.inf:
+            raise ValueError(f"backoff must be finite and not negative, got {self.backoff!r}")
+        if not 0 <= self.max_backoff < math.inf:
+            raise ValueError(f"max_backoff must be finite and not negative, got {self.max_backoff!r}")
 
     def delay(self, retry_number: int) -> float:
         """Delay before retry ``retry_number`` (1 = first retry)."""
-        return min(self.backoff * (2 ** (retry_number - 1)), self.max_backoff)
+        return min(self.backoff * (2.0 ** min(retry_number - 1, 1000)), self.max_backoff)
 
 
 NO_RETRY = RetryPolicy(attempts=1)

@@ -838,3 +838,22 @@ def test_export_recording_refuses_an_unexpected_content_type_before_streaming() 
     with pytest.raises(ResponseFormatError, match="content type"):
         dev.apis.export_recording.export_recording("rec1", "disk1", "matroska")
     assert body.pulled == 0
+
+
+# --- RetryPolicy rejects non-finite backoff ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("field", ["backoff", "max_backoff"])
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan"), -1.0])
+def test_retry_policy_rejects_non_finite_or_negative_backoff(field: str, value: float) -> None:
+    from ax_devil_device_api._http.options import RetryPolicy
+
+    with pytest.raises(ValueError, match="finite"):
+        RetryPolicy(**{field: value})  # type: ignore[arg-type]
+
+
+def test_retry_delay_stays_finite_for_many_retries() -> None:
+    from ax_devil_device_api._http.options import RetryPolicy
+
+    policy = RetryPolicy(attempts=5000, backoff=0.2, max_backoff=5.0)
+    assert policy.delay(1) == 0.2 and policy.delay(4000) == 5.0
