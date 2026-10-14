@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import math
 import queue
 import threading
@@ -51,6 +52,7 @@ from .._http.transport import (
     LIMIT_CLOSE_CODE,
     LIMIT_CLOSE_REASON,
     MAX_WS_MESSAGE_BYTES,
+    WS_QUEUE_SIZE,
     AsyncTransport,
     SyncTransport,
     UpgradeRefused,
@@ -256,6 +258,9 @@ NO_MESSAGE: Any = object()
 """Private marker for "no complete message yet" (control frame, unfinished fragment); never a real message, ``None`` included."""
 
 
+_log = logging.getLogger(__name__)
+
+
 class _Slot:
     """The outcome of one outstanding request, filled in by whoever reads its reply."""
 
@@ -285,6 +290,8 @@ class _Core:
         self._parts: list[Any] = []
         self._parts_size = 0
         self.pending: deque[Any] = deque()
+        self.dropped = 0
+        self._overflowing = False
         self.closed: SessionClosed | None = None
         self.overflowed = False
         self._counter = 0
@@ -454,7 +461,27 @@ class _Core:
                 slot.value = kind.result
             slot.done = True
             return
+        if len(self.pending) >= WS_QUEUE_SIZE:
+            # Nobody is draining the queue (a request is waiting for its reply, or the app is slow): keep the newest,
+            # drop the oldest, and keep reading so replies are always dispatched.
+            self.pending.popleft()
+            self.dropped += 1
+            if not self._overflowing:
+                self._overflowing = True
+                _log.warning(
+                    "%s: %d unread messages; dropping the oldest ones (see Session.dropped_notifications)",
+                    self.spec.api_id, WS_QUEUE_SIZE,
+                )
         self.pending.append(message)
+
+    def take_pending(self) -> Any:
+        """The oldest queued message, or ``NO_MESSAGE``."""
+        if not self.pending:
+            return NO_MESSAGE
+        message = self.pending.popleft()
+        if len(self.pending) < WS_QUEUE_SIZE:
+            self._overflowing = False  # the next overflow is a new episode with its own warning
+        return message
 
     def notification(self, message: Any) -> Notification | None:
         codec = self.spec.codec
@@ -547,6 +574,11 @@ class Session:
         core.watch_reader(raw)
 
     @property
+    def dropped_notifications(self) -> int:
+        """Messages dropped (oldest first) because more than ``WS_QUEUE_SIZE`` were waiting unread."""
+        return self._core.dropped
+
+    @property
     def gap(self) -> Gap | None:
         """Set if an earlier session for this endpoint ended before this one began (events in between are lost)."""
         return self._core.gap
@@ -575,7 +607,7 @@ class Session:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
         core = self._core
         _check_receive_timeout(timeout)
-        return self._await(lambda: core.pending.popleft() if core.pending else NO_MESSAGE, timeout)
+        return self._await(core.take_pending, timeout)
 
     def _await(self, poll: Callable[[], Any], timeout: float | None) -> Any:
         """Wait until ``poll()`` yields something other than ``NO_MESSAGE``.
@@ -765,6 +797,11 @@ class AsyncSession:
         core.watch_reader(raw)
 
     @property
+    def dropped_notifications(self) -> int:
+        """Messages dropped (oldest first) because more than ``WS_QUEUE_SIZE`` were waiting unread."""
+        return self._core.dropped
+
+    @property
     def gap(self) -> Gap | None:
         """Set if an earlier session for this endpoint ended before this one began (events in between are lost)."""
         return self._core.gap
@@ -793,7 +830,7 @@ class AsyncSession:
         """The next message. ``ReadTimeout`` after ``timeout`` seconds; ``SessionClosed`` after a normal end."""
         core = self._core
         _check_receive_timeout(timeout)
-        return await self._await(lambda: core.pending.popleft() if core.pending else NO_MESSAGE, timeout)
+        return await self._await(core.take_pending, timeout)
 
     def _wake(self) -> None:
         changed, self._changed = self._changed, asyncio.Event()
