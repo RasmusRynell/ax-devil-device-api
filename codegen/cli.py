@@ -111,24 +111,30 @@ def stale_files(res: Result) -> list[Path]:
 def cmd_generate(args: argparse.Namespace) -> int:
     res = build_all(_select(args), args.only or None, args.all)
     report(res)
+    if res.errors:
+        # The shared files (apis/__init__.py, docs/api_surface.txt) would list only the specs that built, and a
+        # partial rewrite would leave the tree inconsistent: write nothing and fail.
+        print("error: some specs failed to load or build; nothing was written", file=sys.stderr)
+        return 1
     for path, text in sorted(res.files.items()):
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists() or path.read_text() != text:
             path.write_text(text)
             print(f"wrote {path.relative_to(ROOT)}")
-    if res.errors and not args.only:
-        print("note: not removing stale modules because some specs failed to build", file=sys.stderr)
-    elif not args.only:
+    if not args.only:
         for path in stale_files(res):
             path.unlink()
             print(f"removed {path.relative_to(ROOT)} (no spec produces it)")
-    return 1 if res.errors else 0
+    return 0
 
 
 def cmd_check(args: argparse.Namespace) -> int:
     res = build_all(spec_paths(), include_uncurated=args.all)
     report(res)
-    bad = bool(res.errors)
+    if res.errors:
+        # The generated set is incomplete, so comparing it with the tree would only add misleading diffs.
+        return 1
+    bad = False
     for path, text in sorted(res.files.items()):
         current = path.read_text() if path.exists() else ""
         if current != text:

@@ -349,6 +349,7 @@ The spec format is documented in [spec-format.md](spec-format.md) (one YAML file
 
 - `python -m codegen validate`: every spec against the schema, after patches.
 - `python -m codegen generate [--only ID ...] [--all]`: write `apis/*.py`, `apis/__init__.py` and `docs/api_surface.txt`. A full run also deletes generated modules no spec produces any more; `--only` never deletes. Specs whose `provenance.curated` is not true are skipped unless `--all` is given.
+- If any spec fails to load or build, `generate` writes nothing (no modules, no `apis/__init__.py`, no `docs/api_surface.txt`, no stale-module removal) and exits non-zero with the errors; `check` reports just those errors.
 - `python -m codegen check`: regenerate in memory and fail if the committed outputs differ. CI runs this.
 - `codegen/migrate_v1.py` and `migrate_streams.py` are the one-off migrations that produced the first specs from the 0.x corpus.
 
