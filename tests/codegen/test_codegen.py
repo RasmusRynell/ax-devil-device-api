@@ -434,3 +434,42 @@ def test_scalar_dca_body_of_a_secret_field_is_marked_sensitive() -> None:
     spec = make_spec("dca", binding={"root": "/r"}, operations={"set": _op(plain)})
     spec["operations"]["set"]["binding"].update(method="PATCH", path="/x", body="value", body_field="name")
     assert "sensitive" not in render_module(build(spec))
+
+
+@pytest.mark.parametrize(
+    ("op", "path"),
+    [
+        ("add", "/a/999"),  # past the end (insert would silently append)
+        ("add", "/a/3"),  # length is 2: only <= 2 is valid for add
+        ("add", "/a/-1"),  # negative index
+        ("add", "/a/01"),  # non-canonical
+        ("add", "/a/+1"),
+        ("add", "/a/ 1"),
+        ("add", "/a/1.0"),
+        ("replace", "/a/2"),  # < length for other ops
+        ("replace", "/a/-1"),
+        ("replace", "/a/-"),  # '-' only for add
+        ("remove", "/a/2"),
+        ("remove", "/a/-"),
+        ("remove", "/a/00"),
+    ],
+)
+def test_patch_array_indices_follow_json_patch_bounds(op: str, path: str) -> None:
+    from codegen.patches import PatchError, apply_patch
+
+    step: dict[str, object] = {"op": op, "path": path}
+    if op != "remove":
+        step["value"] = 9
+    with pytest.raises(PatchError):
+        apply_patch({"a": [1, 2]}, [step])
+
+
+def test_patch_array_indices_in_bounds_still_work() -> None:
+    from codegen.patches import apply_patch
+
+    base = {"a": [1, 2]}
+    assert apply_patch(base, [{"op": "add", "path": "/a/2", "value": 3}])["a"] == [1, 2, 3]
+    assert apply_patch(base, [{"op": "add", "path": "/a/0", "value": 0}])["a"] == [0, 1, 2]
+    assert apply_patch(base, [{"op": "add", "path": "/a/-", "value": 3}])["a"] == [1, 2, 3]
+    assert apply_patch(base, [{"op": "replace", "path": "/a/1", "value": 5}])["a"] == [1, 5]
+    assert apply_patch(base, [{"op": "remove", "path": "/a/0"}])["a"] == [2]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from typing import Any
 
 
@@ -18,10 +19,27 @@ def _tokens(pointer: str) -> list[str]:
     return [t.replace("~1", "/").replace("~0", "~") for t in pointer[1:].split("/")]
 
 
+_CANONICAL_INDEX = re.compile(r"0|[1-9][0-9]*")
+
+
+def _index(token: str, length: int, *, allow_end: bool = False, allow_dash: bool = False) -> int:
+    """An array index as RFC 6902 defines it: canonical digits, ``< length`` (``<= length`` for ``add``), ``-`` only for ``add``."""
+    if token == "-":
+        if allow_dash:
+            return length
+        raise PatchError("'-' (the end of the array) is only valid for add")
+    if not _CANONICAL_INDEX.fullmatch(token):
+        raise PatchError(f"array index {token!r} is not a canonical non-negative integer")
+    number = int(token)
+    if number > length or (number == length and not allow_end):
+        raise PatchError(f"array index {number} is out of range for a list of {length}")
+    return number
+
+
 def _child(container: Any, token: str, pointer: str) -> Any:
     try:
         if isinstance(container, list):
-            return container[int(token)]
+            return container[_index(token, len(container))]
         return container[token]
     except (KeyError, IndexError, ValueError, TypeError):
         raise PatchError(f"patch path {pointer!r} does not exist (failed at {token!r})") from None
@@ -58,11 +76,11 @@ def apply_patch(spec: dict[str, Any], ops: list[dict[str, Any]], *, source: str 
                 raise PatchError(f"{where}: missing value")
             if isinstance(parent, list):
                 if kind == "add":
-                    parent.insert(len(parent) if last == "-" else int(last), copy.deepcopy(op["value"]))
+                    parent.insert(_index(last, len(parent), allow_end=True, allow_dash=True), copy.deepcopy(op["value"]))
                 elif kind == "replace":
-                    parent[int(last)] = copy.deepcopy(op["value"])
+                    parent[_index(last, len(parent))] = copy.deepcopy(op["value"])
                 else:
-                    del parent[int(last)]
+                    del parent[_index(last, len(parent))]
             elif isinstance(parent, dict):
                 if kind in ("replace", "remove") and last not in parent:
                     raise PatchError(f"{where}: path does not exist")
