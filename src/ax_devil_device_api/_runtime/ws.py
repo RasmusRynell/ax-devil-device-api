@@ -276,6 +276,9 @@ MAX_UNREAD_BYTES = 64 * 1024 * 1024
 """Aggregate raw size of the unread messages a session keeps (besides the 512-message limit): past it the oldest are
 dropped. A message can be up to 8 MiB, so the count alone would allow gigabytes."""
 
+_RELEASE_LIMIT = 10.0
+"""How long a closing sync session keeps emptying httpx-ws's queue for its reader thread before giving up."""
+
 _POLL_SLICE = 0.1
 """Longest blocking wait for the transport before the reader looks at the session's terminal state again (a close or
 failure published by another thread or task interrupts the owning read within this time)."""
@@ -840,15 +843,34 @@ class Session:
     def _release_reader(self) -> None:
         """httpx-ws's reader blocks while its (small) queue is full, and then never sees the close: tell it to stop and
         empty the queue so it can finish (the session is closing, so what was queued upstream is not needed)."""
+        guard = getattr(self._raw, "connection", None)
+        if guard is not None and hasattr(guard, "stopped"):
+            guard.stopped = True  # first: nothing more is delivered, so the reader cannot block on the queue again
         flag = getattr(self._raw, "_should_close", None)
         if flag is not None:
             flag.set()
         events = getattr(self._raw, "_events", None)
-        while events is not None:
-            try:
-                events.get_nowait()
-            except queue.Empty:
-                break
+        task = getattr(self._raw, "_background_receive_task", None)
+
+        def drain() -> None:
+            while events is not None:
+                try:
+                    events.get_nowait()
+                except queue.Empty:
+                    break
+
+        drain()
+        if task is not None and events is not None:
+            # Keep emptying the queue until the reader thread is gone (bounded: a last resort, then it is abandoned).
+            def keep_draining() -> None:
+                deadline = time.monotonic() + _RELEASE_LIMIT
+                while task.is_alive() and time.monotonic() < deadline:
+                    drain()
+                    time.sleep(0.02)
+                if task.is_alive():
+                    _log.warning("the WebSocket reader thread did not stop within %s s; abandoning it", _RELEASE_LIMIT)
+
+            threading.Thread(target=keep_draining, daemon=True, name="ax-devil-ws-release").start()
 
     def close(self) -> None:
         self._core.closing_now()  # before the socket closes, so it is not mistaken for a failure

@@ -258,6 +258,9 @@ class _SizeGuard:
         self._inner = inner
         self._limit = limit
         self._size = 0
+        self.stopped = False
+        """Set when the session is closing: no further events are handed to httpx-ws's reader, so its blocking
+        ``put`` on the (small) queue can never be reached again."""
         self.last_frame: float | None = None
         """Arrival time of the last data frame."""
         self.remote_close: tuple[int, float] | None = None
@@ -269,6 +272,8 @@ class _SizeGuard:
 
     def events(self) -> Iterator[Any]:
         for event in self._inner.events():
+            if self.stopped:
+                return  # closing: frames still in this read are dropped, not queued
             if isinstance(event, wsproto.events.Message):
                 data = event.data
                 self._size += len(data.encode("utf-8")) if isinstance(data, str) else len(data)
