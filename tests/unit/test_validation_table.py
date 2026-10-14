@@ -184,3 +184,41 @@ def test_quotes_and_backslashes_in_names_are_still_escaped_not_rejected() -> Non
     encoded = encode_multipart(MultipartBody((), (FilePart('a"b', 'c\\d"e.bin', b"x"),), boundary="B"))
     assert isinstance(encoded.content, bytes) and b'name="a%22b"' in encoded.content
     assert b'filename="c\\\\d%22e.bin"' in encoded.content
+
+
+# --- every MediaStream field is checked ------------------------------------------------------------------------------------
+
+MEDIA_BAD: dict[str, list[Any]] = {
+    "rotation": [True, 90.0, float("nan"), 45, "90", -90, 360],
+    "videocodec": [False, 1, "", b"h264"],
+    "streamprofile": [0, ""],
+    "recordingid": [0, ""],
+    "palette": [True, ""],
+    "eventtopic": [1, ""],
+    "eventcontent": [1, ""],
+    "resolution": [1280, True, "1280*720", ""],
+    "overlays": [True, 1, "everything"],
+    "ptz": [True, "pan"],
+    "analytics": [0, "circle"],
+    "ptz_pantilt_coordinate_space": [1, "radians"],
+    "ptz_zoom_coordinate_space": [1, "degrees"],
+    "camera": [True, 1.5, "2", "Quad", 0],
+    "extra": ["a=b", (("a", 1),), (("a",),), [("a", "b")]],
+}
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [pytest.param(f, v, id=f"{f}={v!r}") for f, values in MEDIA_BAD.items() for v in values]
+)
+def test_media_stream_rejects_invalid_field_values(field: str, value: Any) -> None:
+    with pytest.raises(ConfigurationError):
+        MediaStream(**{field: value})
+
+
+def test_media_stream_accepts_documented_values() -> None:
+    stream = MediaStream(
+        videocodec="h264", rotation=90, overlays="all-sync", ptz="position", analytics="box", camera="quad",
+        resolution="1280x720", extra=(("x", "y"),), audio=False,
+    )
+    assert ("rotation", "90") in stream.query() and ("audio", "0") in stream.query()
+    assert MediaStream(rotation=0).query() == (("rotation", "0"),)

@@ -121,6 +121,15 @@ def build_rtsp_url(
 
 
 _MEDIA_FLAGS = ("audio", "video", "mirror", "color", "squarepixel", "event", "pull")
+_MEDIA_TEXT = ("videocodec", "streamprofile", "recordingid", "palette", "eventtopic", "eventcontent")
+_MEDIA_CHOICES: dict[str, tuple[int | str, ...]] = {
+    "rotation": (0, 90, 180, 270),
+    "overlays": ("all", "text", "image", "application", "off", "all-sync", "application-sync"),
+    "ptz": ("none", "all", "status", "position"),
+    "analytics": ("off", "box", "polygon"),
+    "ptz_pantilt_coordinate_space": ("generic", "degrees", "digital"),
+    "ptz_zoom_coordinate_space": ("generic", "digital"),
+}
 
 
 @dataclass(frozen=True)
@@ -163,11 +172,24 @@ class MediaStream:
     extra: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        if self.resolution is not None and not _RESOLUTION.match(self.resolution):
+        if self.resolution is not None and not (isinstance(self.resolution, str) and _RESOLUTION.match(self.resolution)):
             raise ConfigurationError(f"resolution must look like 1280x720: {self.resolution!r}")
         for flag in _MEDIA_FLAGS:
             if getattr(self, flag) is not None:
                 boolean(flag, getattr(self, flag))
+        for name in _MEDIA_TEXT:
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value):
+                raise ConfigurationError(f"{name} must be a non-empty string, got {value!r}")
+        for name, choices in _MEDIA_CHOICES.items():
+            value = getattr(self, name)
+            # ``type(...) is`` keeps True/1.0 from passing for 1/90 (and ``in`` would accept both).
+            if value is not None and not any(type(value) is type(choice) and value == choice for choice in choices):
+                raise ConfigurationError(f"{name} must be one of {', '.join(map(repr, choices))}, got {value!r}")
+        if not isinstance(self.extra, tuple) or not all(
+            isinstance(pair, tuple) and len(pair) == 2 and all(isinstance(part, str) for part in pair) for pair in self.extra
+        ):
+            raise ConfigurationError("extra must be a tuple of (name, value) string pairs")
         if self.fps is not None:
             non_negative_int("fps", self.fps)
         if self.compression is not None:
