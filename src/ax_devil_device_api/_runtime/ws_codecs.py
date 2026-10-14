@@ -174,6 +174,8 @@ class EventsCodec:
             return Reply(_ctx(message), error=_error(self.api_id, message["error"]))
         if "data" in message:
             return Reply(_ctx(message), result=message["data"])
+        if _ctx(message) is not None:  # a correlated message must always resolve its waiter, never vanish
+            raise ResponseFormatError(self.api_id, "receive", "a reply with neither data nor error")
         return None
 
     @staticmethod
@@ -284,6 +286,8 @@ class DataHubCodec:
             return Reply(rid, error=_error(self.api_id, message["error"]))
         if "result" in message:
             return Reply(rid, result=message["result"])
+        if rid is not None and "method" not in message:  # a response with neither result nor error
+            raise ResponseFormatError(self.api_id, "receive", "a reply with neither result nor error")
         return None
 
     @staticmethod
