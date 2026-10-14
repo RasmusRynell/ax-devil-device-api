@@ -830,10 +830,24 @@ class Session:
             if found is not None:
                 yield found.item
 
+    def _release_reader(self) -> None:
+        """httpx-ws's reader blocks while its (small) queue is full, and then never sees the close: tell it to stop and
+        empty the queue so it can finish (the session is closing, so what was queued upstream is not needed)."""
+        flag = getattr(self._raw, "_should_close", None)
+        if flag is not None:
+            flag.set()
+        events = getattr(self._raw, "_events", None)
+        while events is not None:
+            try:
+                events.get_nowait()
+            except queue.Empty:
+                break
+
     def close(self) -> None:
         self._core.closing_now()  # before the socket closes, so it is not mistaken for a failure
         self._core.close_locally()
         self._publish()  # pending requests and the reader owner see SessionClosed now, not at their timeout
+        self._release_reader()
         try:
             self._raw.close()
         except _CLOSE_ERRORS:
@@ -903,6 +917,7 @@ def connect_session(
                 core.closing_now()
                 core.close_locally()
                 session._publish()
+                session._release_reader()
     finally:
         core.finish(user_exit_error=error)
 

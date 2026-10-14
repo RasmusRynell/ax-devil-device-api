@@ -22,6 +22,7 @@ import wsproto.events
 from httpx_ws import AsyncWebSocketSession, WebSocketSession
 
 from .. import errors
+from .._validate import positive_int
 from . import debug
 from .auth import AxisAuth
 from .config import ConnectionConfig
@@ -234,6 +235,11 @@ class UpgradeRefused(Exception):
 
 MAX_WS_MESSAGE_BYTES = 8 * 1024 * 1024
 WS_QUEUE_SIZE = 512
+"""How many unread messages the session layer keeps (it also has a byte budget, see ``_runtime/ws.py``)."""
+WS_UPSTREAM_QUEUE_SIZE = positive_int("WS_UPSTREAM_QUEUE_SIZE", 16)
+"""httpx-ws's own ``queue_size``: complete messages its reader may hold before the session layer takes them. Small on
+purpose (a message can be 8 MiB): a full queue blocks that reader, which is TCP backpressure; the session layer's
+byte-accounted queue is the real bound."""
 LIMIT_CLOSE_CODE = 1009
 LIMIT_CLOSE_REASON = "message too big (ax-devil limit)"
 """Close code and reason of the synthetic close the size guard injects."""
@@ -547,7 +553,7 @@ class SyncTransport:
                 session = WebSocketSession(
                     raw.extensions["network_stream"],
                     max_message_size_bytes=MAX_WS_MESSAGE_BYTES,
-                    queue_size=WS_QUEUE_SIZE,
+                    queue_size=WS_UPSTREAM_QUEUE_SIZE,
                     keepalive_ping_interval_seconds=heartbeat.interval,
                     keepalive_ping_timeout_seconds=heartbeat.timeout,
                     response=raw,
@@ -688,7 +694,7 @@ class AsyncTransport:
                 session = AsyncWebSocketSession(
                     raw.extensions["network_stream"],
                     max_message_size_bytes=MAX_WS_MESSAGE_BYTES,
-                    queue_size=WS_QUEUE_SIZE,
+                    queue_size=WS_UPSTREAM_QUEUE_SIZE,
                     keepalive_ping_interval_seconds=heartbeat.interval,
                     keepalive_ping_timeout_seconds=heartbeat.timeout,
                     response=raw,
