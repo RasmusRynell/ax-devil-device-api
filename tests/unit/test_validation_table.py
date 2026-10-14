@@ -94,3 +94,47 @@ def test_cli_numeric_flags_are_validated(argv: list[str]) -> None:
     code = main(argv, out=out, err=err)
     assert code == 2 and "Traceback" not in err.getvalue()
     assert json.loads(err.getvalue().splitlines()[-1])["error"]["type"] == "UsageError"
+
+
+# --- boolean inputs accept only True/False --------------------------------------------------------------------------------
+
+
+def _device(**kw: Any) -> Any:
+    from ax_devil_device_api import Device
+
+    return Device("cam", credentials=("u", "p"), **kw)
+
+
+BOOL_INPUTS: dict[str, tuple[Callable[[Any], Any], bool]] = {
+    # name -> (constructor, None is valid)
+    "ConnectionConfig.allow_http": (lambda v: ConnectionConfig("cam", scheme="http", allow_http=v), False),
+    "Device.allow_http": (lambda v: _device(scheme="http", allow_http=v), False),
+    "RetryPolicy.retry_unsent": (lambda v: RetryPolicy(retry_unsent=v), False),
+    "RetryPolicy.retry_reads": (lambda v: RetryPolicy(retry_reads=v), False),
+    "Device.rtsp_url.include_credentials": (lambda v: _device().rtsp_url(include_credentials=v), False),
+    "Device.connect_session.use_token": (lambda v: _device().connect_session(object(), use_token=v), False),  # type: ignore[arg-type]
+    **{
+        f"MediaStream.{flag}": ((lambda v, flag=flag: MediaStream(**{flag: v})), True)
+        for flag in ("audio", "video", "mirror", "color", "squarepixel", "event", "pull")
+    },
+}
+
+
+def _bool_cases() -> list[Any]:
+    cases = []
+    for name, (build, none_ok) in BOOL_INPUTS.items():
+        for value in ["false", "true", 0, 1, 2.0, *([] if none_ok else [None])]:
+            cases.append(pytest.param(build, value, id=f"{name}={value!r}"))
+    return cases
+
+
+@pytest.mark.parametrize(("build", "value"), _bool_cases())
+def test_boolean_inputs_reject_truthy_and_falsy_non_booleans(build: Callable[[Any], Any], value: Any) -> None:
+    with pytest.raises(ConfigurationError):
+        build(value)
+
+
+def test_plain_http_needs_a_real_true() -> None:
+    assert ConnectionConfig("cam", scheme="http", allow_http=True).allow_http is True
+    with pytest.raises(ConfigurationError):
+        ConnectionConfig("cam", scheme="http", allow_http=False)

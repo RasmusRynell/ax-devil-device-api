@@ -58,6 +58,7 @@ from ._runtime.ws import (
     connect_session,
     connect_session_async,
 )
+from ._validate import boolean
 from .apis import Apis, AsyncApis
 from .apis._base import AsyncApi, SyncApi, build_params
 from .errors import ConfigurationError
@@ -120,6 +121,7 @@ class _DeviceBase:
         )
 
     def _rtsp_credentials(self, include: bool) -> Credentials | None:
+        boolean("include_credentials", include)
         credentials = self.config.credentials
         if include and not isinstance(credentials, Credentials):
             raise ConfigurationError("include_credentials needs a username and password (BearerToken cannot be used for RTSP)")
@@ -234,6 +236,7 @@ class Device(_DeviceBase):
         ``use_token=True`` authenticates through ``wssession.cgi`` instead of the handshake.
         The session holds one of the device's stream slots until the ``with`` block ends.
         """
+        boolean("use_token", use_token)
         return connect_session(
             self._transport, self._ledger, self._call(None, request_options, spec.api_id), spec, options,
             heartbeat=heartbeat, use_token=use_token,
@@ -401,6 +404,7 @@ class AsyncDevice(_DeviceBase):
         **options: Any,
     ) -> AbstractAsyncContextManager[AsyncSession]:
         """Open a WebSocket session; use as ``async with dev.connect_session(EVENTS, event_filter_list=...) as s``."""
+        boolean("use_token", use_token)
         return connect_session_async(
             self._transport, self._ledger, self._call(None, request_options, spec.api_id), spec, options,
             heartbeat=heartbeat, use_token=use_token,

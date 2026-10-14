@@ -26,7 +26,7 @@ from urllib.parse import quote
 from ._http.config import BearerToken, Credentials, check_host
 from ._http.types import unsafe_path
 from ._protocols.base import CallFlow, Model, Operation, register_binding
-from ._validate import bounded_int, non_negative_int
+from ._validate import boolean, bounded_int, non_negative_int
 from .errors import ConfigurationError
 
 if TYPE_CHECKING:
@@ -120,6 +120,9 @@ def build_rtsp_url(
     return RtspUrl(host, port, path, query, user, password)
 
 
+_MEDIA_FLAGS = ("audio", "video", "mirror", "color", "squarepixel", "event", "pull")
+
+
 @dataclass(frozen=True)
 class MediaStream:
     """Parameters of ``/axis-media/media.amp``. Only the ones you set go into the URL, in field order.
@@ -162,6 +165,9 @@ class MediaStream:
     def __post_init__(self) -> None:
         if self.resolution is not None and not _RESOLUTION.match(self.resolution):
             raise ConfigurationError(f"resolution must look like 1280x720: {self.resolution!r}")
+        for flag in _MEDIA_FLAGS:
+            if getattr(self, flag) is not None:
+                boolean(flag, getattr(self, flag))
         if self.fps is not None:
             non_negative_int("fps", self.fps)
         if self.compression is not None:

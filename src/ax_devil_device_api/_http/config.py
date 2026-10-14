@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
-from .._validate import bounded_int, positive_finite, positive_int
+from .._validate import boolean, bounded_int, positive_finite, positive_int
 from ..errors import ConfigurationError
 from .options import RetryPolicy
 from .types import unsafe_path
@@ -126,6 +126,7 @@ class ConnectionConfig:
 
     def __post_init__(self) -> None:
         check_host(self.host)
+        boolean("allow_http", self.allow_http)
         if self.scheme not in ("https", "http"):
             raise ConfigurationError(f"Invalid scheme: {self.scheme!r}")
         if self.proxy is not None:
