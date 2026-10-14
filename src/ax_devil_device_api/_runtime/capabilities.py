@@ -131,9 +131,10 @@ class Capabilities:
                 properties.update(found)
             groups |= {k[len(PROPERTY_SCOPE_PREFIX):] for k in extra}
         errors = dict(errors)
-        for name, versions in (values.get("dca_apis") or {}).items():
-            if isinstance(versions, MalformedEntry):
-                errors[f"dca_apis[{name}]"] = versions.reason  # recorded with the probe errors; the probe itself worked
+        for probe in ("classic_apis", "dca_apis"):
+            for name, listed in (values.get(probe) or {}).items():
+                if problems_of(listed):  # recorded with the probe errors; the probe itself worked
+                    errors[f"{probe}[{name}]"] = "; ".join(problems_of(listed))
         return cls(
             classic_apis=values.get("classic_apis"),
             dca_apis=values.get("dca_apis"),
@@ -212,33 +213,71 @@ def identity_flow(state: DeviceState) -> CallFlow[DeviceIdentity]:
     )
 
 
-def classic_apis_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
+def classic_apis_flow(state: DeviceState) -> CallFlow[dict[str, Advertised]]:
     data = yield from jsonrpc_flow(_GET_API_LIST, None, state)
     entries = data.get("apiList") if isinstance(data, dict) else None
     if not isinstance(entries, list):
         raise ResponseFormatError("api-discovery", "get_api_list", "response has no apiList array")
-    return {
-        str(entry["id"]): str(entry.get("version", ""))
-        for entry in entries
-        if isinstance(entry, dict) and isinstance(entry.get("id"), str)
-    }
+    versions: dict[str, list[str]] = {}
+    problems: dict[str, list[str]] = {}
+    for index, entry in enumerate(entries):
+        ident = entry.get("id") if isinstance(entry, dict) else None
+        if not isinstance(entry, dict) or not isinstance(ident, str) or not ident:
+            problems.setdefault(f"<entry {index}>", []).append(malformed_reason("apiList", index, entry, "an object with an id"))
+            continue
+        version = entry.get("version")
+        if not isinstance(version, str) or not version:
+            problems.setdefault(ident, []).append(malformed_reason("apiList", ident, entry, "an entry with a version"))
+            continue
+        versions.setdefault(ident, []).append(version)  # every advertised version is kept (1.0 and 2.0)
+    result = {ident: Advertised(tuple(found), tuple(problems.pop(ident, ()))) for ident, found in versions.items()}
+    for ident, reasons in problems.items():
+        result[ident] = Advertised((), tuple(reasons))
+    return result
 
 
-class MalformedEntry(frozenset[str]):
-    """An API the discovery lists in the wrong shape: it has no readable versions, so support for it is unknown
-    (never a definitive NO), while the other entries of the same answer still count."""
+def malformed_reason(source: str, name: Any, value: Any, expected: str) -> str:
+    """The one wording of a malformed discovery entry (the classic apiList and ``/config/discover`` share it)."""
+    return f"{source} lists {name!r} as {value!r}, not {expected}"
 
-    reason: str
 
-    def __new__(cls, reason: str) -> MalformedEntry:
-        entry = super().__new__(cls)
-        entry.reason = reason
-        return entry
+def problems_of(value: Any) -> tuple[str, ...]:
+    """The format errors a discovery value carries (``()`` for a well-formed one). The one helper both paths use:
+    an API with problems is *unknown* unless a well-formed entry already answers; it is never a definitive NO, and the
+    probe result holding it is not cached."""
+    return tuple(getattr(value, "problems", ()))
 
 
 def probe_is_complete(value: Any) -> bool:
     """Whether a probe result is definitive and may be cached (a result with a malformed entry is not)."""
-    return not (isinstance(value, Mapping) and any(isinstance(item, MalformedEntry) for item in value.values()))
+    return not (isinstance(value, Mapping) and any(problems_of(item) for item in value.values()))
+
+
+class MalformedEntry(frozenset[str]):
+    """A ``/config/discover`` API listed in the wrong shape: it has no readable versions."""
+
+    reason: str
+    problems: tuple[str, ...]
+
+    def __new__(cls, reason: str) -> MalformedEntry:
+        entry = super().__new__(cls)
+        entry.reason = reason
+        entry.problems = (reason,)
+        return entry
+
+
+class Advertised(str):
+    """The versions the classic apiList advertises for one id (it may list several: 1.0 and 2.0). Compares and prints
+    as the versions joined by ``", "``; ``problems`` holds the malformed entries seen for that id."""
+
+    versions: tuple[str, ...]
+    problems: tuple[str, ...]
+
+    def __new__(cls, versions: tuple[str, ...], problems: tuple[str, ...] = ()) -> Advertised:
+        entry = super().__new__(cls, ", ".join(versions))
+        entry.versions = versions
+        entry.problems = problems
+        return entry
 
 
 def dca_apis_flow(state: DeviceState) -> CallFlow[dict[str, frozenset[str]]]:
@@ -440,24 +479,32 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
             if caps.classic_apis is None:
                 unknown.append(f"classic API discovery failed: {caps.errors.get('classic_apis')}")
                 continue
-            version = caps.classic_apis.get(method.id)
-            if version is not None:
-                if info.major is not None and not version.startswith(f"{info.major}."):
+            listed = caps.classic_apis.get(method.id)
+            if listed is not None:
+                advertised = getattr(listed, "versions", (str(listed),) if listed else ())
+                # Any advertised version that fits answers YES (an id may list 1.0 and 2.0).
+                fitting = [v for v in advertised if info.major is None or v.startswith(f"{info.major}.")]
+                if fitting:
+                    return SupportResult(Support.YES, f"listed by API discovery as {method.id} {fitting[0]}", observed_at=caps.observed_at)
+                if problems_of(listed):
+                    unknown.extend(problems_of(listed))
+                    continue
+                if advertised:
                     return SupportResult(
-                        Support.NO, f"device has {method.id} version {version}, this client speaks {info.major}.x",
+                        Support.NO,
+                        f"device has {method.id} version {', '.join(advertised)}, this client speaks {info.major}.x",
                         observed_at=caps.observed_at,
                     )
-                return SupportResult(Support.YES, f"listed by API discovery as {method.id} {version}", observed_at=caps.observed_at)
         elif isinstance(method, DcaDiscovery):
             if caps.dca_apis is None:
                 unknown.append(f"Device Configuration discovery failed: {caps.errors.get('dca_apis')}")
                 continue
             listed = caps.dca_apis.get(method.api, frozenset())
-            if isinstance(listed, MalformedEntry):
-                unknown.append(listed.reason)
-                continue
             if method.version in listed:
                 return SupportResult(Support.YES, f"listed by /config/discover as {method.api} {method.version}", observed_at=caps.observed_at)
+            if problems_of(listed):
+                unknown.extend(problems_of(listed))
+                continue
         elif isinstance(method, ParamDiscovery):
             name = _normalized(method.name)
             value = (caps.properties or {}).get(name)
