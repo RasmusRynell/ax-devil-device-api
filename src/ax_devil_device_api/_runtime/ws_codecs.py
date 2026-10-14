@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
+from pydantic import ValidationError
+
 from ..errors import ApiAccessDenied, ApiError, ApiUnavailable, ErrorKind, ResponseFormatError
 
 JsonObject = Mapping[str, Any]
@@ -163,10 +165,11 @@ class EventsCodec:
 
     @staticmethod
     def _notification(message: Mapping[str, Any]) -> Notification | None:
-        raw = _mapping(_mapping(message.get("params")).get("notification"))
-        topic = raw.get("topic")
-        if not isinstance(topic, str):
-            return None
+        raw = _mapping(message.get("params")).get("notification")
+        topic = raw.get("topic") if isinstance(raw, Mapping) else None
+        if not isinstance(raw, Mapping) or not isinstance(topic, str):
+            # events:notify carries a notification object with a topic; anything else is malformed, not droppable
+            raise ResponseFormatError("event-streaming-over-websocket", "receive", "events:notify without a notification topic")
         body = _mapping(raw.get("message"))
         millis = raw.get("timestamp")
         stamp = _epoch_millis(millis)
@@ -266,26 +269,29 @@ class DataHubCodec:
 
     @staticmethod
     def _sample(params: Mapping[str, Any]) -> Notification | None:
-        topic, subscription = params.get("topic"), params.get("subscriptionId")
-        if not isinstance(topic, str) or not isinstance(subscription, str):
-            return None
-        stamp: datetime | None = None
-        text = params.get("timestamp")
-        if isinstance(text, str):
-            try:
-                stamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            except (ValueError, OverflowError):
-                stamp = None
-        historical = params.get("isHistorical", False)  # absent means not historical; present must be a JSON boolean
-        if not isinstance(historical, bool):
+        """A ``topicSample``, validated as a whole against the generated ``TopicSampleParams`` (strict types: a required
+        field that is missing or of the wrong type is a malformed message, never a silent drop or a default).
+        ``isHistorical`` keeps its semantics: a real bool, and absent means ``False``."""
+        # The generated schema, imported late because that module imports this one.
+        from .._protocols.base import RESPONSE_CONTEXT
+        from ..apis.device_data_hub_ws import TopicSampleParams
+
+        try:
+            checked = TopicSampleParams.model_validate(
+                {"isHistorical": False, **params}, strict=True, context={RESPONSE_CONTEXT: True}
+            )
+        except ValidationError as error:
+            fields = ", ".join(sorted({".".join(str(part) for part in item["loc"]) for item in error.errors()}))
             raise ResponseFormatError(
-                "datahub-streaming-over-websocket", "receive", f"isHistorical must be true or false, got {historical!r}"
-            )
+                "datahub-streaming-over-websocket", "receive", f"malformed topicSample: invalid or missing {fields}"
+            ) from None
+        stamp: datetime | None = None
+        try:
+            stamp = datetime.fromisoformat(checked.timestamp.replace("Z", "+00:00"))
+        except (ValueError, OverflowError):
+            stamp = None  # the text is required, but an unparsable time leaves the timestamp unset
         return Notification(
-            TopicSample(
-                subscription, topic, _required_object(params, "instance"), _required_object(params, "data"), stamp,
-                historical, params,
-            )
+            TopicSample(checked.subscription_id, checked.topic, checked.instance, checked.data, stamp, checked.is_historical, params)
         )
 
     def error_kind(self, code: int | str | None) -> ErrorKind | None:
