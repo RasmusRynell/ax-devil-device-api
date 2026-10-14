@@ -76,7 +76,7 @@ def _make_config(
     options: dict[str, Any],
 ) -> ConnectionConfig:
     if isinstance(credentials, tuple):
-        credentials = Credentials(*credentials)
+        credentials = Credentials.from_pair(credentials)
     retry = options.pop("retry", None)
     if retry is not None:
         options["retry"] = retry

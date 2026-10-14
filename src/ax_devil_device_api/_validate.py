@@ -54,6 +54,13 @@ def non_negative_finite(name: str, value: Any) -> float:
     return value
 
 
+def text(name: str, value: Any, *, allow_empty: bool = False) -> str:
+    """``value`` as a real ``str`` (never ``None``, ``bytes`` or a number); empty only with ``allow_empty``."""
+    if not isinstance(value, str) or (not value and not allow_empty):
+        raise ConfigurationError(f"{name} must be {'a' if allow_empty else 'a non-empty'} string, got {value!r}")
+    return value
+
+
 def boolean(name: str, value: Any) -> bool:
     if not isinstance(value, bool):
         raise ConfigurationError(f"{name} must be True or False, got {value!r}")

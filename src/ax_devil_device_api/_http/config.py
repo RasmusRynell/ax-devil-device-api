@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
-from .._validate import boolean, bounded_int, positive_finite, positive_int
+from .._validate import boolean, bounded_int, positive_finite, positive_int, text
 from ..errors import ConfigurationError
 from .options import RetryPolicy
 from .types import unsafe_path
@@ -34,6 +34,18 @@ class Credentials:
     username: str
     password: str
 
+    def __post_init__(self) -> None:
+        # A password read from an unset environment variable is None: refuse it instead of sending "None".
+        text("username", self.username)
+        text("password", self.password, allow_empty=True)
+
+    @classmethod
+    def from_pair(cls, pair: Any) -> Credentials:
+        """``Credentials`` from the ``(username, password)`` tuple form."""
+        if not isinstance(pair, tuple) or len(pair) != 2:
+            raise ConfigurationError("credentials given as a tuple must be (username, password)")
+        return cls(*pair)
+
     def __repr__(self) -> str:
         return f"Credentials(username={self.username!r}, password=<redacted>)"
 
@@ -48,8 +60,13 @@ class BearerToken:
 
     token: str | Callable[[], str]
 
+    def __post_init__(self) -> None:
+        if not callable(self.token):
+            text("token", self.token)
+
     def current(self) -> str:
-        return self.token() if callable(self.token) else self.token
+        token = self.token() if callable(self.token) else self.token
+        return text("token", token)
 
     def __repr__(self) -> str:
         return "BearerToken(<redacted>)"

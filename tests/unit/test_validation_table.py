@@ -283,3 +283,64 @@ def test_missing_password_credentials_give_a_library_error_not_an_assert() -> No
     state = type("S", (), {"header": lambda *a: "x"})()
     with pytest.raises(AuthError):
         flow._sign(state, request)  # type: ignore[attr-defined]
+
+
+# --- credentials must be strings (an unset environment variable is None) -----------------------------------------------------
+
+BAD_TEXT = [None, 5, b"secret", 1.5, True]
+
+
+def _creds(username: Any, password: Any) -> Any:
+    from ax_devil_device_api._http.config import Credentials
+
+    return Credentials(username, password)
+
+
+def _bearer(token: Any) -> Any:
+    from ax_devil_device_api._http.config import BearerToken
+
+    return BearerToken(token)
+
+
+CREDENTIAL_BUILDERS: dict[str, Callable[[Any], Any]] = {
+    "Credentials.username": lambda v: _creds(v, "pw"),
+    "Credentials.password": lambda v: _creds("root", v),
+    "BearerToken.token": _bearer,
+    "Device tuple username": lambda v: _device_with((v, "pw")),
+    "Device tuple password": lambda v: _device_with(("root", v)),
+    "build_rtsp_url tuple password": lambda v: build_rtsp_url("cam", credentials=("root", v)),
+}
+
+
+def _device_with(pair: Any) -> Any:
+    from ax_devil_device_api import Device
+
+    return Device("cam", credentials=pair)
+
+
+@pytest.mark.parametrize(
+    ("build", "value"),
+    [pytest.param(b, v, id=f"{n}={v!r}") for n, b in CREDENTIAL_BUILDERS.items() for v in BAD_TEXT],
+)
+def test_credentials_reject_non_string_values(build: Callable[[Any], Any], value: Any) -> None:
+    with pytest.raises(ConfigurationError):
+        build(value)
+
+
+@pytest.mark.parametrize("pair", [("root",), ("a", "b", "c"), "root:pw", ["root", "pw"]])
+def test_credentials_tuple_form_needs_exactly_a_pair(pair: Any) -> None:
+    with pytest.raises(ConfigurationError):
+        _device_with(pair)
+
+
+def test_empty_password_is_allowed_but_an_empty_username_is_not() -> None:
+    assert _creds("root", "").password == ""
+    with pytest.raises(ConfigurationError):
+        _creds("", "pw")
+    assert _device_with(("root", "pw")).config.credentials.username == "root"  # type: ignore[union-attr]
+
+
+def test_a_bearer_token_callable_must_return_a_string() -> None:
+    assert _bearer(lambda: "t").current() == "t"
+    with pytest.raises(ConfigurationError):
+        _bearer(lambda: None).current()

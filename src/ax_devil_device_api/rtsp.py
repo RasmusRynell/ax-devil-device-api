@@ -115,7 +115,7 @@ def build_rtsp_url(
     if isinstance(credentials, BearerToken):
         raise ConfigurationError("RTSP URLs take a username and password, not a bearer token")
     if isinstance(credentials, tuple):
-        credentials = Credentials(*credentials)
+        credentials = Credentials.from_pair(credentials)
     user, password = (credentials.username, credentials.password) if credentials else (None, None)
     return RtspUrl(host, port, path, query, user, password)
 
