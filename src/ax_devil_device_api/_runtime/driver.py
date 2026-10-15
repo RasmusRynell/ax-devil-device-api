@@ -18,7 +18,7 @@ from typing import Any, Generic, Protocol, TypeVar
 from .._http.config import ResponseHook
 from .._http.debug import public_response, redact_path
 from .._http.options import RetryPolicy
-from .._http.types import Request, Response, has_deferred, resolve_deferred
+from .._http.types import Request, Response, has_deferred, release_deferred, resolve_deferred
 from .._protocols.base import CallFlow, Operation, StreamDecoder
 from ..errors import ConnectionFailed, ReadTimeout, TransportError
 
@@ -286,9 +286,12 @@ def run_sync(transport: SyncTransportLike, flow: CallFlow[Any], call: Call = DEF
         return done.value
     while True:
         request = call.prepare(request)
-        if request.stream:
-            return _finish_stream_sync(transport, flow, request, call)
-        response = _send_sync(transport, request, call)
+        try:
+            if request.stream:
+                return _finish_stream_sync(transport, flow, request, call)
+            response = _send_sync(transport, request, call)
+        finally:
+            release_deferred(request)  # a one-shot upload source leased for this call but never read is free again
         try:
             request = flow.send(response)
         except StopIteration as done:
@@ -339,9 +342,12 @@ async def run_async(transport: AsyncTransportLike, flow: CallFlow[Any], call: Ca
         return done.value
     while True:
         request = await call.aprepare(request)
-        if request.stream:
-            return await _finish_stream_async(transport, flow, request, call)
-        response = await _send_async(transport, request, call)
+        try:
+            if request.stream:
+                return await _finish_stream_async(transport, flow, request, call)
+            response = await _send_async(transport, request, call)
+        finally:
+            release_deferred(request)
         try:
             request = flow.send(response)
         except StopIteration as done:

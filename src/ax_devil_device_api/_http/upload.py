@@ -49,8 +49,9 @@ class Upload:
     """Held while the stream is read (in a worker thread for async calls): a cancelled call cannot stop a read that
     is running, so a retry waits for it and then reuses the buffer instead of reading the one-shot stream twice."""
     _failure: Exception | None = field(default=None, init=False, repr=False)
-    _started: bool = field(default=False, init=False, repr=False)
-    """A large (streamed, not buffered) source was read from: it cannot be sent again from its current position."""
+    _state: str = field(default="idle", init=False, repr=False)
+    """For a large (streamed) source: ``idle``, ``leased`` (a call prepared it and has not read yet; released when that call
+    ends) or ``consumed`` (its first read happened: it cannot be sent again from its current position)."""
     _buffer: bytes | None = field(default=None, init=False, repr=False)
     """Content of a small upload, kept after the first read: the stream is one-shot, so a call that failed before
     the body was sent (no free slot, a failing hook, a connection error) can be repeated with the same source."""
@@ -61,6 +62,25 @@ class Upload:
             check_header_text("Upload filename", self.filename)
         if self.content_type is not None:
             check_header_text("Upload content_type", self.content_type)
+
+    def _lease(self) -> None:
+        """Claim the source for one call, atomically: a second call (concurrent or later) fails locally, before sending."""
+        with self._lock:
+            if self._state == "consumed":
+                raise ConfigurationError("one-shot upload source already consumed; create a new Upload")
+            if self._state == "leased":
+                raise ConfigurationError("one-shot upload source is already in use by another call; create a new Upload")
+            self._state = "leased"
+
+    def release(self) -> None:
+        """The call that leased the source ended. If it never read, the source is untouched and can be used again."""
+        with self._lock:
+            if self._state == "leased":
+                self._state = "idle"
+
+    def _consume(self) -> None:
+        with self._lock:
+            self._state = "consumed"
 
     def _buffered(self) -> bytes:
         """The whole content of a small upload, read once under the lock and kept; a failed read stays failed."""
@@ -126,14 +146,18 @@ class _StreamChunks:
     def __init__(self, stream: BinaryIO, size: int, owner: Upload) -> None:
         self._stream, self._size, self._owner = stream, size, owner
 
+    def release(self) -> None:
+        self._owner.release()
+
     def __iter__(self) -> Iterator[bytes]:
-        self._owner._started = True  # from here on the stream is no longer at its start
-        return _read_exactly(self._stream, self._size)
+        return _read_exactly(self._stream, self._size, self._owner)
 
 
-def _read_exactly(stream: BinaryIO, size: int) -> Iterator[bytes]:
+def _read_exactly(stream: BinaryIO, size: int, owner: Upload | None = None) -> Iterator[bytes]:
     remaining = size
     while remaining:
+        if owner is not None:
+            owner._consume()  # the first read: from here on the stream is no longer at its start
         chunk = stream.read(min(CHUNK_SIZE, remaining))
         if not chunk:
             raise ValueError(f"upload stream ended {remaining} bytes before its declared size of {size}")
@@ -166,8 +190,7 @@ def _load(value: UploadSource) -> tuple[bytes | _PathChunks | _StreamChunks, int
     if isinstance(value, Upload):
         if value.size <= INLINE_LIMIT:
             return value._buffered(), value.size
-        if value._started:
-            raise ConfigurationError("one-shot upload source already consumed; create a new Upload")
+        value._lease()
         return _StreamChunks(value.stream, value.size, value), value.size
     path = os.fspath(value)
     size = os.stat(path).st_size
