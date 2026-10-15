@@ -7,6 +7,7 @@ values and parse ``Response`` values without doing I/O.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
@@ -78,14 +79,21 @@ def loads_json(data: str | bytes) -> Any:
         raise ValueError("JSON is nested too deeply") from None
 
 
-def check_header_text(name: str, value: Any) -> None:
-    """Reject CR, LF and NUL in a value that ends up in a header (or a multipart part header).
+_HEADER_CONTROL = re.compile("[\x00-\x08\x0a-\x1f\x7f]")
 
-    A caller-supplied file name or content type is often end-user data; unchecked, it could end the header and
-    inject another, or end the part early.
+
+def check_header_text(name: str, value: Any) -> None:
+    """Reject every control character but tab in a value that ends up in a header (or a multipart part header).
+
+    CR, LF and NUL could end the header and inject another, or end the part early; the other C0 controls and DEL are
+    refused by the HTTP client at send time, which would surface as a transport failure instead of a configuration
+    error. A caller-supplied file name or content type is often end-user data. The message names the setting, never
+    the value.
     """
-    if not isinstance(value, str) or any(c in value for c in "\r\n\0"):
-        raise ConfigurationError(f"{name} must be a string without CR, LF or NUL characters, got {value!r}")
+    if not isinstance(value, str):
+        raise ConfigurationError(f"{name} must be a string, got {type(value).__name__}")
+    if _HEADER_CONTROL.search(value):
+        raise ConfigurationError(f"{name} must not contain control characters (CR, LF, NUL and the other C0 controls except tab, or DEL)")
 
 
 class DeferredContent:
