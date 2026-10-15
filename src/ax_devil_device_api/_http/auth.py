@@ -386,7 +386,8 @@ class _Flow(httpx.Auth):
             candidate = _state_from_challenges(response)
             self._sign(candidate, request)
             response = yield request
-            if 200 <= response.status_code < 300:
+            # 101 Switching Protocols is the success of an authenticated WebSocket upgrade.
+            if 200 <= response.status_code < 300 or response.status_code == 101:
                 owner._promote(candidate)
                 return
             if response.status_code != 401:
