@@ -272,7 +272,8 @@ def _cmd_apis(args: argparse.Namespace, out: TextIO, err: TextIO) -> None:
     if args.supported:
         from .. import Support
 
-        results = api_support(make_device(args), entries)
+        with make_device(args) as dev:  # closed like every other device command: repeated in-process main() must not leak pools
+            results = api_support(dev, entries)
         _warn(_check_discovery(results), err)
         support = {n: r for n, r in results.items() if r.status is Support.YES}
     emit(
