@@ -40,6 +40,7 @@ from .._protocols.base import (
     Operation,
     ParamDiscovery,
     ServiceDiscovery,
+    ascii_int,
     http_error,
     redact_text,
 )
@@ -542,7 +543,7 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
     return result
 
 
-_FIRMWARE_PART = re.compile(r"\d+")
+_FIRMWARE_PART = re.compile(r"[0-9]{1,18}")
 
 
 def _firmware_key(text: str) -> tuple[int, ...] | None:
@@ -645,7 +646,8 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
 
 def _version_key(text: str) -> tuple[int, ...] | None:
     parts = text.strip().split(".")
-    return tuple(int(p) for p in parts) if all(p.isdigit() for p in parts) else None
+    numbers = [ascii_int(p) for p in parts]
+    return tuple(n for n in numbers if n is not None) if all(n is not None for n in numbers) else None
 
 
 def _param_matches(method: ParamDiscovery, value: str) -> bool:

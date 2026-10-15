@@ -57,6 +57,16 @@ JSON_GARBAGE: list[bytes] = [
     b'{"Fault":"x","FaultCode":"c","FaultReason":{},"FaultMsg":[]}',
     b'{"data":{"a":{"b":{"c":[null,{"d":[]}]}}}}', NESTED_JSON, NESTED_OBJECT,
     b'{"x":' + b"9" * 5000 + b"}", b'{"x":1e999}', b'{"x":"NaN"}',
+    # numeric-looking text beyond int()'s digit limit, and Unicode digits that isdigit() accepts but int() refuses
+    *(
+        envelope.replace(b"@", value)
+        for value in (b'"' + b"9" * 5000 + b'"', b'"\xc2\xb2\xc2\xb3"', b'"' + b"9" * 5000 + b'x"')
+        for envelope in (
+            b'{"error":{"code":@,"message":"m"}}', b'{"errors":[{"code":@}]}', b'{"status":"error","error":{"code":@,"message":"m"}}',
+            b'{"Fault":"f","FaultCode":@}', b'{"error":{"id":@,"message":"m"}}', b'{"error":{"code":1,"message":"m","details":{"subCode":@}}}',
+        )
+    ),
+    b"Error: " + b"9" * 5000, b"Error:\n" + b"9" * 5000, b"Error: \xc2\xb2", b'{"error":{"code":' + b"9" * 5000 + b',"message":"m"}}',
     # a message or a code of any JSON type in every error envelope (the device's raw types reach api_error)
     *(
         envelope.replace(b"@", value)
@@ -207,6 +217,7 @@ CLASSIC_LISTS: list[Any] = [
     [{"id": "a"}], [{"id": "a", "version": None}], [{"id": "a", "version": 1}], [{"id": "a", "version": ""}],
     [{"id": "a", "version": "garbage"}], [{"id": "a", "version": "1"}], [{"id": "a", "version": "1.0.0"}],
     [{"id": ["a"], "version": "1.0"}], [{"version": "1.0"}], [{"id": "b", "version": "1.0"}, {"id": 5}],
+    [{"id": "a", "version": "9" * 5000 + ".0"}], [{"id": "a", "version": "1." + "9" * 5000}], [{"id": "a", "version": "\u00b2.\u00b3"}],
 ]
 
 

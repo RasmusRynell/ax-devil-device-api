@@ -29,6 +29,7 @@ from .base import (
     Model,
     Operation,
     api_error,
+    ascii_int,
     body_excerpt,
     check_applicability,
     error_text,
@@ -375,11 +376,17 @@ def _text_errors(op: Operation[Any], text: str, http_status: int | None = None) 
         if not rest:
             rest = "; ".join(lines[1:])
         code: int | str | None = None
-        if rest.isdigit():
-            code = int(rest)
-        elif len(lines) == 2 and lines[0] == "Error:" and lines[1].isdigit():
-            code = int(lines[1])
+        if ascii_int(rest) is not None:
+            code = ascii_int(rest)
+        elif len(lines) == 2 and lines[0] == "Error:" and ascii_int(lines[1]) is not None:
+            code = ascii_int(lines[1])
         raise api_error(op, code, rest or "Error", http_status=http_status, details=text)
+
+
+def _numeric_or_text(text: str | None) -> int | str | None:
+    """An error code from the device: a number when it is a plain (bounded) one, else the text as it is."""
+    number = ascii_int(text) if text else None
+    return number if number is not None else text
 
 
 def _json_error(text: Any) -> tuple[int | str | None, Any] | None:
@@ -401,8 +408,8 @@ def _json_error(text: Any) -> tuple[int | str | None, Any] | None:
     if "id" not in error and "message" not in error:
         return None
     code = error.get("id")
-    if isinstance(code, str) and code.strip().isdigit():
-        code = int(code)
+    if isinstance(code, str) and ascii_int(code) is not None:
+        code = ascii_int(code)
     if not isinstance(code, (int, str)) or isinstance(code, bool):
         code = None
     message = error.get("message")
@@ -476,7 +483,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
             if _local(element.tag) in codec.error_elements:
                 code_text = next((e.text for e in element.iter() if _local(e.tag) in ("ErrorCode", "Code")), None)
                 message = next((e.text for e in element.iter() if _local(e.tag) in ("ErrorDescription", "Description", "Message")), None)
-                code: int | str | None = int(code_text) if code_text and code_text.strip().isdigit() else code_text
+                code: int | str | None = _numeric_or_text(code_text)
                 raise api_error(
                     op, code, message or _local(element.tag), http_status=response.status,
                     details=element_text(element),
@@ -485,7 +492,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
             failure = status_error(root, codec.status_error)
             if failure is not None:
                 code_text, message = failure
-                code = int(code_text) if code_text and code_text.isdigit() else code_text
+                code = _numeric_or_text(code_text)
                 raise api_error(op, code, message, http_status=response.status, details=text)
         if codec.map is None:
             return root

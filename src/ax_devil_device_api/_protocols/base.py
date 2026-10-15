@@ -80,7 +80,7 @@ class ApiVersion:
     major: int
     minor: int
 
-    _PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"(\d+)\.(\d+)")
+    _PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"([0-9]{1,18})\.([0-9]{1,18})")
 
     @classmethod
     def parse(cls, text: str) -> ApiVersion:
@@ -501,7 +501,7 @@ def _container(annotation: Any, kinds: tuple[Any, ...]) -> Any:
     return None
 
 
-_INT_TEXT = re.compile(r"[+-]?\d+")
+_INT_TEXT = re.compile(r"[+-]?[0-9]{1,18}")  # bounded: int() of thousands of digits raises ValueError
 
 
 def _coerce_text(annotation: Any, value: Any) -> Any:
@@ -722,6 +722,21 @@ def has_secret_fields(op: Operation[Any]) -> bool:
     a key can have it echoed in a device error). For such an operation no device text enters an error."""
     params = getattr(op, "params", None)
     return has_masked_fields(getattr(op, "result", None)) or (params is not None and bool(params.masked_wire_names()))
+
+
+_ASCII_INT = re.compile(r"[0-9]{1,18}")
+
+
+def ascii_int(text: str) -> int | None:
+    """``text`` as a non-negative integer, or ``None`` if it is not one: ASCII digits only, at most 18 of them.
+
+    THE conversion of device-supplied numeric text. ``str.isdigit()`` is true for superscripts and other Unicode digits
+    that ``int()`` refuses, and ``int()`` refuses a string of more than about 4300 digits: both raise ``ValueError``
+    from inside a decoder, which would escape the library's error hierarchy. A longer or odd string is simply not a
+    number (an error code that is not numeric is looked up as text).
+    """
+    stripped = text.strip()
+    return int(stripped) if _ASCII_INT.fullmatch(stripped) else None
 
 
 def kind_of(value: Any) -> str:
@@ -1030,7 +1045,7 @@ def _code_number(code: int | str) -> int | None:
         return None
     if isinstance(code, int):
         return code
-    return int(code) if code.strip().isdigit() else None
+    return ascii_int(code)
 
 
 def _sub_code(details: Any) -> int | str | None:
