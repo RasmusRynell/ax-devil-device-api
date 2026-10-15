@@ -78,28 +78,37 @@ def secret_values(argv: Sequence[str]) -> list[str]:
 
 
 def _elide_unrecognized(tokens: str) -> str:
-    """Option names only: ``--password SECRET`` is shown as ``--password <value>``."""
+    """Option names only: ``--password SECRET`` is shown as ``--password <value>``. The token after a secret-named option
+    is a value whatever it starts with (``--password -SECRET``)."""
     shown = []
+    after_secret_option = False
     for token in tokens.split():
-        if token.startswith("-"):
+        if token.startswith("-") and not after_secret_option:
             name, equals, _ = token.partition("=")
             shown.append(name + ("=<elided>" if equals else ""))
+            after_secret_option = not equals and _is_secret_option(name)
         else:
             shown.append("<value>")
+            after_secret_option = False
     return " ".join(shown)
 
 
+def _without_secrets(message: str) -> str:
+    for value in sorted({v for v in _ARGV_SECRETS if len(v) >= 3}, key=len, reverse=True):
+        message = message.replace(value, "<redacted>")
+    return message
+
+
 def scrub_usage_message(message: str) -> str:
-    """argparse messages with every echoed command-line value removed (they may follow a secret option)."""
+    """argparse messages with every echoed command-line value removed (they may follow a secret option, and may start
+    with a dash). Recorded secrets are removed first, from every kind of message; then the echoed values are elided."""
+    message = _without_secrets(message)
     if message.startswith("unrecognized arguments:"):
         return "unrecognized arguments: " + _elide_unrecognized(message.partition(": ")[2])
     message = re.sub(r"invalid choice: .*? \(choose from", "invalid choice: <value> (choose from", message)
     message = re.sub(r"(invalid \w+ value):.*", r"\1", message)
     message = re.sub(r"ambiguous option: (\S+?)(=\S*)? could match", lambda m: f"ambiguous option: {m.group(1)}{'=<elided>' if m.group(2) else ''} could match", message)
-    message = re.sub(r", got .*?(?=\)|$)", "", message)
-    for value in sorted({v for v in _ARGV_SECRETS if len(v) >= 3}, key=len, reverse=True):
-        message = message.replace(value, "<redacted>")
-    return message
+    return re.sub(r", got .*?(?=\)|$)", "", message)
 
 
 class _Parser(argparse.ArgumentParser):
@@ -519,6 +528,11 @@ def _cmd_support(args: argparse.Namespace, out: TextIO, err: TextIO) -> None:
 # -- entry point ----------------------------------------------------------------
 
 
+def _safe_message(error: BaseException) -> str:
+    """An error's text as the CLI prints it: display form, and without any value that followed a secret option."""
+    return _without_secrets(display_text(str(error)))
+
+
 def _shown(value: Any, limit: int = 2000) -> Any:
     """The display form of a text value for JSON output; ``None`` stays ``null`` (``display_text(None)`` would say "null")."""
     return None if value is None else display_text(value, limit)
@@ -526,7 +540,7 @@ def _shown(value: Any, limit: int = 2000) -> Any:
 
 def _error_json(error: BaseException) -> dict[str, Any]:
     # Only display forms leave the process: the raw code, api and operation are device or spec text.
-    data: dict[str, Any] = {"type": type(error).__name__, "message": display_text(str(error))}
+    data: dict[str, Any] = {"type": type(error).__name__, "message": _safe_message(error)}
     if isinstance(error, ApiError):
         code = error.code if isinstance(error.code, int) else _shown(error.code, 100)
         data.update(code=code, kind=_shown(error.kind, 100), api=_shown(error.api, 100), operation=_shown(error.operation, 100))
@@ -550,10 +564,10 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
         stderr.write(json.dumps({"error": error.error}) + "\n")
         return 1
     except CliError as error:
-        stderr.write(json.dumps({"error": {"type": "UsageError", "message": display_text(str(error))}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": "UsageError", "message": _safe_message(error)}}) + "\n")
         return error.code
     except ValidationError as error:
-        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": display_text(str(error))}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": _safe_message(error)}}) + "\n")
         return 2
     except DeviceError as error:
         # Before ValueError: ConfigurationError is both, and is reported with the library's own error shape.
@@ -561,10 +575,10 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
         return 1
     except (TypeError, ValueError) as error:
         # A value that passed validation but failed a local check (a path parameter of ".", say).
-        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": display_text(str(error))}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": _safe_message(error)}}) + "\n")
         return 2
     except OSError as error:
-        stderr.write(json.dumps({"error": {"type": type(error).__name__, "message": display_text(str(error))}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": type(error).__name__, "message": _safe_message(error)}}) + "\n")
         return 1
     return 0
 

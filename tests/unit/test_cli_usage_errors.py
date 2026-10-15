@@ -76,3 +76,28 @@ def test_parameter_errors_from_a_running_command_do_not_echo_secret_pairs(monkey
     out, err = io.StringIO(), io.StringIO()
     cli.main(["call", "mqtt_client", "configure_client", f"password={SENTINEL}", f"token={SENTINEL}"], out=out, err=err)
     assert SENTINEL not in out.getvalue() + err.getvalue()
+
+
+DASH_SECRETS = ["-" + SENTINEL, "--" + SENTINEL, "-" + SENTINEL + "-x", "=" + SENTINEL]
+
+DASH_CASES = {
+    "unrecognized, separate value": lambda s: ["apis", "--password", s],
+    "unrecognized, equals form": lambda s: ["apis", f"--password={s}"],
+    "unknown token option first": lambda s: ["--token", s, "apis"],
+    "unknown bearer option, equals form": lambda s: [f"--bearer={s}", "apis"],
+    "short option after the command": lambda s: ["apis", "-p", s],
+    "invalid port after a password": lambda s: ["--password", s, "--port", "x", "apis"],
+    "invalid command after a password": lambda s: ["--password", s, "nosuchcommand"],
+    "secret key=value pair": lambda s: ["call", "mqtt_client", "get_client_status", f"password={s}"],
+    "secret pair, unknown api": lambda s: ["call", "no_such_api", "x", f"token={s}"],
+    "ambiguous option next to a secret": lambda s: ["--password", s, "--h", "apis"],
+}
+
+
+@pytest.mark.parametrize("secret", DASH_SECRETS)
+@pytest.mark.parametrize("build", DASH_CASES.values(), ids=DASH_CASES.keys())
+def test_dash_prefixed_secret_values_never_reach_the_output(build, secret: str) -> None:  # type: ignore[no-untyped-def]
+    code, out, err = run(*build(secret))
+    assert code != 0
+    assert secret.lstrip("-=") not in out + err, err
+    assert json.loads(err.splitlines()[-1])["error"]["message"]
