@@ -384,3 +384,32 @@ def test_plain_hosts_are_not_touched() -> None:
 
     assert url_host("cam.local") == "cam.local" and url_host("2001:db8::1") == "[2001:db8::1]"
     assert build_rtsp_url("2001:db8::1").safe.startswith("rtsp://[2001:db8::1]:554/")
+
+
+# --- RTSP paths: valid percent escapes survive, stray percent signs are data, a raw '#' is refused -----------------------------
+
+
+def test_an_escaped_hash_round_trips_exactly() -> None:
+    url = RtspUrl("cam", path="/archive%23today")
+    assert url.safe == "rtsp://cam:554/archive%23today"
+    assert str(url) == "rtsp://cam:554/archive%23today"
+
+
+@pytest.mark.parametrize(
+    ("path", "shown"),
+    [
+        ("/a%zz", "/a%25zz"),
+        ("/100%", "/100%25"),
+        ("/a%2", "/a%252"),
+        ("/a%20b", "/a%20b"),
+        ("/a b", "/a%20b"),
+        ("/a%41%2f", "/a%41%2f"),
+    ],
+)
+def test_stray_percent_signs_are_encoded_and_valid_escapes_kept(path: str, shown: str) -> None:
+    assert RtspUrl("cam", path=path).safe == f"rtsp://cam:554{shown}"
+
+
+def test_a_raw_hash_is_still_refused() -> None:
+    with pytest.raises(ConfigurationError, match="%23"):
+        RtspUrl("cam", path="/archive#today")

@@ -48,6 +48,15 @@ def _flag(value: bool) -> str:
     return "1" if value else "0"
 
 
+_STRAY_PERCENT = re.compile(r"%(?![0-9A-Fa-f]{2})")
+
+
+def _quote_path(path: str) -> str:
+    """Percent-encode a path for the URL. A valid ``%XX`` escape the caller wrote stays as it is (``%23`` is how a literal
+    ``#`` is written); a stray ``%`` is data and becomes ``%25``."""
+    return quote(_STRAY_PERCENT.sub("%25", path), safe="/=%")
+
+
 @dataclass(frozen=True)
 class RtspUrl:
     """An ``rtsp://`` URL with optional credentials in the user-info part."""
@@ -79,7 +88,7 @@ class RtspUrl:
             if self.password is not None:
                 userinfo += ":" + quote(self.password, safe="")
             userinfo += "@"
-        url = f"rtsp://{userinfo}{host}:{self.port}{quote(self.path, safe='/=')}"
+        url = f"rtsp://{userinfo}{host}:{self.port}{_quote_path(self.path)}"
         if self.query:
             url += "?" + "&".join(f"{quote(k, safe='')}={quote(v, safe=_SAFE_VALUE)}" for k, v in self.query)
         return url
