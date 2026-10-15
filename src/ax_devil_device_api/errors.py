@@ -253,14 +253,16 @@ class ApiError(DeviceError):
     ) -> None:
         self.api = display_text(api, 100)  # a stable label (api.operation), never a path or URL
         self.operation = display_text(operation, 100)
-        self.code = code  # raw, for matching; the text below shows it through display_text
+        # Matching (the error tables) used the raw code before this error was built; what is kept is shown form: an integer
+        # unchanged, a text code through display_text (redaction, escaped control characters, bounded).
+        self.code = display_text(code, 100) if isinstance(code, str) else code
         self.message = display_text(message, 1000)
         self.description = None if description is None else display_text(description, 1000)
         self.kind = kind
         self.http_status = http_status
         self.details = sanitize_details(details)
         where = f"{self.api}.{self.operation}: "
-        text = where + (f"error {display_text(str(code), 100)}: {self.message}" if code is not None else self.message)
+        text = where + (f"error {self.code}: {self.message}" if code is not None else self.message)
         if self.description and self.description != self.message:
             text += f" ({self.description})"
         super().__init__(text)

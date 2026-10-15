@@ -715,6 +715,7 @@ def redact_text(value: Any, limit: int = 200) -> str:
 
 
 MESSAGE_OMITTED = "device message omitted (operation handles secret fields)"
+CODE_OMITTED = "device error code omitted (operation handles secret fields)"
 
 
 def has_secret_fields(op: Operation[Any]) -> bool:
@@ -1048,6 +1049,12 @@ def _code_number(code: int | str) -> int | None:
     return ascii_int(code)
 
 
+def _plain_code(op: Operation[Any], code: str) -> bool:
+    """Whether a text error code is one of ours: a documented key of the operation's or the API's error table (it comes
+    from the spec, not from the device), or plain digits."""
+    return _ASCII_INT.fullmatch(code.strip()) is not None or any(code in table for table in (getattr(op, "errors", None) or {}, getattr(op.api, "errors", None) or {}))
+
+
 def _sub_code(details: Any) -> int | str | None:
     """``subCode`` of an error object (its own member, or inside its ``details``); of the first one in a list."""
     if isinstance(details, list):
@@ -1102,6 +1109,13 @@ def api_error(op: Operation[Any], code: Any, message: Any, *, http_status: int |
         shown = f"{info.description}: {MESSAGE_OMITTED}" if info and info.description else MESSAGE_OMITTED
     else:
         shown = error_text(op, message)
+    if isinstance(code, str) and not _plain_code(op, code):
+        # Matching used the raw code above. The public ``code`` of an unrecognised text code is the device's text: for an
+        # operation that handles secret fields it is not kept at all (a fixed marker says so), otherwise ApiError stores
+        # its ``display_text`` form.
+        if has_secret_fields(op):
+            code = None
+            shown = f"{CODE_OMITTED}; {shown}"
     return cls(
         op.api.id,
         op.id,

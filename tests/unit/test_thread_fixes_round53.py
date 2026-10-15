@@ -93,8 +93,8 @@ def test_no_device_error_shows_a_secret_a_credential_or_a_control_character(cls:
                 assert forbidden not in text, (cls.__name__, forbidden, text)
 
 
-# Attributes meant for matching keep the device's own value; everything else an exception carries is sanitized.
-RAW_MATCHING_ATTRIBUTES = {"code"}
+# Matching uses raw values BEFORE an error is built, so every attribute an exception carries is in its shown form.
+RAW_MATCHING_ATTRIBUTES: set[str] = set()  # none: matching uses the raw code before an error is built; .code is the shown form
 
 
 def _strings(value: Any, seen: set[int]) -> list[str]:
@@ -174,9 +174,9 @@ def test_sanitize_details_keeps_the_structure() -> None:
 # -- the six cases of the review ----------------------------------------------------------------------------------------
 
 
-def test_the_string_code_is_not_shown_raw_but_stays_matchable() -> None:
+def test_the_string_code_is_not_shown_raw_and_the_public_code_is_the_shown_form() -> None:
     error = ApiError("api", "op", "password=hunter2\r\nINJECTED-LINE", "failed")
-    assert error.code == "password=hunter2\r\nINJECTED-LINE"
+    assert error.code == "password=<redacted>\\r\\nINJECTED-LINE"
     for text in _shown(error):
         assert "hunter2" not in text and "\r" not in text and "\nINJECTED-LINE" not in text
     assert "failed" in str(error) and "error " in str(error)
