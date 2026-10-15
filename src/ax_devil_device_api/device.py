@@ -305,7 +305,10 @@ class Device(_DeviceBase):
                     unreachable = errors["identity"]
         for key, make_flow in probes.items():
             if unreachable is not None:
-                errors[key] = skipped_probe_error(unreachable)  # not run, so not cached: the next call asks again
+                if (cached := self._state.get(key)) is not None:
+                    values[key] = cached  # an answer from an earlier run stays valid: only the missing ones are unknown
+                else:
+                    errors[key] = skipped_probe_error(unreachable)  # not run, so not cached: the next call asks again
                 continue
             try:
                 values[key] = self._cached(key, make_flow)
@@ -484,6 +487,8 @@ class AsyncDevice(_DeviceBase):
         async def bounded(key: str) -> Any:
             async with gate:
                 if unreachable:
+                    if (cached := self._state.get(key)) is not None:
+                        return cached  # an answer from an earlier run stays valid: only the missing ones are unknown
                     raise Skipped(skipped_probe_error(unreachable[0]))
                 try:
                     return await self._cached(key, probes[key])
