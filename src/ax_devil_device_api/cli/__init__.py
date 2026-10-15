@@ -25,6 +25,7 @@ from typing import Any, NoReturn, TextIO
 from pydantic import BaseModel, ValidationError
 
 from .. import Device
+from .._http.debug import is_secret_name
 from .._http.upload import is_upload_field
 from .._protocols.base import Operation
 from .._protocols.xmlmap import element_text
@@ -48,11 +49,68 @@ class CliError(Exception):
         self.code = code
 
 
+_SECRET_OPTION_WORDS = frozenset({"password", "passwd", "pass", "token", "bearer", "secret", "apikey", "authorization", "credential", "psk", "pin", "puk", "community"})
+_ARGV_SECRETS: list[str] = []
+"""Values that followed a secret-named option (or a secret-named ``key=`` pair) on the command line of this run."""
+
+
+def _is_secret_option(name: str) -> bool:
+    bare = name.lstrip("-").replace("-", "_").lower()
+    return name in ("-p",) or bare in _SECRET_OPTION_WORDS or is_secret_name(bare)
+
+
+def secret_values(argv: Sequence[str]) -> list[str]:
+    """The values on ``argv`` that belong to secret-named options (``--password X``, ``--token=X``, ``-p X``) or secret
+    ``key=value`` pairs (``password=X``). Used to keep them out of every usage error."""
+    found: list[str] = []
+    tokens = list(argv)
+    for index, token in enumerate(tokens):
+        name, equals, value = token.partition("=")
+        if token.startswith("-"):
+            if _is_secret_option(name):
+                if equals:
+                    found.append(value)
+                elif index + 1 < len(tokens):
+                    found.append(tokens[index + 1])
+        elif equals and _is_secret_option(name):
+            found.append(value)
+    return [v for v in found if v]
+
+
+def _elide_unrecognized(tokens: str) -> str:
+    """Option names only: ``--password SECRET`` is shown as ``--password <value>``."""
+    shown = []
+    for token in tokens.split():
+        if token.startswith("-"):
+            name, equals, _ = token.partition("=")
+            shown.append(name + ("=<elided>" if equals else ""))
+        else:
+            shown.append("<value>")
+    return " ".join(shown)
+
+
+def scrub_usage_message(message: str) -> str:
+    """argparse messages with every echoed command-line value removed (they may follow a secret option)."""
+    if message.startswith("unrecognized arguments:"):
+        return "unrecognized arguments: " + _elide_unrecognized(message.partition(": ")[2])
+    message = re.sub(r"invalid choice: .*? \(choose from", "invalid choice: <value> (choose from", message)
+    message = re.sub(r"(invalid \w+ value):.*", r"\1", message)
+    message = re.sub(r"ambiguous option: (\S+?)(=\S*)? could match", lambda m: f"ambiguous option: {m.group(1)}{'=<elided>' if m.group(2) else ''} could match", message)
+    message = re.sub(r", got .*?(?=\)|$)", "", message)
+    for value in sorted({v for v in _ARGV_SECRETS if len(v) >= 3}, key=len, reverse=True):
+        message = message.replace(value, "<redacted>")
+    return message
+
+
 class _Parser(argparse.ArgumentParser):
-    """Reports bad arguments as ``CliError`` so ``main`` can answer in JSON instead of argparse's usage text."""
+    """Reports bad arguments as ``CliError`` so ``main`` can answer in JSON instead of argparse's usage text.
+
+    The message never repeats a value from the command line: argparse echoes unrecognized arguments, invalid values and
+    ambiguous options verbatim, and a secret given as ``--password X`` would come back in the error.
+    """
 
     def error(self, message: str) -> NoReturn:
-        raise CliError(f"{message} (see `{self.prog} --help`)")
+        raise CliError(f"{scrub_usage_message(message)} (see `{self.prog} --help`)")
 
 
 def _env(names: Sequence[str], *, keep_empty: bool = False) -> str | None:
@@ -82,9 +140,9 @@ def _arg(check: Callable[[Any], Any], kind: type) -> Callable[[str], Any]:
         try:
             return check(kind(text))
         except ConfigurationError as error:
-            raise argparse.ArgumentTypeError(str(error)) from None
+            raise argparse.ArgumentTypeError(re.sub(r", got .*$", "", str(error), flags=re.S)) from None
         except ValueError:
-            raise argparse.ArgumentTypeError(f"invalid {kind.__name__} value: {text!r}") from None
+            raise argparse.ArgumentTypeError(f"invalid {kind.__name__} value") from None
 
     return convert
 
@@ -226,7 +284,7 @@ def parse_params(args: list[str], json_arg: str | None, op: Operation | None = N
     for item in args:
         key, sep, value = item.partition("=")
         if not sep or not key:
-            raise CliError(f"expected key=value, got {item!r}")
+            raise CliError("expected key=value for a positional argument (a value without '=' was given)")
         params[key] = _cli_value(op, key, value)
     return params
 
@@ -484,6 +542,7 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
     stdout: TextIO = out or sys.stdout
     stderr: TextIO = err or sys.stderr
     try:
+        _ARGV_SECRETS[:] = secret_values(sys.argv[1:] if argv is None else argv)
         args = build_parser().parse_args(argv)
         run: Callable[..., None] = args.run
         run(args, stdout, stderr) if args.run in _NEEDS_ERR else run(args, stdout)
