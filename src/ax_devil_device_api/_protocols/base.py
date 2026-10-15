@@ -9,6 +9,7 @@ protocol modules, which are sans-IO: a call is a generator that yields
 from __future__ import annotations
 
 import collections.abc
+import json
 import math
 import re
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -46,6 +47,7 @@ from pydantic import (
     model_validator,
 )
 
+from .._http.debug import serialize
 from .._http.types import Request, Response
 from ..errors import (
     ApiAccessDenied,
@@ -677,6 +679,18 @@ def _holds_non_finite(value: Any) -> bool:
     return False
 
 
+def _shape_message(error: ValidationError, data: Any) -> str:
+    """Why a response does not match, with a bounded excerpt of what the device sent. Pydantic's own text can echo the
+    input, so the message is built from the problems only, and the excerpt goes through the redaction used for hooks."""
+    problems = "; ".join(f"{'.'.join(str(part) for part in item['loc']) or 'result'}: {item['msg']}" for item in error.errors(include_input=False))
+    try:
+        shown = json.dumps(serialize(data), default=str)
+    except (TypeError, ValueError, RecursionError):
+        shown = "<unprintable>"
+    excerpt = shown if len(shown) <= 200 else shown[:200] + "…"
+    return f"response does not match the documented shape: {problems[:400]} (response: {excerpt})"
+
+
 def _validated_result(op: Operation[Any], data: Any) -> Any:
     if op.result is None:
         return None
@@ -691,7 +705,7 @@ def _validated_result(op: Operation[Any], data: Any) -> Any:
         else:
             if new:
                 return tolerated
-        raise ResponseFormatError(op.api.id, op.id, f"response does not match the documented shape: {error}") from error
+        raise ResponseFormatError(op.api.id, op.id, _shape_message(error, data)) from error
 
 
 # ---------------------------------------------------------------------------

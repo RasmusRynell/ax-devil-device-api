@@ -327,6 +327,11 @@ class CgiBinding:
     timeout: float | None = None
 
 
+_KEY_VALUE = re.compile(r"\s*[A-Za-z0-9_.\[\]-]+(?: [A-Za-z0-9_.\[\]-]+)*\s*=.*")
+"""A ``key=value`` line: the key is word-like tokens (letters, digits, ``_ . [ ] -``), single spaces allowed between them
+(``image width``, ``Video 1``); no parentheses or punctuation. Prose that merely contains an ``=`` is not a pair."""
+
+
 def _text_errors(op: Operation[Any], text: str, http_status: int | None = None) -> None:
     """Raise ``ApiError`` for the documented plain-text failure replies.
 
@@ -481,6 +486,11 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
     if isinstance(codec, TextKv):
         result: dict[str, Any] = {}
         prefix = _fill(codec.strip_prefix, values or {}) if codec.strip_prefix else None
+        lines = [line for line in text.splitlines() if line.strip()]
+        if lines and not any(_KEY_VALUE.fullmatch(line) for line in lines):
+            # No line is a key=value pair: a 200 reply of plain text ("No camera specified (ex. camera=1)") is the
+            # device explaining a failure, not a malformed list. The same path as the HTML-comment form.
+            raise api_error(op, None, " ".join(text.split())[:200], http_status=response.status, details=text)
         for line in text.splitlines():
             if not line.strip():
                 continue

@@ -45,6 +45,7 @@ NESTED_XML = b"<a>" * DEEP + b"</a>" * DEEP
 
 JSON_GARBAGE: list[bytes] = [
     b"", b"null", b"5", b"1.5", b"true", b'"x"', b"[]", b"[null]", b"{}", b"\xff\xfe\x00", b"NaN", b"{",
+    b"No camera specified (ex. camera=1)", b"just words", b"=", b"a=b=c", b"(x=1)", b"image width=wide\nimage height=",
     b'{"error":null}', b'{"error":5}', b'{"error":"x"}', b'{"error":[]}', b'{"error":{}}',
     b'{"error":{"code":{},"message":{}}}', b'{"error":{"code":[],"message":null}}', b'{"error":{"code":1.5}}',
     b'{"error":{"code":true,"message":"m"}}', b'{"error":{"code":7,"message":["m"]}}',

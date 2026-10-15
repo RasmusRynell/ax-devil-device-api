@@ -271,7 +271,7 @@ provenance:
   - The RTSP section (media.amp URL options, DESCRIBE/SETUP/PLAY, RTSP over HTTP, source-specific multicast) is not a CGI API; the RTSP URL builders are in video-streaming-rtsp.
   - Stream profile parameters are in stream-profile-parameters, the scene profile in scene-profile.
   - The imagesize.cgi reply is shown both as "image width = 720" and "image width=<value>"; the text_kv codec trims the key but keeps the leading space of the value, which the integer fields tolerate.
-  - Image errors of imagesize.cgi arrive as HTTP 200 with an HTML comment or plain message in the body, and the error behaviour of the other image CGIs is not documented; they surface as ResponseFormatError rather than an API error.
+  - Image errors of imagesize.cgi arrive as HTTP 200 with an HTML comment or plain message in the body, and the error behaviour of the other image CGIs is not documented. A reply without any key=value line ("No camera specified (ex. camera=1)") is the device explaining a failure and surfaces as an ApiError carrying the text, like the HTML comment; a reply that has pairs but the wrong ones is a ResponseFormatError with a redacted excerpt.
   - The error behaviour of the other image CGIs is not documented; imagesize.cgi errors (an HTML comment body with HTTP 200) raise ApiError.
   - text and textstring appear in a JPEG example but not in the Image request arguments table (see the Image API URL options); they are modelled on get_jpeg only.
   - The Bitmap section's "To check if the Axis product supports bitmap images, use" sentence is truncated in the docs (the example lists Properties.Image.Format).
