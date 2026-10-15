@@ -30,7 +30,7 @@ from .._runtime.capabilities import SupportResult
 from .._runtime.driver import StreamResult
 from .._streams import Part
 from .._validate import bounded_int, non_negative_int, positive_finite
-from ..errors import ApiError, ConfigurationError, DeviceError, HttpError
+from ..errors import ApiError, ConfigurationError, DeviceError, HttpError, display_text
 from ..features import api_support, device_summary, load_all, load_api, snapshot
 from ..features.registry import ApiEntry
 from ..rtsp import RtspBinding
@@ -241,7 +241,7 @@ class DiscoveryFailed(Exception):
 
 def _probe_errors(results: Mapping[str, SupportResult]) -> list[str]:
     """Every distinct probe failure behind the answers, in first-seen order."""
-    return list(dict.fromkeys(e for r in results.values() for e in r.errors))
+    return list(dict.fromkeys(display_text(e) for r in results.values() for e in r.errors))
 
 
 def _check_discovery(results: Mapping[str, SupportResult]) -> list[str]:
@@ -410,14 +410,16 @@ def _cmd_snapshot(args: argparse.Namespace, out: TextIO) -> None:
 
 def _cmd_summary(args: argparse.Namespace, out: TextIO) -> None:
     with make_device(args) as dev:
-        emit(device_summary(dev).to_dict(), out)
+        data = device_summary(dev).to_dict()
+        data["probe_errors"] = {key: display_text(text) for key, text in data["probe_errors"].items()}
+        emit(data, out)
 
 
 def _cmd_support(args: argparse.Namespace, out: TextIO, err: TextIO) -> None:
     with make_device(args) as dev:
         results = api_support(dev)
     errors = _check_discovery(results)
-    emit({"apis": {n: {"status": r.status.value, "reason": r.reason} for n, r in results.items()}, "errors": errors}, out)
+    emit({"apis": {n: {"status": r.status.value, "reason": display_text(r.reason)} for n, r in results.items()}, "errors": errors}, out)
     _warn(errors, err)
 
 
@@ -425,9 +427,11 @@ def _cmd_support(args: argparse.Namespace, out: TextIO, err: TextIO) -> None:
 
 
 def _error_json(error: BaseException) -> dict[str, Any]:
-    data: dict[str, Any] = {"type": type(error).__name__, "message": str(error)}
+    # Only display forms leave the process: the raw code, api and operation are device or spec text.
+    data: dict[str, Any] = {"type": type(error).__name__, "message": display_text(str(error))}
     if isinstance(error, ApiError):
-        data.update(code=error.code, kind=error.kind, api=error.api, operation=error.operation)
+        code = error.code if isinstance(error.code, int) else (None if error.code is None else display_text(error.code, 100))
+        data.update(code=code, kind=display_text(error.kind, 100), api=display_text(error.api, 100), operation=display_text(error.operation, 100))
     elif isinstance(error, HttpError):
         data["status"] = getattr(error, "status", None)
     return data
@@ -447,10 +451,10 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
         stderr.write(json.dumps({"error": error.error}) + "\n")
         return 1
     except CliError as error:
-        stderr.write(json.dumps({"error": {"type": "UsageError", "message": str(error)}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": "UsageError", "message": display_text(str(error))}}) + "\n")
         return error.code
     except ValidationError as error:
-        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": str(error)}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": display_text(str(error))}}) + "\n")
         return 2
     except DeviceError as error:
         # Before ValueError: ConfigurationError is both, and is reported with the library's own error shape.
@@ -458,10 +462,10 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
         return 1
     except (TypeError, ValueError) as error:
         # A value that passed validation but failed a local check (a path parameter of ".", say).
-        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": str(error)}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": "InvalidParameters", "message": display_text(str(error))}}) + "\n")
         return 2
     except OSError as error:
-        stderr.write(json.dumps({"error": {"type": type(error).__name__, "message": str(error)}}) + "\n")
+        stderr.write(json.dumps({"error": {"type": type(error).__name__, "message": display_text(str(error))}}) + "\n")
         return 1
     return 0
 

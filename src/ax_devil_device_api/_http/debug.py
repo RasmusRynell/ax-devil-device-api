@@ -239,10 +239,22 @@ def serialize(value: Any, key: Any = None, _depth: int = 0) -> Any:
     if isinstance(value, dict):
         # ``{"name": "password", "value": ...}``: a secret-named parameter hides its value.
         param = any(_local(k) in _NAME_KEYS and isinstance(v, str) and _text_has_secret_name(v) for k, v in value.items())
-        return {
-            str(k): _REDACTED if param and _local(k) == "value" else serialize(v, k, _depth + 1)
-            for k, v in value.items()
-        }
+        shown: dict[str, Any] = {}
+        for k, v in value.items():
+            name = str(k)
+            safe = _scrub_text(name)  # a device-controlled key such as "password=hunter2" is text like any other
+            if safe != name:
+                item: Any = _REDACTED  # the key carried a secret, so what it labels is not shown either
+            elif param and _local(k) == "value":
+                item = _REDACTED
+            else:
+                item = serialize(v, k, _depth + 1)
+            unique, number = safe, 1
+            while unique in shown:  # two keys can collapse to the same redacted text: keep both entries
+                number += 1
+                unique = f"{safe} ({number})"
+            shown[unique] = item
+        return shown
     if isinstance(value, (list, tuple, set)):
         return [serialize(item, key, _depth + 1) for item in value]
     return str(value)
