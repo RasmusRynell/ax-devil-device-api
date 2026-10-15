@@ -14,6 +14,7 @@ from typing import Any, Protocol
 
 from pydantic import ValidationError
 
+from .._protocols.base import redact_text
 from ..errors import ApiAccessDenied, ApiError, ApiUnavailable, ErrorKind, ResponseFormatError
 
 JsonObject = Mapping[str, Any]
@@ -62,7 +63,7 @@ class WsCodec(Protocol):
 def api_error(codec: WsCodec, method: str, error: WsError) -> ApiError:
     kind = codec.error_kind(error.code)
     cls = {"access_denied": ApiAccessDenied, "unavailable": ApiUnavailable}.get(kind or "", ApiError)
-    return cls(codec.api_id, method, error.code, error.message, kind=kind, details=error.data)
+    return cls(codec.api_id, method, error.code, redact_text(error.message, 1000), kind=kind, details=error.data)
 
 
 def _object(api: str, where: str, value: Any) -> Mapping[str, Any]:

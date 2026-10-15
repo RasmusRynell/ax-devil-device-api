@@ -72,3 +72,52 @@ def test_response_body_text_only_enters_errors_through_body_excerpt() -> None:
 def test_every_allow_list_entry_is_still_needed() -> None:
     stale = sorted(set(ALLOWED) - _violations())
     assert not stale, f"remove these from ALLOWED, they no longer read body text: {stale}"
+
+
+# -- device error TEXT (an envelope message, an ``Error:`` line) ------------------------------------------------------
+
+API_ERRORS = {"ApiError", "ApiAccessDenied", "ApiUnavailable"}
+# The only places allowed to construct an API error from device text; both put it through a redactor first.
+API_ERROR_BUILDERS = {("_protocols/base.py", "api_error"), ("_runtime/ws_codecs.py", "api_error")}
+
+
+def test_api_errors_are_only_built_in_the_two_funnels() -> None:
+    built: set[tuple[str, str]] = set()
+    for folder in SCANNED:
+        for path in sorted((PACKAGE / folder).rglob("*.py")):
+            relative = path.relative_to(PACKAGE).as_posix()
+
+            def visit(node: ast.AST, function: str, relative: str = relative) -> None:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    function = node.name
+                if isinstance(node, ast.Call) and (_callee(node) in API_ERRORS or (_callee(node) == "cls" and function == "api_error")):
+                    built.add((relative, function))
+                for child in ast.iter_child_nodes(node):
+                    visit(child, function)
+
+            visit(ast.parse(path.read_text()), "<module>")
+    assert built <= API_ERROR_BUILDERS, f"build API errors only through api_error (error_text): {sorted(built - API_ERROR_BUILDERS)}"
+
+
+def test_the_device_message_in_api_error_only_feeds_lookups_and_error_text() -> None:
+    """In ``api_error`` the raw ``message`` may be used for the code lookup and inside ``error_text(...)`` only."""
+    tree = ast.parse((PACKAGE / "_protocols" / "base.py").read_text())
+    function = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "api_error")
+    allowed_callees = {"error_text", "error_code", "isinstance"}
+    offenders: list[int] = []
+
+    def walk(node: ast.AST, inside: bool) -> None:
+        if isinstance(node, ast.Call) and _callee(node) in allowed_callees:
+            inside = True
+        if isinstance(node, ast.IfExp):  # ``... if message else ...`` only tests presence; it does not put the text anywhere
+            walk(node.body, inside)
+            walk(node.orelse, inside)
+            return
+        if isinstance(node, ast.Name) and node.id == "message" and isinstance(node.ctx, ast.Load) and not inside:
+            offenders.append(node.lineno)
+        for child in ast.iter_child_nodes(node):
+            walk(child, inside)
+
+    for statement in function.body:
+        walk(statement, False)
+    assert not offenders, f"device message used outside error_text/lookup in api_error at lines {offenders}"

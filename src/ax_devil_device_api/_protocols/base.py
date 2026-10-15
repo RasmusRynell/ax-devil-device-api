@@ -719,17 +719,37 @@ def redact_text(value: Any, limit: int = 200) -> str:
     return shown if len(shown) <= limit else shown[:limit] + "…"
 
 
+MESSAGE_OMITTED = "device message omitted (operation handles secret fields)"
+
+
+def has_secret_fields(op: Operation[Any]) -> bool:
+    """Whether the operation handles secrets: masked fields in its result OR in its request params (a request that sends
+    a key can have it echoed in a device error). For such an operation no device text enters an error."""
+    params = getattr(op, "params", None)
+    return has_masked_fields(getattr(op, "result", None)) or (params is not None and bool(params.masked_wire_names()))
+
+
+def error_text(op: Operation[Any], raw: Any, limit: int = 1000) -> str:
+    """THE way device-provided error text (an envelope message, an ``Error:`` line) enters an exception message. The raw
+    text is used only to look up the error code and kind; what the exception shows is built here: nothing of it for an
+    operation that handles secret fields, otherwise the text through the hook redactor (secret-name pairs such as
+    ``password=...``, URL credentials)."""
+    if has_secret_fields(op):
+        return MESSAGE_OMITTED
+    return redact_text(raw if isinstance(raw, str) else repr(raw), limit)
+
+
 def body_excerpt(op: Operation[Any], value: Any) -> str:
     """THE way response body text enters an exception message: none at all for an operation that returns secret
     fields, otherwise a bounded, redacted excerpt. Nothing else may put raw body text into an error (a test scans
     the package for it)."""
-    return BODY_OMITTED if has_masked_fields(getattr(op, "result", None)) else redact_text(value)
+    return BODY_OMITTED if has_secret_fields(op) else redact_text(value)
 
 
 def _safe_details(op: Operation[Any], details: Any) -> Any:
     """``details`` of an API error: structured error objects stay structured (redacted); raw text is bounded and
     redacted; an operation that returns secret fields keeps none of it."""
-    if has_masked_fields(getattr(op, "result", None)):
+    if has_secret_fields(op):
         return BODY_OMITTED
     if details is None or isinstance(details, (int, float, bool)):
         return details
@@ -991,14 +1011,14 @@ def api_error(
         if http_status in (401, 403, 503):
             code, message = None, "the device sent a malformed error object"
         else:
-            return ResponseFormatError(op.api.id, op.id, f"malformed error object: code={code!r}, message={message!r}")
+            return ResponseFormatError(op.api.id, op.id, f"malformed error object: code={error_text(op, code)}, message={error_text(op, message)}")
     info = op.error_code(code, message, _sub_code(details))
     documented = info.kind if info else None
     # A 401 stays an API error only for the message-keyed errors a spec labels as such (add_user: "initial admin user
     # must be created first", HTTP 401); a documented numeric code on a 401 is still an authentication failure.
     message_keyed = info is not None and (info.message is not None or info.message_prefix is not None)
     if http_status == 401 and not message_keyed:
-        reason = f" ({message})" if message else ""
+        reason = f" ({error_text(op, message)})" if message else ""
         return AuthError(f"{op.api.id}.{op.id}: the device requires authentication and no usable credentials were configured{reason}")
     if http_status == 403:
         category = "access_denied"
@@ -1008,11 +1028,16 @@ def api_error(
         category = documented  # 2xx envelopes, 404 and other 4xx, and 5xx other than 503 (SOAP sends every fault as 500)
     kind = documented or category
     cls = {"access_denied": ApiAccessDenied, "unavailable": ApiUnavailable}.get(category or "", ApiError)
+    # The raw message served the lookups above; the exception shows only what error_text() allows.
+    if has_secret_fields(op):
+        shown = f"{info.description}: {MESSAGE_OMITTED}" if info and info.description else MESSAGE_OMITTED
+    else:
+        shown = error_text(op, message)
     return cls(
         op.api.id,
         op.id,
         code,
-        message,
+        shown,
         description=info.description if info else None,
         kind=kind,
         http_status=http_status,

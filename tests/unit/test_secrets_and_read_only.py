@@ -158,4 +158,4 @@ def test_http_503_with_error_envelope_is_unavailable() -> None:
     with camera.device() as dev:
         with pytest.raises(ApiUnavailable) as info:
             dev.apis.remote_object_storage.get_destination("d1")
-    assert info.value.code == 100 and "busy" in str(info.value)
+    assert info.value.code == 100 and "busy" not in str(info.value) and "device message omitted" in str(info.value)  # the op handles secret fields
