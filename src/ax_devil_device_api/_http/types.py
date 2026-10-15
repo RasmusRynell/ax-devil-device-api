@@ -268,14 +268,37 @@ def resolve_deferred(request: Request) -> Request:
         content, size = body.content.resolve()
         return replace(request, body=replace(body, content=content, size=size))
     if isinstance(body, MultipartBody) and any(isinstance(part.content, DeferredContent) for part in body.files):
-        files = []
-        for part in body.files:
-            if isinstance(part.content, DeferredContent):
-                content, size = part.content.resolve()
-                part = replace(part, content=content, size=size)
-            files.append(part)
+        files: list[FilePart] = []
+        try:
+            for part in body.files:
+                if isinstance(part.content, DeferredContent):
+                    content, size = part.content.resolve()
+                    part = replace(part, content=content, size=size)
+                files.append(part)
+        except BaseException:
+            _release_contents(part.content for part in files)  # a later part failed: give back what was claimed
+            raise
         return replace(request, body=replace(body, files=tuple(files)))
     return request
+
+
+def _release_contents(contents: Iterable[Any]) -> None:
+    for content in contents:
+        release = getattr(content, "release", None)
+        if callable(release):
+            release()
+
+
+def release_deferred(request: Request) -> None:
+    """The call that resolved ``request`` ended: sources it leased but never read become usable again."""
+    body = request.body
+    if isinstance(body, RawBody):
+        _release_contents([body.content])
+    elif isinstance(body, MultipartBody):
+        _release_contents(part.content for part in body.files)
+
+
+_MASKED_HEADERS = frozenset({"set-cookie", "cookie", "authorization", "proxy-authorization"})
 
 
 class Headers(Mapping[str, str]):
@@ -313,7 +336,20 @@ class Headers(Mapping[str, str]):
         return self._items
 
     def __repr__(self) -> str:
-        return f"Headers({list(self._items)!r})"
+        """Values of sensitive headers are masked (a response is documented safe to log); lookup and ``items_raw`` are unchanged."""
+        from .debug import is_secret_name  # late: debug imports this module
+
+        shown = []
+        for name, value in self._items:
+            lowered = name.lower()
+            if lowered == "www-authenticate":  # the scheme stays; nonce, opaque and the rest of the challenge do not
+                scheme = value.split(None, 1)[0] if value.strip() else ""
+                shown.append((name, f"{scheme} <redacted>".strip()))
+            elif lowered in _MASKED_HEADERS or is_secret_name(name):
+                shown.append((name, "<redacted>"))
+            else:
+                shown.append((name, value))
+        return f"Headers({shown!r})"
 
 
 @dataclass(frozen=True)

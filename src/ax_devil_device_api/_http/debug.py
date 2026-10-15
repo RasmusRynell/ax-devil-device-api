@@ -263,19 +263,35 @@ def serialize(value: Any, key: Any = None, _depth: int = 0) -> Any:
                 item = _REDACTED
             else:
                 item = serialize(v, k, _depth + 1)
-            unique, number = safe, 1
-            while unique in shown:  # two keys can collapse to the same redacted text: keep both entries
-                number += 1
-                unique = f"{safe} ({number})"
-            shown[unique] = item
+            shown[_unique_key(shown, safe)] = item
         return shown
     if isinstance(value, (list, tuple, set)):
         return [serialize(item, key, _depth + 1) for item in value]
     return str(value)
 
 
+def _unique_key(shown: dict[str, Any], key: str) -> str:
+    """Two keys can collapse to the same redacted text: keep both entries."""
+    unique, number = key, 1
+    while unique in shown:
+        number += 1
+        unique = f"{key} ({number})"
+    return unique
+
+
+def _shown_pair(key: Any, value: Any) -> tuple[str, Any]:
+    """A name/value pair as a record shows it. THE key redaction, shared by every serializer path (query, form, multipart
+    fields, headers, JSON objects): a key that carries a secret (``password=hunter2``) is redacted, and so is the
+    value it labels."""
+    name = str(key)
+    safe = _scrub_text(name)
+    if safe != name:
+        return safe, _REDACTED
+    return name, serialize(value, key)
+
+
 def _pairs(pairs: tuple[tuple[str, Any], ...]) -> list[list[Any]]:
-    return [[k, serialize(v, k)] for k, v in pairs]
+    return [list(_shown_pair(k, v)) for k, v in pairs]
 
 
 def _redact_leaves(value: Any) -> Any:
@@ -315,10 +331,10 @@ def _redacted_body(body: Any) -> Any:
     if isinstance(body, JsonBody):
         return JsonBody(_redact_leaves(body.value) if body.sensitive else serialize(body.value), sensitive=body.sensitive)
     if isinstance(body, FormBody):
-        return FormBody(tuple((str(k), serialize(v, k)) for k, v in body.fields))
+        return FormBody(tuple(_shown_pair(k, v) for k, v in body.fields))
     if isinstance(body, MultipartBody):
         files = tuple(FilePart(f.name, f.filename, b"", f.content_type, size=f.length) for f in body.files)
-        return MultipartBody(tuple((str(k), serialize(v, k)) for k, v in body.fields), files, body.boundary)
+        return MultipartBody(tuple(_shown_pair(k, v) for k, v in body.fields), files, body.boundary)
     if isinstance(body, RawBody):
         return RawBody(b"", body.content_type, size=body.size if body.size is not None else (len(body.content) if isinstance(body.content, bytes) else None))
     return None
@@ -336,8 +352,11 @@ def redact_request(request: Request) -> Request:
         return replace(
             request,
             path=path if path.startswith("/") else "/" + path,
-            query=tuple((str(k), None if v is None else serialize(v, k)) for k, v in request.query),
-            headers=tuple((str(k), _REDACTED if str(k).lower() in _SENSITIVE_HEADERS or _is_secret_key(k) else serialize(v, k)) for k, v in request.headers),
+            query=tuple(_shown_pair(k, v) for k, v in request.query),
+            headers=tuple(
+                (name, _REDACTED if str(k).lower() in _SENSITIVE_HEADERS or _is_secret_key(k) else value)
+                for k, (name, value) in ((k, _shown_pair(k, v)) for k, v in request.headers)
+            ),
             body=_redacted_body(request.body),
         )
     finally:
@@ -361,16 +380,23 @@ def emit_request(hook: RequestHook | None, request: Request, url: str, timeout: 
     hook(record)
 
 
+def _header_record(headers: tuple[tuple[str, str], ...]) -> dict[str, Any]:
+    shown: dict[str, Any] = {}
+    for k, v in headers:
+        name, value = _shown_pair(k, v)
+        if str(k).lower() in _SENSITIVE_HEADERS or _is_secret_key(k):
+            value = _REDACTED
+        shown[_unique_key(shown, name)] = value
+    return shown
+
+
 def _record(request: Request, url: str, timeout: float, verify: Verify) -> dict[str, Any]:
     return (
         {
             "request": {
                 "method": request.method,
                 "url": redact_url(url),
-                "headers": {
-                    str(k): _REDACTED if str(k).lower() in _SENSITIVE_HEADERS or _is_secret_key(k) else serialize(v, k)
-                    for k, v in request.headers
-                },
+                "headers": _header_record(request.headers),
                 "query": _pairs(request.query),
                 "body": _body(request.body),
             },
