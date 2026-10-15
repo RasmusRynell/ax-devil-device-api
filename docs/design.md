@@ -100,7 +100,7 @@ A request with `stream=True` must be the last request a flow yields. For a 2xx r
 ```python
 with dev.apis.media_stream.get_media_stream(container="mp4") as stream:          # sync
     for chunk in stream: f.write(chunk)
-async with adev.apis.media_stream.get_media_stream(container="mp4") as stream:   # async
+async with await adev.apis.media_stream.get_media_stream(container="mp4") as stream:   # async
     async for chunk in stream: await f.write(chunk)
 ```
 

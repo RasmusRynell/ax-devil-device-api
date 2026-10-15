@@ -166,7 +166,7 @@ Stream operations return `StreamResult[T]` (`AsyncStreamResult[T]` on `AsyncDevi
 ```python
 with dev.apis.media_stream.get_media_stream(container="mp4", request_options=RequestOptions(timeout=120)) as stream:
     for chunk in stream: out.write(chunk)
-async with adev.apis.media_stream.get_media_stream(container="mp4") as stream:
+async with await adev.apis.media_stream.get_media_stream(container="mp4") as stream:
     async for chunk in stream: out.write(chunk)
 ```
 
