@@ -686,6 +686,33 @@ def _token_flow(spec: SessionSpec) -> CallFlow[str]:
 # Sync
 
 
+def _serialize_sends(raw: httpx_ws.WebSocketSession, lock: Any) -> None:
+    """Make every frame httpx-ws sends (``send_text``, ``send_bytes``, ``request``'s send and the heartbeat ping all end in
+    ``raw.send``) build AND write under one lock. httpx-ws takes its own lock only around the write, after wsproto built
+    the frame, so two threads could build frames in one order and write them in another. The lock is held for the send
+    only, never while waiting for a reply or for the reader, so it cannot take part in a deadlock with the dispatcher.
+    A close frame is a control frame that does not touch the data-frame state and is left outside the lock, so closing
+    never waits behind a stalled write."""
+    original = raw.send
+
+    def send(event: Any) -> None:
+        with lock:
+            original(event)
+
+    raw.send = send  # type: ignore[method-assign]
+
+
+def _serialize_sends_async(raw: httpx_ws.AsyncWebSocketSession, lock: Any) -> None:
+    """Async counterpart of ``_serialize_sends`` (an ``anyio.Lock``, held for the build and the write of one frame)."""
+    original = raw.send
+
+    async def send(event: Any) -> None:
+        async with lock:
+            await original(event)
+
+    raw.send = send  # type: ignore[method-assign]
+
+
 class Session:
     """A blocking WebSocket session. Obtain it from ``Device.connect_session``.
 
@@ -701,6 +728,8 @@ class Session:
         self._cond = threading.Condition()
         self._reading = False
         self._waiters: dict[str, _Slot] = {}
+        self._send_lock = threading.RLock()
+        _serialize_sends(raw, self._send_lock)
         core.watch_reader(raw)
 
     @property
@@ -1010,6 +1039,8 @@ class AsyncSession:
         self._reading = False
         self._changed = asyncio.Event()
         self._waiters: dict[str, _Slot] = {}
+        self._send_lock = anyio.Lock()
+        _serialize_sends_async(raw, self._send_lock)
         core.watch_reader(raw)
 
     @property
