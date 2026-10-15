@@ -215,12 +215,28 @@ def test_i2_garbage_classic_discovery_is_never_a_cached_definitive_no(entries: A
     assert not cached, "garbage must not be cached"
 
 
-@pytest.mark.parametrize("apis", [None, [], "x", 5, {"a": None}, {"a": []}, {"a": 5}, {"a": "v1"}, {"a": ["v1"]}, {"a": True}])
+DCA_LISTS: list[Any] = [
+    None, [], "x", 5, {"a": None}, {"a": []}, {"a": 5}, {"a": "v1"}, {"a": ["v1"]}, {"a": True},
+    # the versions of an API are metadata objects; a null / list / string / number version is not a statement of support
+    {"a": {"v1": None}}, {"a": {"v1": []}}, {"a": {"v1": "x"}}, {"a": {"v1": 5}}, {"a": {"v1": True}},
+    {"a": {"v1": {}, "v2": None}}, {"a": {"v2": None}},
+]
+
+
+@pytest.mark.parametrize("apis", DCA_LISTS, ids=[repr(a)[:40] for a in DCA_LISTS])
 def test_i2_garbage_dca_discovery_is_never_a_cached_definitive_no(apis: Any) -> None:
     camera = MockCamera()
     camera.route("GET", "/config/discover", lambda _: httpx.Response(200, json={"apis": apis}))
     status, cached = _status(camera, DCA, "dca_apis")
     assert status is not Support.NO and not cached
+    assert status is not Support.YES, "a version that is not a metadata object is not a statement that the API is there"
+
+
+def test_a_well_formed_dca_listing_is_yes_and_cached() -> None:
+    camera = MockCamera()
+    camera.route("GET", "/config/discover", lambda _: httpx.Response(200, json={"apis": {"a": {"v1": {}, "v2": {"x": 1}}}}))
+    status, cached = _status(camera, DCA, "dca_apis")
+    assert status is Support.YES and cached
 
 
 APPLICATIONS = [b"", b"<a", b"text", b"\xff", b"<reply result='error'/>", b"<reply><application/></reply>",

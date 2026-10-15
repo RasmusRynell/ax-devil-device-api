@@ -345,14 +345,16 @@ def dca_apis_flow(state: DeviceState) -> CallFlow[DcaListing]:
     apis = payload.get("apis") if isinstance(payload, dict) else None
     if not isinstance(apis, dict):
         raise ResponseFormatError("device", "config_discover", "response has no apis object")
-    return DcaListing(
-        {str(name): frozenset(str(v) for v in versions) for name, versions in apis.items() if isinstance(versions, dict)},
-        {
-            str(name): malformed_reason("/config/discover", name, versions, "an object of versions")
-            for name, versions in apis.items()
-            if not isinstance(versions, dict)
-        },
-    )
+    readable: dict[str, frozenset[str]] = {}
+    malformed: dict[str, str] = {}
+    for name, versions in apis.items():
+        # An API is an object of versions and each version an object of metadata: {"analytics-mqtt": {"v1": {...}}}.
+        # Anything else (``{"v1": null}``, a list, a string) is a listing we cannot read, not a statement of support.
+        if isinstance(versions, dict) and all(isinstance(meta, dict) for meta in versions.values()):
+            readable[str(name)] = frozenset(str(version) for version in versions)
+        else:
+            malformed[str(name)] = malformed_reason("/config/discover", name, versions, "an object of versions, each an object")
+    return DcaListing(readable, malformed)
 
 
 def properties_flow(state: DeviceState) -> CallFlow[dict[str, str]]:
