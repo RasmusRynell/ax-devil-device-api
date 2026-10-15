@@ -274,10 +274,11 @@ ax-devil supported                             # {"apis": status of every genera
 ax-devil call mqtt_client get_client_status
 ax-devil call parameter_management list group='["Brand.ProdNbr"]'
 ax-devil call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4
+ax-devil call application_api upload_application package=@app.eap   # a file for an upload parameter
 ax-devil snapshot --resolution 640x480 -o snapshot.jpg
 ```
 
-Connection options: `--host`, `--user`, `--password`, `--port`, `--http`, `--insecure`, `--ca-bundle`, `--base-path`, `--timeout`. Host, user and password default to `$AX_DEVIL_HOST`, `$AX_DEVIL_USER` (or `$CAM_USER`) and `$AX_DEVIL_PASSWORD` (or `$CAM_PASS`); prefer the environment to `--password`, which shows up in process lists. Output is JSON on stdout. Errors are JSON on stderr with exit code 1 (device or OS error) or 2 (usage or invalid parameters). `call` parses `key=value` values as JSON and falls back to strings; use `--json '{...}'` or `--json @file` for larger parameter sets. `call` runs any operation of any generated API, so new specs are available on the command line as soon as they are generated.
+Connection options: `--host`, `--user`, `--password`, `--port`, `--http`, `--insecure`, `--ca-bundle`, `--base-path`, `--timeout`. Host, user and password default to `$AX_DEVIL_HOST`, `$AX_DEVIL_USER` (or `$CAM_USER`) and `$AX_DEVIL_PASSWORD` (or `$CAM_PASS`); prefer the environment to `--password`, which shows up in process lists. Output is JSON on stdout (`call --output FILE` writes JSON results, line streams, RTSP URLs and binary results to a file; `-` is stdout). Errors are JSON on stderr with exit code 1 (device or OS error) or 2 (usage or invalid parameters). `call` parses `key=value` values as JSON and falls back to strings; use `--json '{...}'` or `--json @file` for larger parameter sets. For a parameter typed as an upload source (`ax-devil ops <api>` marks it `"upload": true`), `key=@path` sends that file, with its size and name; any other parameter never interprets a leading `@` (a string keeps it as text, a number or list with one is a usage error). `call` runs any operation of any generated API, so new specs are available on the command line as soon as they are generated.
 
 ## Protocol families
 

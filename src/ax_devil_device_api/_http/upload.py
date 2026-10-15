@@ -97,6 +97,11 @@ def _validate(value: Any) -> Any:
     raise ValueError(f"expected bytes, a path or an Upload, got {type(value).__name__}")
 
 
+def is_upload_field(field: Any) -> bool:
+    """Whether a pydantic ``FieldInfo`` is typed ``UploadSource`` (its validator is the upload validator)."""
+    return any(getattr(item, "func", None) is _validate for item in getattr(field, "metadata", ()))
+
+
 if TYPE_CHECKING:
     UploadSource = bytes | os.PathLike[str] | Upload
 else:

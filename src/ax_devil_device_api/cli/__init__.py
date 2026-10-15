@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import typing
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -24,6 +25,7 @@ from typing import Any, NoReturn, TextIO
 from pydantic import BaseModel, ValidationError
 
 from .. import Device
+from .._http.upload import is_upload_field
 from .._protocols.base import Operation
 from .._protocols.xmlmap import element_text
 from .._runtime.capabilities import SupportResult
@@ -115,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     call = sub.add_parser("call", help="call an operation: call <api> <op> [key=value ...]")
     call.add_argument("api")
     call.add_argument("op")
-    call.add_argument("args", nargs="*", metavar="key=value", help="parameters; values are parsed as JSON, else taken as strings")
+    call.add_argument("args", nargs="*", metavar="key=value", help="parameters; values are parsed as JSON, else taken as strings. For an upload parameter (see `ops`), key=@PATH sends that file")
     call.add_argument("--json", dest="json_args", metavar="JSON|@FILE", help="parameters as a JSON object, or @file")
     call.add_argument("--output", "-o", metavar="FILE", type=_nonempty("--output"), help="write the result here instead of stdout: binary results and stream bodies, and also JSON results, line streams and RTSP URLs; '-' means stdout")
     call.add_argument("--limit", type=_arg(lambda v: non_negative_int("--limit", v), int), help="stop a stream after this many items")
@@ -175,7 +177,40 @@ def parse_value(text: str) -> Any:
         return text
 
 
-def parse_params(args: list[str], json_arg: str | None) -> dict[str, Any]:
+def _accepts_text(annotation: Any) -> bool:
+    """Whether a parameter's type takes a string (so a leading ``@`` in its value is just text)."""
+    if annotation is str or annotation is Any:
+        return True
+    return any(_accepts_text(arg) for arg in typing.get_args(annotation))
+
+
+def _field_of(op: Operation | None, key: str) -> Any:
+    if op is None or op.params is None:
+        return None
+    for name, field in op.params.model_fields.items():
+        if key in (name, field.alias, field.validation_alias):
+            return field
+    return None
+
+
+def _cli_value(op: Operation | None, key: str, text: str) -> Any:
+    """The value of ``key=text``. ``key=@path`` names a file for a parameter typed as an upload source; other
+    parameters never interpret a leading ``@`` (string values keep it as text; for any other type it is an error)."""
+    field = _field_of(op, key)
+    if text.startswith("@") and field is not None:
+        if is_upload_field(field):
+            if len(text) == 1:
+                raise CliError(f"{key}=@FILE needs a file name")
+            path = Path(text[1:]).expanduser()
+            if not path.is_file():
+                raise CliError(f"{key}: no such file: {path}")
+            return path
+        if not _accepts_text(field.annotation):
+            raise CliError(f"{key}: '@' is only for file uploads; this parameter takes {field.annotation}")
+    return parse_value(text)
+
+
+def parse_params(args: list[str], json_arg: str | None, op: Operation | None = None) -> dict[str, Any]:
     params: dict[str, Any] = {}
     if json_arg is not None:  # an empty --json (an unset shell variable) is invalid JSON, not "absent"
         if json_arg == "@":
@@ -192,7 +227,7 @@ def parse_params(args: list[str], json_arg: str | None) -> dict[str, Any]:
         key, sep, value = item.partition("=")
         if not sep or not key:
             raise CliError(f"expected key=value, got {item!r}")
-        params[key] = parse_value(value)
+        params[key] = _cli_value(op, key, value)
     return params
 
 
@@ -220,7 +255,7 @@ def _field_info(op: Operation) -> list[dict[str, Any]]:
     if op.params is None:
         return []
     return [
-        {"name": n, "type": str(f.annotation), "required": f.is_required(), "description": f.description}
+        {"name": n, "type": str(f.annotation), "required": f.is_required(), "description": f.description, "upload": is_upload_field(f)}
         for n, f in op.params.model_fields.items()
     ]
 
@@ -355,7 +390,7 @@ def _cmd_call(args: argparse.Namespace, out: TextIO) -> None:
     op = entry.operations.get(args.op)
     if op is None:
         raise CliError(f"unknown operation {args.op!r} of {args.api}; see `ax-devil ops {args.api}`")
-    params = parse_params(args.args, args.json_args)
+    params = parse_params(args.args, args.json_args, op)
     with make_device(args) as dev:
         if isinstance(op.binding, RtspBinding):
             # RTSP operations build a URL (no request); credentials are never put into it.
