@@ -426,7 +426,7 @@ def _info(*discovery):
 
 @pytest.mark.parametrize(
     ("have", "expected"),
-    [("1.20", Support.YES), ("1.21", Support.YES), ("2.0", Support.YES), ("1.9", Support.NO), ("1.19.5", Support.NO), ("abc", Support.NO)],
+    [("1.20", Support.YES), ("1.21", Support.YES), ("2.0", Support.YES), ("1.9", Support.NO), ("1.19.5", Support.NO), ("abc", Support.UNKNOWN)],
 )
 def test_param_discovery_gte_compares_dotted_numbers(have: str, expected: Support) -> None:
     from ax_devil_device_api._protocols.base import ParamDiscovery

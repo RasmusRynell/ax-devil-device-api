@@ -46,6 +46,7 @@ from ._runtime.capabilities import (
     SupportResult,
     decide_support,
     extra_probes,
+    firmware_key,
     identity_flow,
     is_unreachable,
     probe_error,
@@ -103,6 +104,8 @@ class _DeviceBase:
         # New firmware, or another unit behind the same address (different serial or product number, even with the same
         # firmware): every cached fact may be wrong now.
         self._state.set_or_clear(_IDENTITY, identity, token, _different_device)
+        if identity.firmware_version and firmware_key(identity.firmware_version) is None:
+            self._state.forget(_IDENTITY)  # a firmware this client cannot read is not settled: ask again next time
 
     def _capabilities(self, values: dict[str, Any], errors: dict[str, str]) -> Capabilities:
         # Cached per-property scope probes (run by earlier supports() calls) belong in the snapshot,

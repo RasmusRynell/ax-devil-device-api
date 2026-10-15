@@ -155,6 +155,8 @@ class Capabilities:
                 properties.update(found)
             groups |= {k[len(PROPERTY_SCOPE_PREFIX):] for k in extra}
         errors = dict(errors)
+        for key in unreadable_versions(properties or {}):
+            errors[f"properties[{key}]"] = f"{key} is not a readable version: {display_text((properties or {}).get(key), 60)}"
         classic = values.get("classic_apis")
         dca = values.get("dca_apis")
         classic_versions: Mapping[str, Advertised] | None = None
@@ -347,7 +349,20 @@ def probe_is_complete(value: Any) -> bool:
         return not value.malformed
     if isinstance(value, NamedListing):
         return not value.problems
+    if isinstance(value, dict):  # a property list: a version this client cannot read is not a settled answer
+        return not unreadable_versions(value)
     return True
+
+
+def unreadable_versions(properties: Mapping[Any, Any]) -> list[str]:
+    """Names of the version properties in ``properties`` whose value is not a readable version."""
+    return [
+        str(key) for key, value in properties.items()
+        if isinstance(key, str) and is_version_property(key) and (not isinstance(value, str) or not readable_version(value))
+    ]
+
+
+_DCA_VERSION = re.compile(r"v[0-9]{1,18}[a-z0-9]*")  # v1, v2beta, v1alpha1: ASCII only
 
 
 def dca_apis_flow(state: DeviceState) -> CallFlow[DcaListing]:
@@ -366,10 +381,12 @@ def dca_apis_flow(state: DeviceState) -> CallFlow[DcaListing]:
     for name, versions in apis.items():
         # An API is an object of versions and each version an object of metadata: {"analytics-mqtt": {"v1": {...}}}.
         # Anything else (``{"v1": null}``, a list, a string) is a listing we cannot read, not a statement of support.
-        if isinstance(versions, dict) and all(isinstance(meta, dict) for meta in versions.values()):
+        if isinstance(versions, dict) and all(isinstance(meta, dict) for meta in versions.values()) and all(
+            isinstance(version, str) and _DCA_VERSION.fullmatch(version) for version in versions
+        ):
             readable[str(name)] = frozenset(str(version) for version in versions)
         else:
-            malformed[str(name)] = malformed_reason("/config/discover", name, versions, "an object of versions, each an object")
+            malformed[str(name)] = malformed_reason("/config/discover", name, versions, "an object of versions (v1, v2beta, ...), each an object")
     return DcaListing(readable, malformed)
 
 
@@ -522,10 +539,10 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
     """
     result = _decide_discovery(info, caps)
     minimum = info.requires_firmware
-    want = _firmware_key(minimum) if minimum is not None else None
+    want = firmware_key(minimum) if minimum is not None else None
     if minimum is None or want is None:
         return result  # no minimum, or one this client cannot read: not enforced
-    have = _firmware_key(caps.firmware) if caps.firmware else None
+    have = firmware_key(caps.firmware) if caps.firmware else None
     if have is not None and have < want and result.status is not Support.NO:
         # A known firmware below the minimum settles it, even when discovery failed (old firmware often lacks the endpoints).
         return SupportResult(
@@ -546,7 +563,7 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
 _FIRMWARE_PART = re.compile(r"[0-9]{1,18}")
 
 
-def _firmware_key(text: str) -> tuple[int, ...] | None:
+def firmware_key(text: str) -> tuple[int, ...] | None:
     """Leading dotted numbers of a firmware version (``11.5``, ``10.12.213``, ``9.80.1.1``); ``None`` if there are none."""
     parts: list[int] = []
     for part in text.strip().split("."):
@@ -610,6 +627,10 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
             value = (caps.properties or {}).get(name)
             if value is not None and _param_matches(method, value):
                 return SupportResult(Support.YES, f"parameter {name}={value}", observed_at=caps.observed_at)
+            if value is not None and is_version_property(name, method) and not readable_version(value):
+                # Not a mismatch: the device reported something this client cannot read as a version.
+                unknown.append(f"parameter {name} is not a readable version: {display_text(value, 60)}")
+                continue
             groups = caps.property_groups if caps.properties is not None else frozenset()
             if value is None and not _is_queried(name, groups):
                 # Judge only the probe that covers this property: the base group or its own scope.
@@ -642,6 +663,21 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
     if incompatible is not None:
         return SupportResult(Support.NO, incompatible, observed_at=caps.observed_at)
     return SupportResult(Support.NO, f"{info.id} is not listed by the device's discovery", observed_at=caps.observed_at)
+
+
+_VERSION_TEXT = re.compile(r"[0-9]{1,18}(\.[0-9]{1,18})*")
+
+
+def readable_version(text: str) -> bool:
+    """Whether ``text`` is a dotted number (``1``, ``1.20``, ``10.12.213``) made of ASCII digits. THE test of a version
+    the device reports: anything else (a superscript, full-width digits, garbage, an empty value) is *unreadable*, and an
+    unreadable version is never a mismatch."""
+    return _VERSION_TEXT.fullmatch(text.strip()) is not None
+
+
+def is_version_property(name: str, method: ParamDiscovery | None = None) -> bool:
+    """Whether a property holds a version: one that is compared with ``>=``, or named ``...Version``."""
+    return (method is not None and method.compare == ">=") or name.rpartition(".")[2] == "Version"
 
 
 def _version_key(text: str) -> tuple[int, ...] | None:

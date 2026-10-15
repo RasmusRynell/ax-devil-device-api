@@ -24,6 +24,7 @@ from ax_devil_device_api._protocols.base import (
     Family,
     Model,
     Operation,
+    ParamDiscovery,
     ServiceDiscovery,
 )
 from ax_devil_device_api._protocols.cgi import CgiBinding, JsonReply, Text, TextKv, Xml
@@ -218,6 +219,7 @@ CLASSIC_LISTS: list[Any] = [
     [{"id": "a", "version": "garbage"}], [{"id": "a", "version": "1"}], [{"id": "a", "version": "1.0.0"}],
     [{"id": ["a"], "version": "1.0"}], [{"version": "1.0"}], [{"id": "b", "version": "1.0"}, {"id": 5}],
     [{"id": "a", "version": "9" * 5000 + ".0"}], [{"id": "a", "version": "1." + "9" * 5000}], [{"id": "a", "version": "\u00b2.\u00b3"}],
+    [{"id": "a", "version": "\uff11.\uff10"}], [{"id": "a", "version": "\u0661.\u0660"}], [{"id": "a", "version": "1..0"}], [{"id": "a", "version": "v1.0"}],
 ]
 
 
@@ -311,6 +313,21 @@ def test_a_service_at_the_expected_path_is_found_and_cached() -> None:
         caps = dev._collect(("services",))  # noqa: SLF001
         assert decide_support(SERVICE, caps).status is Support.YES
         assert dev._state.get("services") is not None  # noqa: SLF001
+
+
+PROPERTY_VERSIONS = ["\u00b2", "\uff11.\uff10", "\u0661", "garbage", "", "1..0", "1.0-beta", "9" * 5000, "\u00b2.\u00b3"]
+
+
+@pytest.mark.parametrize("value", PROPERTY_VERSIONS, ids=lambda v: repr(v)[:14])
+def test_i2_unreadable_property_version_is_never_a_cached_definitive_no(value: str) -> None:
+    info = ApiInfo(id="a", name="a", family=Family.CGI, discovery=(ParamDiscovery("Properties.API.A.Version", "1.0", ">="),))
+    camera = MockCamera()
+    camera.cgi("/axis-cgi/param.cgi", text=f"root.Properties.API.A.Version={value}\n")
+    with camera.device() as dev:
+        caps = dev.capabilities()
+        assert decide_support(info, caps).status is Support.UNKNOWN
+        assert dev._state.get("properties") is None  # noqa: SLF001
+        assert any("readable version" in text for text in caps.errors.values())
 
 
 IDENTITY = [None, 5, "x", [], {}, {"propertyList": None}, {"propertyList": []}, {"propertyList": "x"},

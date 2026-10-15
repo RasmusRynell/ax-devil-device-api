@@ -20,7 +20,7 @@ from ax_devil_device_api._protocols.base import (
     parse_result,
 )
 from ax_devil_device_api._protocols.cgi import CgiBinding, Text, _numeric_or_text
-from ax_devil_device_api._runtime.capabilities import Capabilities, _firmware_key, _version_key, decide_support
+from ax_devil_device_api._runtime.capabilities import Capabilities, _version_key, decide_support, firmware_key
 from ax_devil_device_api.errors import DeviceError, ResponseFormatError
 
 HUGE = "9" * 5000
@@ -47,7 +47,7 @@ def test_api_error_with_a_non_numeric_or_huge_text_code_stays_in_the_hierarchy(c
 def test_helpers_and_version_parsers_do_not_raise_on_huge_or_unicode_digits() -> None:
     for text in (HUGE, f"{HUGE}.1", f"1.{HUGE}", "².³"):
         assert _version_key(text) is None or isinstance(_version_key(text), tuple)
-        assert _firmware_key(text) is None or isinstance(_firmware_key(text), tuple)
+        assert firmware_key(text) is None or isinstance(firmware_key(text), tuple)
         with pytest.raises(ValueError, match="major.minor"):
             ApiVersion.parse(text)
     assert _numeric_or_text(HUGE) == HUGE and _numeric_or_text("0") == 0 and _numeric_or_text(None) is None and _numeric_or_text("") == ""
