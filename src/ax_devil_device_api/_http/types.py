@@ -234,6 +234,10 @@ class Request:
             raise ValueError(f"Request path must be absolute: {self.path!r}")
         if "?" in self.path:
             raise ValueError(f"Request path must not contain a query; use query=: {self.path!r}")
+        if "#" in self.path:
+            # httpx treats everything after '#' as a fragment and leaves it out of the request line: the path would be
+            # keyed as one thing and sent as another. A literal '#' in a name is written %23.
+            raise ConfigurationError("Request path must not contain '#' (a fragment delimiter); write %23 for a literal #")
         if unsafe_path(self.path):
             raise ValueError(f"Request path must not contain '.' or '..' segments or backslashes (also percent-encoded): {self.path!r}")
         for header, value in self.headers:

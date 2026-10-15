@@ -64,6 +64,8 @@ class RtspUrl:
         bounded_int("port", self.port, 1, 65535)
         if not self.path.startswith("/") or "?" in self.path:
             raise ConfigurationError(f"RTSP path must be absolute and without a query: {self.path!r}")
+        if "#" in self.path:
+            raise ConfigurationError("RTSP path must not contain '#' (a fragment delimiter); write %23 for a literal #")
         if unsafe_path(self.path):
             raise ConfigurationError(f"RTSP path must not contain '.' or '..' segments or backslashes (also percent-encoded): {self.path!r}")
         if self.password is not None and self.username is None:

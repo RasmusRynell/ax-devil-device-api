@@ -47,6 +47,7 @@ import httpx_ws
 import wsproto.events
 import wsproto.utilities
 
+from .._http.debug import public_response
 from .._http.options import DEFAULT_HEARTBEAT, Heartbeat
 from .._http.transport import (
     LIMIT_CLOSE_CODE,
@@ -62,6 +63,7 @@ from .._protocols.base import CallFlow, redact_text
 from .._validate import optional_non_negative_finite, optional_positive_finite, positive_int
 from ..errors import (
     AuthError,
+    ConfigurationError,
     ConnectionFailed,
     DeviceError,
     HttpAccessDenied,
@@ -106,6 +108,11 @@ class SessionSpec:
     setup: Setup | None = None
     """Maps ``connect(**options)`` to requests sent before the session is returned."""
     token_path: str = "/axis-cgi/wssession.cgi"
+
+    def __post_init__(self) -> None:
+        for label, path in (("path", self.path), ("token_path", self.token_path)):
+            if "#" in path:  # httpx would drop the rest as a fragment: the endpoint keyed here is not the one reached
+                raise ConfigurationError(f"{self.api_id}: the session {label} must not contain '#'; write %23 for a literal #")
 
     @property
     def key(self) -> tuple[Any, ...]:
@@ -330,7 +337,7 @@ class _Core:
         self.spec = spec
         self.ledger_key = _ledger_key(spec, setup)
         self.ledger = ledger
-        self.response = response
+        self.response = public_response(response)  # what the application sees: the request in it is a redacted copy (the wssession token)
         self.default_timeout = default_timeout
         self.gap: Gap | None = None
         self.record: _Record | None = None
