@@ -117,15 +117,20 @@ def _preflight_failure(status: int) -> errors.AuthError:
 def map_error(error: httpx.TransportError) -> errors.TransportError:
     """Translate an httpx transport exception into the library's hierarchy."""
     where = _where(error)
+    # The library error is raised OUTSIDE the except block that caught ``error`` and chains nothing: the httpx exception
+    # holds the request (its Authorization header, a password in the query) and must not be reachable from the error.
+    # What diagnoses the failure is kept as text: the exception's class name and its own message (errno, TLS reason).
+    own = str(error)
+    named = f"{type(error).__name__}: {own}" if own else type(error).__name__
     if isinstance(error, httpx.ConnectTimeout):
-        return errors.ConnectTimeout(f"connect timed out{where}")
+        return errors.ConnectTimeout(f"connect timed out{where} [{named}]")
     if isinstance(error, httpx.WriteTimeout):
-        return errors.WriteTimeout(f"timed out sending the request{where}")
+        return errors.WriteTimeout(f"timed out sending the request{where} [{named}]")
     if isinstance(error, httpx.PoolTimeout):
-        return errors.PoolTimeout(f"no free connection to the device{where}")
+        return errors.PoolTimeout(f"no free connection to the device{where} [{named}]")
     if isinstance(error, httpx.TimeoutException):
-        return errors.ReadTimeout(f"timed out waiting for the device{where}")
-    message = f"{str(error) or type(error).__name__}{where}"
+        return errors.ReadTimeout(f"timed out waiting for the device{where} [{named}]")
+    message = f"{named}{where}"
     if isinstance(error, httpx.ProxyError):
         # The proxy refused or failed the tunnel: nothing reached the device.
         return errors.ConnectionFailed(message, request_sent=False)
@@ -521,6 +526,7 @@ class SyncTransport:
 
     def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
         opened: list[Any] = []
+        failure: Exception | None = None
         try:
             return self._client.send(
                 _build(self._client, request, self.config.base_path, opened),
@@ -528,12 +534,13 @@ class SyncTransport:
                 stream=stream,
             )
         except httpx.InvalidURL as error:
-            raise _invalid_url(error) from error
+            failure = _invalid_url(error)
         except httpx.TransportError as error:
-            raise map_error(error) from error
+            failure = map_error(error)
         finally:
             for iterator in opened:
                 _close(iterator)
+        raise failure  # outside the handler: no __cause__ or __context__ reaches the httpx exception and its request
 
     def send(self, request: Request) -> Response:
         """Send ``request`` and return the fully read response."""
@@ -553,10 +560,13 @@ class SyncTransport:
             raw = self._send(request, stream=True)
             try:
                 if not raw.is_success:
+                    failure: errors.TransportError | None = None
                     try:
                         raw.read()
                     except httpx.TransportError as error:
-                        raise map_error(error) from error
+                        failure = map_error(error)
+                    if failure is not None:
+                        raise failure
                     yield _response(raw, request, raw.content), iter(())
                 else:
                     yield _response(raw, request, b""), self._chunks(raw)
@@ -586,10 +596,13 @@ class SyncTransport:
             raw = self._send(_ws_request(request), stream=True)
             try:
                 if raw.status_code != 101:
+                    failure: errors.TransportError | None = None
                     try:
                         raw.read()
                     except httpx.TransportError as error:
-                        raise map_error(error) from error
+                        failure = map_error(error)
+                    if failure is not None:
+                        raise failure
                     raise UpgradeRefused(_response(raw, request, raw.content))
                 session = WebSocketSession(
                     raw.extensions["network_stream"],
@@ -607,10 +620,13 @@ class SyncTransport:
 
     @staticmethod
     def _chunks(raw: httpx.Response) -> Iterator[bytes]:
+        failure: errors.TransportError | None = None
         try:
             yield from raw.iter_bytes()
         except httpx.TransportError as error:
-            raise map_error(error) from error
+            failure = map_error(error)
+        if failure is not None:
+            raise failure
 
     def close(self) -> None:
         self._client.close()
@@ -673,6 +689,7 @@ class AsyncTransport:
 
     async def _send_once(self, request: Request, *, stream: bool) -> httpx.Response:
         opened: list[Any] = []
+        failure: Exception | None = None
         try:
             return await self._client.send(
                 _build(self._client, request, self.config.base_path, opened),
@@ -680,15 +697,16 @@ class AsyncTransport:
                 stream=stream,
             )
         except httpx.InvalidURL as error:
-            raise _invalid_url(error) from error
+            failure = _invalid_url(error)
         except httpx.TransportError as error:
-            raise map_error(error) from error
+            failure = map_error(error)
         finally:
             for iterator in reversed(opened):
                 if hasattr(iterator, "aclose"):
                     await iterator.aclose()
                 else:
                     _close(iterator)
+        raise failure  # outside the handler: no __cause__ or __context__ reaches the httpx exception and its request
 
     async def send(self, request: Request) -> Response:
         """Send ``request`` and return the fully read response."""
@@ -710,10 +728,13 @@ class AsyncTransport:
             raw = await self._send(request, stream=True)
             try:
                 if not raw.is_success:
+                    failure: errors.TransportError | None = None
                     try:
                         await raw.aread()
                     except httpx.TransportError as error:
-                        raise map_error(error) from error
+                        failure = map_error(error)
+                    if failure is not None:
+                        raise failure
                     yield _response(raw, request, raw.content), _empty()
                 else:
                     yield _response(raw, request, b""), self._chunks(raw)
@@ -739,10 +760,13 @@ class AsyncTransport:
             raw = await self._send(_ws_request(request), stream=True)
             try:
                 if raw.status_code != 101:
+                    failure: errors.TransportError | None = None
                     try:
                         await raw.aread()
                     except httpx.TransportError as error:
-                        raise map_error(error) from error
+                        failure = map_error(error)
+                    if failure is not None:
+                        raise failure
                     raise UpgradeRefused(_response(raw, request, raw.content))
                 session = AsyncWebSocketSession(
                     raw.extensions["network_stream"],
@@ -765,11 +789,14 @@ class AsyncTransport:
 
     @staticmethod
     async def _chunks(raw: httpx.Response) -> AsyncIterator[bytes]:
+        failure: errors.TransportError | None = None
         try:
             async for chunk in raw.aiter_bytes():
                 yield chunk
         except httpx.TransportError as error:
-            raise map_error(error) from error
+            failure = map_error(error)
+        if failure is not None:
+            raise failure
 
     async def aclose(self) -> None:
         await self._client.aclose()
