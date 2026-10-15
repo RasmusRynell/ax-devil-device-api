@@ -299,15 +299,18 @@ class DataHubCodec:
         from .._protocols.base import RESPONSE_CONTEXT
         from ..apis.device_data_hub_ws import TopicSampleParams
 
+        checked: TopicSampleParams | None = None
+        fields = ""
         try:
             checked = TopicSampleParams.model_validate(
                 {"isHistorical": False, **params}, strict=True, context={RESPONSE_CONTEXT: True}
             )
         except ValidationError as error:
-            fields = ", ".join(sorted({".".join(str(part) for part in item["loc"]) for item in error.errors()}))
+            fields = ", ".join(sorted({".".join(str(part) for part in item["loc"]) for item in error.errors(include_input=False)}))
+        if checked is None:  # raised outside the handler: the validation error would carry the sample (instance and data)
             raise ResponseFormatError(
                 "datahub-streaming-over-websocket", "receive", f"malformed topicSample: invalid or missing {fields}"
-            ) from None
+            )
         stamp: datetime | None = None
         try:
             stamp = datetime.fromisoformat(checked.timestamp.replace("Z", "+00:00"))

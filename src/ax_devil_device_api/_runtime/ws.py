@@ -435,7 +435,8 @@ class _Core:
         try:
             return loads_json(text)
         except ValueError as error:
-            raise ResponseFormatError(self.spec.api_id, "receive", f"invalid JSON message: {error}") from error
+            reason = str(error)  # position only; the decoder error itself keeps the whole message
+        raise ResponseFormatError(self.spec.api_id, "receive", f"invalid JSON message: {reason}")
 
     def encode(self, message: Any) -> str | bytes:
         if isinstance(message, (bytes, bytearray)):

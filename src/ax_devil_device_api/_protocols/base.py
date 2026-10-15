@@ -742,7 +742,10 @@ def _validated_result(op: Operation[Any], data: Any) -> Any:
         else:
             if new:
                 return tolerated
-        raise ResponseFormatError(op.api.id, op.id, _shape_message(error, data, op)) from error
+        message = _shape_message(error, data, op)
+    # Raised outside the handler, so the pydantic error (which prints the offending input, secrets included) is neither
+    # the cause nor the context of this one: no traceback, log record or attribute of it can show the response body.
+    raise ResponseFormatError(op.api.id, op.id, message)
 
 
 # ---------------------------------------------------------------------------

@@ -523,8 +523,9 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
             return None
         try:
             return loads_json(response.content)
-        except ValueError as error:
-            raise ResponseFormatError(op.api.id, op.id, "response is not valid JSON") from error
+        except ValueError:
+            pass  # raised below, outside the handler: the decoder error keeps the whole document
+        raise ResponseFormatError(op.api.id, op.id, "response is not valid JSON")
     return text
 
 
