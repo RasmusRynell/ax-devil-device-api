@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 from pydantic import PlainValidator
 
 from .._validate import non_negative_int
+from ..errors import ConfigurationError
 from .types import DeferredContent, FilePart, check_header_text
 
 CHUNK_SIZE = 64 * 1024
@@ -48,6 +49,8 @@ class Upload:
     """Held while the stream is read (in a worker thread for async calls): a cancelled call cannot stop a read that
     is running, so a retry waits for it and then reuses the buffer instead of reading the one-shot stream twice."""
     _failure: Exception | None = field(default=None, init=False, repr=False)
+    _started: bool = field(default=False, init=False, repr=False)
+    """A large (streamed, not buffered) source was read from: it cannot be sent again from its current position."""
     _buffer: bytes | None = field(default=None, init=False, repr=False)
     """Content of a small upload, kept after the first read: the stream is one-shot, so a call that failed before
     the body was sent (no free slot, a failing hook, a connection error) can be repeated with the same source."""
@@ -120,10 +123,11 @@ class _PathChunks:
 
 
 class _StreamChunks:
-    def __init__(self, stream: BinaryIO, size: int) -> None:
-        self._stream, self._size = stream, size
+    def __init__(self, stream: BinaryIO, size: int, owner: Upload) -> None:
+        self._stream, self._size, self._owner = stream, size, owner
 
     def __iter__(self) -> Iterator[bytes]:
+        self._owner._started = True  # from here on the stream is no longer at its start
         return _read_exactly(self._stream, self._size)
 
 
@@ -162,7 +166,9 @@ def _load(value: UploadSource) -> tuple[bytes | _PathChunks | _StreamChunks, int
     if isinstance(value, Upload):
         if value.size <= INLINE_LIMIT:
             return value._buffered(), value.size
-        return _StreamChunks(value.stream, value.size), value.size
+        if value._started:
+            raise ConfigurationError("one-shot upload source already consumed; create a new Upload")
+        return _StreamChunks(value.stream, value.size, value), value.size
     path = os.fspath(value)
     size = os.stat(path).st_size
     if size <= INLINE_LIMIT:
