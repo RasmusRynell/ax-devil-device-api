@@ -27,6 +27,7 @@ Liveness and gaps (the contract):
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import queue
@@ -290,6 +291,16 @@ NO_MESSAGE: Any = object()
 _log = logging.getLogger(__name__)
 
 
+def _ledger_key(spec: SessionSpec, setup: Sequence[tuple[str, Mapping[str, Any] | None]]) -> tuple[Any, ...]:
+    """Gap coverage belongs to what a session receives: the endpoint AND its setup (event filters, subscriptions). Two
+    sessions with different filters on one endpoint must not vouch for each other's coverage. The setup requests go
+    into the key as a short digest of their canonical (sorted-key) JSON; no setup keeps the plain endpoint key."""
+    if not setup:
+        return spec.key
+    canonical = json.dumps([[method, params] for method, params in setup], sort_keys=True, default=str, separators=(",", ":"))
+    return (*spec.key, hashlib.sha256(canonical.encode()).hexdigest()[:16])
+
+
 class _Slot:
     """The outcome of one outstanding request, filled in by whoever reads its reply."""
 
@@ -308,8 +319,16 @@ class _Slot:
 
 
 class _Core:
-    def __init__(self, spec: SessionSpec, ledger: SessionLedger, response: Response, default_timeout: float) -> None:
+    def __init__(
+        self,
+        spec: SessionSpec,
+        ledger: SessionLedger,
+        response: Response,
+        default_timeout: float,
+        setup: Sequence[tuple[str, Mapping[str, Any] | None]] = (),
+    ) -> None:
         self.spec = spec
+        self.ledger_key = _ledger_key(spec, setup)
         self.ledger = ledger
         self.response = response
         self.default_timeout = default_timeout
@@ -340,7 +359,7 @@ class _Core:
         """Enter the gap ledger. Called once setup has succeeded, so a failed attempt leaves no trace."""
         if not self._begun and not self._ended:
             self._begun = True
-            self.record, self.gap = self.ledger.open(self.spec.key, self._poll_reader)
+            self.record, self.gap = self.ledger.open(self.ledger_key, self._poll_reader)
             self._poll_reader()  # the socket may have died during setup
 
     def watch_reader(self, raw: Any) -> None:
@@ -928,7 +947,7 @@ def connect_session(
             stack.close()  # a raising hook must not leak the open connection and its stream slot
             raise
         break
-    core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
+    core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout, setup)
     session = Session(raw, core)
     error: BaseException | None = None
     try:
@@ -1223,7 +1242,7 @@ async def connect_session_async(
             await stack.aclose()  # a raising hook must not leak the open connection and its stream slot
             raise
         break
-    core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout)
+    core = _Core(spec, ledger, response, call.timeout if call.timeout is not None else transport.config.timeout, setup)
     session = AsyncSession(raw, core)
     error: BaseException | None = None
     try:

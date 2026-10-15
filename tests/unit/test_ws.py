@@ -318,7 +318,7 @@ async def test_async_events_session() -> None:
             camera.sockets[0].push(notify(state="1"))
             camera.sockets[0].close()
             events = [e async for e in session.notifications()]
-        async with dev.connect_session(EVENTS, heartbeat=QUICK) as again:
+        async with dev.connect_session(EVENTS, heartbeat=QUICK, event_filter_list=FILTERS) as again:
             assert again.gap is not None
     assert [e.topic for e in events] == ["tns1:Device/tnsaxis:IO/VirtualPort"]
     assert camera.sockets[0].received[0]["method"] == "events:configure"
