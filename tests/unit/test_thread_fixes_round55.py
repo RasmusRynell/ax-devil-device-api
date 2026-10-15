@@ -53,3 +53,34 @@ def test_a_tab_is_still_accepted_in_a_header_value(name: str) -> None:
     if name in {"request header name", "multipart field name", "multipart part name"}:
         pytest.skip("a tab in a name is not a value")
     INPUTS[name]("a\tb")
+
+
+# -- RTSP: the safe form redacts the query too ---------------------------------------------------------------------------
+
+
+def test_rtsp_safe_and_repr_redact_secret_parameters_but_url_is_unchanged() -> None:
+    import json
+
+    from ax_devil_device_api import cli
+    from ax_devil_device_api.rtsp import MediaStream
+    from ax_devil_device_api.testing import MockCamera
+
+    camera = MockCamera()
+    with camera.device() as dev:
+        url = dev.rtsp_url(MediaStream(videocodec="h264", extra=(("password", "SENTINEL-RTSP"), ("token", "SENTINEL-TOKEN"), ("camera", "1"))))
+    for shown in (url.safe, repr(url)):
+        assert "SENTINEL" not in shown
+        assert "videocodec=h264" in shown and "camera=1" in shown
+    assert "password=SENTINEL-RTSP" in url.url and "token=SENTINEL-TOKEN" in url.url  # the media client still gets the real URL
+
+    import io
+
+    out, err = io.StringIO(), io.StringIO()
+    import pytest as _pytest
+
+    with _pytest.MonkeyPatch.context() as patch:
+        patch.setattr(cli, "make_device", lambda args: camera.device())
+        code = cli.main(["call", "video_streaming_rtsp", "describe_url", "recordingid=rtsp://u:SENTINEL-CRED@h/x", "videocodec=h264"], out=out, err=err)
+    assert code == 0
+    printed = json.loads(out.getvalue())["url"]
+    assert "SENTINEL-CRED" not in printed and "videocodec=h264" in printed

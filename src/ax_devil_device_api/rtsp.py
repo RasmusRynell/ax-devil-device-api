@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
 from ._http.config import BearerToken, Credentials, check_host, url_host
+from ._http.debug import redact_url
 from ._http.types import unsafe_path
 from ._protocols.base import CallFlow, Model, Operation, register_binding
 from ._validate import boolean, bounded_int, non_negative_int
@@ -88,8 +89,10 @@ class RtspUrl:
 
     @property
     def safe(self) -> str:
-        """The URL without credentials; safe to log."""
-        return self._build(with_credentials=False)
+        """The URL without credentials; safe to log. The query goes through the request-hook redactor too: a secret-named
+        parameter (``password=``, ``token=``) or a credential-shaped value is replaced, so parameters added with
+        ``extra`` cannot leak through ``repr`` or the CLI. ``url`` is the unredacted form for media clients."""
+        return redact_url(self._build(with_credentials=False))
 
     def with_credentials(self, username: str, password: str | None = None) -> RtspUrl:
         return RtspUrl(self.host, self.port, self.path, self.query, username, password)
