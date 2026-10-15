@@ -37,7 +37,7 @@ class Credentials:
     def __post_init__(self) -> None:
         # A password read from an unset environment variable is None: refuse it instead of sending "None".
         header_safe_secret("username", text("username", self.username))
-        header_safe_secret("password", text("password", self.password, allow_empty=True))
+        header_safe_secret("password", text("password", self.password, allow_empty=True), inner_space=True)
 
     @classmethod
     def from_pair(cls, pair: Any) -> Credentials:
@@ -66,7 +66,13 @@ class BearerToken:
 
     def current(self) -> str:
         token = self.token() if callable(self.token) else self.token
-        return header_safe_secret("bearer token", text("token", token))  # checked at every use, callable providers included
+        token = header_safe_secret("bearer token", text("token", token))  # checked at every use, callable providers included
+        object.__setattr__(self, "_last", token)  # remembered only so error text can be scrubbed of it
+        return token
+
+    def recent(self) -> str | None:
+        """The token last sent (or the static one): what a diagnostic must not repeat."""
+        return self.token if isinstance(self.token, str) else self.__dict__.get("_last")
 
     def __repr__(self) -> str:
         return "BearerToken(<redacted>)"

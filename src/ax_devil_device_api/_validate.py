@@ -62,8 +62,11 @@ def text(name: str, value: Any, *, allow_empty: bool = False) -> str:
     return value
 
 
-def header_safe_secret(name: str, value: str) -> str:
-    """``value`` unchanged if it has no newline or other control character, else a ``ConfigurationError``.
+def header_safe_secret(name: str, value: str, *, inner_space: bool = False) -> str:
+    """``value`` unchanged if it has no control character or stray whitespace, else a ``ConfigurationError``.
+
+    Leading and trailing whitespace is always refused (a secret read from a file keeps its newline or a space); so is
+    whitespace inside the value unless ``inner_space`` (a password may contain spaces, a token or user name may not).
 
     Credentials end up in headers. A trailing newline (typical when a secret is read from a file) would make httpx
     reject the request in transit, so it is reported where the value is used, never stripped silently (that would
@@ -71,6 +74,10 @@ def header_safe_secret(name: str, value: str) -> str:
     """
     if any(ord(c) < 32 or 127 <= ord(c) < 160 for c in value):
         raise ConfigurationError(f"{name} contains a newline or other control character (strip it when reading it from a file)")
+    if value != value.strip():
+        raise ConfigurationError(f"{name} has leading or trailing whitespace (strip it when reading it from a file)")
+    if not inner_space and any(c.isspace() for c in value):
+        raise ConfigurationError(f"{name} contains whitespace")
     return value
 
 

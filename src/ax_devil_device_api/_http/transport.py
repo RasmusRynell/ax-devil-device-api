@@ -9,7 +9,7 @@ import secrets
 import ssl
 import threading
 import time
-from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterator
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import replace
@@ -25,7 +25,7 @@ from .. import errors
 from .._validate import positive_int
 from . import debug
 from .auth import AxisAuth
-from .config import ConnectionConfig
+from .config import BearerToken, ConnectionConfig, Credentials
 from .multipart import encode_multipart
 from .options import Heartbeat
 from .types import DeferredContent, FormBody, Headers, JsonBody, MultipartBody, RawBody, Request, Response, has_deferred
@@ -114,13 +114,39 @@ def _preflight_failure(status: int) -> errors.AuthError:
     )
 
 
-def map_error(error: httpx.TransportError) -> errors.TransportError:
-    """Translate an httpx transport exception into the library's hierarchy."""
+def _scrub(text: str, secrets: Iterable[str]) -> str:
+    """``text`` without any of the credential values (three characters or more: shorter ones would mangle the text)."""
+    for secret in sorted({s for s in secrets if len(s) >= 3}, key=len, reverse=True):
+        text = text.replace(secret, "<redacted>")
+    return text
+
+
+def _request_secrets(config: ConnectionConfig, request: Request) -> tuple[str, ...]:
+    """Every credential value this request carries: the configured password or token, and secret-named or masked
+    query and header values (a wssession token, an export password)."""
+    found: list[str] = []
+    credentials = config.credentials
+    if isinstance(credentials, Credentials):
+        found.append(credentials.password)
+    elif isinstance(credentials, BearerToken):
+        found.append(credentials.recent() or "")
+    for name, value in (*request.query, *request.headers):
+        if value and (str(name).lower() in request.masked or debug.is_secret_name(str(name))):
+            found.append(str(value))
+    return tuple(found)
+
+
+def map_error(error: httpx.TransportError, secrets: Iterable[str] = ()) -> errors.TransportError:
+    """Translate an httpx transport exception into the library's hierarchy.
+
+    The diagnostic copied from the exception is scrubbed of ``secrets`` (the credentials of the transport) on top of the
+    display redaction every library error applies: a header-parsing failure can quote the header it rejected.
+    """
     where = _where(error)
     # The library error is raised OUTSIDE the except block that caught ``error`` and chains nothing: the httpx exception
     # holds the request (its Authorization header, a password in the query) and must not be reachable from the error.
     # What diagnoses the failure is kept as text: the exception's class name and its own message (errno, TLS reason).
-    own = str(error)
+    own = _scrub(str(error), secrets)
     named = f"{type(error).__name__}: {own}" if own else type(error).__name__
     if isinstance(error, httpx.ConnectTimeout):
         return errors.ConnectTimeout(f"connect timed out{where} [{named}]")
@@ -536,7 +562,7 @@ class SyncTransport:
         except httpx.InvalidURL as error:
             failure = _invalid_url(error)
         except httpx.TransportError as error:
-            failure = map_error(error)
+            failure = map_error(error, _request_secrets(self.config, request))
         finally:
             for iterator in opened:
                 _close(iterator)
@@ -564,12 +590,12 @@ class SyncTransport:
                     try:
                         raw.read()
                     except httpx.TransportError as error:
-                        failure = map_error(error)
+                        failure = map_error(error, _request_secrets(self.config, request))
                     if failure is not None:
                         raise failure
                     yield _response(raw, request, raw.content), iter(())
                 else:
-                    yield _response(raw, request, b""), self._chunks(raw)
+                    yield _response(raw, request, b""), self._chunks(raw, request)
             finally:
                 raw.close()
 
@@ -600,7 +626,7 @@ class SyncTransport:
                     try:
                         raw.read()
                     except httpx.TransportError as error:
-                        failure = map_error(error)
+                        failure = map_error(error, _request_secrets(self.config, request))
                     if failure is not None:
                         raise failure
                     raise UpgradeRefused(_response(raw, request, raw.content))
@@ -618,13 +644,12 @@ class SyncTransport:
             finally:
                 raw.close()
 
-    @staticmethod
-    def _chunks(raw: httpx.Response) -> Iterator[bytes]:
+    def _chunks(self, raw: httpx.Response, request: Request) -> Iterator[bytes]:
         failure: errors.TransportError | None = None
         try:
             yield from raw.iter_bytes()
         except httpx.TransportError as error:
-            failure = map_error(error)
+            failure = map_error(error, _request_secrets(self.config, request))
         if failure is not None:
             raise failure
 
@@ -699,7 +724,7 @@ class AsyncTransport:
         except httpx.InvalidURL as error:
             failure = _invalid_url(error)
         except httpx.TransportError as error:
-            failure = map_error(error)
+            failure = map_error(error, _request_secrets(self.config, request))
         finally:
             for iterator in reversed(opened):
                 if hasattr(iterator, "aclose"):
@@ -732,12 +757,12 @@ class AsyncTransport:
                     try:
                         await raw.aread()
                     except httpx.TransportError as error:
-                        failure = map_error(error)
+                        failure = map_error(error, _request_secrets(self.config, request))
                     if failure is not None:
                         raise failure
                     yield _response(raw, request, raw.content), _empty()
                 else:
-                    yield _response(raw, request, b""), self._chunks(raw)
+                    yield _response(raw, request, b""), self._chunks(raw, request)
             finally:
                 await raw.aclose()
 
@@ -764,7 +789,7 @@ class AsyncTransport:
                     try:
                         await raw.aread()
                     except httpx.TransportError as error:
-                        failure = map_error(error)
+                        failure = map_error(error, _request_secrets(self.config, request))
                     if failure is not None:
                         raise failure
                     raise UpgradeRefused(_response(raw, request, raw.content))
@@ -787,14 +812,13 @@ class AsyncTransport:
             finally:
                 await raw.aclose()
 
-    @staticmethod
-    async def _chunks(raw: httpx.Response) -> AsyncIterator[bytes]:
+    async def _chunks(self, raw: httpx.Response, request: Request) -> AsyncIterator[bytes]:
         failure: errors.TransportError | None = None
         try:
             async for chunk in raw.aiter_bytes():
                 yield chunk
         except httpx.TransportError as error:
-            failure = map_error(error)
+            failure = map_error(error, _request_secrets(self.config, request))
         if failure is not None:
             raise failure
 
