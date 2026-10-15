@@ -3,7 +3,9 @@
 ``call <api> <op> [key=value ...]`` runs any operation of any generated API;
 ``apis`` and ``ops`` list what exists (read from the generated modules);
 ``summary``, ``supported`` and ``snapshot`` (JPEG to a file or stdout) are hand-written commands from ``features``.
-Output is JSON on stdout; errors are JSON on stderr with a non-zero exit code.
+Output is JSON on stdout; errors are JSON on stderr with a non-zero exit code. ``supported`` and ``apis --supported`` list probe failures
+(``errors`` key / ``warning`` lines on stderr); when discovery cannot run at all (device unreachable, credentials rejected) they exit 1
+with the error instead of reporting every API as unknown.
 """
 
 from __future__ import annotations
@@ -11,9 +13,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, NoReturn, TextIO
@@ -23,6 +26,7 @@ from pydantic import BaseModel, ValidationError
 from .. import Device
 from .._protocols.base import Operation
 from .._protocols.xmlmap import element_text
+from .._runtime.capabilities import SupportResult
 from .._runtime.driver import StreamResult
 from .._streams import Part
 from .._validate import bounded_int, non_negative_int, positive_finite
@@ -113,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("op")
     call.add_argument("args", nargs="*", metavar="key=value", help="parameters; values are parsed as JSON, else taken as strings")
     call.add_argument("--json", dest="json_args", metavar="JSON|@FILE", help="parameters as a JSON object, or @file")
-    call.add_argument("--output", "-o", metavar="FILE", type=_nonempty("--output"), help="write binary results (or stream bodies) here; '-' means stdout")
+    call.add_argument("--output", "-o", metavar="FILE", type=_nonempty("--output"), help="write the result here instead of stdout: binary results and stream bodies, and also JSON results, line streams and RTSP URLs; '-' means stdout")
     call.add_argument("--limit", type=_arg(lambda v: non_negative_int("--limit", v), int), help="stop a stream after this many items")
     call.set_defaults(run=_cmd_call)
 
@@ -224,13 +228,53 @@ def _field_info(op: Operation) -> list[dict[str, Any]]:
 # -- commands -----------------------------------------------------------------
 
 
-def _cmd_apis(args: argparse.Namespace, out: TextIO) -> None:
+_UNREACHABLE_ERROR = re.compile(r"\b(ConnectionFailed|ConnectTimeout|TlsError|AuthError): (.*)", re.S)
+
+
+class DiscoveryFailed(Exception):
+    """Discovery could not run at all (device unreachable, credentials rejected): reported like any library error."""
+
+    def __init__(self, error: dict[str, Any]) -> None:
+        super().__init__(error["message"])
+        self.error = error
+
+
+def _probe_errors(results: Mapping[str, SupportResult]) -> list[str]:
+    """Every distinct probe failure behind the answers, in first-seen order."""
+    return list(dict.fromkeys(e for r in results.values() for e in r.errors))
+
+
+def _check_discovery(results: Mapping[str, SupportResult]) -> list[str]:
+    """The probe errors; raises ``DiscoveryFailed`` when no API got an answer (nothing could be discovered)."""
+    from .. import Support
+
+    errors = _probe_errors(results)
+    if errors and results and all(r.status is Support.UNKNOWN for r in results.values()):
+        for text in errors:
+            found = _UNREACHABLE_ERROR.search(text)
+            if found and not text.startswith("not run"):
+                kind, message = found.group(1), found.group(2)
+                break
+        else:
+            kind, message = "DiscoveryError", errors[0]
+        raise DiscoveryFailed({"type": kind, "message": f"API discovery could not run: {message}", "probes": errors})
+    return errors
+
+
+def _warn(errors: list[str], err: TextIO) -> None:
+    for text in errors:
+        err.write(json.dumps({"warning": {"type": "ProbeFailed", "message": text}}) + "\n")
+
+
+def _cmd_apis(args: argparse.Namespace, out: TextIO, err: TextIO) -> None:
     entries = load_all()
     support = None
     if args.supported:
         from .. import Support
 
-        support = {n: r for n, r in api_support(make_device(args), entries).items() if r.status is Support.YES}
+        results = api_support(make_device(args), entries)
+        _warn(_check_discovery(results), err)
+        support = {n: r for n, r in results.items() if r.status is Support.YES}
     emit(
         [
             {"name": e.name, "id": e.info.id, "title": e.info.name, "family": e.info.family.value, "operations": len(e.operations)}
@@ -362,9 +406,12 @@ def _cmd_summary(args: argparse.Namespace, out: TextIO) -> None:
         emit(device_summary(dev).to_dict(), out)
 
 
-def _cmd_support(args: argparse.Namespace, out: TextIO) -> None:
+def _cmd_support(args: argparse.Namespace, out: TextIO, err: TextIO) -> None:
     with make_device(args) as dev:
-        emit({n: {"status": r.status.value, "reason": r.reason} for n, r in api_support(dev).items()}, out)
+        results = api_support(dev)
+    errors = _check_discovery(results)
+    emit({"apis": {n: {"status": r.status.value, "reason": r.reason} for n, r in results.items()}, "errors": errors}, out)
+    _warn(errors, err)
 
 
 # -- entry point ----------------------------------------------------------------
@@ -379,13 +426,19 @@ def _error_json(error: BaseException) -> dict[str, Any]:
     return data
 
 
+_NEEDS_ERR = (_cmd_apis, _cmd_support)
+
+
 def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: TextIO | None = None) -> int:
     stdout: TextIO = out or sys.stdout
     stderr: TextIO = err or sys.stderr
     try:
         args = build_parser().parse_args(argv)
-        run: Callable[[argparse.Namespace, TextIO], None] = args.run
-        run(args, stdout)
+        run: Callable[..., None] = args.run
+        run(args, stdout, stderr) if args.run in _NEEDS_ERR else run(args, stdout)
+    except DiscoveryFailed as error:
+        stderr.write(json.dumps({"error": error.error}) + "\n")
+        return 1
     except CliError as error:
         stderr.write(json.dumps({"error": {"type": "UsageError", "message": str(error)}}) + "\n")
         return error.code

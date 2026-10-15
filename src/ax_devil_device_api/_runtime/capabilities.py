@@ -51,7 +51,7 @@ from .._protocols.state import DeviceState
 from .._protocols.xmlmap import parse_xml
 from ..apis import api_discovery as _api_discovery
 from ..apis import basic_device_info as _basic_device_info
-from ..errors import ApiError, DeviceError, ResponseFormatError
+from ..errors import ApiError, AuthError, ConnectionFailed, ConnectTimeout, DeviceError, ResponseFormatError, TlsError
 
 BASE_PROPERTY_GROUP = "Properties.API"
 PROPERTY_SCOPE_PREFIX = "properties:"
@@ -626,6 +626,19 @@ def _param_matches(method: ParamDiscovery, value: str) -> bool:
         have, want = _version_key(value), _version_key(method.value)
         return have is not None and want is not None and have >= want
     return value == method.value
+
+
+UNREACHABLE = (ConnectionFailed, ConnectTimeout, TlsError, AuthError)
+"""Failures that say the whole device is out of reach (refused, unreachable, TLS, credentials rejected), not one probe."""
+
+
+def is_unreachable(error: BaseException) -> bool:
+    return isinstance(error, UNREACHABLE)
+
+
+def skipped_probe_error(cause: str) -> str:
+    """Error text of a probe that was not run because an earlier probe showed the device cannot be reached."""
+    return f"not run: skipped because the device could not be reached ({cause})"
 
 
 def probe_error(error: Exception) -> str:

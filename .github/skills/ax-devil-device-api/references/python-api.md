@@ -212,7 +212,7 @@ ax-devil apis                          # no device needed
 ax-devil ops mqtt_client               # no device needed
 export AX_DEVIL_HOST=192.0.2.10 AX_DEVIL_USER=root AX_DEVIL_PASSWORD=pass   # or CAM_USER / CAM_PASS
 ax-devil summary
-ax-devil supported
+ax-devil supported                  # {"apis": ..., "errors": [...]}; exit 1 if the device is unreachable
 ax-devil call mqtt_client get_client_status
 ax-devil call parameter_management list group='["Brand.ProdNbr"]'
 ax-devil call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4

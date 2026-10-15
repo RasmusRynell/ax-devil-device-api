@@ -47,8 +47,10 @@ from ._runtime.capabilities import (
     decide_support,
     extra_probes,
     identity_flow,
+    is_unreachable,
     probe_error,
     probe_is_complete,
+    skipped_probe_error,
 )
 from ._runtime.driver import Call, run_async, run_sync
 from ._runtime.ws import (
@@ -293,16 +295,24 @@ class Device(_DeviceBase):
         probes = {**PROBES, **{k: OPTIONAL_PROBES[k] for k in extra}}
         values: dict[str, Any] = {}
         errors: dict[str, str] = {}
+        unreachable: str | None = None  # set by the first probe that shows the device cannot be reached
         if firmware:  # an API with a minimum firmware: the identity is fetched once and cached
             try:
                 values["firmware"] = self.identity().firmware_version
             except Exception as error:  # noqa: BLE001 - reported in Capabilities.errors
                 errors["identity"] = probe_error(error)
+                if is_unreachable(error):
+                    unreachable = errors["identity"]
         for key, make_flow in probes.items():
+            if unreachable is not None:
+                errors[key] = skipped_probe_error(unreachable)  # not run, so not cached: the next call asks again
+                continue
             try:
                 values[key] = self._cached(key, make_flow)
             except Exception as error:  # noqa: BLE001 - reported in Capabilities.errors
                 errors[key] = probe_error(error)
+                if is_unreachable(error):
+                    unreachable = errors[key]
         for key in OPTIONAL_PROBES.keys() - probes.keys():
             if (found := self._state.get(key)) is not None:
                 values[key] = found
@@ -456,25 +466,38 @@ class AsyncDevice(_DeviceBase):
         keys = list(probes)
         fetched: dict[str, Any] = {}
         failed: dict[str, str] = {}
+        unreachable: list[str] = []  # the first probe that shows the device cannot be reached
         if firmware:  # an API with a minimum firmware: the identity is fetched once and cached
             try:
                 fetched["firmware"] = (await self.identity()).firmware_version
             except Exception as error:  # noqa: BLE001 - reported in Capabilities.errors
                 failed["identity"] = probe_error(error)
+                if is_unreachable(error):
+                    unreachable.append(failed["identity"])
         # At most max_concurrency probes at a time: a probe's timeout must start when it can be sent,
         # not while it waits for a request slot behind the others (that would turn into a spurious PoolTimeout).
         gate = asyncio.Semaphore(max(1, self.config.max_concurrency))
 
+        class Skipped(Exception):  # noqa: N818 - internal marker
+            pass
+
         async def bounded(key: str) -> Any:
             async with gate:
-                return await self._cached(key, probes[key])
+                if unreachable:
+                    raise Skipped(skipped_probe_error(unreachable[0]))
+                try:
+                    return await self._cached(key, probes[key])
+                except Exception as error:
+                    if is_unreachable(error) and not unreachable:
+                        unreachable.append(probe_error(error))
+                    raise
 
         results = await asyncio.gather(*(bounded(k) for k in keys), return_exceptions=True)
         for result in results:
             if isinstance(result, BaseException) and not isinstance(result, Exception):
                 raise result  # cancellation and friends
         values = {**fetched, **{k: r for k, r in zip(keys, results) if not isinstance(r, BaseException)}}
-        errors = {**failed, **{k: probe_error(r) for k, r in zip(keys, results) if isinstance(r, Exception)}}
+        errors = {**failed, **{k: (str(r) if isinstance(r, Skipped) else probe_error(r)) for k, r in zip(keys, results) if isinstance(r, Exception)}}
         for key in OPTIONAL_PROBES.keys() - probes.keys():
             if (found := self._state.get(key)) is not None:
                 values[key] = found

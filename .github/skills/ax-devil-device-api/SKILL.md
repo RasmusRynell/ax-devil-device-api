@@ -53,7 +53,7 @@ Async is the same with `AsyncDevice`, `async with`, and `await` on every call (`
 |---|---|
 | Which APIs / operations exist? | `ax-devil apis`, `ax-devil ops <api>`, `docs/api_surface.txt` |
 | Model, serial number, firmware; health check | `dev.identity()` / `dev.identity(refresh=True)` |
-| Does this camera offer an API? | `dev.supports(MqttClientApi)` returns a `SupportResult` (truthy only for YES); `ax-devil supported` for all |
+| Does this camera offer an API? | `dev.supports(MqttClientApi)` returns a `SupportResult` (truthy only for YES); `ax-devil supported` for all (JSON `{"apis", "errors"}`; exit 1 when discovery cannot reach the device) |
 | What does the camera advertise? | `dev.capabilities()`, `features.device_summary(dev)` |
 | One JPEG | `features.snapshot(dev, resolution="640x480")` or `ax-devil snapshot -o img.jpg` |
 | Download or watch a long body | a stream operation, e.g. `with dev.apis.media_stream.get_media_stream(container="mp4") as s:` |

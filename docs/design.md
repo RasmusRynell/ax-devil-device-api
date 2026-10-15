@@ -380,7 +380,7 @@ For DCA APIs, importing the device-served `openapi.json` / model to report diffe
 | `call <api> <op> [key=value ...]` | yes | run any operation; values are parsed as JSON, else strings; `--json` for an object or `@file`; binary results and streams go to `--output FILE` (`-` is stdout, refused on a terminal; created or truncated even when the stream is empty or `--limit 0`; the decoder of the stream operation decides whether it is binary); `--limit N` stops a stream |
 | `snapshot` | yes | write a JPEG to `--output` or raw to stdout |
 | `summary` | yes | `device_summary` as JSON |
-| `supported` | yes | `SupportResult` of every generated API |
+| `supported` | yes | `{"apis": ..., "errors": [...]}`: the `SupportResult` of every generated API plus the probe failures behind `unknown` answers. When no API got an answer (device unreachable, credentials rejected) it exits 1 with the error instead; `apis --supported` does the same and otherwise prints probe failures as `warning` lines on stderr |
 
 Because `apis`, `ops` and `call` read the generated modules, a new spec is available on the command line as soon as it is generated; there is no hand-written command per API.
 

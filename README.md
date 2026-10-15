@@ -270,7 +270,7 @@ ax-devil ops mqtt_client                       # operations and parameters of on
 
 export AX_DEVIL_HOST=192.168.0.90 AX_DEVIL_USER=root AX_DEVIL_PASSWORD=pass
 ax-devil summary                               # identity and discovery summary
-ax-devil supported                             # support status of every generated API
+ax-devil supported                             # {"apis": status of every generated API, "errors": failed probes}; exit 1 if the device cannot be reached
 ax-devil call mqtt_client get_client_status
 ax-devil call parameter_management list group='["Brand.ProdNbr"]'
 ax-devil call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4

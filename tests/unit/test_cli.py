@@ -75,7 +75,7 @@ def test_summary_and_supported(monkeypatch: pytest.MonkeyPatch) -> None:
     code, out, _ = run(monkeypatch, cam, "summary")
     assert code == 0 and json.loads(out)["model"] == "AXIS X"
     code, out, _ = run(monkeypatch, cam, "supported")
-    assert code == 0 and json.loads(out)["mqtt_client"]["status"] == "yes"
+    assert code == 0 and json.loads(out)["apis"]["mqtt_client"]["status"] == "yes"
 
 
 def test_missing_host(monkeypatch: pytest.MonkeyPatch) -> None:
