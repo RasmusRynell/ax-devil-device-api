@@ -9,7 +9,7 @@ import secrets
 import ssl
 import threading
 import time
-from collections.abc import AsyncIterable, AsyncIterator, Iterator
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import replace
@@ -564,15 +564,25 @@ class SyncTransport:
                 raw.close()
 
     @contextmanager
-    def open_ws(self, request: Request, heartbeat: Heartbeat) -> Iterator[tuple[Response, WebSocketSession]]:
+    def open_ws(
+        self, request: Request, heartbeat: Heartbeat, before_send: Callable[[], Request] | None = None
+    ) -> Iterator[tuple[Response, WebSocketSession]]:
         """Perform a WebSocket handshake and yield ``(handshake response, httpx-ws session)``.
 
         Authentication is the same flow as for any request (Digest preferred, no
         Basic before a challenge). Raises ``UpgradeRefused`` for any non-101 answer.
         Holds one stream slot until the context exits.
+
+        ``before_send`` runs once the stream slot is held and returns the request to send (``request`` still decides how
+        long to wait for the slot). A short-lived credential in the request, such as the 15 second ``wssession`` token,
+        is fetched there, so waiting for a busy slot cannot use it up.
         """
-        _emit(self.config, request)
+        if before_send is None:
+            _emit(self.config, request)
         with _slot(self._stream_slots, _slot_timeout(self.config, request)):
+            if before_send is not None:
+                request = before_send()
+                _emit(self.config, request)
             raw = self._send(_ws_request(request), stream=True)
             try:
                 if raw.status_code != 101:
@@ -711,15 +721,21 @@ class AsyncTransport:
                 await raw.aclose()
 
     @asynccontextmanager
-    async def open_ws(self, request: Request, heartbeat: Heartbeat) -> AsyncIterator[tuple[Response, AsyncWebSocketSession]]:
-        """Async counterpart of ``SyncTransport.open_ws``.
+    async def open_ws(
+        self, request: Request, heartbeat: Heartbeat, before_send: Callable[[], Awaitable[Request]] | None = None
+    ) -> AsyncIterator[tuple[Response, AsyncWebSocketSession]]:
+        """Async counterpart of ``SyncTransport.open_ws`` (``before_send`` is awaited once the stream slot is held).
 
         Exceptions raised in the body are unwrapped from the ``ExceptionGroup``
         that httpx-ws's task group would put them in.
         """
-        _emit(self.config, request)
+        if before_send is None:
+            _emit(self.config, request)
         _, stream_slots = self._semaphores()
         async with _aslot(stream_slots, _slot_timeout(self.config, request)):
+            if before_send is not None:
+                request = await before_send()
+                _emit(self.config, request)
             raw = await self._send(_ws_request(request), stream=True)
             try:
                 if raw.status_code != 101:

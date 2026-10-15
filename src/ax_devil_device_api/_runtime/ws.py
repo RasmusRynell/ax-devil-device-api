@@ -920,29 +920,48 @@ def connect_session(
     setup = _setup_requests(spec, options)
     query = spec.query
     attempt = 1
+    token_failure: Exception | None = None
     stack = ExitStack()
     while True:
-        # The token is valid for 15 seconds only: every handshake attempt, a retry included, gets a fresh one.
-        attempt_query = (("wssession", run_sync(transport, _token_flow(spec), call)),) + query if use_token else query
-        request = call.prepare(Request("GET", spec.path, query=attempt_query, auth="anonymous" if use_token else "required"))
+        auth: Literal["anonymous", "required"] = "anonymous" if use_token else "required"
+        request = call.prepare(Request("GET", spec.path, query=query, auth=auth))
+        sent = request  # the request actually sent: with a token, the one built once the stream slot is held
+
+        def fetch(request: Request = request) -> Request:
+            # The token is valid for 15 seconds only: every handshake attempt, a retry included, gets a fresh one, fetched
+            # once the stream slot is held (waiting for a busy slot must not use it up).
+            nonlocal sent, token_failure
+            try:
+                token = run_sync(transport, _token_flow(spec), call)
+            except Exception as error:
+                token_failure = error  # already recorded by the token request itself: not a handshake attempt
+                raise
+            sent = call.prepare(Request("GET", spec.path, query=(("wssession", token),) + query, auth=auth))
+            return sent
+
+        before_send = fetch if use_token else None
         started = time.monotonic()
         try:
-            response, raw = stack.enter_context(transport.open_ws(request, heartbeat))
+            response, raw = stack.enter_context(transport.open_ws(request, heartbeat, before_send))
         except UpgradeRefused as refused:
-            call.observe(request, refused.response, None, started, attempt)
+            call.observe(sent, refused.response, None, started, attempt)
             raise refusal_error(spec, refused.response) from None
         except TransportError as error:
-            call.observe(request, None, error, started, attempt)
-            if not call.should_retry(request, error, attempt):
+            if error is token_failure:
+                raise
+            call.observe(sent, None, error, started, attempt)
+            if not call.should_retry(sent, error, attempt):
                 raise
             time.sleep(call.retry.delay(attempt))
             attempt += 1
             continue
         except Exception as error:
-            call.observe(request, None, error, started, attempt)  # e.g. AuthError: still one record
+            if error is token_failure:
+                raise
+            call.observe(sent, None, error, started, attempt)  # e.g. AuthError: still one record
             raise
         try:
-            call.observe(request, response, None, started, attempt)
+            call.observe(sent, response, None, started, attempt)
         except BaseException:
             stack.close()  # a raising hook must not leak the open connection and its stream slot
             raise
@@ -1216,28 +1235,47 @@ async def connect_session_async(
     setup = _setup_requests(spec, options)
     query = spec.query
     attempt = 1
+    token_failure: Exception | None = None
     stack = AsyncExitStack()
     while True:
-        attempt_query = (("wssession", await run_async(transport, _token_flow(spec), call)),) + query if use_token else query
-        request = call.prepare(Request("GET", spec.path, query=attempt_query, auth="anonymous" if use_token else "required"))
+        auth: Literal["anonymous", "required"] = "anonymous" if use_token else "required"
+        request = call.prepare(Request("GET", spec.path, query=query, auth=auth))
+        sent = request  # the request actually sent: with a token, the one built once the stream slot is held
+
+        async def fetch(request: Request = request) -> Request:
+            # See connect_session: a fresh token for every attempt, fetched once the stream slot is held.
+            nonlocal sent, token_failure
+            try:
+                token = await run_async(transport, _token_flow(spec), call)
+            except Exception as error:
+                token_failure = error  # already recorded by the token request itself: not a handshake attempt
+                raise
+            sent = call.prepare(Request("GET", spec.path, query=(("wssession", token),) + query, auth=auth))
+            return sent
+
+        before_send = fetch if use_token else None
         started = time.monotonic()
         try:
-            response, raw = await stack.enter_async_context(transport.open_ws(request, heartbeat))
+            response, raw = await stack.enter_async_context(transport.open_ws(request, heartbeat, before_send))
         except UpgradeRefused as refused:
-            call.observe(request, refused.response, None, started, attempt)
+            call.observe(sent, refused.response, None, started, attempt)
             raise refusal_error(spec, refused.response) from None
         except TransportError as error:
-            call.observe(request, None, error, started, attempt)
-            if not call.should_retry(request, error, attempt):
+            if error is token_failure:
+                raise
+            call.observe(sent, None, error, started, attempt)
+            if not call.should_retry(sent, error, attempt):
                 raise
             await asyncio.sleep(call.retry.delay(attempt))
             attempt += 1
             continue
         except Exception as error:
-            call.observe(request, None, error, started, attempt)  # e.g. AuthError: still one record
+            if error is token_failure:
+                raise
+            call.observe(sent, None, error, started, attempt)  # e.g. AuthError: still one record
             raise
         try:
-            call.observe(request, response, None, started, attempt)
+            call.observe(sent, response, None, started, attempt)
         except BaseException:
             await stack.aclose()  # a raising hook must not leak the open connection and its stream slot
             raise
