@@ -159,3 +159,43 @@ def test_concurrent_threads_on_one_source_exactly_one_sends_the_full_body() -> N
         thread.join()
     assert sorted(outcomes) == ["refused", "sent"]
     assert len(bodies) == 1 and DATA in bodies[0]  # no second, partial request reached the device
+
+
+@pytest.mark.anyio
+async def test_cancelling_the_preparation_does_not_leave_the_source_leased(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+    import time
+
+    original = Upload._lease
+
+    def slow_lease(self: Upload) -> None:
+        time.sleep(0.3)  # the worker is still busy when the task is cancelled
+        original(self)
+
+    monkeypatch.setattr(Upload, "_lease", slow_lease)
+    source = Upload(io.BytesIO(DATA), len(DATA))
+    task = asyncio.ensure_future(Call().aprepare(_request(source)))
+    await asyncio.sleep(0.05)
+    started = time.monotonic()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert time.monotonic() - started < 0.2  # the cancel is not held back for the whole read
+    await asyncio.sleep(0.5)  # the worker finishes and its completion callback gives the lease back
+    monkeypatch.setattr(Upload, "_lease", original)
+    release_deferred(await Call().aprepare(_request(source)))  # usable again: the lease was not leaked
+
+
+@pytest.mark.anyio
+async def test_a_cancelled_preparation_whose_read_started_is_cleanly_consumed(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    source = Upload(io.BytesIO(DATA), len(DATA))
+    prepared = await Call().aprepare(_request(source))
+    body = prepared.body
+    assert isinstance(body, MultipartBody)
+    iter(body.files[0].content).__next__()  # type: ignore[arg-type]  # the first read happens: consumed for good
+    release_deferred(prepared)
+    with pytest.raises(ConfigurationError, match="already consumed"):
+        await Call().aprepare(_request(source))
+    await asyncio.sleep(0)

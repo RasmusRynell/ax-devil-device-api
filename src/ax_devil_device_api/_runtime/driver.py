@@ -155,6 +155,14 @@ class AsyncStreamResult(Generic[T]):
             raise cancelled
 
 
+def _release_prepared(worker: asyncio.Future[Request]) -> None:
+    """Completion callback of an abandoned preparation worker: release what it resolved (or retrieve its error)."""
+    if worker.cancelled():
+        return
+    if worker.exception() is None:  # on an error resolve_deferred has already released what it had claimed
+        release_deferred(worker.result())
+
+
 @dataclass(frozen=True)
 class Call:
     """Per-call settings the driver applies to every request of a flow."""
@@ -173,7 +181,16 @@ class Call:
     async def aprepare(self, request: Request) -> Request:
         """``prepare`` for async calls: deferred upload content is read in a worker thread."""
         request = self._timed(request)
-        return await asyncio.to_thread(resolve_deferred, request) if has_deferred(request) else request
+        if not has_deferred(request):
+            return request
+        worker = asyncio.ensure_future(asyncio.to_thread(resolve_deferred, request))
+        try:
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            # The cancel is not held back for the read, but the worker keeps going and may still lease an upload source
+            # nobody will ever send: give it back as soon as the worker is done.
+            worker.add_done_callback(_release_prepared)
+            raise
 
     def _timed(self, request: Request) -> Request:
         if self.timeout is not None:
