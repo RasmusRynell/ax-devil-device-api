@@ -447,9 +447,16 @@ def services_flow(state: DeviceState) -> CallFlow[NamedListing]:
         raise ResponseFormatError("entry-service", "get_services", "response is not valid XML") from error
     if root.tag.rpartition("}")[2] != "Envelope":  # a SOAP reply, not an unrelated document
         raise ResponseFormatError("entry-service", "get_services", f"expected a SOAP envelope, got <{redact_text(root.tag.rpartition('}')[2])}>")
+    # The listing is exactly Envelope / Body / GetServicesResponse / Service (local names: the namespaces differ between
+    # firmware). A <Service> anywhere else (a fault detail, a stray element) is not a statement about the device.
+    reply: ET.Element | None = root
+    for step in ("Body", "GetServicesResponse"):
+        reply = next((child for child in reply if child.tag.rpartition("}")[2] == step), None) if reply is not None else None
+    if reply is None:
+        raise ResponseFormatError("entry-service", "get_services", "the reply has no Body/GetServicesResponse element")
     found: dict[str, str] = {}
     problems: list[str] = []
-    for index, service in enumerate(s for s in root.iter() if s.tag.rpartition("}")[2] == "Service"):
+    for index, service in enumerate(c for c in reply if c.tag.rpartition("}")[2] == "Service"):
         children = {c.tag.rpartition("}")[2]: (c.text or "").strip() for c in service}
         if children.get("Namespace"):
             found[children["Namespace"]] = children.get("XAddr", "")

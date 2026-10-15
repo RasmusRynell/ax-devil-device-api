@@ -259,7 +259,14 @@ SERVICES = [b"", b"<a", b"text", b"\xff", b"<html/>", b"<html><Service><Namespac
             b"<reply/>", b"<Envelope><Body><Service/></Body></Envelope>",
             b"<Envelope><Body><Service><XAddr>u</XAddr></Service></Body></Envelope>",
             b"<Envelope><Body><Service><Namespace>urn:b</Namespace><XAddr>u</XAddr></Service><Service/></Body></Envelope>",
-            b"<Envelope><Body><Service><Namespace> </Namespace></Service></Body></Envelope>", NESTED_XML]
+            b"<Envelope><Body><Service><Namespace> </Namespace></Service></Body></Envelope>", NESTED_XML,
+            # a Service that is not at Envelope/Body/GetServicesResponse/Service is not a statement about the device
+            b"<Envelope><Service><Namespace>urn:a</Namespace></Service></Envelope>",
+            b"<Envelope><Body><Service><Namespace>urn:a</Namespace></Service></Body></Envelope>",
+            b"<Envelope><Body><Fault><Detail><Service><Namespace>urn:a</Namespace></Service></Detail></Fault></Body></Envelope>",
+            b"<Envelope><Body><GetServicesResponse><Wrapper><Service><Namespace>urn:a</Namespace></Service></Wrapper></GetServicesResponse></Body></Envelope>",
+            b"<Envelope><Header><GetServicesResponse><Service><Namespace>urn:a</Namespace></Service></GetServicesResponse></Header></Envelope>",
+            b"<Envelope><Body><GetServicesResponse/></Body></Envelope>"]
 
 
 @pytest.mark.parametrize("body", SERVICES, ids=[repr(b)[:30] for b in SERVICES])
@@ -270,6 +277,17 @@ def test_i2_garbage_service_list_is_never_a_cached_definitive_no(body: bytes) ->
         caps = dev._collect(("services",))  # noqa: SLF001
         assert decide_support(SERVICE, caps).status is not Support.NO
         assert dev._state.get("services") is None  # noqa: SLF001
+
+
+def test_a_service_at_the_expected_path_is_found_and_cached() -> None:
+    body = (b"<e:Envelope xmlns:e='http://www.w3.org/2003/05/soap-envelope'><e:Body><x:GetServicesResponse xmlns:x='urn:x'>"
+            b"<x:Service><x:Namespace>urn:a</x:Namespace><x:XAddr>u</x:XAddr></x:Service></x:GetServicesResponse></e:Body></e:Envelope>")
+    camera = MockCamera()
+    camera.route("POST", "/vapix/services", lambda _: httpx.Response(200, content=body))
+    with camera.device() as dev:
+        caps = dev._collect(("services",))  # noqa: SLF001
+        assert decide_support(SERVICE, caps).status is Support.YES
+        assert dev._state.get("services") is not None  # noqa: SLF001
 
 
 IDENTITY = [None, 5, "x", [], {}, {"propertyList": None}, {"propertyList": []}, {"propertyList": "x"},
