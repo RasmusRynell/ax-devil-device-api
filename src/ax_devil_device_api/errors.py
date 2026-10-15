@@ -64,7 +64,7 @@ def _bounded(value: Any, depth: int) -> Any:
         return _CONTROL.sub(_escape, value) if len(value) <= DISPLAY_LIMIT else _CONTROL.sub(_escape, value[: DISPLAY_LIMIT - 1]) + "…"
     if isinstance(value, dict):
         items = list(value.items())
-        shown = {_bounded(str(key), depth + 1): _bounded(item, depth + 1) for key, item in items[:_DETAILS_ITEMS]}
+        shown = {display_text(str(key), 200): _bounded(item, depth + 1) for key, item in items[:_DETAILS_ITEMS]}  # a key is text too
         if len(items) > _DETAILS_ITEMS:
             shown["…"] = f"{len(items) - _DETAILS_ITEMS} more"
         return shown
@@ -217,9 +217,9 @@ class HttpError(DeviceError):
     ) -> None:
         self.status = status
         self.body_excerpt = display_text(body_excerpt, 1000)
-        self.api = api
-        self.operation = operation
-        where = f"{display_text(api, 100)}.{display_text(operation, 100)}: " if api and operation else ""
+        self.api = None if api is None else display_text(api, 100)  # a stable label, never a path or URL
+        self.operation = None if operation is None else display_text(operation, 100)
+        where = f"{self.api}.{self.operation}: " if self.api and self.operation else ""
         text = f"{where}HTTP {status}"
         if detail:
             text += f" ({display_text(detail, 500)})"
@@ -251,15 +251,15 @@ class ApiError(DeviceError):
         http_status: int | None = None,
         details: Any = None,
     ) -> None:
-        self.api = api
-        self.operation = operation
+        self.api = display_text(api, 100)  # a stable label (api.operation), never a path or URL
+        self.operation = display_text(operation, 100)
         self.code = code  # raw, for matching; the text below shows it through display_text
         self.message = display_text(message, 1000)
         self.description = None if description is None else display_text(description, 1000)
         self.kind = kind
         self.http_status = http_status
         self.details = sanitize_details(details)
-        where = f"{display_text(api, 100)}.{display_text(operation, 100)}: "
+        where = f"{self.api}.{self.operation}: "
         text = where + (f"error {display_text(str(code), 100)}: {self.message}" if code is not None else self.message)
         if self.description and self.description != self.message:
             text += f" ({self.description})"
@@ -278,10 +278,10 @@ class ResponseFormatError(DeviceError):
     """The response could not be parsed into the documented shape."""
 
     def __init__(self, api: str, operation: str, reason: str) -> None:
-        self.api = api
-        self.operation = operation
+        self.api = display_text(api, 100)  # a stable label, never a path or URL
+        self.operation = display_text(operation, 100)
         self.reason = display_text(reason, 1000)
-        super().__init__(f"{display_text(api, 100)}.{display_text(operation, 100)}: {self.reason}")
+        super().__init__(f"{self.api}.{self.operation}: {self.reason}")
 
 
 class NotSupported(DeviceError):
@@ -291,9 +291,9 @@ class NotSupported(DeviceError):
     """
 
     def __init__(self, api: str, operation: str | None, reason: str, *, required: str | None = None) -> None:
-        self.api = api
-        self.operation = operation
+        self.api = display_text(api, 100)  # a stable label, never a path or URL
+        self.operation = None if operation is None else display_text(operation, 100)
         self.reason = display_text(reason, 1000)
         self.required = None if required is None else display_text(required, 100)
-        where = f"{display_text(api, 100)}.{display_text(operation, 100)}" if operation else display_text(api, 100)
+        where = f"{self.api}.{self.operation}" if self.operation else self.api
         super().__init__(f"{where}: {self.reason}")

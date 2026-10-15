@@ -333,9 +333,7 @@ class Response:
             return self.content.decode(charset, errors="replace")
         except (LookupError, UnicodeError):
             # An unknown (or non-text) charset label is a malformed response, not a programming error.
-            raise ResponseFormatError(
-                "http", f"{self.request.method} {self.request.path}", "unsupported response charset"
-            ) from None
+            raise ResponseFormatError("http", "response_text", "unsupported response charset") from None
 
     @property
     def safe_text(self) -> str:

@@ -93,6 +93,50 @@ def test_no_device_error_shows_a_secret_a_credential_or_a_control_character(cls:
                 assert forbidden not in text, (cls.__name__, forbidden, text)
 
 
+# Attributes meant for matching keep the device's own value; everything else an exception carries is sanitized.
+RAW_MATCHING_ATTRIBUTES = {"code"}
+
+
+def _strings(value: Any, seen: set[int]) -> list[str]:
+    """Every string reachable from ``value``: dict keys and values, sequences, and the ``__dict__`` of other objects."""
+    if id(value) in seen:
+        return []
+    seen.add(id(value))
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [text for key, item in value.items() for text in (*_strings(key, seen), *_strings(item, seen))]
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [text for item in value for text in _strings(item, seen)]
+    if hasattr(value, "__dict__") and not isinstance(value, type):
+        return _strings(vars(value), seen)
+    return []
+
+
+@pytest.mark.parametrize("nasty", NASTY)
+@pytest.mark.parametrize("cls", [DeviceError, *_all_subclasses(DeviceError)], ids=lambda cls: cls.__name__)
+def test_no_public_attribute_of_a_device_error_holds_a_secret_a_credential_or_a_control_character(cls: type, nasty: str) -> None:
+    error = _build(cls, nasty)
+    for name, value in vars(error).items():
+        if name in RAW_MATCHING_ATTRIBUTES:
+            continue
+        for text in [*_strings(value, set()), name]:
+            for forbidden in FORBIDDEN:
+                if forbidden in nasty:
+                    assert forbidden not in text, (cls.__name__, name, forbidden, text)
+
+
+def test_the_charset_error_carries_a_label_not_the_request_path() -> None:
+    from ax_devil_device_api._http.types import Headers, Request, Response
+
+    request = Request("GET", "/axis-cgi/x.cgi/user%3Dpassword%3Dhunter2")
+    response = Response(200, Headers([("content-type", "text/plain; charset=nonsense-charset")]), b"x", request)
+    with pytest.raises(errors.ResponseFormatError) as caught:
+        response.text  # noqa: B018
+    assert (caught.value.api, caught.value.operation) == ("http", "response_text")
+    assert "hunter2" not in json.dumps(vars(caught.value)) and "hunter2" not in str(caught.value)
+
+
 def test_a_subclass_that_bypasses_the_base_init_is_still_shown_safely() -> None:
     class Sloppy(DeviceError):
         def __init__(self, text: str) -> None:  # never calls super().__init__
