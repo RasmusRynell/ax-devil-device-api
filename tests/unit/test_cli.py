@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import sys
 
 import pytest
 
@@ -320,3 +321,50 @@ def test_json_result_goes_to_the_output_file_too(monkeypatch: pytest.MonkeyPatch
     assert out == "" and json.loads(target.read_text(encoding="utf-8")) is not None
     code, out, _ = run(monkeypatch, cam, "call", "mqtt_client", "get_client_status", "-o", "-")
     assert code == 0 and json.loads(out) is not None
+
+
+# --- binary output needs a binary stream; an injected text stream never falls back to the process stdout ------------------------
+
+
+def test_snapshot_to_an_injected_text_stream_without_a_buffer_fails_and_leaves_stdout_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/jpg/image.cgi", text=b"\xff\xd8jpeg", content_type="image/jpeg")
+    monkeypatch.setattr(cli, "make_device", lambda args: cam.device())
+    real = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(real, write_through=True))
+    err = io.StringIO()
+    code = cli.main(["snapshot"], out=io.StringIO(), err=err)
+    assert code == 1
+    assert "binary output requires a binary stream; use --output FILE" in json.loads(err.getvalue().splitlines()[-1])["error"]["message"]
+    assert real.getvalue() == b""  # nothing leaked to the process-wide stdout
+
+
+def test_binary_stream_call_to_dash_on_an_injected_text_stream_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/record/export/exportrecording.cgi", text=b"MKV", content_type="video/x-matroska")
+    monkeypatch.setattr(cli, "make_device", lambda args: cam.device())
+    real = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(real, write_through=True))
+    err = io.StringIO()
+    code = cli.main(
+        ["call", "export_recording", "export_recording", "recording_id=r", "disk_id=d", "export_format=matroska", "-o", "-"],
+        out=io.StringIO(),
+        err=err,
+    )
+    assert code == 1 and "binary stream" in err.getvalue() and real.getvalue() == b""
+
+
+def test_a_stream_with_a_buffer_still_receives_the_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
+    cam = MockCamera()
+    cam.cgi("/axis-cgi/record/export/exportrecording.cgi", text=b"MKV", content_type="video/x-matroska")
+    monkeypatch.setattr(cli, "make_device", lambda args: cam.device())
+    raw = io.BytesIO()
+    out = io.TextIOWrapper(raw, write_through=True)
+    code = cli.main(
+        ["call", "export_recording", "export_recording", "recording_id=r", "disk_id=d", "export_format=matroska", "-o", "-"],
+        out=out,
+        err=io.StringIO(),
+    )
+    assert code == 0 and raw.getvalue() == b"MKV"

@@ -306,8 +306,14 @@ def _stream_is_binary(op: Any) -> bool | None:
 
 
 def _stdout_buffer(out: TextIO) -> Any:
-    """Binary buffer behind ``out`` (or ``sys.stdout``), refusing a terminal before anything is written."""
+    """Binary buffer behind ``out``, refusing a terminal before anything is written.
+
+    Only the process's real stdout may fall back to ``sys.stdout.buffer``. A stream handed in by the caller that has no
+    ``buffer`` cannot take bytes: writing to the process-wide stdout instead would put them somewhere unexpected.
+    """
     buffer = getattr(out, "buffer", None)
+    if buffer is None and out is not sys.stdout:
+        raise CliError("binary output requires a binary stream; use --output FILE", code=1)
     # Judge the stream the bytes would reach before writing anything to it.
     target = out if buffer is not None else sys.stdout
     if target.isatty():
