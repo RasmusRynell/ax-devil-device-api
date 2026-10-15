@@ -224,7 +224,8 @@ def test_i2_garbage_dca_discovery_is_never_a_cached_definitive_no(apis: Any) -> 
 
 
 APPLICATIONS = [b"", b"<a", b"text", b"\xff", b"<reply result='error'/>", b"<reply><application/></reply>",
-                b"<reply><application Name=''/></reply>", b"<reply><application Version='1'/></reply>"]
+                b"<reply><application Name=''/></reply>", b"<reply><application Version='1'/></reply>",
+                b"<html/>", b"<html><body><application Name='a'/></body></html>", b"<replies/>", b"<reply><x/></reply><reply/>"]
 
 
 @pytest.mark.parametrize("body", APPLICATIONS, ids=[repr(b)[:30] for b in APPLICATIONS])
@@ -238,7 +239,8 @@ def test_i2_garbage_application_list_is_never_a_cached_definitive_no(body: bytes
         assert dev._state.get("applications") is None  # noqa: SLF001
 
 
-SERVICES = [b"", b"<a", b"text", b"\xff", b"<Envelope><Body><Service/></Body></Envelope>",
+SERVICES = [b"", b"<a", b"text", b"\xff", b"<html/>", b"<html><Service><Namespace>urn:b</Namespace></Service></html>",
+            b"<reply/>", b"<Envelope><Body><Service/></Body></Envelope>",
             b"<Envelope><Body><Service><XAddr>u</XAddr></Service></Body></Envelope>",
             b"<Envelope><Body><Service><Namespace>urn:b</Namespace><XAddr>u</XAddr></Service><Service/></Body></Envelope>",
             b"<Envelope><Body><Service><Namespace> </Namespace></Service></Body></Envelope>", NESTED_XML]

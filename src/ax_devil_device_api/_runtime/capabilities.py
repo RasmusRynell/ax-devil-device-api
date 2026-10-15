@@ -51,7 +51,7 @@ from .._protocols.state import DeviceState
 from .._protocols.xmlmap import parse_xml
 from ..apis import api_discovery as _api_discovery
 from ..apis import basic_device_info as _basic_device_info
-from ..errors import ApiError, AuthError, ConnectionFailed, ConnectTimeout, DeviceError, ResponseFormatError, TlsError
+from ..errors import ApiError, AuthError, DeviceError, PoolTimeout, ResponseFormatError, TransportError
 
 BASE_PROPERTY_GROUP = "Properties.API"
 PROPERTY_SCOPE_PREFIX = "properties:"
@@ -396,6 +396,8 @@ def applications_flow(state: DeviceState) -> CallFlow[NamedListing]:
         root = parse_xml(response.content)
     except ET.ParseError as error:
         raise ResponseFormatError("applications", "list", "response is not valid XML") from error
+    if root.tag.rpartition("}")[2] != "reply":  # an unrelated document (a login page, <html/>) is not an empty list
+        raise ResponseFormatError("applications", "list", f"expected a <reply> document, got <{root.tag.rpartition('}')[2]}>")
     if root.get("result") not in (None, "ok"):
         raise ResponseFormatError("applications", "list", f"device answered result={root.get('result')!r}")
     found: dict[str, str] = {}
@@ -426,6 +428,8 @@ def services_flow(state: DeviceState) -> CallFlow[NamedListing]:
         root = parse_xml(response.content)
     except ET.ParseError as error:
         raise ResponseFormatError("entry-service", "get_services", "response is not valid XML") from error
+    if root.tag.rpartition("}")[2] != "Envelope":  # a SOAP reply, not an unrelated document
+        raise ResponseFormatError("entry-service", "get_services", f"expected a SOAP envelope, got <{root.tag.rpartition('}')[2]}>")
     found: dict[str, str] = {}
     problems: list[str] = []
     for index, service in enumerate(s for s in root.iter() if s.tag.rpartition("}")[2] == "Service"):
@@ -628,12 +632,14 @@ def _param_matches(method: ParamDiscovery, value: str) -> bool:
     return value == method.value
 
 
-UNREACHABLE = (ConnectionFailed, ConnectTimeout, TlsError, AuthError)
-"""Failures that say the whole device is out of reach (refused, unreachable, TLS, credentials rejected), not one probe."""
-
-
 def is_unreachable(error: BaseException) -> bool:
-    return isinstance(error, UNREACHABLE)
+    """Whether a failure says the whole device is out of reach, not that one probe went wrong: credentials rejected,
+    or a transport failure BEFORE anything was sent (refused, unreachable, DNS, connect timeout, TLS). A reset after the
+    request was sent (``request_sent=True``) fails only that probe, and waiting for a free connection slot says
+    nothing about the device."""
+    if isinstance(error, AuthError):
+        return True
+    return isinstance(error, TransportError) and not isinstance(error, PoolTimeout) and error.request_sent is False
 
 
 def skipped_probe_error(cause: str) -> str:
