@@ -42,3 +42,34 @@ def test_modules_that_exist_stay_in_the_aggregates(tree: Path) -> None:
     assert cli.cmd_generate(argparse.Namespace(only=["disk-management"], all=False)) == 0
     namespace = (tree / "src" / "ax_devil_device_api" / "apis" / "__init__.py").read_text()
     assert "disk_management" in namespace and "mqtt_client" in namespace
+
+
+def _snapshot(root: Path) -> dict[str, str]:
+    return {str(p.relative_to(root)): p.read_text() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def test_a_selector_that_matches_nothing_fails_and_writes_nothing(tree: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    before = _snapshot(tree)
+    assert cli.cmd_generate(argparse.Namespace(only=["disk-managment"], all=False)) == 1  # typo
+    err = capsys.readouterr().err
+    assert "disk-managment" in err and "no spec has this id" in err and "nothing was written" in err
+    assert _snapshot(tree) == before
+
+
+def test_every_unmatched_selector_is_listed_even_next_to_a_good_one(tree: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    before = _snapshot(tree)
+    assert cli.cmd_generate(argparse.Namespace(only=["disk-management", "typo-one", "typo-two"], all=False)) == 1
+    err = capsys.readouterr().err
+    assert "typo-one" in err and "typo-two" in err and "disk-management:" not in err
+    assert _snapshot(tree) == before
+
+
+def test_an_uncurated_selector_without_all_is_reported_with_a_hint(tree: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    before = _snapshot(tree)
+    assert cli.cmd_generate(argparse.Namespace(only=["image-stabilization"], all=False)) == 1
+    assert "use --all" in capsys.readouterr().err
+    assert _snapshot(tree) == before
+
+
+def test_a_matching_selector_still_generates(tree: Path) -> None:
+    assert cli.cmd_generate(argparse.Namespace(only=["disk-management"], all=False)) == 0

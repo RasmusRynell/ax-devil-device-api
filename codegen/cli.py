@@ -26,6 +26,8 @@ class Result:
     warnings: list[str] = field(default_factory=list)
     all_ids: set[str] = field(default_factory=set)
     uncurated: list[str] = field(default_factory=list)
+    unmatched: dict[str, str] = field(default_factory=dict)
+    """``--only`` selectors that produced no module, with the reason."""
 
 
 def build_all(paths: list[Path], only: list[str] | None = None, include_uncurated: bool = False) -> Result:
@@ -50,6 +52,7 @@ def build_all(paths: list[Path], only: list[str] | None = None, include_uncurate
         loaded.append(spec)
 
     seen_modules: dict[str, str] = {}
+    matched: set[str] = set()
     for spec in loaded:
         family = spec.data["family"]
         if not include_uncurated and not (spec.data.get("provenance") or {}).get("curated"):
@@ -75,7 +78,16 @@ def build_all(paths: list[Path], only: list[str] | None = None, include_uncurate
         res.apis.append(api)
         if only is None or api.id in only or spec.path.stem in only:
             res.files[module_path(api)] = text
+            matched.update({api.id, spec.path.stem})
     res.apis.sort(key=lambda a: a.module)
+    known = res.all_ids | {spec.path.stem for spec in loaded}
+    for selector in only or ():
+        if selector not in matched:
+            res.unmatched[selector] = (
+                "this spec is not generated (uncurated or an unsupported family; use --all for uncurated specs)"
+                if selector in known
+                else "no spec has this id or file name"
+            )
     # The shared outputs list only modules that exist after this run: written now, or generated earlier and still on
     # disk. With --only, an API whose module is not written (an uncurated one included by --all, say) must not appear
     # in the namespace, or importing it would fail.
@@ -123,6 +135,11 @@ def cmd_generate(args: argparse.Namespace) -> int:
         # The shared files (apis/__init__.py, docs/api_surface.txt) would list only the specs that built, and a
         # partial rewrite would leave the tree inconsistent: write nothing and fail.
         print("error: some specs failed to load or build; nothing was written", file=sys.stderr)
+        return 1
+    if res.unmatched:
+        for selector, reason in sorted(res.unmatched.items()):
+            print(f"error: --only {selector}: {reason}", file=sys.stderr)
+        print("error: nothing was written", file=sys.stderr)
         return 1
     for path, text in sorted(res.files.items()):
         path.parent.mkdir(parents=True, exist_ok=True)
