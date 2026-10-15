@@ -149,7 +149,8 @@ def test_exception_mapping(exc: Exception, expected: type, sent: bool) -> None:
     t = make(handler)
     with pytest.raises(expected) as info:
         t.send(Request("GET", "/a"))
-    assert info.value.__cause__ is exc
+    assert info.value.__cause__ is None and info.value.__context__ is None  # the httpx exception (and its request) is not chained
+    assert type(exc).__name__ in str(info.value)  # but its class name stays in the text
     assert info.value.request_sent is sent
     assert type(info.value) is expected
     with pytest.raises(expected) as info2:
@@ -168,7 +169,7 @@ def test_exception_while_iterating_stream() -> None:
     with pytest.raises(errors.ReadTimeout) as info:
         with t.open_stream(Request("GET", "/s", stream=True)) as (_, chunks):
             list(chunks)
-    assert isinstance(info.value.__cause__, httpx.ReadTimeout)
+    assert info.value.__cause__ is None and info.value.__context__ is None and "stalled" in str(info.value)
 
 
 def test_tls_error_via_cause() -> None:
