@@ -31,6 +31,7 @@ from .base import (
     api_error,
     body_excerpt,
     check_applicability,
+    error_text,
     has_secret_fields,
     http_error,
     parse_result,
@@ -455,7 +456,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
 
     if isinstance(codec, Binary):
         if codec.media_types and response.media_type not in codec.media_types:
-            raise ResponseFormatError(op.api.id, op.id, f"unexpected content type {response.media_type!r}")
+            raise ResponseFormatError(op.api.id, op.id, f"unexpected content type {error_text(op, repr(response.media_type))}")
         if not response.content:
             raise ResponseFormatError(op.api.id, op.id, "empty response body")
         if codec.signatures and not response.content.startswith(codec.signatures):
@@ -510,8 +511,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
                 continue
             key, sep, value = line.partition("=")
             if not sep:
-                shown = BODY_OMITTED if has_secret_fields(op) else repr(line[:80])
-                raise ResponseFormatError(op.api.id, op.id, f"expected key=value lines, got {shown}")
+                raise ResponseFormatError(op.api.id, op.id, f"expected key=value lines, got {body_excerpt(op, repr(line[:80]))}")
             key = key.strip()
             if prefix and key.startswith(prefix):
                 key = key[len(prefix):]
@@ -584,7 +584,7 @@ def flow(op: Operation[CgiBinding], params: Model | None, state: DeviceState) ->
 
         reply = binding.reply
         if isinstance(reply, Stream) and reply.media_types and response.media_type not in reply.media_types:
-            raise ResponseFormatError(op.api.id, op.id, f"unexpected content type {response.media_type!r}")
+            raise ResponseFormatError(op.api.id, op.id, f"unexpected content type {error_text(op, repr(response.media_type))}")
 
         return decoder_for(binding.reply, response, api=op.api.id)
 

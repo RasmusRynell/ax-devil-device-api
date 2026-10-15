@@ -30,8 +30,9 @@ def parse_xml(content: bytes | str) -> ET.Element:
     """
     try:
         return ET.fromstring(content)
-    except (LookupError, ValueError) as error:  # ParseError is a SyntaxError and passes through
-        raise XmlDeclarationError(str(error)) from error
+    except (LookupError, ValueError):  # ParseError is a SyntaxError and passes through
+        # The error text names the device's encoding or value; the message is fixed so no error or log can carry it.
+        raise XmlDeclarationError("the XML declaration is unusable (unknown encoding or invalid value)") from None
 
 
 def element_text(element: ET.Element) -> str:

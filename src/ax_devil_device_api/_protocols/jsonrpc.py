@@ -26,6 +26,7 @@ from .base import (
     Operation,
     api_error,
     check_applicability,
+    error_text,
     http_error,
     parse_result,
     register_binding,
@@ -152,10 +153,19 @@ def _advertised(op: Operation[JsonRpcBinding], state: DeviceState) -> CallFlow[t
     raw = data.get(negotiation.key) if isinstance(data, dict) else None
     if not isinstance(raw, list) or not all(isinstance(v, str) for v in raw):
         raise ResponseFormatError(op.api.id, op.id, f"getSupportedVersions returned no {negotiation.key} list")
-    try:
-        versions = tuple(ApiVersion.parse(v) for v in raw)
-    except ValueError as error:
-        raise ResponseFormatError(op.api.id, op.id, f"getSupportedVersions: {error}") from error
+    parsed: list[ApiVersion] = []
+    unreadable: str | None = None
+    for text in raw:
+        try:
+            parsed.append(ApiVersion.parse(text))
+        except ValueError:
+            unreadable = text
+            break
+    if unreadable is not None:  # raised outside the handler: neither cause nor context holds the device's version text
+        raise ResponseFormatError(
+            op.api.id, op.id, f"getSupportedVersions: not a major.minor version: {error_text(op, repr(unreadable))}"
+        )
+    versions = tuple(parsed)
     state.set_advertised_versions(cache_key, versions, token)
     return versions
 
@@ -234,7 +244,7 @@ def flow(op: Operation[JsonRpcBinding], params: Model | None, state: DeviceState
         raise
     echoed = payload.get("method")
     if echoed is not None and echoed != binding.method:
-        raise ResponseFormatError(op.api.id, op.id, f"response is for method {echoed!r}, expected {binding.method!r}")
+        raise ResponseFormatError(op.api.id, op.id, f"response is for method {error_text(op, repr(echoed))}, expected {binding.method!r}")
     data = payload.get("data")
     if op.result is None:
         return None

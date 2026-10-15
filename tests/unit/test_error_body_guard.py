@@ -121,3 +121,56 @@ def test_the_device_message_in_api_error_only_feeds_lookups_and_error_text() -> 
     for statement in function.body:
         walk(statement, False)
     assert not offenders, f"device message used outside error_text/lookup in api_error at lines {offenders}"
+
+
+# -- device-derived values interpolated into a format error ---------------------------------------------------------------
+
+FORMAT_ERROR = "ResponseFormatError"
+SAFE_FORMATTERS = {"error_text", "body_excerpt", "redact_text", "_kind"}
+# (file, unparsed expression) -> why the value cannot carry device text. Any other value in a ResponseFormatError message
+# (a method name, version, key, id, header value, ...) must go through one of SAFE_FORMATTERS.
+EXEMPT_VALUES: dict[tuple[str, str], str] = {
+    ("_protocols/jsonrpc.py", "negotiation.key"): "the key the SPEC names (apiVersions), not a device value",
+    ("_protocols/jsonrpc.py", "binding.method!r"): "the method WE asked for (from the spec)",
+    ("_protocols/base.py", "message"): "_shape_message(): field names and error types only, omitted for secret operations",
+    ("_protocols/cgi.py", "error"): "an expat ParseError: fixed vocabulary plus a position; XmlDeclarationError has a fixed text",
+    ("_runtime/ws_codecs.py", "where"): "a fixed label chosen by the codec",
+    ("_runtime/ws_codecs.py", "fields"): "only declared TopicSampleParams field names (anything else is 'an unexpected field')",
+    ("_runtime/ws.py", "reason"): "the JSON decoder's position-only message (non-finite constants are fixed names)",
+    ("_runtime/ws.py", "MAX_WS_MESSAGE_BYTES"): "a constant",
+}
+
+
+def _format_error_values() -> set[tuple[str, str]]:
+    found: set[tuple[str, str]] = set()
+    for folder in SCANNED:
+        for path in sorted((PACKAGE / folder).rglob("*.py")):
+            relative = path.relative_to(PACKAGE).as_posix()
+            for node in ast.walk(ast.parse(path.read_text())):
+                if not (isinstance(node, ast.Call) and _callee(node) == FORMAT_ERROR):
+                    continue
+                message = next((kw.value for kw in node.keywords if kw.arg == "message"), node.args[2] if len(node.args) > 2 else None)
+                if message is None or (isinstance(message, ast.Constant) and isinstance(message.value, str)):
+                    continue
+                if isinstance(message, ast.JoinedStr):
+                    parts = [(part.value, part.conversion == ord("r")) for part in message.values if isinstance(part, ast.FormattedValue)]
+                else:
+                    parts = [(message, False)]
+                for value, as_repr in parts:
+                    if isinstance(value, ast.Call) and _callee(value) in SAFE_FORMATTERS:
+                        continue
+                    found.add((relative, ast.unparse(value) + ("!r" if as_repr else "")))
+    return found
+
+
+def test_format_errors_only_interpolate_device_values_through_the_helpers() -> None:
+    unexpected = sorted(_format_error_values() - set(EXEMPT_VALUES))
+    assert not unexpected, (
+        "a device-derived value is interpolated into a ResponseFormatError; pass it through error_text(op, repr(value)) "
+        f"(or _kind(value) in a WebSocket codec), or list it in EXEMPT_VALUES with the reason it cannot carry text: {unexpected}"
+    )
+
+
+def test_every_exempt_format_value_is_still_used() -> None:
+    stale = sorted(set(EXEMPT_VALUES) - _format_error_values())
+    assert not stale, f"remove these from EXEMPT_VALUES: {stale}"

@@ -41,6 +41,7 @@ from .._protocols.base import (
     ParamDiscovery,
     ServiceDiscovery,
     http_error,
+    redact_text,
 )
 from .._protocols.cgi import CgiArg, CgiBinding, TextKv
 from .._protocols.cgi import flow as cgi_flow
@@ -243,7 +244,7 @@ def identity_flow(state: DeviceState) -> CallFlow[DeviceIdentity]:
     bad = [key for key, value in props.items() if not isinstance(key, str) or not isinstance(value, str)]
     if bad:
         raise ResponseFormatError(
-            "basic-device-info", "get_all_properties", f"propertyList values must be text; wrong for: {', '.join(map(repr, bad))}"
+            "basic-device-info", "get_all_properties", f"propertyList values must be text; wrong for: {redact_text(', '.join(map(repr, bad)))}"
         )
     return DeviceIdentity(
         model=props.get("ProdShortName"),
@@ -399,9 +400,9 @@ def applications_flow(state: DeviceState) -> CallFlow[NamedListing]:
     except ET.ParseError as error:
         raise ResponseFormatError("applications", "list", "response is not valid XML") from error
     if root.tag.rpartition("}")[2] != "reply":  # an unrelated document (a login page, <html/>) is not an empty list
-        raise ResponseFormatError("applications", "list", f"expected a <reply> document, got <{root.tag.rpartition('}')[2]}>")
+        raise ResponseFormatError("applications", "list", f"expected a <reply> document, got <{redact_text(root.tag.rpartition('}')[2])}>")
     if root.get("result") not in (None, "ok"):
-        raise ResponseFormatError("applications", "list", f"device answered result={root.get('result')!r}")
+        raise ResponseFormatError("applications", "list", f"device answered result={redact_text(repr(root.get('result')))}")
     found: dict[str, str] = {}
     problems: list[str] = []
     for index, app in enumerate(a for a in root.iter() if a.tag.rpartition("}")[2] == "application"):
@@ -431,7 +432,7 @@ def services_flow(state: DeviceState) -> CallFlow[NamedListing]:
     except ET.ParseError as error:
         raise ResponseFormatError("entry-service", "get_services", "response is not valid XML") from error
     if root.tag.rpartition("}")[2] != "Envelope":  # a SOAP reply, not an unrelated document
-        raise ResponseFormatError("entry-service", "get_services", f"expected a SOAP envelope, got <{root.tag.rpartition('}')[2]}>")
+        raise ResponseFormatError("entry-service", "get_services", f"expected a SOAP envelope, got <{redact_text(root.tag.rpartition('}')[2])}>")
     found: dict[str, str] = {}
     problems: list[str] = []
     for index, service in enumerate(s for s in root.iter() if s.tag.rpartition("}")[2] == "Service"):

@@ -334,7 +334,7 @@ class Response:
         except (LookupError, UnicodeError):
             # An unknown (or non-text) charset label is a malformed response, not a programming error.
             raise ResponseFormatError(
-                "http", f"{self.request.method} {self.request.path}", f"unsupported response charset {charset!r}"
+                "http", f"{self.request.method} {self.request.path}", "unsupported response charset"
             ) from None
 
     @property
