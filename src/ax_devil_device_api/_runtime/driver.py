@@ -16,6 +16,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
 from .._http.config import ResponseHook
+from .._http.debug import redact_path
 from .._http.options import RetryPolicy
 from .._http.types import Request, Response, has_deferred, resolve_deferred
 from .._protocols.base import CallFlow, Operation, StreamDecoder
@@ -215,7 +216,7 @@ class Call:
             outcome = status if error is None else type(error).__name__
             logger.debug(
                 "%s %s -> %s in %.1f ms (attempt %d, %s.%s)",
-                request.method, request.path, outcome, duration_ms, attempt, api, operation,
+                request.method, redact_path(request.path, request.masked), outcome, duration_ms, attempt, api, operation,
             )
         if self.on_response is not None:
             self.on_response(
@@ -223,7 +224,7 @@ class Call:
                     "api": api,
                     "operation": operation,
                     "method": request.method,
-                    "path": request.path,
+                    "path": redact_path(request.path, request.masked),
                     "status": status,
                     "error": type(error).__name__ if error is not None else None,
                     "duration_ms": duration_ms,

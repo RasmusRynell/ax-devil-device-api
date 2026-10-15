@@ -184,6 +184,19 @@ def _scrub_text(text: str) -> str:
     return current if found else text
 
 
+def redact_path(path: str, masked: Any = ()) -> str:
+    """A request path as ``on_request`` shows it: ``redact_url`` with the request's own masked names.
+
+    Used for the ``on_response`` record and the DEBUG log, so all three agree on what is secret in a path.
+    """
+    token = _request_masked.set(_masks(masked))
+    try:
+        shown = redact_url("http://x" + path)  # a path alone would not parse as a URL ("//a" is a host)
+    finally:
+        _request_masked.reset(token)
+    return shown[len("http://x"):] if shown.startswith("http://x") else _REDACTED
+
+
 def redact_url(url: str) -> str:
     """Redact URL userinfo, secret query parameters and credentials inside the path, query values and fragment."""
     try:
