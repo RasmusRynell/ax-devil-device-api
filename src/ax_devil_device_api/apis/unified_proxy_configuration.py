@@ -80,7 +80,7 @@ INFO = ApiInfo(
     id="unified-proxy-configuration-config",
     name="Proxy Configuration API",
     family=Family.DCA,
-    discovery=(DcaDiscovery("unified-proxy-configuration", "v1beta"),),
+    discovery=(DcaDiscovery("unified-proxy-configuration", "v1"),),
     status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/",),
 )
@@ -157,7 +157,7 @@ class OPS:
 
 
 class UnifiedProxyConfigurationApi(SyncApi):
-    """Proxy Configuration API (``unified-proxy-configuration-config``, v1beta)."""
+    """Proxy Configuration API (``unified-proxy-configuration-config``, v1)."""
 
     INFO = INFO
 
@@ -217,7 +217,7 @@ class UnifiedProxyConfigurationApi(SyncApi):
 
 
 class AsyncUnifiedProxyConfigurationApi(AsyncApi):
-    """Proxy Configuration API (``unified-proxy-configuration-config``, v1beta)."""
+    """Proxy Configuration API (``unified-proxy-configuration-config``, v1)."""
 
     INFO = INFO
 

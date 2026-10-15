@@ -12,7 +12,7 @@ docs:
 - https://developer.axis.com/vapix/device-configuration/proxy-configuration-api/
 access: admin
 discovery:
-- dca: {api: unified-proxy-configuration, version: v1beta}
+- dca: {api: unified-proxy-configuration, version: v1}
 
 binding: {root: /config/rest/unified-proxy-configuration/v1beta}
 
@@ -186,6 +186,6 @@ provenance:
   open_questions:
   - The docs list globalHttpProxy, globalHttpsProxy and globalNoProxyList only in the structure tree, the root SET fields and the use cases; there are no property definitions (datatype, permissions, nullability). Types are inferred from the examples and permissions are assumed to be admin.
   - The proxy URL format and validation rules are not documented.
-  - The discovery id uses version v1 in the dca entry, but the documented REST root is v1beta; v1beta is assumed to be the version the device reports.
+  - 'Discovery looks for major version v1 (/config/discover lists beta APIs by major version with "state": "beta"), while the documented REST root is v1beta.'
   migrated_from: v1
   curated: true

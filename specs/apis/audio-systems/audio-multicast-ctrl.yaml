@@ -12,7 +12,7 @@ docs:
 - https://developer.axis.com/vapix/audio-systems/audio-multicast-controller/
 access: admin
 discovery:
-- dca: {api: audio-multicast-ctrl, version: v1beta}
+- dca: {api: audio-multicast-ctrl, version: v1}
 
 binding: {root: /config/rest/audio-multicast-ctrl/v1beta}
 
@@ -312,6 +312,7 @@ provenance:
     shown, only tnsaxis:AudioMulticastController/SourceState.'
   - IpAddress type says 'The IPv4 address' with maxLength 39 (IPv6 length).
   - AXIS OS minimum version not stated; the API is BETA (v1beta).
+  - 'Discovery: /config/discover lists beta APIs by major version ("v1", with "state": "beta"); only the REST root carries the beta suffix (v1beta). So discovery looks for v1 while the binding root stays v1beta (device-configuration-apis, Discovery).'
   - Per-property GET operations are not generated; get_all and get_source return the values.
   migrated_from: v1
   curated: true

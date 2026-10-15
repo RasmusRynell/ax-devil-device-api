@@ -146,7 +146,7 @@ INFO = ApiInfo(
     id="audio-multicast-ctrl",
     name="Audio Multicast Controller",
     family=Family.DCA,
-    discovery=(DcaDiscovery("audio-multicast-ctrl", "v1beta"),),
+    discovery=(DcaDiscovery("audio-multicast-ctrl", "v1"),),
     status="beta",
     docs=("https://developer.axis.com/vapix/audio-systems/audio-multicast-controller/",),
 )
@@ -274,7 +274,7 @@ class OPS:
 
 
 class AudioMulticastCtrlApi(SyncApi):
-    """Audio Multicast Controller (``audio-multicast-ctrl``, v1beta)."""
+    """Audio Multicast Controller (``audio-multicast-ctrl``, v1)."""
 
     INFO = INFO
 
@@ -381,7 +381,7 @@ class AudioMulticastCtrlApi(SyncApi):
 
 
 class AsyncAudioMulticastCtrlApi(AsyncApi):
-    """Audio Multicast Controller (``audio-multicast-ctrl``, v1beta)."""
+    """Audio Multicast Controller (``audio-multicast-ctrl``, v1)."""
 
     INFO = INFO
 

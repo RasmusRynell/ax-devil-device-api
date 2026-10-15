@@ -12,7 +12,7 @@ docs:
   - https://developer.axis.com/vapix/device-configuration/cellular-routing-api/
 access: admin
 discovery:
-  - dca: {api: cellular-routing, version: v1beta}
+  - dca: {api: cellular-routing, version: v1}
 binding:
   root: /config/rest/cellular-routing/v1beta
 
@@ -716,6 +716,7 @@ provenance:
     - >-
       The API is in beta; the REST root is /config/rest/cellular-routing/v1beta (as in all examples) while the
       entity names say v1.
+    - 'Discovery: /config/discover lists beta APIs by major version ("v1", with "state": "beta"); only the REST root carries the beta suffix (v1beta), so discovery looks for v1.'
     - The docs do not state the permissions of add and remove operations; admin (the setter permission) is assumed.
     - Which result fields are always present is not stated; fields of the cellular IPv4 info and the optional aggregate parents are left optional.
     - The documented MAC lease example PATCHes the collection with a bare MAC string, unlike the documented Add operation.

@@ -402,7 +402,7 @@ INFO = ApiInfo(
     id="cellular-routing-config",
     name="Cellular routing API",
     family=Family.DCA,
-    discovery=(DcaDiscovery("cellular-routing", "v1beta"),),
+    discovery=(DcaDiscovery("cellular-routing", "v1"),),
     status="beta",
     docs=("https://developer.axis.com/vapix/device-configuration/cellular-routing-api/",),
 )
@@ -769,7 +769,7 @@ class OPS:
 
 
 class CellularRoutingApi(SyncApi):
-    """Cellular routing API (``cellular-routing-config``, v1beta)."""
+    """Cellular routing API (``cellular-routing-config``, v1)."""
 
     INFO = INFO
 
@@ -1054,7 +1054,7 @@ class CellularRoutingApi(SyncApi):
 
 
 class AsyncCellularRoutingApi(AsyncApi):
-    """Cellular routing API (``cellular-routing-config``, v1beta)."""
+    """Cellular routing API (``cellular-routing-config``, v1)."""
 
     INFO = INFO
 
