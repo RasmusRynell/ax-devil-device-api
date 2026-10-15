@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
-from .._validate import boolean, bounded_int, positive_finite, positive_int, text
+from .._validate import boolean, bounded_int, header_safe_secret, positive_finite, positive_int, text
 from ..errors import ConfigurationError
 from .options import RetryPolicy
 from .types import unsafe_path
@@ -36,8 +36,8 @@ class Credentials:
 
     def __post_init__(self) -> None:
         # A password read from an unset environment variable is None: refuse it instead of sending "None".
-        text("username", self.username)
-        text("password", self.password, allow_empty=True)
+        header_safe_secret("username", text("username", self.username))
+        header_safe_secret("password", text("password", self.password, allow_empty=True))
 
     @classmethod
     def from_pair(cls, pair: Any) -> Credentials:
@@ -62,11 +62,11 @@ class BearerToken:
 
     def __post_init__(self) -> None:
         if not callable(self.token):
-            text("token", self.token)
+            header_safe_secret("bearer token", text("token", self.token))
 
     def current(self) -> str:
         token = self.token() if callable(self.token) else self.token
-        return text("token", token)
+        return header_safe_secret("bearer token", text("token", token))  # checked at every use, callable providers included
 
     def __repr__(self) -> str:
         return "BearerToken(<redacted>)"

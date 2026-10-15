@@ -57,7 +57,20 @@ def non_negative_finite(name: str, value: Any) -> float:
 def text(name: str, value: Any, *, allow_empty: bool = False) -> str:
     """``value`` as a real ``str`` (never ``None``, ``bytes`` or a number); empty only with ``allow_empty``."""
     if not isinstance(value, str) or (not value and not allow_empty):
-        raise ConfigurationError(f"{name} must be {'a' if allow_empty else 'a non-empty'} string, got {value!r}")
+        # Names the type only: this validates credentials, and a secret must not end up in an error message.
+        raise ConfigurationError(f"{name} must be {'a' if allow_empty else 'a non-empty'} string, got {type(value).__name__}")
+    return value
+
+
+def header_safe_secret(name: str, value: str) -> str:
+    """``value`` unchanged if it has no newline or other control character, else a ``ConfigurationError``.
+
+    Credentials end up in headers. A trailing newline (typical when a secret is read from a file) would make httpx
+    reject the request in transit, so it is reported where the value is used, never stripped silently (that would
+    change a credential). The message names the setting, never the value.
+    """
+    if any(ord(c) < 32 or 127 <= ord(c) < 160 for c in value):
+        raise ConfigurationError(f"{name} contains a newline or other control character (strip it when reading it from a file)")
     return value
 
 
