@@ -562,7 +562,10 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
     if not info.discovery:
         return SupportResult(Support.UNKNOWN, f"{info.id} declares no discovery method", observed_at=caps.observed_at)
 
+    # The markers are alternatives: YES if ANY says yes, NO only if EVERY one was evaluated and said no, else UNKNOWN. An
+    # early "no" (an incompatible classic version) must not stop a later marker (a property) from answering yes.
     unknown: list[str] = []
+    incompatible: str | None = None
     for method in info.discovery:
         if isinstance(method, ApiDiscovery):
             if caps.classic_apis is None:
@@ -590,12 +593,8 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
                 if listed.problems:
                     unknown.extend(listed.problems)
                     continue
-                if listed.versions:
-                    return SupportResult(
-                        Support.NO,
-                        f"device has {method.id} version {', '.join(listed.versions)}, this client speaks {info.major}.x",
-                        observed_at=caps.observed_at,
-                    )
+                if listed.versions and incompatible is None:
+                    incompatible = f"device has {method.id} version {', '.join(listed.versions)}, this client speaks {info.major}.x"
         elif isinstance(method, DcaDiscovery):
             if caps.dca_apis is None:
                 unknown.append(f"Device Configuration discovery failed: {caps.errors.get('dca_apis')}")
@@ -639,6 +638,8 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
 
     if unknown:
         return SupportResult(Support.UNKNOWN, "discovery was incomplete", tuple(unknown), caps.observed_at)
+    if incompatible is not None:
+        return SupportResult(Support.NO, incompatible, observed_at=caps.observed_at)
     return SupportResult(Support.NO, f"{info.id} is not listed by the device's discovery", observed_at=caps.observed_at)
 
 
