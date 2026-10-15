@@ -123,9 +123,15 @@ def _check_proxy(proxy: str) -> None:
 
 
 def url_host(host: str) -> str:
-    """``host`` as the authority of a URL: IPv6 literals in brackets, with a zone id's ``%`` encoded as ``%25`` (RFC 6874)."""
+    """``host`` as the authority of a URL: IPv6 literals in brackets, with a zone id's ``%`` encoded as ``%25`` (RFC 6874),
+    and an internationalised name in its IDNA (``xn--``) form, which is what resolvers and media clients understand."""
     if ":" not in host:
-        return host
+        if host.isascii():
+            return host
+        try:
+            return host.encode("idna").decode("ascii")
+        except UnicodeError:
+            raise ConfigurationError(f"Invalid host: {host!r}; not a valid internationalised host name") from None
     inner = host[1:-1] if host.startswith("[") and host.endswith("]") else host
     return f"[{inner.replace('%', '%25')}]"
 
