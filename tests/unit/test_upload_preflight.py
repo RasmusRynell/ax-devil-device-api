@@ -331,3 +331,93 @@ async def test_async_upload_demoted_after_the_preflight_is_reverified_and_sent_o
     async with Racing(cfg(), transport=httpx.MockTransport(cam)) as t:
         assert (await t.send(upload())).status == 200
     assert [p for p in cam.paths if p[0] == "POST"] == [("POST", "/up")]
+
+
+# --- the credentials preflight is observed as a request of its own ------------------------------------------------------------
+
+
+def _hooked_config(requests: list[dict[str, Any]], responses: list[dict[str, Any]]) -> ConnectionConfig:
+    return ConnectionConfig(
+        "cam", credentials=Credentials("root", "pw"), on_request=requests.append, on_response=responses.append
+    )
+
+
+def _upload_flow(request: Request):  # type: ignore[no-untyped-def]
+    response = yield request
+    return response.status
+
+
+def test_sync_preflight_has_its_own_balanced_response_record() -> None:
+    from ax_devil_device_api._runtime.driver import Call, run_sync
+
+    requests: list[dict[str, Any]] = []
+    responses: list[dict[str, Any]] = []
+    cam = Camera()
+    with SyncTransport(_hooked_config(requests, responses), transport=httpx.MockTransport(cam)) as t:
+        assert run_sync(t, _upload_flow(upload()), Call(label=("files", "upload"), on_response=responses.append)) == 200
+    assert len(requests) == len(responses) == 2
+    probe = next(r for r in responses if r["operation"] == "preflight")
+    assert probe["path"] == PREFLIGHT_PATH and probe["status"] == 200 and probe["error"] is None and probe["duration_ms"] >= 0
+    assert next(r for r in responses if r["operation"] == "upload")["status"] == 200
+    assert all("authorization" not in str(r["request"]["headers"]).lower() for r in requests)
+
+
+def test_sync_failed_preflight_is_reported_as_a_preflight_failure() -> None:
+    from ax_devil_device_api._runtime.driver import Call, run_sync
+
+    requests: list[dict[str, Any]] = []
+    responses: list[dict[str, Any]] = []
+    cam = Camera(preflight_status=403)
+    with SyncTransport(_hooked_config(requests, responses), transport=httpx.MockTransport(cam)) as t:
+        with pytest.raises(AuthError):
+            run_sync(t, _upload_flow(upload()), Call(label=("files", "upload"), on_response=responses.append))
+    probe = next(r for r in responses if r["operation"] == "preflight")
+    assert probe["status"] == 403 and probe["error"] == "AuthError"
+    outer = next(r for r in responses if r["operation"] == "upload")
+    assert outer["status"] is None and outer["error"] == "AuthError"  # the upload never went out
+    assert len(requests) == len(responses) == 2
+    assert ("POST", "/up") not in cam.paths
+
+
+def test_sync_preflight_that_cannot_connect_is_recorded_with_its_error() -> None:
+    from ax_devil_device_api._runtime.driver import Call, run_sync
+
+    responses: list[dict[str, Any]] = []
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    with SyncTransport(_hooked_config([], responses), transport=httpx.MockTransport(refuse)) as t:
+        with pytest.raises(Exception):  # noqa: B017 - the connection error
+            run_sync(t, _upload_flow(upload()), Call(label=("files", "upload"), on_response=responses.append))
+    probe = next(r for r in responses if r["operation"] == "preflight")
+    assert probe["status"] is None and probe["error"] == "ConnectionFailed"
+
+
+@pytest.mark.anyio
+async def test_async_preflight_has_its_own_balanced_response_record() -> None:
+    from ax_devil_device_api._runtime.driver import Call, run_async
+
+    requests: list[dict[str, Any]] = []
+    responses: list[dict[str, Any]] = []
+    cam = Camera()
+    async with AsyncTransport(_hooked_config(requests, responses), transport=httpx.MockTransport(cam)) as t:
+        assert await run_async(t, _upload_flow(upload()), Call(label=("files", "upload"), on_response=responses.append)) == 200
+    assert len(requests) == len(responses) == 2
+    probe = next(r for r in responses if r["operation"] == "preflight")
+    assert probe["path"] == PREFLIGHT_PATH and probe["status"] == 200 and probe["error"] is None
+
+
+@pytest.mark.anyio
+async def test_async_failed_preflight_is_reported_as_a_preflight_failure() -> None:
+    from ax_devil_device_api._runtime.driver import Call, run_async
+
+    requests: list[dict[str, Any]] = []
+    responses: list[dict[str, Any]] = []
+    cam = Camera(preflight_status=403)
+    async with AsyncTransport(_hooked_config(requests, responses), transport=httpx.MockTransport(cam)) as t:
+        with pytest.raises(AuthError):
+            await run_async(t, _upload_flow(upload()), Call(label=("files", "upload"), on_response=responses.append))
+    probe = next(r for r in responses if r["operation"] == "preflight")
+    assert probe["status"] == 403 and probe["error"] == "AuthError"
+    assert len(requests) == len(responses) == 2

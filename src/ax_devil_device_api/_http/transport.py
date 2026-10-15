@@ -434,6 +434,26 @@ def _response(raw: httpx.Response, request: Request, content: bytes) -> Response
     return Response(raw.status_code, Headers(raw.headers.multi_items()), content, request)
 
 
+def _observe_probe(
+    config: ConnectionConfig, probe: Request, status: int | None, error: BaseException | None, started: float, attempt: int
+) -> None:
+    """The ``on_response`` record of a credentials preflight: its own request, so its failure is not the upload's."""
+    if config.on_response is None:
+        return
+    config.on_response(
+        {
+            "api": "device-auth",
+            "operation": "preflight",
+            "method": probe.method,
+            "path": probe.path,
+            "status": status,
+            "error": type(error).__name__ if error is not None else None,
+            "duration_ms": round((time.monotonic() - started) * 1000, 1),
+            "attempt": attempt,
+        }
+    )
+
+
 def _emit(config: ConnectionConfig, request: Request) -> None:
     timeout = request.timeout if request.timeout is not None else config.timeout
     debug.emit_request(config.on_request, request, config.base_url + config.base_path + request.path, timeout, config.verify)
@@ -476,13 +496,19 @@ class SyncTransport:
         for attempt in range(2 if probe is not None else 1):
             if probe is not None:
                 _emit(self.config, probe)
+                started = time.monotonic()
                 try:
                     reply = self._send_once(probe, stream=False)
-                except errors.TransportError as error:
-                    error.during_preflight = True
+                except Exception as error:
+                    if isinstance(error, errors.TransportError):
+                        error.during_preflight = True
+                    _observe_probe(self.config, probe, None, error, started, attempt + 1)
                     raise
                 if not reply.is_success or self._auth.needs_verification:
-                    raise _preflight_failure(reply.status_code)
+                    failure = _preflight_failure(reply.status_code)
+                    _observe_probe(self.config, probe, reply.status_code, failure, started, attempt + 1)
+                    raise failure
+                _observe_probe(self.config, probe, reply.status_code, None, started, attempt + 1)
             try:
                 return self._send_once(request, stream=stream)
             except errors.AuthError as error:
@@ -612,13 +638,19 @@ class AsyncTransport:
         for attempt in range(2 if probe is not None else 1):
             if probe is not None:
                 _emit(self.config, probe)
+                started = time.monotonic()
                 try:
                     reply = await self._send_once(probe, stream=False)
-                except errors.TransportError as error:
-                    error.during_preflight = True
+                except Exception as error:
+                    if isinstance(error, errors.TransportError):
+                        error.during_preflight = True
+                    _observe_probe(self.config, probe, None, error, started, attempt + 1)
                     raise
                 if not reply.is_success or self._auth.needs_verification:
-                    raise _preflight_failure(reply.status_code)
+                    failure = _preflight_failure(reply.status_code)
+                    _observe_probe(self.config, probe, reply.status_code, failure, started, attempt + 1)
+                    raise failure
+                _observe_probe(self.config, probe, reply.status_code, None, started, attempt + 1)
             try:
                 return await self._send_once(request, stream=stream)
             except errors.AuthError as error:
