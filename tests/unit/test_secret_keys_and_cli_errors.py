@@ -132,3 +132,22 @@ def test_local_error_messages_are_redacted_too(monkeypatch: pytest.MonkeyPatch, 
     code, out, err = run(monkeypatch, StubDevice(exc), "call", "mqtt_client", "get_client_status")
     assert code in (1, 2)
     _no_secrets(out, err)
+
+
+def test_missing_values_stay_json_null_not_the_text_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    undocumented = ApiError("mqtt-client", "get_client_status", None, "something failed", kind=None, http_status=500)
+    code, out, err = run(monkeypatch, StubDevice(undocumented), "call", "mqtt_client", "get_client_status")
+    payload = json.loads(err.splitlines()[-1])["error"]
+    assert code == 1 and payload["code"] is None and payload["kind"] is None
+    assert payload["api"] == "mqtt-client" and payload["operation"] == "get_client_status" and payload["message"]
+    assert '"null"' not in err
+
+
+def test_text_values_are_still_shown_and_integers_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    documented = ApiError("mqtt-client", "get_client_status", 2104, "bad value", kind="invalid_argument", http_status=400)
+    _, _, err = run(monkeypatch, StubDevice(documented), "call", "mqtt_client", "get_client_status")
+    payload = json.loads(err.splitlines()[-1])["error"]
+    assert payload["code"] == 2104 and payload["kind"] == "invalid_argument"
+    string_code = ApiError("mqtt-client", "get_client_status", "E-7", "bad value", http_status=400)
+    _, _, err = run(monkeypatch, StubDevice(string_code), "call", "mqtt_client", "get_client_status")
+    assert json.loads(err.splitlines()[-1])["error"]["code"] == "E-7"

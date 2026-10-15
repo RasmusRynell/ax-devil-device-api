@@ -446,7 +446,7 @@ def _cmd_snapshot(args: argparse.Namespace, out: TextIO) -> None:
 def _cmd_summary(args: argparse.Namespace, out: TextIO) -> None:
     with make_device(args) as dev:
         data = device_summary(dev).to_dict()
-        data["probe_errors"] = {key: display_text(text) for key, text in data["probe_errors"].items()}
+        data["probe_errors"] = {key: _shown(text) for key, text in data["probe_errors"].items()}
         emit(data, out)
 
 
@@ -454,19 +454,24 @@ def _cmd_support(args: argparse.Namespace, out: TextIO, err: TextIO) -> None:
     with make_device(args) as dev:
         results = api_support(dev)
     errors = _check_discovery(results)
-    emit({"apis": {n: {"status": r.status.value, "reason": display_text(r.reason)} for n, r in results.items()}, "errors": errors}, out)
+    emit({"apis": {n: {"status": r.status.value, "reason": _shown(r.reason)} for n, r in results.items()}, "errors": errors}, out)
     _warn(errors, err)
 
 
 # -- entry point ----------------------------------------------------------------
 
 
+def _shown(value: Any, limit: int = 2000) -> Any:
+    """The display form of a text value for JSON output; ``None`` stays ``null`` (``display_text(None)`` would say "null")."""
+    return None if value is None else display_text(value, limit)
+
+
 def _error_json(error: BaseException) -> dict[str, Any]:
     # Only display forms leave the process: the raw code, api and operation are device or spec text.
     data: dict[str, Any] = {"type": type(error).__name__, "message": display_text(str(error))}
     if isinstance(error, ApiError):
-        code = error.code if isinstance(error.code, int) else (None if error.code is None else display_text(error.code, 100))
-        data.update(code=code, kind=display_text(error.kind, 100), api=display_text(error.api, 100), operation=display_text(error.operation, 100))
+        code = error.code if isinstance(error.code, int) else _shown(error.code, 100)
+        data.update(code=code, kind=_shown(error.kind, 100), api=_shown(error.api, 100), operation=_shown(error.operation, 100))
     elif isinstance(error, HttpError):
         data["status"] = getattr(error, "status", None)
     return data
