@@ -29,6 +29,7 @@ from .base import (
     Model,
     Operation,
     api_error,
+    body_excerpt,
     check_applicability,
     has_masked_fields,
     http_error,
@@ -492,7 +493,7 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
     _text_errors(op, text, response.status)
     if isinstance(codec, TextOk):
         if text.strip() != "OK":
-            raise ResponseFormatError(op.api.id, op.id, f"expected 'OK', got {response.excerpt(80)!r}")
+            raise ResponseFormatError(op.api.id, op.id, f"expected 'OK', got {body_excerpt(op, response.safe_text.strip())}")
         return None
     if isinstance(codec, TextKv):
         result: dict[str, Any] = {}

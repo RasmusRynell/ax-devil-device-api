@@ -708,17 +708,37 @@ def _scan_masked(tp: Any, seen: set[Any]) -> bool:
     return any(_scan_masked(arg, seen) for arg in get_args(tp) if arg is not type(None) and not isinstance(arg, str))
 
 
-def body_excerpt(op: Operation[Any], value: Any) -> str:
-    """A bounded excerpt of a device response for error messages: none at all for an operation that returns secret
-    fields, otherwise the redaction used for the request hooks (secret-looking names, URL credentials)."""
-    if has_masked_fields(op.result):
-        return BODY_OMITTED
+def redact_text(value: Any, limit: int = 200) -> str:
+    """Text for an error message from device data, bounded and put through the redaction used for the request hooks
+    (secret-looking names, URL credentials). The generic redactor, for places that have no operation (the handshake)."""
     try:
-        shown = value if isinstance(value, str) else json.dumps(serialize(value), default=str)
-        shown = json.dumps(serialize(shown)) if isinstance(value, str) else shown
+        shown = serialize(value)
+        shown = shown if isinstance(shown, str) else json.dumps(shown, default=str)
     except (TypeError, ValueError, RecursionError):
         return "<unprintable>"
-    return shown if len(shown) <= 200 else shown[:200] + "…"
+    return shown if len(shown) <= limit else shown[:limit] + "…"
+
+
+def body_excerpt(op: Operation[Any], value: Any) -> str:
+    """THE way response body text enters an exception message: none at all for an operation that returns secret
+    fields, otherwise a bounded, redacted excerpt. Nothing else may put raw body text into an error (a test scans
+    the package for it)."""
+    return BODY_OMITTED if has_masked_fields(getattr(op, "result", None)) else redact_text(value)
+
+
+def _safe_details(op: Operation[Any], details: Any) -> Any:
+    """``details`` of an API error: structured error objects stay structured (redacted); raw text is bounded and
+    redacted; an operation that returns secret fields keeps none of it."""
+    if has_masked_fields(getattr(op, "result", None)):
+        return BODY_OMITTED
+    if details is None or isinstance(details, (int, float, bool)):
+        return details
+    if isinstance(details, str):
+        return redact_text(details, 2000)
+    try:
+        return serialize(details)
+    except (TypeError, ValueError, RecursionError):
+        return "<unprintable>"
 
 
 def _shape_message(error: ValidationError, data: Any, op: Operation[Any]) -> str:
@@ -996,7 +1016,7 @@ def api_error(
         description=info.description if info else None,
         kind=kind,
         http_status=http_status,
-        details=details,
+        details=_safe_details(op, details),
     )
 
 
@@ -1010,16 +1030,18 @@ def http_error(op: Operation[Any], response: Response, *, documented: bool | fro
     status = response.status
     if (documented is True or (not isinstance(documented, bool) and status in documented)) and status not in (401, 403) and op.error_code(status) is not None:
         # The operation documents this status (for example a 404 that means "not found", not "unsupported").
-        return api_error(op, status, response.excerpt(), http_status=status, details=response.safe_text)
+        return api_error(op, status, body_excerpt(op, response.safe_text.strip()), http_status=status, details=response.safe_text)
     if status == 401:
         return AuthError(f"{op.api.id}.{op.id}: the device requires authentication and no usable credentials were configured")
     if status == 403:
-        return HttpAccessDenied(status, response.excerpt(), api=op.api.id, operation=op.id, detail=f"requires {op.access} access")
+        return HttpAccessDenied(
+            status, body_excerpt(op, response.safe_text.strip()), api=op.api.id, operation=op.id, detail=f"requires {op.access} access"
+        )
     if status == 503:
-        return HttpUnavailable(status, response.excerpt(), api=op.api.id, operation=op.id)
+        return HttpUnavailable(status, body_excerpt(op, response.safe_text.strip()), api=op.api.id, operation=op.id)
     if status == 404:
         return NotSupported(op.api.id, op.id, f"{response.request.path} not found (HTTP 404)")
-    return HttpError(status, response.excerpt(), api=op.api.id, operation=op.id)
+    return HttpError(status, body_excerpt(op, response.safe_text.strip()), api=op.api.id, operation=op.id)
 
 
 def check_applicability(op: Operation[Any], params: Model | None, version: ApiVersion | None) -> None:

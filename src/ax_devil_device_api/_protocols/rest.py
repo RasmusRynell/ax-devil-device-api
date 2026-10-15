@@ -17,7 +17,17 @@ from urllib.parse import quote
 
 from .._http.types import AuthPolicy, JsonBody, Request, Response, check_path_param, loads_json
 from ..errors import ResponseFormatError
-from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
+from .base import (
+    CallFlow,
+    Model,
+    Operation,
+    api_error,
+    body_excerpt,
+    check_applicability,
+    http_error,
+    parse_result,
+    register_binding,
+)
 from .dca import _alias, _field_for
 from .state import DeviceState
 
@@ -108,7 +118,7 @@ def _decode(op: Operation[RestBinding], response: Response) -> Any:
     status = response.status
     if not 200 <= status < 300:
         if status not in (401, 403) and op.error_code(status) is not None:
-            raise api_error(op, status, response.excerpt(), http_status=status, details=response.safe_text)
+            raise api_error(op, status, body_excerpt(op, response.safe_text.strip()), http_status=status, details=response.safe_text)
         raise http_error(op, response, documented=True)
     if not response.content.strip():
         return None

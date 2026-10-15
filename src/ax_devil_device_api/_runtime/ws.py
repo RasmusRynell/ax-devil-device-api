@@ -57,7 +57,7 @@ from .._http.transport import (
     UpgradeRefused,
 )
 from .._http.types import Request, Response, check_path_param, loads_json
-from .._protocols.base import CallFlow
+from .._protocols.base import CallFlow, redact_text
 from .._validate import optional_non_negative_finite, optional_positive_finite, positive_int
 from ..errors import (
     AuthError,
@@ -628,12 +628,12 @@ def refusal_error(spec: SessionSpec, response: Response) -> DeviceError:
     if status == 401:
         return AuthError(f"{spec.api_id}: the device requires authentication and no usable credentials were configured")
     if status == 403:
-        return HttpAccessDenied(status, response.excerpt(), api=spec.api_id, operation="connect")
+        return HttpAccessDenied(status, redact_text(response.safe_text.strip()), api=spec.api_id, operation="connect")
     if status == 503:
-        return HttpUnavailable(status, response.excerpt(), api=spec.api_id, operation="connect")
+        return HttpUnavailable(status, redact_text(response.safe_text.strip()), api=spec.api_id, operation="connect")
     if status == 404:
         return NotSupported(spec.api_id, None, f"{response.request.path} not found (HTTP 404): the device has no such WebSocket endpoint")
-    return HttpError(status, response.excerpt(), api=spec.api_id, operation="connect")
+    return HttpError(status, redact_text(response.safe_text.strip()), api=spec.api_id, operation="connect")
 
 
 def _setup_requests(spec: SessionSpec, options: Mapping[str, Any]) -> Sequence[tuple[str, Mapping[str, Any] | None]]:
