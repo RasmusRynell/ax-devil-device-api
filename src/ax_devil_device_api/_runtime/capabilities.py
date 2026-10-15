@@ -52,7 +52,7 @@ from .._protocols.state import DeviceState
 from .._protocols.xmlmap import parse_xml
 from ..apis import api_discovery as _api_discovery
 from ..apis import basic_device_info as _basic_device_info
-from ..errors import ApiError, AuthError, DeviceError, PoolTimeout, ResponseFormatError, TransportError
+from ..errors import ApiError, AuthError, DeviceError, PoolTimeout, ResponseFormatError, TransportError, display_text
 
 BASE_PROPERTY_GROUP = "Properties.API"
 PROPERTY_SCOPE_PREFIX = "properties:"
@@ -93,6 +93,11 @@ class SupportResult:
     """Probe failures that made the answer ``UNKNOWN``."""
     observed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
+    def __post_init__(self) -> None:
+        # Names and values in these texts can come from the device (firmware strings, listed ids): the CLI prints them.
+        object.__setattr__(self, "reason", display_text(self.reason))
+        object.__setattr__(self, "errors", tuple(display_text(error) for error in self.errors))
+
     def __bool__(self) -> bool:
         return self.status is Support.YES
 
@@ -127,6 +132,14 @@ class Capabilities:
     joined as text). ``None`` if the probe failed."""
     dca_malformed: Mapping[str, str] = field(default_factory=dict)
     """``/config/discover`` APIs listed in the wrong shape: name -> why. Their support is unknown, not absent."""
+
+    def __post_init__(self) -> None:
+        # Probe diagnostics carry device text (a listed id, a firmware string, an error message), and the CLI prints them:
+        # every key and value is shown through display_text, whoever built the dictionary.
+        object.__setattr__(self, "errors", {display_text(key, 120): display_text(text) for key, text in self.errors.items()})
+        object.__setattr__(self, "applications_problems", tuple(display_text(text) for text in self.applications_problems))
+        object.__setattr__(self, "services_problems", tuple(display_text(text) for text in self.services_problems))
+        object.__setattr__(self, "dca_malformed", {name: display_text(text) for name, text in self.dca_malformed.items()})
 
     @classmethod
     def from_probes(cls, values: Mapping[str, Any], errors: Mapping[str, str]) -> Capabilities:
@@ -287,7 +300,8 @@ def classic_apis_flow(state: DeviceState) -> CallFlow[ClassicListing]:
 
 def malformed_reason(source: str, name: Any, value: Any, expected: str) -> str:
     """The one wording of a malformed discovery entry (the classic apiList and ``/config/discover`` share it)."""
-    return f"{source} lists {name!r} as {value!r}, not {expected}"
+    # The name and the value are the device's: shown through display_text (redacted, control characters escaped, bounded).
+    return f'{source} lists "{display_text(name, 80)}" as {display_text(value, 200)}, not {expected}'
 
 
 @dataclass(frozen=True)

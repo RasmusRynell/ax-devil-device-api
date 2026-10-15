@@ -23,7 +23,7 @@ from dataclasses import dataclass, replace
 from ._http.types import Headers, Request, Response
 from ._protocols.base import BytesDecoder, CallFlow, StreamDecoder
 from ._validate import positive_int
-from .errors import ConnectionFailed, ResponseFormatError
+from .errors import ConnectionFailed, ResponseFormatError, display_text
 
 DEFAULT_MAX_PART_BYTES = 32 * 1024 * 1024
 DEFAULT_MAX_LINE_BYTES = 1024 * 1024
@@ -87,7 +87,7 @@ class MixedReplaceDecoder:
         content_type = response.headers.get("content-type", "")
         boundary = boundary_of(content_type)
         if not is_multipart_stream(content_type) or boundary is None:
-            raise ResponseFormatError(api, "stream", f"expected a multipart stream with a boundary, got {content_type!r}")
+            raise ResponseFormatError(api, "stream", f"expected a multipart stream with a boundary, got {display_text(content_type, 100)}")
         return cls(boundary, api=api, max_part_bytes=max_part_bytes)
 
     def feed(self, chunk: bytes) -> list[Part]:

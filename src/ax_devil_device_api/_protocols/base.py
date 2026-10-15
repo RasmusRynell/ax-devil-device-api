@@ -9,7 +9,6 @@ protocol modules, which are sans-IO: a call is a generator that yields
 from __future__ import annotations
 
 import collections.abc
-import json
 import math
 import re
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -61,6 +60,7 @@ from ..errors import (
     HttpUnavailable,
     NotSupported,
     ResponseFormatError,
+    display_text,
 )
 
 if TYPE_CHECKING:
@@ -709,14 +709,9 @@ def _scan_masked(tp: Any, seen: set[Any]) -> bool:
 
 
 def redact_text(value: Any, limit: int = 200) -> str:
-    """Text for an error message from device data, bounded and put through the redaction used for the request hooks
-    (secret-looking names, URL credentials). The generic redactor, for places that have no operation (the handshake)."""
-    try:
-        shown = serialize(value)
-        shown = shown if isinstance(shown, str) else json.dumps(shown, default=str)
-    except (TypeError, ValueError, RecursionError):
-        return "<unprintable>"
-    return shown if len(shown) <= limit else shown[:limit] + "…"
+    """Text for an error message from device data: ``display_text`` with a tighter bound (redaction of secret-looking
+    names and URL credentials, control characters escaped). For places that have no operation (the handshake)."""
+    return display_text(value, limit)
 
 
 MESSAGE_OMITTED = "device message omitted (operation handles secret fields)"
@@ -763,9 +758,56 @@ def _safe_details(op: Operation[Any], details: Any) -> Any:
 
 def _shape_message(error: ValidationError, data: Any, op: Operation[Any]) -> str:
     """Why a response does not match, with a bounded excerpt of what the device sent. Pydantic's own text can echo the
-    input, so the message is built from the problems only (locations and reasons)."""
-    problems = "; ".join(f"{'.'.join(str(part) for part in item['loc']) or 'result'}: {item['msg']}" for item in error.errors(include_input=False))
-    return f"response does not match the documented shape: {problems[:400]} (response: {body_excerpt(op, data)})"
+    input, so the message is built from the problems only: the location parts and the reason, each put through
+    ``display_text`` (a mapping key in a location, or a field name in a validator's text, is the device's), and never
+    the ``input``. For an operation that handles secret fields only the declared top-level field and the error type
+    are shown."""
+    problems: list[str] = []
+    for item in error.errors(include_input=False):
+        loc = item["loc"]
+        if has_secret_fields(op):  # only names the models declare (ours) and list positions; the error type, never its text
+            where = ".".join(_declared_part(op, part) for part in loc) or "result"
+            problems.append(f"{where}: {item['type']}")
+        else:
+            where = ".".join(display_text(str(part), 60) for part in loc) or "result"
+            problems.append(f"{where}: {display_text(item['msg'], 200)}")
+    return f"response does not match the documented shape: {'; '.join(problems)[:400]} (response: {body_excerpt(op, data)})"
+
+
+def _declared_part(op: Operation[Any], part: Any) -> str:
+    """A location part shown for a secret-handling operation: a field name or alias some model of the result declares,
+    or a list position; anything else (a mapping key the device chose) is ``*``."""
+    if isinstance(part, int):
+        return str(part)
+    return part if isinstance(part, str) and part in _declared_names(getattr(op, "result", None)) else "*"
+
+
+def _declared_names(tp: Any) -> frozenset[str]:
+    try:
+        return _declared_names_cached(tp)
+    except TypeError:  # an unhashable annotation
+        return frozenset(_collect_names(tp, set()))
+
+
+@cache
+def _declared_names_cached(tp: Any) -> frozenset[str]:
+    return frozenset(_collect_names(tp, set()))
+
+
+def _collect_names(tp: Any, seen: set[Any]) -> set[str]:
+    names: set[str] = set()
+    if isinstance(tp, type) and issubclass(tp, BaseModel):
+        if tp in seen:
+            return names
+        seen.add(tp)
+        for key, field in tp.model_fields.items():
+            names |= {key, *(alias for alias in (field.alias, field.validation_alias) if isinstance(alias, str))}
+            names |= _collect_names(field.annotation, seen)
+        return names
+    for arg in get_args(tp):
+        if arg is not type(None) and not isinstance(arg, str):
+            names |= _collect_names(arg, seen)
+    return names
 
 
 def _validated_result(op: Operation[Any], data: Any) -> Any:

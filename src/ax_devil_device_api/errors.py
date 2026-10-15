@@ -15,14 +15,97 @@ detected them:
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any, Literal
 
 ErrorKind = Literal["access_denied", "unavailable", "invalid_argument", "not_found", "unsupported", "internal"]
 """Normalized meaning of a device error code, from the spec's error tables."""
 
 
+_CONTROL = re.compile("[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+_ESCAPES = {"\n": "\\n", "\r": "\\r", "\t": "\\t"}
+DISPLAY_LIMIT = 2000
+"""Longest text an exception shows for one human-facing field or for the whole message."""
+
+
+def _escape(match: re.Match[str]) -> str:
+    char = match.group()
+    return _ESCAPES.get(char) or (f"\\x{ord(char):02x}" if ord(char) < 256 else f"\\u{ord(char):04x}")
+
+
+def display_text(value: Any, limit: int = DISPLAY_LIMIT) -> str:
+    """THE way text that may come from a device is shown by an exception (message, code, reason, close reason, content
+    type, validation location, discovery diagnostics).
+
+    Three steps, in this order: the request-hook redactor (secret-named pairs such as ``password=...``, URL
+    credentials), control and newline characters escaped (``\\r\\n``: a device cannot forge a log line), and a length
+    bound. Applying it again changes nothing, so composed messages can be shown safely.
+    """
+    from ._http.debug import serialize  # imported late: that package imports this one
+
+    try:
+        shown = serialize(value)
+        shown = shown if isinstance(shown, str) else json.dumps(shown, default=str)
+    except (TypeError, ValueError, RecursionError):
+        return "<unprintable>"
+    shown = _CONTROL.sub(_escape, shown)
+    return shown if len(shown) <= limit else shown[: max(limit - 1, 0)] + "…"
+
+
+_DETAILS_ITEMS = 100
+_DETAILS_DEPTH = 8
+
+
+def _bounded(value: Any, depth: int) -> Any:
+    if depth > _DETAILS_DEPTH:
+        return "<nested too deeply>"
+    if isinstance(value, str):
+        return _CONTROL.sub(_escape, value) if len(value) <= DISPLAY_LIMIT else _CONTROL.sub(_escape, value[: DISPLAY_LIMIT - 1]) + "…"
+    if isinstance(value, dict):
+        items = list(value.items())
+        shown = {_bounded(str(key), depth + 1): _bounded(item, depth + 1) for key, item in items[:_DETAILS_ITEMS]}
+        if len(items) > _DETAILS_ITEMS:
+            shown["…"] = f"{len(items) - _DETAILS_ITEMS} more"
+        return shown
+    if isinstance(value, list):
+        listed = [_bounded(item, depth + 1) for item in value[:_DETAILS_ITEMS]]
+        if len(value) > _DETAILS_ITEMS:
+            listed.append(f"… {len(value) - _DETAILS_ITEMS} more")
+        return listed
+    return value
+
+
+def sanitize_details(value: Any) -> Any:
+    """The ``details`` an exception keeps: the structure of what the device sent, with secret-named values and URL
+    credentials redacted, control characters escaped in every string and key, and the size bounded. Idempotent."""
+    from ._http.debug import serialize
+
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    try:
+        return _bounded(serialize(value), 0)
+    except (TypeError, ValueError, RecursionError):
+        return "<unprintable>"
+
+
 class DeviceError(Exception):
-    """Base class for all errors raised by this library."""
+    """Base class for all errors raised by this library.
+
+    This class owns how an error is shown: every string it is built from, and the whole text, go through
+    :func:`display_text`, so ``str()``, ``repr()`` and a traceback never repeat a secret, a URL credential or a control
+    character, whatever a subclass or a device put into it. Raw values live on attributes meant for matching (``code``,
+    ``status``), never in the text.
+    """
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(*(display_text(arg) if isinstance(arg, str) else arg for arg in args))
+
+    def __str__(self) -> str:
+        return display_text(super().__str__())
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({', '.join(repr(display_text(arg)) for arg in self.args)})"
 
 
 class ConfigurationError(DeviceError, ValueError):
@@ -108,8 +191,8 @@ class SessionClosed(DeviceError):
 
     def __init__(self, code: int = 1000, reason: str = "") -> None:
         self.code = code
-        self.reason = reason
-        super().__init__(f"session closed by the device (code {code}{': ' + reason if reason else ''})")
+        self.reason = display_text(reason, 300)
+        super().__init__(f"session closed by the device (code {code}{': ' + self.reason if self.reason else ''})")
 
 
 class AuthError(DeviceError):
@@ -133,15 +216,15 @@ class HttpError(DeviceError):
         detail: str | None = None,
     ) -> None:
         self.status = status
-        self.body_excerpt = body_excerpt
+        self.body_excerpt = display_text(body_excerpt, 1000)
         self.api = api
         self.operation = operation
-        where = f"{api}.{operation}: " if api and operation else ""
+        where = f"{display_text(api, 100)}.{display_text(operation, 100)}: " if api and operation else ""
         text = f"{where}HTTP {status}"
         if detail:
-            text += f" ({detail})"
-        if body_excerpt:
-            text += f": {body_excerpt}"
+            text += f" ({display_text(detail, 500)})"
+        if self.body_excerpt:
+            text += f": {self.body_excerpt}"
         super().__init__(text)
 
 
@@ -170,15 +253,16 @@ class ApiError(DeviceError):
     ) -> None:
         self.api = api
         self.operation = operation
-        self.code = code
-        self.message = message
-        self.description = description
+        self.code = code  # raw, for matching; the text below shows it through display_text
+        self.message = display_text(message, 1000)
+        self.description = None if description is None else display_text(description, 1000)
         self.kind = kind
         self.http_status = http_status
-        self.details = details
-        text = f"{api}.{operation}: " + (f"error {code}: {message}" if code is not None else message)
-        if description and description != message:
-            text += f" ({description})"
+        self.details = sanitize_details(details)
+        where = f"{display_text(api, 100)}.{display_text(operation, 100)}: "
+        text = where + (f"error {display_text(str(code), 100)}: {self.message}" if code is not None else self.message)
+        if self.description and self.description != self.message:
+            text += f" ({self.description})"
         super().__init__(text)
 
 
@@ -196,8 +280,8 @@ class ResponseFormatError(DeviceError):
     def __init__(self, api: str, operation: str, reason: str) -> None:
         self.api = api
         self.operation = operation
-        self.reason = reason
-        super().__init__(f"{api}.{operation}: {reason}")
+        self.reason = display_text(reason, 1000)
+        super().__init__(f"{display_text(api, 100)}.{display_text(operation, 100)}: {self.reason}")
 
 
 class NotSupported(DeviceError):
@@ -209,7 +293,7 @@ class NotSupported(DeviceError):
     def __init__(self, api: str, operation: str | None, reason: str, *, required: str | None = None) -> None:
         self.api = api
         self.operation = operation
-        self.reason = reason
-        self.required = required
-        where = f"{api}.{operation}" if operation else api
-        super().__init__(f"{where}: {reason}")
+        self.reason = display_text(reason, 1000)
+        self.required = None if required is None else display_text(required, 100)
+        where = f"{display_text(api, 100)}.{display_text(operation, 100)}" if operation else display_text(api, 100)
+        super().__init__(f"{where}: {self.reason}")
