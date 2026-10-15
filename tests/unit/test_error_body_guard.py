@@ -103,7 +103,7 @@ def test_the_device_message_in_api_error_only_feeds_lookups_and_error_text() -> 
     """In ``api_error`` the raw ``message`` may be used for the code lookup and inside ``error_text(...)`` only."""
     tree = ast.parse((PACKAGE / "_protocols" / "base.py").read_text())
     function = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "api_error")
-    allowed_callees = {"error_text", "error_code", "isinstance"}
+    allowed_callees = {"error_text", "error_code", "isinstance", "kind_of"}
     offenders: list[int] = []
 
     def walk(node: ast.AST, inside: bool) -> None:
@@ -126,7 +126,7 @@ def test_the_device_message_in_api_error_only_feeds_lookups_and_error_text() -> 
 # -- device-derived values interpolated into a format error ---------------------------------------------------------------
 
 FORMAT_ERROR = "ResponseFormatError"
-SAFE_FORMATTERS = {"error_text", "body_excerpt", "redact_text", "display_text", "_kind"}
+SAFE_FORMATTERS = {"error_text", "body_excerpt", "redact_text", "display_text", "kind_of"}
 # (file, unparsed expression) -> why the value cannot carry device text. Any other value in a ResponseFormatError message
 # (a method name, version, key, id, header value, ...) must go through one of SAFE_FORMATTERS.
 EXEMPT_VALUES: dict[tuple[str, str], str] = {
@@ -169,7 +169,7 @@ def test_format_errors_only_interpolate_device_values_through_the_helpers() -> N
     unexpected = sorted(_format_error_values() - set(EXEMPT_VALUES))
     assert not unexpected, (
         "a device-derived value is interpolated into a ResponseFormatError; pass it through error_text(op, repr(value)) "
-        f"(or _kind(value) in a WebSocket codec), or list it in EXEMPT_VALUES with the reason it cannot carry text: {unexpected}"
+        f"(or kind_of(value) for a value that is not text), or list it in EXEMPT_VALUES with the reason it cannot carry text: {unexpected}"
     )
 
 

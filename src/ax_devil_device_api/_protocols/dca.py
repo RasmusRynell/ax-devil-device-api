@@ -120,7 +120,7 @@ def _decode(op: Operation[DcaBinding], response: Response) -> Any:
     if isinstance(payload, dict) and payload.get("status") == "error":
         error = payload.get("error")
         code = error.get("code") if isinstance(error, dict) else None
-        message = str(error.get("message", "")) if isinstance(error, dict) else str(error)
+        message = error.get("message", "") if isinstance(error, dict) else error  # raw: api_error refuses non-text
         raise api_error(op, code, message, http_status=response.status, details=error)
     if not 200 <= response.status < 300:
         raise http_error(op, response)

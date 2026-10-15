@@ -14,7 +14,7 @@ from typing import Any, Protocol
 
 from pydantic import ValidationError
 
-from .._protocols.base import redact_text
+from .._protocols.base import kind_of, redact_text
 from ..errors import ApiAccessDenied, ApiError, ApiUnavailable, ErrorKind, ResponseFormatError
 
 JsonObject = Mapping[str, Any]
@@ -66,15 +66,10 @@ def api_error(codec: WsCodec, method: str, error: WsError) -> ApiError:
     return cls(codec.api_id, method, error.code, redact_text(error.message, 1000), kind=kind, details=error.data)
 
 
-def _kind(value: Any) -> str:
-    """What a malformed device value was, for an error message: its JSON type, never the value itself (device text)."""
-    return "null" if value is None else "a boolean" if isinstance(value, bool) else "a number" if isinstance(value, (int, float)) else "text" if isinstance(value, str) else "a list" if isinstance(value, list) else "an object" if isinstance(value, Mapping) else type(value).__name__
-
-
 def _object(api: str, where: str, value: Any) -> Mapping[str, Any]:
     """A REQUIRED JSON object: missing or of another type is a malformed message, never an empty default."""
     if not isinstance(value, Mapping):
-        raise ResponseFormatError(api, "receive", f"{where} must be an object, got {_kind(value)}")
+        raise ResponseFormatError(api, "receive", f"{where} must be an object, got {kind_of(value)}")
     return value
 
 
@@ -88,7 +83,7 @@ def _error(api: str, value: Any) -> WsError:
     err = _object(api, "the error of a reply", value)
     code, message = err.get("code"), err.get("message")
     if isinstance(code, bool) or not isinstance(code, (int, str)) or not isinstance(message, str):
-        raise ResponseFormatError(api, "receive", f"a reply error needs an integer or text code and a text message, got code {_kind(code)}, message {_kind(message)}")
+        raise ResponseFormatError(api, "receive", f"a reply error needs an integer or text code and a text message, got code {kind_of(code)}, message {kind_of(message)}")
     return WsError(code, message, err.get("data"))
 
 
@@ -191,7 +186,7 @@ class EventsCodec:
         raw = _object(api, "events:notify notification", params.get("notification"))
         topic = raw.get("topic")
         if not isinstance(topic, str):
-            raise ResponseFormatError(api, "receive", f"events:notify notification.topic must be text, got {_kind(topic)}")
+            raise ResponseFormatError(api, "receive", f"events:notify notification.topic must be text, got {kind_of(topic)}")
         body = _object(api, "events:notify notification.message", raw.get("message"))
         source, key, data = (_optional_object(api, f"notification.message.{name}", body.get(name)) for name in ("source", "key", "data"))
         return Notification(EventNotification(topic, _epoch_millis(raw.get("timestamp")), source, key, data, raw))

@@ -57,6 +57,18 @@ JSON_GARBAGE: list[bytes] = [
     b'{"Fault":"x","FaultCode":"c","FaultReason":{},"FaultMsg":[]}',
     b'{"data":{"a":{"b":{"c":[null,{"d":[]}]}}}}', NESTED_JSON, NESTED_OBJECT,
     b'{"x":' + b"9" * 5000 + b"}", b'{"x":1e999}', b'{"x":"NaN"}',
+    # a message or a code of any JSON type in every error envelope (the device's raw types reach api_error)
+    *(
+        envelope.replace(b"@", value)
+        for value in (b'{"password":"x"}', b'["x"]', b"5", b"1.5", b"true", b"null")
+        for envelope in (
+            b'{"error":{"code":1,"message":@}}', b'{"error":{"code":@,"message":"m"}}', b'{"error":{"errorCode":@,"errorMsg":@}}',
+            b'{"error":@}', b'{"errors":[{"code":1,"message":@}]}', b'{"errors":[{"code":@}]}',
+            b'{"status":"error","error":{"code":@,"message":@}}', b'{"status":"error","error":@}',
+            b'{"Fault":@,"FaultCode":"c"}', b'{"Fault":"f","FaultCode":@,"FaultMsg":@}', b'{"Fault":"f","FaultCode":"c","FaultReason":@}',
+            b'{"error":{"id":@,"message":@}}',
+        )
+    ),
 ]
 XML_GARBAGE: list[bytes] = [
     b"", b"<a/>", b"<a", b"text", b"\xff\xfe", b"<?xml version='1.0' encoding='nope'?><a/>", NESTED_XML,

@@ -724,6 +724,17 @@ def has_secret_fields(op: Operation[Any]) -> bool:
     return has_masked_fields(getattr(op, "result", None)) or (params is not None and bool(params.masked_wire_names()))
 
 
+def kind_of(value: Any) -> str:
+    """What a malformed device value was, for an error message: its JSON type, never the value itself. A device value
+    that is not text must not be turned into text first (``str``, ``repr`` or an f-string): the repr of a mapping has
+    no ``name=value`` pair for the redactor to find, so a secret in it would reach the message."""
+    return (
+        "null" if value is None else "a boolean" if isinstance(value, bool) else "a number" if isinstance(value, (int, float))
+        else "text" if isinstance(value, str) else "a list" if isinstance(value, (list, tuple)) else "an object" if isinstance(value, Mapping)
+        else type(value).__name__
+    )
+
+
 def error_text(op: Operation[Any], raw: Any, limit: int = 1000) -> str:
     """THE way device-provided error text (an envelope message, an ``Error:`` line) enters an exception message. The raw
     text is used only to look up the error code and kind; what the exception shows is built here: nothing of it for an
@@ -731,7 +742,7 @@ def error_text(op: Operation[Any], raw: Any, limit: int = 1000) -> str:
     ``password=...``, URL credentials)."""
     if has_secret_fields(op):
         return MESSAGE_OMITTED
-    return redact_text(raw if isinstance(raw, str) else repr(raw), limit)
+    return redact_text(raw, limit) if isinstance(raw, str) else kind_of(raw)
 
 
 def body_excerpt(op: Operation[Any], value: Any) -> str:
@@ -1036,10 +1047,11 @@ def _sub_code(details: Any) -> int | str | None:
     return None
 
 
-def api_error(
-    op: Operation[Any], code: int | str | None, message: str, *, http_status: int | None, details: Any
-) -> DeviceError:
+def api_error(op: Operation[Any], code: Any, message: Any, *, http_status: int | None, details: Any) -> DeviceError:
     """Build the right error for an API error reported by the device.
+
+    ``code`` and ``message`` are the device's raw values: a protocol passes them on without ``str()`` or an f-string, and
+    anything but an integer or text code and a text message is a ``ResponseFormatError`` that names only the types.
 
     One rule for every protocol: **the HTTP status decides the category** when it fixes one. 401 is ``AuthError``,
     403 ``ApiAccessDenied`` (an ``AccessDenied``), 503 ``ApiUnavailable`` (an ``Unavailable``); a 401 is an ``AuthError``
@@ -1053,7 +1065,7 @@ def api_error(
         if http_status in (401, 403, 503):
             code, message = None, "the device sent a malformed error object"
         else:
-            return ResponseFormatError(op.api.id, op.id, f"malformed error object: code={error_text(op, code)}, message={error_text(op, message)}")
+            return ResponseFormatError(op.api.id, op.id, f"malformed error object: code is {kind_of(code)}, message is {kind_of(message)}")
     info = op.error_code(code, message, _sub_code(details))
     documented = info.kind if info else None
     # A 401 stays an API error only for the message-keyed errors a spec labels as such (add_user: "initial admin user

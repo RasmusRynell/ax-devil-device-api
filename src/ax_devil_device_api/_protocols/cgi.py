@@ -382,7 +382,7 @@ def _text_errors(op: Operation[Any], text: str, http_status: int | None = None) 
         raise api_error(op, code, rest or "Error", http_status=http_status, details=text)
 
 
-def _json_error(text: Any) -> tuple[int | str | None, str] | None:
+def _json_error(text: Any) -> tuple[int | str | None, Any] | None:
     """``(id, message)`` of a ``{"error": {"id": .., "message": ..}}`` envelope, else ``None``.
 
     Only a document whose single member is ``error`` with an ``id`` or ``message`` counts.
@@ -406,7 +406,7 @@ def _json_error(text: Any) -> tuple[int | str | None, str] | None:
     if not isinstance(code, (int, str)) or isinstance(code, bool):
         code = None
     message = error.get("message")
-    return code, str(message) if message else (f"error {code}" if code is not None else "Error")
+    return code, message if message else (f"error {code}" if code is not None else "Error")  # raw: api_error refuses non-text
 
 
 def _unquote(value: str) -> str:

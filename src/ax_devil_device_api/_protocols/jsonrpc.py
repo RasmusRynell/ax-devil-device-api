@@ -110,18 +110,19 @@ def _decode(op: Operation[Any], response: Response) -> dict[str, Any]:
         error = payload["error"]
         if isinstance(error, dict):
             # Some APIs (on-screen-controls, radar-configuration) name the members errorCode/errorMsg.
+            # The raw types go to api_error, which refuses anything but text as the message: no str() or f-string first.
             code = error.get("code", error.get("errorCode"))
-            message = str(error.get("message", error.get("errorMsg", "")))
+            message: Any = error.get("message", error.get("errorMsg", ""))
         else:
-            code, message = None, str(error)
+            code, message = None, error
         raise api_error(op, code, message, http_status=response.status, details=error)
     errors = payload.get("errors") if isinstance(payload, dict) and "data" not in payload else None
     if isinstance(errors, list) and errors:
         # Decoder-style failure: a top-level array of {code, message, ...} instead of one error object.
         first = errors[0] if isinstance(errors[0], dict) else {}
         code = first.get("code", first.get("errorCode"))
-        message = str(first.get("message", first.get("errorMsg", "")))
-        if len(errors) > 1:
+        message = first.get("message", first.get("errorMsg", ""))
+        if len(errors) > 1 and isinstance(message, str):
             message = f"{message} (and {len(errors) - 1} more error{'s' if len(errors) > 2 else ''})"
         raise api_error(op, code, message, http_status=response.status, details=errors)
     if response.status != 200:
@@ -244,7 +245,7 @@ def flow(op: Operation[JsonRpcBinding], params: Model | None, state: DeviceState
         raise
     echoed = payload.get("method")
     if echoed is not None and echoed != binding.method:
-        raise ResponseFormatError(op.api.id, op.id, f"response is for method {error_text(op, repr(echoed))}, expected {binding.method!r}")
+        raise ResponseFormatError(op.api.id, op.id, f"response is for method {error_text(op, repr(echoed) if isinstance(echoed, str) else echoed)}, expected {binding.method!r}")
     data = payload.get("data")
     if op.result is None:
         return None

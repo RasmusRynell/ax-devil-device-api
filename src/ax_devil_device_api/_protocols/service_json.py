@@ -52,8 +52,8 @@ def _decode(op: Operation[ServiceJsonBinding], response: Response) -> Any:
     fault = fault_of(payload)
     if fault is not None:
         code = fault.get("FaultSubCode") or fault.get("FaultCode")
-        message = fault.get("FaultMsg") or fault.get("FaultReason") or str(fault.get("Fault", ""))
-        raise api_error(op, code, str(message), http_status=response.status, details=fault)
+        message = fault.get("FaultMsg") or fault.get("FaultReason") or fault.get("Fault", "")  # raw: api_error refuses non-text
+        raise api_error(op, code, message, http_status=response.status, details=fault)
     if not 200 <= response.status < 300:
         raise http_error(op, response)
     if not response.content.strip():
