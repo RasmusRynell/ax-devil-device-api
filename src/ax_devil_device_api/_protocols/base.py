@@ -86,7 +86,7 @@ class ApiVersion:
     def parse(cls, text: str) -> ApiVersion:
         match = cls._PATTERN.fullmatch(text.strip())
         if match is None:
-            raise ValueError(f"Not a major.minor version: {text!r}")
+            raise ValueError("Not a major.minor version")
         return cls(int(match.group(1)), int(match.group(2)))
 
     def __str__(self) -> str:
@@ -580,12 +580,12 @@ def _scalar_problem(annotation: Any, value: Any) -> str | None:
         return None
     if origin in (list, set, frozenset, collections.abc.Sequence, collections.abc.Set):
         if not isinstance(value, (list, tuple, set, frozenset)):
-            return f"expected a list, got {value!r}"  # in a union this branch must not accept a scalar
+            return f"expected a list, got {kind_of(value)}"  # in a union this branch must not accept a scalar
         args = get_args(annotation)
         return _first_problem((args[0], entry) for entry in value) if args else None
     if origin is tuple:
         if not isinstance(value, (list, tuple)):
-            return f"expected a list, got {value!r}"
+            return f"expected a list, got {kind_of(value)}"
         args = get_args(annotation)
         if not args:
             return None
@@ -594,21 +594,21 @@ def _scalar_problem(annotation: Any, value: Any) -> str | None:
         return _first_problem(zip(args, value, strict=False))
     if origin in (dict, collections.abc.Mapping):
         if not isinstance(value, dict):
-            return f"expected an object, got {value!r}"
+            return f"expected an object, got {kind_of(value)}"
         args = get_args(annotation)
         if len(args) != 2:
             return None
         pairs = [pair for key, entry in value.items() for pair in ((args[0], key), (args[1], entry))]
         return _first_problem(pairs)
     if annotation in (bool, int, float, str) and isinstance(value, (list, tuple, set, frozenset, dict)):
-        return f"expected a single value, got {value!r}"  # in a union a scalar branch must not accept a container
+        return f"expected a single value, got {kind_of(value)}"  # in a union a scalar branch must not accept a container
     if annotation is bool:
-        return None if isinstance(value, bool) else f"expected true or false, got {value!r}"
+        return None if isinstance(value, bool) else f"expected true or false, got {kind_of(value)}"
     if annotation in (int, float):
         if isinstance(value, bool):
             return "a boolean is not a number"
         if annotation is int and isinstance(value, float) and not value.is_integer():
-            return f"{value!r} is not a whole number"
+            return "expected a whole number, got a fractional one"
         return None
     if annotation is str:
         return "a boolean is not text" if isinstance(value, bool) else None
