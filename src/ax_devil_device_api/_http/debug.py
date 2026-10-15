@@ -6,12 +6,13 @@ import json
 import re
 import ssl
 from contextvars import ContextVar
+from dataclasses import replace
 from functools import lru_cache
 from typing import Any
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 from .config import RequestHook, Verify
-from .types import FormBody, JsonBody, MultipartBody, RawBody, Request
+from .types import FilePart, FormBody, JsonBody, MultipartBody, RawBody, Request, Response
 
 _REDACTED = "<redacted>"
 # Key / header / element / attribute names that identify a secret (matched as substrings, case-insensitive).
@@ -306,6 +307,46 @@ def _body(body: Any) -> Any:
             return f"<{len(body.content)} bytes {_scrub_text(body.content_type)}>"
         return f"<stream {_scrub_text(body.content_type)}>"
     return _REDACTED
+
+
+def _redacted_body(body: Any) -> Any:
+    if body is None:
+        return None
+    if isinstance(body, JsonBody):
+        return JsonBody(_redact_leaves(body.value) if body.sensitive else serialize(body.value), sensitive=body.sensitive)
+    if isinstance(body, FormBody):
+        return FormBody(tuple((str(k), serialize(v, k)) for k, v in body.fields))
+    if isinstance(body, MultipartBody):
+        files = tuple(FilePart(f.name, f.filename, b"", f.content_type, size=f.length) for f in body.files)
+        return MultipartBody(tuple((str(k), serialize(v, k)) for k, v in body.fields), files, body.boundary)
+    if isinstance(body, RawBody):
+        return RawBody(b"", body.content_type, size=body.size if body.size is not None else (len(body.content) if isinstance(body.content, bytes) else None))
+    return None
+
+
+def redact_request(request: Request) -> Request:
+    """A copy of ``request`` that is safe to show: path, query, headers and body redacted exactly as ``on_request`` does.
+
+    The driver hands this out (``StreamResult.response.request``) while the original, with its real values, stays
+    internal for retries and authentication. Upload contents are dropped.
+    """
+    token = _request_masked.set(_masks(request.masked))
+    try:
+        path = redact_path(request.path, request.masked)
+        return replace(
+            request,
+            path=path if path.startswith("/") else "/" + path,
+            query=tuple((str(k), None if v is None else serialize(v, k)) for k, v in request.query),
+            headers=tuple((str(k), _REDACTED if str(k).lower() in _SENSITIVE_HEADERS or _is_secret_key(k) else serialize(v, k)) for k, v in request.headers),
+            body=_redacted_body(request.body),
+        )
+    finally:
+        _request_masked.reset(token)
+
+
+def public_response(response: Response) -> Response:
+    """``response`` with a redacted copy of its request: what an application may see, print or log."""
+    return replace(response, request=redact_request(response.request))
 
 
 def emit_request(hook: RequestHook | None, request: Request, url: str, timeout: float, verify: Verify) -> None:

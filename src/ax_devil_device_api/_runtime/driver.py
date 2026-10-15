@@ -16,7 +16,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
 from .._http.config import ResponseHook
-from .._http.debug import redact_path
+from .._http.debug import public_response, redact_path
 from .._http.options import RetryPolicy
 from .._http.types import Request, Response, has_deferred, resolve_deferred
 from .._protocols.base import CallFlow, Operation, StreamDecoder
@@ -55,7 +55,7 @@ class StreamResult(Generic[T]):
     """
 
     def __init__(self, response: Response, chunks: Iterator[bytes], decoder: StreamDecoder[T], stack: ExitStack) -> None:
-        self.response = response
+        self.response = public_response(response) if isinstance(response, Response) else response  # the original request stays internal: it holds masked values
         self._chunks = chunks
         self._decoder = decoder
         self._stack = stack
@@ -98,7 +98,7 @@ class AsyncStreamResult(Generic[T]):
     def __init__(
         self, response: Response, chunks: AsyncIterator[bytes], decoder: StreamDecoder[T], stack: AsyncExitStack
     ) -> None:
-        self.response = response
+        self.response = public_response(response) if isinstance(response, Response) else response  # the original request stays internal: it holds masked values
         self._chunks = chunks
         self._decoder = decoder
         self._stack = stack
