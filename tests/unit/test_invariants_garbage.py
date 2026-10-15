@@ -330,7 +330,9 @@ def test_i2_unreadable_property_version_is_never_a_cached_definitive_no(value: s
 
 
 IDENTITY = [None, 5, "x", [], {}, {"propertyList": None}, {"propertyList": []}, {"propertyList": "x"},
-            {"propertyList": {"Version": None}}, {"propertyList": {"Version": {}}}, {"propertyList": {"Version": 13}}]
+            {"propertyList": {"Version": None}}, {"propertyList": {"Version": {}}}, {"propertyList": {"Version": 13}},
+            # an unreadable firmware is returned but never cached (round 40)
+            *({"propertyList": {"Version": v}} for v in ("1..0", "1.0.", "", "  ", "9" * 5000, "\u00b2.\u00b3", "garbage"))]
 
 
 @pytest.mark.parametrize("data", IDENTITY, ids=[repr(d)[:40] for d in IDENTITY])
