@@ -230,12 +230,23 @@ def _local(key: Any) -> str:
     return str(key).lstrip("@").rsplit(":", 1)[-1].lower()
 
 
+DEPTH_LIMIT = "<\u2026depth limit\u2026>"
+"""Shown in place of anything nested deeper than ``MAX_DEPTH``: the rest is never shown (fail closed), for every caller."""
+MAX_DEPTH = _MAX_DEPTH
+
+
+def is_secret_parameter(pairs: Any) -> bool:
+    """Whether ``(key, value)`` pairs hold a name-like member (``Name``, ``@Name``, ``tt:Key``) whose text names a secret:
+    the sibling ``Value`` is then hidden. THE rule, used by the request-hook serializer and by model reprs alike."""
+    return any(_local(k) in _NAME_KEYS and isinstance(v, str) and _text_has_secret_name(v) for k, v in pairs)
+
+
 def serialize(value: Any, key: Any = None, _depth: int = 0) -> Any:
     """Convert a value to JSON-safe output, recursively redacting secrets."""
     if _is_secret_key(key):
         return _REDACTED
     if _depth > _MAX_DEPTH:
-        return _REDACTED
+        return DEPTH_LIMIT
     if value is None or isinstance(value, (int, float, bool)):
         return value
     if isinstance(value, str):
@@ -252,7 +263,7 @@ def serialize(value: Any, key: Any = None, _depth: int = 0) -> Any:
         return serialize(value.decode("utf-8", errors="replace"), key, _depth + 1)
     if isinstance(value, dict):
         # ``{"name": "password", "value": ...}``: a secret-named parameter hides its value.
-        param = any(_local(k) in _NAME_KEYS and isinstance(v, str) and _text_has_secret_name(v) for k, v in value.items())
+        param = is_secret_parameter(value.items())
         shown: dict[str, Any] = {}
         for k, v in value.items():
             name = str(k)

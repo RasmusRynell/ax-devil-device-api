@@ -46,7 +46,7 @@ from pydantic import (
     model_validator,
 )
 
-from .._http.debug import _NAME_KEYS, _is_secret_key, _local, _text_has_secret_name, serialize
+from .._http.debug import DEPTH_LIMIT, MAX_DEPTH, _local, is_secret_parameter, serialize
 from .._http.types import Request, Response
 from ..errors import (
     ApiAccessDenied,
@@ -133,27 +133,19 @@ def _wire_name(field: Any) -> str | None:
     return None
 
 
-def _is_secret_parameter(pairs: Iterable[tuple[Any, Any]]) -> bool:
-    """Whether a mapping or model has a name-like member (``Name``, ``@Name``, ``tt:Key``) whose text names a secret: the
-    same rule the request-hook serializer uses to hide the ``Value`` next to it."""
-    return any(_local(key) in _NAME_KEYS and isinstance(value, str) and _text_has_secret_name(value) for key, value in pairs)
-
-
-def _repr_value(value: Any, _depth: int = 0) -> Any:
-    """``value`` as ``repr`` shows it: inside plain dicts and lists, a secret-named parameter's value, and the value of a
-    secret-named key, are masked (nested models mask their own fields)."""
-    if _depth > 8:
-        return value
+def _repr_value(value: Any, depth: int = 0) -> Any:
+    """``value`` as ``repr`` shows it. Plain dicts go through the request-hook serializer (``serialize``: key and value
+    redaction, name/value pairs, the depth limit), so repr and the hook records cannot diverge; lists are walked only to
+    reach the dicts and models in them (a model masks its own fields), and anything deeper than the limit is a fixed
+    placeholder, never the raw subtree."""
+    if depth > MAX_DEPTH:
+        return DEPTH_LIMIT
     if isinstance(value, dict):
-        parameter = _is_secret_parameter(value.items())
-        return {
-            key: _MASKED_REPR if item is not None and (_is_secret_key(key) or (parameter and _local(key) == "value")) else _repr_value(item, _depth + 1)
-            for key, item in value.items()
-        }
+        return serialize(value, None, depth)
     if isinstance(value, list):
-        return [_repr_value(item, _depth + 1) for item in value]
+        return [_repr_value(item, depth + 1) for item in value]
     if isinstance(value, tuple):
-        return tuple(_repr_value(item, _depth + 1) for item in value)
+        return tuple(_repr_value(item, depth + 1) for item in value)
     return value
 
 
@@ -306,7 +298,7 @@ class Model(BaseModel):
         wire = {name: _wire_name(field) or name for name, field in type(self).model_fields.items()}
         # ``Name`` / ``Value`` pairs (action and recipient parameters): a secret-named parameter hides its sibling value,
         # exactly as the request-hook serializer does it.
-        parameter = _is_secret_parameter((wire.get(str(name), str(name)), value) for name, value in shown)
+        parameter = is_secret_parameter((wire.get(str(name), str(name)), value) for name, value in shown)
         for name, value in shown:
             if value is not None and (name in masked or (parameter and _local(wire.get(str(name), str(name))) == "value")):
                 yield name, _MASKED_REPR

@@ -72,3 +72,70 @@ def test_dicts_and_nested_lists_are_masked_by_the_same_rule() -> None:
 def test_the_wire_form_still_carries_the_value() -> None:
     wire = _recipient(("password", SECRET)).to_wire()
     assert SECRET in repr(wire)  # only repr hides it; the request must still send it
+
+
+# -- keys, depth and parity with the hook serializer -----------------------------------------------------------------------
+
+from ax_devil_device_api._http.debug import DEPTH_LIMIT, MAX_DEPTH, emit_request, serialize  # noqa: E402
+from ax_devil_device_api._http.types import JsonBody, Request  # noqa: E402
+
+
+class Free(Model):
+    data: Any = None
+
+
+def test_a_secret_in_a_mapping_key_is_not_shown_in_a_repr() -> None:
+    loose = Loose(options={"password=hunter2-SENTINEL": "invalid", "rtsp://u:SENTINEL-CRED@h/x": 1, "ok": 2})
+    shown = repr(loose)
+    assert "hunter2" not in shown and "SENTINEL-CRED" not in shown and "'ok': 2" in shown
+    nested = Loose(parameters=[{"a": {"password=hunter2-SENTINEL": "x"}}])
+    assert "hunter2" not in repr(nested)
+
+
+@pytest.mark.parametrize("levels", [10, 20, MAX_DEPTH, MAX_DEPTH + 5, 200])
+def test_a_password_at_the_bottom_of_a_deep_structure_is_in_neither_the_repr_nor_the_hook_record(levels: int) -> None:
+    deep: Any = {"password": SECRET}
+    for _ in range(levels):
+        deep = {"level": deep}
+    loose = Loose(options=deep)
+    assert SECRET not in repr(loose) and SECRET not in repr(serialize(deep))
+    records: list[dict[str, Any]] = []
+    emit_request(records.append, Request("POST", "/x", body=JsonBody(deep)), "https://cam/x", 5.0, True)
+    assert SECRET not in repr(records)
+    if levels > MAX_DEPTH:
+        assert DEPTH_LIMIT in repr(loose) and DEPTH_LIMIT in repr(records)
+    # the same goes for a Name / Value pair at the bottom and for lists on the way down
+    pair: Any = [{"@Name": "password", "@Value": SECRET}]
+    for _ in range(levels):
+        pair = [pair, {"x": pair}] if levels < 12 else [pair]
+    assert SECRET not in repr(Free(data=pair))
+
+
+def test_beyond_the_depth_limit_every_caller_gets_the_placeholder() -> None:
+    value: Any = "leaf-SENTINEL"
+    for _ in range(MAX_DEPTH + 3):
+        value = {"k": value}
+    assert "leaf-SENTINEL" not in repr(serialize(value)) and DEPTH_LIMIT in repr(serialize(value))
+    listed: Any = "leaf-SENTINEL"
+    for _ in range(MAX_DEPTH + 3):
+        listed = [listed]
+    assert "leaf-SENTINEL" not in repr(Free(data=listed)) and DEPTH_LIMIT in repr(Free(data=listed))
+
+
+PARITY: list[dict[str, Any]] = [
+    {"password": SECRET, "ok": 1},
+    {"@Name": "password", "@Value": SECRET, "x": "y"},
+    {"tt:Key": "authToken", "tt:Value": SECRET},
+    {"password=hunter2-SENTINEL": "v", "rtsp://u:p@h/x": "w"},
+    {"nested": {"Name": "secret", "Value": SECRET, "other": {"api_key": SECRET}}},
+    {"plain": "text", "n": 3, "none": None, "flag": True},
+    {"list": [{"name": "passphrase", "value": SECRET}, {"name": "host", "value": "h"}]},
+]
+
+
+@pytest.mark.parametrize("value", PARITY, ids=lambda v: str(sorted(v))[:30])
+def test_repr_and_the_hook_serializer_redact_the_same_inputs_identically(value: dict[str, Any]) -> None:
+    loose = Loose(options=value)
+    (shown,) = [arg for name, arg in loose.__repr_args__() if name == "options"]
+    assert shown == serialize(value)
+    assert SECRET not in repr(loose) and "hunter2" not in repr(loose)
