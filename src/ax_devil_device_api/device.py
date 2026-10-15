@@ -100,8 +100,9 @@ class _DeviceBase:
         )
 
     def _store_identity(self, identity: DeviceIdentity, token: Token) -> None:
-        # New firmware: every cached fact may be wrong now.
-        self._state.set_or_clear(_IDENTITY, identity, token, lambda old, new: old.firmware_version != new.firmware_version)
+        # New firmware, or another unit behind the same address (different serial or product number, even with the same
+        # firmware): every cached fact may be wrong now.
+        self._state.set_or_clear(_IDENTITY, identity, token, _different_device)
 
     def _capabilities(self, values: dict[str, Any], errors: dict[str, str]) -> Capabilities:
         # Cached per-property scope probes (run by earlier supports() calls) belong in the snapshot,
@@ -154,6 +155,13 @@ class _DeviceBase:
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__} {self.config.base_url}{self.config.base_path}>"
+
+
+
+def _different_device(old: DeviceIdentity, new: DeviceIdentity) -> bool:
+    """Whether a refreshed identity is another firmware or another unit than the cached one. A value the device stopped
+    reporting counts as a change: the cache is dropped rather than trusted."""
+    return (old.firmware_version, old.serial_number, old.product_number) != (new.firmware_version, new.serial_number, new.product_number)
 
 
 class Device(_DeviceBase):
@@ -269,7 +277,8 @@ class Device(_DeviceBase):
         """Model, serial number and firmware (cached).
 
         ``refresh=True`` asks the device again; use it as a health check. If
-        the firmware changed, all cached device facts are dropped.
+        the firmware, the serial number or the product number changed (another unit
+        behind the same address), all cached device facts are dropped.
         """
         found: DeviceIdentity | None = self._state.get(_IDENTITY)
         if found is not None and not refresh:

@@ -6,9 +6,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
+
 from ax_devil_device_api import Support
 from ax_devil_device_api._protocols.base import AcapDiscovery, ApiDiscovery, ApiInfo, Family, ParamDiscovery
 from ax_devil_device_api._runtime.capabilities import Advertised, Capabilities, decide_support
+from ax_devil_device_api.testing import MockCamera
 
 
 def _caps(**kw: Any) -> Capabilities:
@@ -65,3 +68,50 @@ def test_a_fitting_version_is_still_yes_and_a_lone_incompatible_version_is_still
     assert decide_support(_info(ApiDiscovery("basic-device-info")), fits).status is Support.YES
     lone = _caps(classic_apis={"basic-device-info": "2.0"}, classic_versions={"basic-device-info": Advertised(("2.0",))})
     assert decide_support(_info(ApiDiscovery("basic-device-info")), lone).status is Support.NO
+
+
+# -- B3 ---------------------------------------------------------------------------------------------------------------------
+
+MQTT = "/axis-cgi/mqtt/client.cgi"
+
+
+def _warm(camera: MockCamera) -> None:
+    camera.identity(firmware="11.9.0", serial="AAA", ProdNbr="Q1656")
+    camera.api_list({"mqtt-client": "1.0"})
+
+
+@pytest.mark.parametrize(
+    ("changed", "cleared"),
+    [
+        ({}, False),
+        ({"serial": "BBB"}, True),
+        ({"ProdNbr": "Q1659"}, True),
+        ({"firmware": "12.0.0"}, True),
+    ],
+    ids=["same device", "other serial, same firmware", "other product number", "other firmware"],
+)
+def test_identity_refresh_drops_the_caches_when_the_unit_changes(changed: dict[str, str], cleared: bool) -> None:
+    camera = MockCamera()
+    _warm(camera)
+    with camera.device() as dev:
+        dev.identity()
+        dev.capabilities()
+        assert dev._state.get("classic_apis") is not None  # noqa: SLF001
+        camera.identity(**{"firmware": "11.9.0", "serial": "AAA", "ProdNbr": "Q1656", **changed})
+        dev.identity(refresh=True)
+        assert (dev._state.get("classic_apis") is None) is cleared  # noqa: SLF001
+        assert dev.identity().serial_number == changed.get("serial", "AAA")  # the new identity itself is kept
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("changed", [{}, {"serial": "BBB"}, {"ProdNbr": "Q1659"}], ids=["same", "serial", "product number"])
+async def test_async_identity_refresh_drops_the_caches_when_the_unit_changes(changed: dict[str, str]) -> None:
+    camera = MockCamera()
+    _warm(camera)
+    async with camera.async_device() as dev:
+        await dev.identity()
+        await dev.capabilities()
+        assert dev._state.get("classic_apis") is not None  # noqa: SLF001
+        camera.identity(**{"firmware": "11.9.0", "serial": "AAA", "ProdNbr": "Q1656", **changed})
+        await dev.identity(refresh=True)
+        assert (dev._state.get("classic_apis") is None) is bool(changed)  # noqa: SLF001
