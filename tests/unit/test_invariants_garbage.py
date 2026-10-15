@@ -324,10 +324,9 @@ def test_i2_unreadable_property_version_is_never_a_cached_definitive_no(value: s
     camera = MockCamera()
     camera.cgi("/axis-cgi/param.cgi", text=f"root.Properties.API.A.Version={value}\n")
     with camera.device() as dev:
-        caps = dev.capabilities()
-        assert decide_support(info, caps).status is Support.UNKNOWN
-        assert dev._state.get("properties") is None  # noqa: SLF001
-        assert any("readable version" in text for text in caps.errors.values())
+        result = dev._decide(info, dev.capabilities())  # noqa: SLF001
+        assert result.status is Support.UNKNOWN and any("readable version" in text for text in result.errors)
+        assert dev._state.get("properties") is None  # noqa: SLF001 - the decision used an unreadable value: not cached
 
 
 IDENTITY = [None, 5, "x", [], {}, {"propertyList": None}, {"propertyList": []}, {"propertyList": "x"},

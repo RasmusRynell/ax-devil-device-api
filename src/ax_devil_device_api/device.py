@@ -35,7 +35,7 @@ from ._http.config import (
 )
 from ._http.options import DEFAULT_HEARTBEAT, Heartbeat, RequestOptions, RetryPolicy
 from ._http.transport import AsyncTransport, SyncTransport
-from ._protocols.base import CallFlow, Model, Operation, flow_for
+from ._protocols.base import ApiInfo, CallFlow, Model, Operation, flow_for
 from ._protocols.state import DeviceState, Token
 from ._runtime.capabilities import (
     OPTIONAL_PROBES,
@@ -44,7 +44,7 @@ from ._runtime.capabilities import (
     Capabilities,
     DeviceIdentity,
     SupportResult,
-    decide_support,
+    decide_support_settled,
     extra_probes,
     firmware_key,
     identity_flow,
@@ -104,8 +104,16 @@ class _DeviceBase:
         # New firmware, or another unit behind the same address (different serial or product number, even with the same
         # firmware): every cached fact may be wrong now.
         self._state.set_or_clear(_IDENTITY, identity, token, _different_device)
-        if identity.firmware_version and firmware_key(identity.firmware_version) is None:
+        if identity.firmware_version is not None and firmware_key(identity.firmware_version) is None:  # also "" and "  "
             self._state.forget(_IDENTITY)  # a firmware this client cannot read is not settled: ask again next time
+
+    def _decide(self, info: ApiInfo, caps: Capabilities) -> SupportResult:
+        """The decision for ``info``. A decision is cacheable only if every value it used was readable: a probe holding
+        a value it could not read is dropped from the cache, so a corrected value is seen on the next call."""
+        result, unsettled = decide_support_settled(info, caps)
+        for key in unsettled:
+            self._state.forget(key)
+        return result
 
     def _capabilities(self, values: dict[str, Any], errors: dict[str, str]) -> Capabilities:
         # Cached per-property scope probes (run by earlier supports() calls) belong in the snapshot,
@@ -335,7 +343,7 @@ class Device(_DeviceBase):
 
     def supports(self, api: type[SyncApi] | SyncApi) -> SupportResult:
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
-        return decide_support(api.INFO, self._collect(extra_probes(api.INFO), firmware=bool(api.INFO.requires_firmware)))
+        return self._decide(api.INFO, self._collect(extra_probes(api.INFO), firmware=bool(api.INFO.requires_firmware)))
 
     def supports_many(self, apis: Iterable[type[SyncApi] | SyncApi]) -> dict[type[SyncApi] | SyncApi, SupportResult]:
         """``supports`` for several APIs from ONE capability snapshot: a failing probe is run once, not once per API."""
@@ -344,7 +352,7 @@ class Device(_DeviceBase):
             tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))),
             firmware=any(a.INFO.requires_firmware for a in apis),
         )
-        return {a: decide_support(a.INFO, caps) for a in apis}
+        return {a: self._decide(a.INFO, caps) for a in apis}
 
     # -- Lifecycle ----------------------------------------------------------
 
@@ -522,9 +530,7 @@ class AsyncDevice(_DeviceBase):
 
     async def supports(self, api: type[AsyncApi] | AsyncApi) -> SupportResult:
         """Whether the device offers ``api``: ``YES``, ``NO``, or ``UNKNOWN`` with the probe errors."""
-        return decide_support(
-            api.INFO, await self._collect(extra_probes(api.INFO), firmware=bool(api.INFO.requires_firmware))
-        )
+        return self._decide(api.INFO, await self._collect(extra_probes(api.INFO), firmware=bool(api.INFO.requires_firmware)))
 
     async def supports_many(
         self, apis: Iterable[type[AsyncApi] | AsyncApi]
@@ -535,7 +541,7 @@ class AsyncDevice(_DeviceBase):
             tuple(dict.fromkeys(p for a in apis for p in extra_probes(a.INFO))),
             firmware=any(a.INFO.requires_firmware for a in apis),
         )
-        return {a: decide_support(a.INFO, caps) for a in apis}
+        return {a: self._decide(a.INFO, caps) for a in apis}
 
     async def aclose(self) -> None:
         await self._transport.aclose()

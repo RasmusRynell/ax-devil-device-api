@@ -36,7 +36,6 @@ def test_an_unreadable_version_property_is_unknown_uncached_and_a_later_value_is
     with camera.device() as dev:
         result = dev.supports(HeartbeatApi)
         assert result.status is Support.UNKNOWN and any("Heartbeat.Version" in error and "readable version" in error for error in result.errors)
-        assert dev.capabilities().errors.get("properties[Properties.API.Heartbeat.Version]")
         assert dev._state.get("properties") is None  # noqa: SLF001 - not cached
         _properties(camera, Heartbeat="1.0")
         assert dev.supports(HeartbeatApi).status is Support.YES  # re-probed
@@ -111,3 +110,75 @@ def test_an_unreadable_firmware_is_not_cached_and_a_later_value_is_read() -> Non
         camera.identity(firmware="11.9.0")
         assert dev.identity().firmware_version == "11.9.0"
         assert dev._state.get("identity") is not None  # noqa: SLF001
+
+
+# -- round 40: firmware must be a well-formed dotted version; cacheability never depends on a property's name -------------
+
+from ax_devil_device_api._runtime.capabilities import firmware_key  # noqa: E402
+from ax_devil_device_api.apis.geolocation import AsyncGeolocationApi, GeolocationApi  # noqa: E402
+from ax_devil_device_api.apis.osdi import AsyncOnScreenDirectionalIndicatorApi, OnScreenDirectionalIndicatorApi  # noqa: E402
+
+BAD_FIRMWARE = ["1..0", "1.0.", ".1", "", "  ", "\t", "².³", "１.０", "garbage", "-1", "1,0", "9" * 5000 + ".0", "v11.9"]
+
+
+def test_firmware_key_needs_a_well_formed_dotted_version() -> None:
+    assert firmware_key("11.9.0") == (11, 9, 0) and firmware_key(" 9.80.1.1 ") == (9, 80, 1, 1) and firmware_key("11.5") == (11, 5)
+    assert firmware_key("11.9.0-beta") == (11, 9, 0) and firmware_key("10.12 (build 4)") == (10, 12)
+    for bad in BAD_FIRMWARE:
+        assert firmware_key(bad) is None, bad
+
+
+def _geo(camera: MockCamera, firmware: str) -> None:
+    camera.identity(firmware=firmware)
+    camera.cgi(PARAM, text="root.Properties.Geolocation.Geolocation=yes\nroot.Properties.Geolocation.Version=0.01\n")
+
+
+@pytest.mark.parametrize("firmware", BAD_FIRMWARE, ids=lambda v: repr(v)[:14])
+def test_an_unreadable_firmware_gates_to_unknown_uncached_and_a_correction_is_read(firmware: str) -> None:
+    camera = MockCamera()
+    _geo(camera, firmware)
+    with camera.device() as dev:
+        result = dev.supports(GeolocationApi)
+        assert result.status is Support.UNKNOWN, result
+        assert dev._state.get("identity") is None  # noqa: SLF001
+        _geo(camera, "11.9.0")
+        assert dev.supports(GeolocationApi).status is Support.YES
+        assert dev._state.get("identity") is not None  # noqa: SLF001
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("firmware", ["1..0", "", "  "], ids=repr)
+async def test_async_an_unreadable_firmware_is_unknown_and_re_read(firmware: str) -> None:
+    camera = MockCamera()
+    _geo(camera, firmware)
+    async with camera.async_device() as dev:
+        assert (await dev.supports(AsyncGeolocationApi)).status is Support.UNKNOWN
+        _geo(camera, "11.9.0")
+        assert (await dev.supports(AsyncGeolocationApi)).status is Support.YES
+
+
+def test_a_readable_old_firmware_is_still_no() -> None:
+    camera = MockCamera()
+    _geo(camera, "6.10.0")
+    with camera.device() as dev:
+        assert dev.supports(GeolocationApi).status is Support.NO
+
+
+def test_a_garbage_value_of_a_property_not_named_version_is_unknown_and_re_probed() -> None:
+    camera = MockCamera()
+    camera.cgi(PARAM, text="root.PTZ.Locator.L0.MaxZones=garbage\n")
+    with camera.device() as dev:
+        result = dev.supports(OnScreenDirectionalIndicatorApi)
+        assert result.status is Support.UNKNOWN and any("MaxZones" in error for error in result.errors)
+        camera.cgi(PARAM, text="root.PTZ.Locator.L0.MaxZones=8\n")
+        assert dev.supports(OnScreenDirectionalIndicatorApi).status is Support.YES
+
+
+@pytest.mark.anyio
+async def test_async_a_garbage_value_of_a_property_not_named_version_is_re_probed() -> None:
+    camera = MockCamera()
+    camera.cgi(PARAM, text="root.PTZ.Locator.L0.MaxZones=garbage\n")
+    async with camera.async_device() as dev:
+        assert (await dev.supports(AsyncOnScreenDirectionalIndicatorApi)).status is Support.UNKNOWN
+        camera.cgi(PARAM, text="root.PTZ.Locator.L0.MaxZones=8\n")
+        assert (await dev.supports(AsyncOnScreenDirectionalIndicatorApi)).status is Support.YES

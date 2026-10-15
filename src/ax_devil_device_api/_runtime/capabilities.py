@@ -155,8 +155,6 @@ class Capabilities:
                 properties.update(found)
             groups |= {k[len(PROPERTY_SCOPE_PREFIX):] for k in extra}
         errors = dict(errors)
-        for key in unreadable_versions(properties or {}):
-            errors[f"properties[{key}]"] = f"{key} is not a readable version: {display_text((properties or {}).get(key), 60)}"
         classic = values.get("classic_apis")
         dca = values.get("dca_apis")
         classic_versions: Mapping[str, Advertised] | None = None
@@ -349,17 +347,7 @@ def probe_is_complete(value: Any) -> bool:
         return not value.malformed
     if isinstance(value, NamedListing):
         return not value.problems
-    if isinstance(value, dict):  # a property list: a version this client cannot read is not a settled answer
-        return not unreadable_versions(value)
     return True
-
-
-def unreadable_versions(properties: Mapping[Any, Any]) -> list[str]:
-    """Names of the version properties in ``properties`` whose value is not a readable version."""
-    return [
-        str(key) for key, value in properties.items()
-        if isinstance(key, str) and is_version_property(key) and (not isinstance(value, str) or not readable_version(value))
-    ]
 
 
 _DCA_VERSION = re.compile(r"v[0-9]{1,18}[a-z0-9]*")  # v1, v2beta, v1alpha1: ASCII only
@@ -537,7 +525,20 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
     A discovery match is only a ``YES`` if the device firmware also meets the API's ``requires.firmware``;
     below it the answer is ``NO``, and with an unknown firmware it is ``UNKNOWN``.
     """
-    result = _decide_discovery(info, caps)
+    return decide_support_settled(info, caps)[0]
+
+
+def decide_support_settled(info: ApiInfo, caps: Capabilities) -> tuple[SupportResult, frozenset[str]]:
+    """``decide_support`` and the cache keys of the probes whose values the decision could not read.
+
+    A decision is cacheable only if every value it used was readable: the caller drops those probes, so the next call
+    asks the device again. Which probes is decided by the comparison that failed, never by a property's name."""
+    unsettled: set[str] = set()
+    return _decide(info, caps, unsettled), frozenset(unsettled)
+
+
+def _decide(info: ApiInfo, caps: Capabilities, unsettled: set[str]) -> SupportResult:
+    result = _decide_discovery(info, caps, unsettled)
     minimum = info.requires_firmware
     want = firmware_key(minimum) if minimum is not None else None
     if minimum is None or want is None:
@@ -560,23 +561,34 @@ def decide_support(info: ApiInfo, caps: Capabilities) -> SupportResult:
     return result
 
 
-_FIRMWARE_PART = re.compile(r"[0-9]{1,18}")
+_FIRMWARE = re.compile(r"([0-9]{1,18}(?:\.[0-9]{1,18})*)(?:[-+_~ (].*)?", re.DOTALL)
 
 
 def firmware_key(text: str) -> tuple[int, ...] | None:
-    """Leading dotted numbers of a firmware version (``11.5``, ``10.12.213``, ``9.80.1.1``); ``None`` if there are none."""
-    parts: list[int] = []
-    for part in text.strip().split("."):
-        match = _FIRMWARE_PART.match(part)
-        if match is None:
-            break
-        parts.append(int(match.group()))
-        if match.end() != len(part):
-            break
-    return tuple(parts) or None
+    """The dotted version of a firmware string (``11.5``, ``10.12.213``, ``9.80.1.1``, ``11.9.0-beta``).
+
+    It must start with a well-formed dotted number: non-empty components of ASCII digits, no empty component (``1..0``) and
+    no trailing dot (``1.0.``); only a suffix that starts with ``-``, ``+``, ``_``, ``~``, a space or ``(`` may follow (``11.9.0-beta``). Anything else is unreadable (``None``), never a
+    shorter version: ``1..0`` read as ``1`` would be "older" than everything."""
+    match = _FIRMWARE.fullmatch(text.strip())
+    return tuple(int(part) for part in match.group(1).split(".")) if match else None
 
 
-def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
+def _compare(method: ParamDiscovery, value: str) -> tuple[bool, bool]:
+    """``(matched, readable)`` of a property value against what a discovery method expects. A value is *unreadable* when
+    the comparison needs a version (a ``>=`` compare, or an expected value that is itself a dotted version) and the device's
+    value is not one: that is not a mismatch, and no verdict from it may be cached."""
+    if method.value is None:
+        return True, True
+    if method.compare == ">=":
+        have, want = _version_key(value), _version_key(method.value)
+        return (have is not None and want is not None and have >= want), have is not None
+    if readable_version(method.value) and not readable_version(value):
+        return False, False
+    return value == method.value, True
+
+
+def _decide_discovery(info: ApiInfo, caps: Capabilities, unsettled: set[str]) -> SupportResult:
     if not info.discovery:
         return SupportResult(Support.UNKNOWN, f"{info.id} declares no discovery method", observed_at=caps.observed_at)
 
@@ -625,12 +637,16 @@ def _decide_discovery(info: ApiInfo, caps: Capabilities) -> SupportResult:
         elif isinstance(method, ParamDiscovery):
             name = _normalized(method.name)
             value = (caps.properties or {}).get(name)
-            if value is not None and _param_matches(method, value):
-                return SupportResult(Support.YES, f"parameter {name}={value}", observed_at=caps.observed_at)
-            if value is not None and is_version_property(name, method) and not readable_version(value):
-                # Not a mismatch: the device reported something this client cannot read as a version.
-                unknown.append(f"parameter {name} is not a readable version: {display_text(value, 60)}")
-                continue
+            if value is not None:
+                matched, readable = _compare(method, value)
+                if matched:
+                    return SupportResult(Support.YES, f"parameter {name}={value}", observed_at=caps.observed_at)
+                if not readable:
+                    # Not a mismatch: the device reported something this client cannot read. The probe that held the
+                    # value is dropped from the cache, so the next call asks again.
+                    unsettled.add("properties" if _is_queried(name, frozenset({BASE_PROPERTY_GROUP})) else PROPERTY_SCOPE_PREFIX + name)
+                    unknown.append(f"parameter {name} is not a readable version: {display_text(value, 60)}")
+                    continue
             groups = caps.property_groups if caps.properties is not None else frozenset()
             if value is None and not _is_queried(name, groups):
                 # Judge only the probe that covers this property: the base group or its own scope.
@@ -675,24 +691,10 @@ def readable_version(text: str) -> bool:
     return _VERSION_TEXT.fullmatch(text.strip()) is not None
 
 
-def is_version_property(name: str, method: ParamDiscovery | None = None) -> bool:
-    """Whether a property holds a version: one that is compared with ``>=``, or named ``...Version``."""
-    return (method is not None and method.compare == ">=") or name.rpartition(".")[2] == "Version"
-
-
 def _version_key(text: str) -> tuple[int, ...] | None:
     parts = text.strip().split(".")
     numbers = [ascii_int(p) for p in parts]
     return tuple(n for n in numbers if n is not None) if all(n is not None for n in numbers) else None
-
-
-def _param_matches(method: ParamDiscovery, value: str) -> bool:
-    if method.value is None:
-        return True
-    if method.compare == ">=":
-        have, want = _version_key(value), _version_key(method.value)
-        return have is not None and want is not None and have >= want
-    return value == method.value
 
 
 def is_unreachable(error: BaseException) -> bool:
