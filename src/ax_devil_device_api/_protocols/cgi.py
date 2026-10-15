@@ -23,7 +23,18 @@ from pydantic_core import to_json
 from .._http.types import AuthPolicy, FormBody, MultipartBody, RawBody, Request, Response, check_path_param, loads_json
 from .._http.upload import UploadSpec, deferred_upload, file_part
 from ..errors import ResponseFormatError
-from .base import CallFlow, Model, Operation, api_error, check_applicability, http_error, parse_result, register_binding
+from .base import (
+    BODY_OMITTED,
+    CallFlow,
+    Model,
+    Operation,
+    api_error,
+    check_applicability,
+    has_masked_fields,
+    http_error,
+    parse_result,
+    register_binding,
+)
 from .state import DeviceState
 from .xmlmap import (
     XmlDeclarationError,
@@ -490,13 +501,16 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
         if lines and not any(_KEY_VALUE.fullmatch(line) for line in lines):
             # No line is a key=value pair: a 200 reply of plain text ("No camera specified (ex. camera=1)") is the
             # device explaining a failure, not a malformed list. The same path as the HTML-comment form.
+            if has_masked_fields(op.result):  # fail closed: no part of the body for an operation that returns secrets
+                raise api_error(op, None, f"the device answered with plain text ({BODY_OMITTED})", http_status=response.status, details=None)
             raise api_error(op, None, " ".join(text.split())[:200], http_status=response.status, details=text)
         for line in text.splitlines():
             if not line.strip():
                 continue
             key, sep, value = line.partition("=")
             if not sep:
-                raise ResponseFormatError(op.api.id, op.id, f"expected key=value lines, got {line[:80]!r}")
+                shown = BODY_OMITTED if has_masked_fields(op.result) else repr(line[:80])
+                raise ResponseFormatError(op.api.id, op.id, f"expected key=value lines, got {shown}")
             key = key.strip()
             if prefix and key.startswith(prefix):
                 key = key[len(prefix):]

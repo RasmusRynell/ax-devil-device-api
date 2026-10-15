@@ -679,16 +679,53 @@ def _holds_non_finite(value: Any) -> bool:
     return False
 
 
-def _shape_message(error: ValidationError, data: Any) -> str:
-    """Why a response does not match, with a bounded excerpt of what the device sent. Pydantic's own text can echo the
-    input, so the message is built from the problems only, and the excerpt goes through the redaction used for hooks."""
-    problems = "; ".join(f"{'.'.join(str(part) for part in item['loc']) or 'result'}: {item['msg']}" for item in error.errors(include_input=False))
+BODY_OMITTED = "body omitted (operation returns secret fields)"
+
+
+def has_masked_fields(tp: Any) -> bool:
+    """Whether a result type holds an ``x-masked`` field anywhere (models, lists, dicts, unions, optionals, nested).
+    Such an operation never puts any part of a response body into an error: the body that failed validation is the
+    one place where masking by schema cannot be trusted to find every secret (wrong shapes, renamed keys)."""
     try:
-        shown = json.dumps(serialize(data), default=str)
+        return _has_masked(tp)
+    except TypeError:  # an unhashable annotation (metadata): compute without the cache
+        return _scan_masked(tp, set())
+
+
+@cache
+def _has_masked(tp: Any) -> bool:
+    return _scan_masked(tp, set())
+
+
+def _scan_masked(tp: Any, seen: set[Any]) -> bool:
+    if isinstance(tp, type) and issubclass(tp, BaseModel):
+        if tp in seen:
+            return False
+        seen.add(tp)
+        if getattr(tp, "__masked__", None):
+            return True
+        return any(_scan_masked(field.annotation, seen) for field in tp.model_fields.values())
+    return any(_scan_masked(arg, seen) for arg in get_args(tp) if arg is not type(None) and not isinstance(arg, str))
+
+
+def body_excerpt(op: Operation[Any], value: Any) -> str:
+    """A bounded excerpt of a device response for error messages: none at all for an operation that returns secret
+    fields, otherwise the redaction used for the request hooks (secret-looking names, URL credentials)."""
+    if has_masked_fields(op.result):
+        return BODY_OMITTED
+    try:
+        shown = value if isinstance(value, str) else json.dumps(serialize(value), default=str)
+        shown = json.dumps(serialize(shown)) if isinstance(value, str) else shown
     except (TypeError, ValueError, RecursionError):
-        shown = "<unprintable>"
-    excerpt = shown if len(shown) <= 200 else shown[:200] + "…"
-    return f"response does not match the documented shape: {problems[:400]} (response: {excerpt})"
+        return "<unprintable>"
+    return shown if len(shown) <= 200 else shown[:200] + "…"
+
+
+def _shape_message(error: ValidationError, data: Any, op: Operation[Any]) -> str:
+    """Why a response does not match, with a bounded excerpt of what the device sent. Pydantic's own text can echo the
+    input, so the message is built from the problems only (locations and reasons)."""
+    problems = "; ".join(f"{'.'.join(str(part) for part in item['loc']) or 'result'}: {item['msg']}" for item in error.errors(include_input=False))
+    return f"response does not match the documented shape: {problems[:400]} (response: {body_excerpt(op, data)})"
 
 
 def _validated_result(op: Operation[Any], data: Any) -> Any:
@@ -705,7 +742,7 @@ def _validated_result(op: Operation[Any], data: Any) -> Any:
         else:
             if new:
                 return tolerated
-        raise ResponseFormatError(op.api.id, op.id, _shape_message(error, data)) from error
+        raise ResponseFormatError(op.api.id, op.id, _shape_message(error, data, op)) from error
 
 
 # ---------------------------------------------------------------------------
