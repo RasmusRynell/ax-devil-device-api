@@ -386,3 +386,82 @@ def test_i1_stream_decoders_raise_only_library_errors(chunk: int | None) -> None
             except Exception as error:  # noqa: BLE001
                 escaped.append(f"{type(decoder).__name__} {data[:30]!r}: {type(error).__name__}")
     assert not escaped, "\n".join(escaped[:10])
+
+
+# --- multipart boundaries from the device (RFC 2046) ---------------------------------------------------------------------------
+
+BAD_BOUNDARIES = ["☃", "é", "boundary☃", "a" * 71, "a b ", "a\x00b", "a\nb", "ab\"", "<tag>", "a@b", "a\\b", "a;b", "a" * 500]
+GOOD_BOUNDARIES = ["myboundary", "--myboundary", "a b", "Aa0'()+_,-./:=?", "a" * 70, "--" + "a" * 70, "frame"]
+
+
+@pytest.mark.parametrize("boundary", BAD_BOUNDARIES)
+def test_i1_a_bad_boundary_is_a_response_format_error_not_a_unicode_error(boundary: str) -> None:
+    from ax_devil_device_api._streams import MixedReplaceDecoder
+    from ax_devil_device_api.errors import ResponseFormatError
+
+    with pytest.raises(ResponseFormatError) as info:
+        MixedReplaceDecoder(boundary)
+    assert boundary not in str(info.value) or len(boundary) < 3
+
+
+@pytest.mark.parametrize("boundary", GOOD_BOUNDARIES)
+def test_valid_boundaries_are_accepted(boundary: str) -> None:
+    from ax_devil_device_api._streams import MixedReplaceDecoder
+
+    MixedReplaceDecoder(boundary)
+
+
+def _multipart_flow():  # type: ignore[no-untyped-def]
+    from ax_devil_device_api._http.types import Request
+    from ax_devil_device_api._streams import decoder_for
+
+    response = yield Request("GET", "/x", stream=True)
+    return decoder_for(type("Codec", (), {"decoder": "mjpeg"})(), response)
+
+
+def _snowman_boundary(request):  # type: ignore[no-untyped-def]
+    import httpx
+
+    return httpx.Response(
+        200, headers=[(b"content-type", "multipart/x-mixed-replace; boundary=☃".encode()), ], content=b"--x\r\n\r\n"
+    )
+
+
+def test_sync_stream_with_a_non_ascii_boundary_is_a_library_error() -> None:
+    import httpx
+
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import SyncTransport
+    from ax_devil_device_api._runtime.driver import Call, run_sync
+    from ax_devil_device_api.errors import DeviceError
+
+    with SyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(_snowman_boundary)) as transport:
+        with pytest.raises(DeviceError) as info:
+            run_sync(transport, _multipart_flow(), Call(label=("a", "b")))
+    assert "☃" not in str(info.value) and "boundary" in str(info.value)
+
+
+@pytest.mark.anyio
+async def test_async_stream_with_a_non_ascii_boundary_is_a_library_error() -> None:
+    import httpx
+
+    from ax_devil_device_api._http.config import ConnectionConfig
+    from ax_devil_device_api._http.transport import AsyncTransport
+    from ax_devil_device_api._runtime.driver import Call, run_async
+    from ax_devil_device_api.errors import DeviceError
+
+    async with AsyncTransport(ConnectionConfig("cam"), transport=httpx.MockTransport(_snowman_boundary)) as transport:
+        with pytest.raises(DeviceError) as info:
+            await run_async(transport, _multipart_flow(), Call(label=("a", "b")))
+    assert "☃" not in str(info.value) and "boundary" in str(info.value)
+
+
+def test_a_quoted_boundary_containing_a_semicolon_still_fails_as_a_truncated_stream() -> None:
+    """Standing decision: ``boundary="a;b"`` is cut at the semicolon, so the stream ends in the middle of a part."""
+    from ax_devil_device_api._streams import MixedReplaceDecoder
+    from ax_devil_device_api.errors import ConnectionFailed
+
+    decoder = MixedReplaceDecoder("a")
+    decoder.feed(b"--a;b\r\nContent-Type: image/jpeg\r\n\r\npartial")
+    with pytest.raises(ConnectionFailed):
+        decoder.close()

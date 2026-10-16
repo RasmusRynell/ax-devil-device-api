@@ -17,6 +17,7 @@ into errors and picks the decoder from the response.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -56,6 +57,8 @@ def is_multipart_stream(content_type: str) -> bool:
 
 
 _HEADERS_END = (b"\r\n\r\n", b"\n\n")
+# RFC 2046 boundary: 1 to 70 bchars, the last one not a space (an optional leading "--" is the delimiter prefix).
+_BOUNDARY = re.compile(r"[0-9A-Za-z'()+_,\-./:=? ]{0,69}[0-9A-Za-z'()+_,\-./:=?]")
 
 
 class MixedReplaceDecoder:
@@ -71,6 +74,11 @@ class MixedReplaceDecoder:
         positive_int("max_part_bytes", max_part_bytes)
         if not boundary or not boundary.strip("-"):
             raise ResponseFormatError(api, "stream", "the multipart boundary is empty")
+        core = boundary[2:] if boundary.startswith("--") else boundary
+        if not _BOUNDARY.fullmatch(core):
+            # Checked before encoding: a boundary with characters outside RFC 2046 (``boundary=☃``) would otherwise fail in the
+            # encode below with a UnicodeEncodeError. The value is device text and is not repeated.
+            raise ResponseFormatError(api, "stream", "the multipart boundary is not valid (RFC 2046: 1 to 70 ASCII boundary characters)")
         self._delimiter = (boundary if boundary.startswith("--") else "--" + boundary).encode("latin-1")
         self._api = api
         self._max = max_part_bytes
