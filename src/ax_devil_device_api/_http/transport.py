@@ -130,7 +130,7 @@ def _suppressed_close(error: httpx.TransportError) -> None:
     _logger.debug("closing the response failed while another error was being handled: %s", errors.display_text(f"{type(error).__name__}: {error}"))
 
 
-def _close_failure(close: Callable[[], None], config: ConnectionConfig, request: Request, *, active: bool) -> errors.TransportError | None:
+def _close_failure(close: Callable[[], None], config: ConnectionConfig, request: Request | None, *, active: bool) -> errors.TransportError | None:
     """Close a response. A failure of the close itself must never replace the error that caused the teardown (``active``):
     then it is only logged. When closing is the primary operation it becomes a library error, built outside the
     ``except`` block so nothing chains to the httpx exception."""
@@ -145,7 +145,7 @@ def _close_failure(close: Callable[[], None], config: ConnectionConfig, request:
 
 
 async def _aclose_failure(
-    close: Callable[[], Awaitable[None]], config: ConnectionConfig, request: Request, *, active: bool
+    close: Callable[[], Awaitable[None]], config: ConnectionConfig, request: Request | None, *, active: bool
 ) -> errors.TransportError | None:
     try:
         await close()
@@ -157,7 +157,7 @@ async def _aclose_failure(
     return None
 
 
-def _request_secrets(config: ConnectionConfig, request: Request) -> tuple[str, ...]:
+def _request_secrets(config: ConnectionConfig, request: Request | None) -> tuple[str, ...]:
     """Every credential value this request carries: the configured password or token, and secret-named or masked
     query and header values (a wssession token, an export password)."""
     found: list[str] = []
@@ -166,9 +166,10 @@ def _request_secrets(config: ConnectionConfig, request: Request) -> tuple[str, .
         found.append(credentials.password)
     elif isinstance(credentials, BearerToken):
         found.append(credentials.recent() or "")
-    for name, value in (*request.query, *request.headers):
-        if value and (str(name).lower() in request.masked or debug.is_secret_name(str(name))):
-            found.append(str(value))
+    if request is not None:
+        for name, value in (*request.query, *request.headers):
+            if value and (str(name).lower() in request.masked or debug.is_secret_name(str(name))):
+                found.append(str(value))
     return tuple(found)
 
 
@@ -684,7 +685,9 @@ class SyncTransport:
                 with session:
                     yield _response(raw, request, b""), session
             finally:
-                raw.close()
+                closing = _close_failure(raw.close, self.config, request, active=sys.exc_info()[1] is not None)
+                if closing is not None:
+                    raise closing
 
     def _chunks(self, raw: httpx.Response, request: Request) -> Iterator[bytes]:
         failure: errors.TransportError | None = None
@@ -696,7 +699,9 @@ class SyncTransport:
             raise failure
 
     def close(self) -> None:
-        self._client.close()
+        closing = _close_failure(self._client.close, self.config, None, active=sys.exc_info()[1] is not None)
+        if closing is not None:
+            raise closing
 
     def __enter__(self) -> SyncTransport:
         return self
@@ -858,7 +863,9 @@ class AsyncTransport:
                         raise group.exceptions[0] from None
                     raise
             finally:
-                await raw.aclose()
+                closing = await _aclose_failure(raw.aclose, self.config, request, active=sys.exc_info()[1] is not None)
+                if closing is not None:
+                    raise closing
 
     async def _chunks(self, raw: httpx.Response, request: Request) -> AsyncIterator[bytes]:
         failure: errors.TransportError | None = None
@@ -871,7 +878,9 @@ class AsyncTransport:
             raise failure
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        closing = await _aclose_failure(self._client.aclose, self.config, None, active=sys.exc_info()[1] is not None)
+        if closing is not None:
+            raise closing
 
     async def __aenter__(self) -> AsyncTransport:
         return self
