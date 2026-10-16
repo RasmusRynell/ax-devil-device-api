@@ -167,6 +167,16 @@ def parse_digest(challenge: Challenge) -> DigestChallenge:
     )
 
 
+_ALGORITHM_RANK = {"MD5": 0, "SHA": 1, "SHA-256": 3, "SHA-512": 4, "SHA-512-256": 5}  # RFC 7616: SHA-512-256 > SHA-256 > MD5
+
+
+def _strength(challenge: DigestChallenge) -> tuple[int, bool]:
+    """Which of several usable Digest challenges to answer: the strongest algorithm (the ``-sess`` variant just below its
+    base), then ``qop=auth`` over none. Basic is never part of this: it is not chosen over an offered Digest."""
+    base = challenge.algorithm.removesuffix("-SESS")
+    return (_ALGORITHM_RANK[base] * 2 + (0 if challenge.sess else 1), challenge.qop_auth)
+
+
 def _quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -238,11 +248,18 @@ def _state_from_challenges(response: httpx.Response) -> _State:
     digests = [c for c in challenges if c.scheme == "digest"]
     if digests:
         error: AuthError | None = None
+        usable: list[DigestChallenge] = []
         for challenge in digests:
             try:
-                return _DigestState(parse_digest(challenge), _Counter())
+                usable.append(parse_digest(challenge))
             except AuthError as exc:
                 error = exc
+        if usable:
+            best = usable[0]
+            for candidate in usable[1:]:
+                if _strength(candidate) > _strength(best):  # a tie keeps the header order
+                    best = candidate
+            return _DigestState(best, _Counter())
         assert error is not None
         raise error
     if any(c.scheme == "basic" for c in challenges):
