@@ -251,7 +251,7 @@ class Model(BaseModel):
         problem = _scalar_problem(cls.model_fields[info.field_name].annotation, value)
         if problem:
             raise ValueError(problem)
-        return value
+        return _as_json_containers(value)  # any Mapping / Sequence that passed is serialized as the dict / list it stands for
 
     @field_validator("*", mode="wrap")
     @classmethod
@@ -609,12 +609,12 @@ def _scalar_problem(annotation: Any, value: Any) -> str | None:
             return None if any(isinstance(v, bool) for v in literals) else "a boolean is not one of the allowed values"
         return None
     if origin in (list, set, frozenset, collections.abc.Sequence, collections.abc.Set):
-        if not isinstance(value, (list, tuple, set, frozenset)):
+        if not _is_list_like(value):
             return f"expected a list, got {kind_of(value)}"  # in a union this branch must not accept a scalar
         args = get_args(annotation)
         return _first_problem((args[0], entry) for entry in value) if args else None
     if origin is tuple:
-        if not isinstance(value, (list, tuple)):
+        if not _is_list_like(value):
             return f"expected a list, got {kind_of(value)}"
         args = get_args(annotation)
         if not args:
@@ -623,14 +623,14 @@ def _scalar_problem(annotation: Any, value: Any) -> str | None:
             return _first_problem((args[0], entry) for entry in value)
         return _first_problem(zip(args, value, strict=False))
     if origin in (dict, collections.abc.Mapping):
-        if not isinstance(value, dict):
+        if not isinstance(value, collections.abc.Mapping):
             return f"expected an object, got {kind_of(value)}"
         args = get_args(annotation)
         if len(args) != 2:
             return None
         pairs = [pair for key, entry in value.items() for pair in ((args[0], key), (args[1], entry))]
         return _first_problem(pairs)
-    if annotation in (bool, int, float, str) and isinstance(value, (list, tuple, set, frozenset, dict)):
+    if annotation in (bool, int, float, str) and (_is_list_like(value) or isinstance(value, collections.abc.Mapping)):
         return f"expected a single value, got {kind_of(value)}"  # in a union a scalar branch must not accept a container
     if annotation is bool:
         return None if isinstance(value, bool) else f"expected true or false, got {kind_of(value)}"
@@ -645,6 +645,30 @@ def _scalar_problem(annotation: Any, value: Any) -> str | None:
     return None
 
 
+def _is_list_like(value: Any) -> bool:
+    """A list, tuple, set or any other ``Sequence`` / ``Set`` implementation; never text or bytes."""
+    if isinstance(value, (str, bytes, bytearray)):
+        return False
+    return isinstance(value, (list, tuple, set, frozenset, collections.abc.Sequence, collections.abc.Set))
+
+
+def _as_json_containers(value: Any) -> Any:
+    """``value`` with every non-builtin Mapping turned into a ``dict`` and every other non-builtin sequence or set into a
+    ``list``, at any depth (builtin containers keep their type), so serialization sees plain JSON containers."""
+    if isinstance(value, dict):
+        return {key: _as_json_containers(item) for key, item in value.items()}
+    if isinstance(value, collections.abc.Mapping):
+        return {key: _as_json_containers(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        if isinstance(value, (set, frozenset)):
+            return value
+        converted = [_as_json_containers(item) for item in value]
+        return tuple(converted) if isinstance(value, tuple) else converted
+    if _is_list_like(value):
+        return [_as_json_containers(item) for item in value]
+    return value
+
+
 def _first_problem(pairs: Any) -> str | None:
     for annotation, value in pairs:
         problem = _scalar_problem(annotation, value)
@@ -657,9 +681,9 @@ def _has_non_finite(value: Any) -> bool:
     """Whether a request payload holds a NaN or infinite float, at any depth."""
     if isinstance(value, float):
         return not math.isfinite(value)
-    if isinstance(value, dict):
+    if isinstance(value, collections.abc.Mapping):
         return any(_has_non_finite(item) for item in value.values())
-    if isinstance(value, (list, tuple, set, frozenset)):
+    if _is_list_like(value):
         return any(_has_non_finite(item) for item in value)
     return False
 
