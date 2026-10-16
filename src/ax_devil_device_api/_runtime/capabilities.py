@@ -357,10 +357,14 @@ def dca_apis_flow(state: DeviceState) -> CallFlow[DcaListing]:
     response = yield Request("GET", "/config/discover", accept="application/json")
     if not 200 <= response.status < 300:
         raise http_error(_DISCOVER_OP, response)
+    payload: Any = None
+    undecodable = False
     try:
-        payload: Any = loads_json(response.content)
-    except ValueError as error:
-        raise ResponseFormatError("device", "config_discover", "response is not valid JSON") from error
+        payload = loads_json(response.content)
+    except ValueError:  # JSONDecodeError.doc holds the whole body: it is never chained (raised below, outside the handler)
+        undecodable = True
+    if undecodable:
+        raise ResponseFormatError("device", "config_discover", "response is not valid JSON")
     apis = payload.get("apis") if isinstance(payload, dict) else None
     if not isinstance(apis, dict):
         raise ResponseFormatError("device", "config_discover", "response has no apis object")
@@ -417,8 +421,10 @@ def applications_flow(state: DeviceState) -> CallFlow[NamedListing]:
         raise http_error(_APPLICATIONS_OP, response)
     try:
         root = parse_xml(response.content)
-    except ET.ParseError as error:
-        raise ResponseFormatError("applications", "list", "response is not valid XML") from error
+    except ET.ParseError:  # not chained: raised below, outside the handler
+        root = None
+    if root is None:
+        raise ResponseFormatError("applications", "list", "response is not valid XML")
     if root.tag.rpartition("}")[2] != "reply":  # an unrelated document (a login page, <html/>) is not an empty list
         raise ResponseFormatError("applications", "list", f"expected a <reply> document, got <{redact_text(root.tag.rpartition('}')[2])}>")
     if root.get("result") not in (None, "ok"):
@@ -449,8 +455,10 @@ def services_flow(state: DeviceState) -> CallFlow[NamedListing]:
         raise http_error(_SERVICES_OP, response)
     try:
         root = parse_xml(response.content)
-    except ET.ParseError as error:
-        raise ResponseFormatError("entry-service", "get_services", "response is not valid XML") from error
+    except ET.ParseError:  # not chained: raised below, outside the handler
+        root = None
+    if root is None:
+        raise ResponseFormatError("entry-service", "get_services", "response is not valid XML")
     if root.tag.rpartition("}")[2] != "Envelope":  # a SOAP reply, not an unrelated document
         raise ResponseFormatError("entry-service", "get_services", f"expected a SOAP envelope, got <{redact_text(root.tag.rpartition('}')[2])}>")
     # The listing is exactly Envelope / Body / GetServicesResponse / Service (local names: the namespaces differ between

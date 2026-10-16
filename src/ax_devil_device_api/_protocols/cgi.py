@@ -474,11 +474,16 @@ def _decode(op: Operation[CgiBinding], response: Response, values: Mapping[str, 
     if isinstance(codec, Xml):
         if not response.content.strip() and op.result is None:
             return None
+        root: ET.Element | None = None
+        parse_failure: str | None = None
         try:
             root = _parse_xml(response.content)
         except ET.ParseError as error:
-            _text_errors(op, text, response.status)
-            raise ResponseFormatError(op.api.id, op.id, f"invalid XML: {error}") from error
+            parse_failure = str(error)  # the parser's own position text; the exception itself is not chained
+        if parse_failure is not None:
+            _text_errors(op, text, response.status)  # a plain-text error reply is an API error, raised outside the handler
+            raise ResponseFormatError(op.api.id, op.id, f"invalid XML: {parse_failure}")
+        assert root is not None  # parsed, or raised above
         for element in root.iter():
             if _local(element.tag) in codec.error_elements:
                 code_text = next((e.text for e in element.iter() if _local(e.tag) in ("ErrorCode", "Code")), None)

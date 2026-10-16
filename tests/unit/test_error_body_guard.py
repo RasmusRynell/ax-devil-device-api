@@ -133,7 +133,7 @@ EXEMPT_VALUES: dict[tuple[str, str], str] = {
     ("_protocols/jsonrpc.py", "negotiation.key"): "the key the SPEC names (apiVersions), not a device value",
     ("_protocols/jsonrpc.py", "binding.method!r"): "the method WE asked for (from the spec)",
     ("_protocols/base.py", "message"): "_shape_message(): field names and error types only, omitted for secret operations",
-    ("_protocols/cgi.py", "error"): "an expat ParseError: fixed vocabulary plus a position; XmlDeclarationError has a fixed text",
+    ("_protocols/cgi.py", "parse_failure"): "an expat ParseError: fixed vocabulary plus a position; XmlDeclarationError has a fixed text",
     ("_runtime/ws_codecs.py", "where"): "a fixed label chosen by the codec",
     ("_runtime/ws_codecs.py", "fields"): "only declared TopicSampleParams field names (anything else is 'an unexpected field')",
     ("_runtime/ws.py", "reason"): "the JSON decoder's position-only message (non-finite constants are fixed names)",
