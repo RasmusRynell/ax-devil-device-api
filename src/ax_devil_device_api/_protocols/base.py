@@ -46,7 +46,7 @@ from pydantic import (
     model_validator,
 )
 
-from .._http.debug import DEPTH_LIMIT, MAX_DEPTH, _local, is_secret_parameter, serialize
+from .._http.debug import _NAME_KEYS, DEPTH_LIMIT, MAX_DEPTH, _local, is_secret_parameter, serialize
 from .._http.types import Request, Response
 from ..errors import (
     ApiAccessDenied,
@@ -748,11 +748,46 @@ MESSAGE_OMITTED = "device message omitted (operation handles secret fields)"
 CODE_OMITTED = "device error code omitted (operation handles secret fields)"
 
 
+def has_parameter_pairs(tp: Any) -> bool:
+    """Whether a type holds, at any depth, a name/value-pair model: one with a name-like field (``Name``, ``@Name``,
+    ``tt:Key``) and a value-like field (``Value``, ``@Value``). Whether a pair carries a secret is decided by the NAME at
+    run time (``password``), which no schema can say; so statically, fail closed: an operation that can carry such pairs
+    in its request or result is treated as handling secrets."""
+    try:
+        return _has_parameter_pairs(tp)
+    except TypeError:  # an unhashable annotation (metadata): compute without the cache
+        return _scan_pairs(tp, set())
+
+
+@cache
+def _has_parameter_pairs(tp: Any) -> bool:
+    return _scan_pairs(tp, set())
+
+
+def _scan_pairs(tp: Any, seen: set[Any]) -> bool:
+    if isinstance(tp, type) and issubclass(tp, BaseModel):
+        if tp in seen:
+            return False
+        seen.add(tp)
+        locals_ = {_local(_wire_name(field) or name) for name, field in tp.model_fields.items()}
+        if locals_ & _NAME_KEYS and "value" in locals_:
+            return True
+        return any(_scan_pairs(field.annotation, seen) for field in tp.model_fields.values())
+    return any(_scan_pairs(arg, seen) for arg in get_args(tp) if arg is not type(None) and not isinstance(arg, str))
+
+
 def has_secret_fields(op: Operation[Any]) -> bool:
     """Whether the operation handles secrets: masked fields in its result OR in its request params (a request that sends
-    a key can have it echoed in a device error). For such an operation no device text enters an error."""
+    a key can have it echoed in a device error), or name/value-pair models in either (a parameter named ``password``
+    carries its secret in ``Value``). For such an operation no device text enters an error."""
     params = getattr(op, "params", None)
-    return has_masked_fields(getattr(op, "result", None)) or (params is not None and bool(params.masked_wire_names()))
+    result = getattr(op, "result", None)
+    return (
+        has_masked_fields(result)
+        or (params is not None and bool(params.masked_wire_names()))
+        or has_parameter_pairs(result)
+        or (params is not None and has_parameter_pairs(params))
+    )
 
 
 _ASCII_INT = re.compile(r"[0-9]{1,18}")

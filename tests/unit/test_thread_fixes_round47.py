@@ -31,8 +31,8 @@ def test_audio_multicast_source_with_a_bad_port_never_puts_the_srtp_key_in_the_e
 
 
 class Plain(Model):
-    value: int
-    name: str | None = None
+    count: int  # (not value/name: a name/value pair model counts as handling secrets)
+    label: str | None = None
 
 
 class Secret(Model):
@@ -72,9 +72,9 @@ def _invoke(op: Operation[Any], body: Any) -> Exception:
 
 
 def test_a_non_masked_operation_still_gets_an_excerpt_and_a_password_in_it_is_redacted() -> None:
-    error = _invoke(_json_op(Plain), {"value": "not a number", "name": "n", "password": "hunter2", "url": "https://u:pw@h/x"})
+    error = _invoke(_json_op(Plain), {"count": "not a number", "label": "n", "password": "hunter2", "url": "https://u:pw@h/x"})
     message = str(error)
-    assert "not a number" in message and '"name": "n"' in message  # an excerpt of what the device sent
+    assert "not a number" in message and '"label": "n"' in message  # an excerpt of what the device sent
     assert "hunter2" not in message and "pw@" not in message  # redacted by the hook rules
     assert len(message) < 900
 
