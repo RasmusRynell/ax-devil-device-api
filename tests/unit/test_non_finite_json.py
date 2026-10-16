@@ -145,3 +145,47 @@ def test_error_details_of_deeply_nested_xml_do_not_overflow_the_stack() -> None:
     body = "<GeneralError><ErrorCode>1</ErrorCode><ErrorDescription>x</ErrorDescription>" + deep + "</GeneralError>"
     with pytest.raises(ApiError):
         cgi._decode(export_recording.OPS.get_properties, response(body))
+
+
+# --- numbers that overflow to infinity (1e999) are refused like NaN and Infinity -----------------------------------------------
+
+OVERFLOWS = ["1e999", "-1e999", "1E400", "-2.5e+9999", "123456789e999999"]
+
+
+@pytest.mark.parametrize("number", OVERFLOWS)
+def test_loads_json_refuses_numbers_that_overflow_to_infinity(number: str) -> None:
+    for text in (number, f'{{"value": {number}}}', f"[1, {number}]"):
+        with pytest.raises(ValueError, match="out of range"):
+            loads_json(text)
+
+
+def test_ordinary_and_tiny_numbers_still_parse() -> None:
+    assert loads_json('{"a": 1.5, "b": -2e3, "c": 1e-999, "d": 1.7976931348623157e308, "e": 12}') == {
+        "a": 1.5, "b": -2000.0, "c": 0.0, "d": 1.7976931348623157e308, "e": 12,
+    }
+
+
+@pytest.mark.parametrize("number", OVERFLOWS)
+@pytest.mark.parametrize("name", sorted(DECODERS))
+def test_decoders_refuse_overflowing_numbers(name: str, number: str) -> None:
+    body = f'{{"apiVersion": "1.0", "method": "m", "data": {{"value": {number}}}, "apis": {{"x": [{number}]}}}}'
+    with pytest.raises(ResponseFormatError):
+        DECODERS[name](body)
+
+
+@pytest.mark.parametrize("number", OVERFLOWS)
+def test_websocket_receive_refuses_overflowing_numbers(number: str) -> None:
+    import wsproto.events
+    from ws_fake import FakeWsCamera
+
+    from ax_devil_device_api import Device
+    from ax_devil_device_api._http.options import Heartbeat
+    from ax_devil_device_api._runtime.ws import EVENTS
+
+    camera = FakeWsCamera()
+    dev = Device("cam.test", credentials=("root", "pass"), transport=camera.transport())
+    with dev.connect_session(EVENTS, heartbeat=Heartbeat(None)) as session:
+        sock = camera.sockets[0]
+        sock._emit(sock.conn.send(wsproto.events.TextMessage(f'{{"value": {number}}}')))
+        with pytest.raises(ResponseFormatError):
+            session.receive(timeout=2)

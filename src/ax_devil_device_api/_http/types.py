@@ -7,6 +7,7 @@ values and parse ``Response`` values without doing I/O.
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
@@ -67,14 +68,23 @@ def _no_constant(name: str) -> Any:
     raise ValueError(f"{name} is not valid JSON: non-finite numbers are not accepted")
 
 
+def _finite_float(text: str) -> float:
+    """``float(text)`` for a JSON number; ``1e999`` would silently become infinity."""
+    number = float(text)
+    if not math.isfinite(number):
+        raise ValueError("a number is out of range: non-finite numbers are not accepted")
+    return number
+
+
 def loads_json(data: str | bytes) -> Any:
-    """``json.loads`` that refuses ``NaN``, ``Infinity`` and ``-Infinity`` (Python accepts them, JSON does not).
+    """``json.loads`` that refuses ``NaN``, ``Infinity`` and ``-Infinity`` and numbers that overflow to infinity
+    (``1e999``): Python accepts the first three and silently rounds the last one, JSON allows neither.
 
     Raises ``ValueError`` (``json.JSONDecodeError`` is one too); decoders map it to ``ResponseFormatError``. Valid but
     absurdly deep nesting overflows Python's recursion limit: that is a ``ValueError`` too, never a ``RecursionError``.
     """
     try:
-        return json.loads(data, parse_constant=_no_constant)
+        return json.loads(data, parse_constant=_no_constant, parse_float=_finite_float)
     except RecursionError:
         raise ValueError("JSON is nested too deeply") from None
 
