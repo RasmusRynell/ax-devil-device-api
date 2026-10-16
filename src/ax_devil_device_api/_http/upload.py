@@ -61,7 +61,7 @@ class Upload:
         if self.filename is not None:
             check_header_text("Upload filename", self.filename)
         if self.content_type is not None:
-            check_header_text("Upload content_type", self.content_type)
+            check_header_text("Upload content_type", self.content_type, ascii_only=True)
 
     def _lease(self) -> None:
         """Claim the source for one call, atomically: a second call (concurrent or later) fails locally, before sending."""

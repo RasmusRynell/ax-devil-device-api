@@ -561,6 +561,10 @@ class SyncTransport:
             )
         except httpx.InvalidURL as error:
             failure = _invalid_url(error)
+        except UnicodeEncodeError:
+            # Safety net: headers are checked as ASCII when built; this is whatever slipped through (a value from the device
+            # echoed into a header, say). Never echoes it.
+            failure = errors.ConfigurationError("a request header cannot be encoded: non-ASCII characters")
         except httpx.TransportError as error:
             failure = map_error(error, _request_secrets(self.config, request))
         finally:
@@ -723,6 +727,10 @@ class AsyncTransport:
             )
         except httpx.InvalidURL as error:
             failure = _invalid_url(error)
+        except UnicodeEncodeError:
+            # Safety net: headers are checked as ASCII when built; this is whatever slipped through (a value from the device
+            # echoed into a header, say). Never echoes it.
+            failure = errors.ConfigurationError("a request header cannot be encoded: non-ASCII characters")
         except httpx.TransportError as error:
             failure = map_error(error, _request_secrets(self.config, request))
         finally:

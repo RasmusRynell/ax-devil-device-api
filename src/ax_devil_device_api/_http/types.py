@@ -92,7 +92,7 @@ def loads_json(data: str | bytes) -> Any:
 _HEADER_CONTROL = re.compile("[\x00-\x08\x0a-\x1f\x7f]")
 
 
-def check_header_text(name: str, value: Any) -> None:
+def check_header_text(name: str, value: Any, *, ascii_only: bool = False) -> None:
     """Reject every control character but tab in a value that ends up in a header (or a multipart part header).
 
     CR, LF and NUL could end the header and inject another, or end the part early; the other C0 controls and DEL are
@@ -104,6 +104,9 @@ def check_header_text(name: str, value: Any) -> None:
         raise ConfigurationError(f"{name} must be a string, got {type(value).__name__}")
     if _HEADER_CONTROL.search(value):
         raise ConfigurationError(f"{name} must not contain control characters (CR, LF, NUL and the other C0 controls except tab, or DEL)")
+    if ascii_only and not value.isascii():
+        # An HTTP header is ASCII: the client would raise a UnicodeEncodeError inside the send.
+        raise ConfigurationError(f"{name} must contain only ASCII characters")
 
 
 class DeferredContent:
@@ -160,7 +163,7 @@ class RawBody:
     """Byte count of a streamed ``content``; with it the request gets a ``Content-Length`` header."""
 
     def __post_init__(self) -> None:
-        check_header_text("content type", self.content_type)
+        check_header_text("content type", self.content_type, ascii_only=True)
 
     @property
     def replayable(self) -> bool:
@@ -189,7 +192,7 @@ class FilePart:
         check_header_text("multipart part name", self.name)
         if self.filename is not None:
             check_header_text("multipart file name", self.filename)
-        check_header_text("multipart part content type", self.content_type)
+        check_header_text("multipart part content type", self.content_type, ascii_only=True)
 
     @property
     def length(self) -> int | None:
@@ -251,10 +254,10 @@ class Request:
         if unsafe_path(self.path):
             raise ValueError(f"Request path must not contain '.' or '..' segments or backslashes (also percent-encoded): {self.path!r}")
         for header, value in self.headers:
-            check_header_text("header name", header)
-            check_header_text(f"header {header!r}", value)
+            check_header_text("header name", header, ascii_only=True)
+            check_header_text("header value" if not header.isascii() else f"header {header!r}", value, ascii_only=True)
         if self.accept is not None:
-            check_header_text("accept", self.accept)
+            check_header_text("accept", self.accept, ascii_only=True)
 
     @property
     def replayable(self) -> bool:
