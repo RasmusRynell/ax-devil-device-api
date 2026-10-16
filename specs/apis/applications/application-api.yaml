@@ -1,0 +1,408 @@
+format: 2
+id: application-api
+name: Application API
+summary: Control (start/stop/restart/remove), configure and list ACAP applications and manage their license keys.
+section: applications
+family: cgi
+status: released
+python:
+  module: application_api
+  class: Application
+docs:
+- https://developer.axis.com/vapix/applications/application-api/
+access: admin
+discovery:
+- param: {name: Properties.EmbeddedDevelopment.Version}
+
+binding: {path: /axis-cgi/applications/control.cgi}
+
+errors:
+  1:
+    description: Invalid application package. The package is not an Embedded Axis Package or it contains an invalid manifest.
+    kind: invalid_argument
+  4:
+    description: Application not found. The specified application package could not be found.
+    kind: not_found
+  6: {description: The application is already running.}
+  7: {description: Application not running. The application must be running to perform the action.}
+  8: {description: Application is in a failure state. The application must be stopped before it can start again.}
+  9: {description: Too many applications are running. The application cannot be started. This limitation was removed in AXIS OS 12.6.}
+  10: {description: Unspecified error. See the system log for more information., kind: internal}
+  15: {description: Operation timed out. The outcome of the operation could not be determined. Check logs for more information., kind: unavailable}
+
+types:
+  ApplicationStatus:
+    type: string
+    enum: [Running, Stopped, Idle]
+  LicenseStatus:
+    type: string
+    enum: [Valid, Invalid, Missing, Custom, None]
+    description: >-
+      ``Valid``: a license is installed and valid. ``Invalid``: installed but not valid. ``Missing``: no license is installed.
+      ``Custom``: a custom license is used and its status cannot be retrieved. ``None``: the application needs no license.
+  ConfigName:
+    type: string
+    enum: [AllowUnsigned, AllowRoot]
+    description: >-
+      ``AllowUnsigned``: whether unsigned applications can be installed (from AXIS OS 11.2). ``AllowRoot``: whether applications
+      running as root can be installed (AXIS OS 11.5-11.11; not supported from AXIS OS 12.0).
+  PackageRequest:
+    type: object
+    required: [package]
+    properties:
+      package: {type: string, description: The application package to perform the action on (the package name).}
+      returnpage: {type: string, description: The web page to return to after performing the action.}
+  LicensePackageRequest:
+    type: object
+    required: [package]
+    properties:
+      package: {type: string, description: The name of the application package to which the license key belongs.}
+  ConfigNameRequest:
+    type: object
+    required: [name]
+    properties:
+      name: {$ref: '#/types/ConfigName'}
+  SetConfigRequest:
+    type: object
+    required: [name, value]
+    properties:
+      name: {$ref: '#/types/ConfigName'}
+      value:
+        type: boolean
+        description: The new value of the configuration parameter.
+  ConfigValue:
+    type: object
+    description: A configuration parameter as returned in ``<param name=".." value=".."/>``.
+    x-xml: {root: param}
+    required: [name, value]
+    properties:
+      name: {type: string}
+      value: {type: string, description: '``true`` or ``false``.'}
+  ApplicationResource:
+    type: object
+    required: [name, used]
+    properties:
+      name: {type: string, description: 'The name of the resource, for example ``DeepLearningProcessor``.'}
+      used: {type: string, enum: ['Yes', 'No'], description: Whether the application uses the resource.}
+  CompatibleOsVersionRange:
+    type: object
+    properties:
+      min: {type: string, x-xml: {child: Min}, description: Minimum compatible AXIS OS version.}
+      max: {type: string, x-xml: {child: Max}, description: Maximum compatible AXIS OS version.}
+  InstalledApplication:
+    type: object
+    required: [Name]
+    properties:
+      Name: {type: string, description: Application short name.}
+      NiceName: {type: string, description: Application official name.}
+      Vendor: {type: string}
+      Version: {type: string}
+      Bundled: {type: string, enum: ['Yes', 'No'], description: Whether the application is bundled with the device software.}
+      ApplicationID: {type: integer}
+      License: {$ref: '#/types/LicenseStatus'}
+      LicenseExpirationDate: {type: string, description: Date (YYYY-MM-DD) when the license expires.}
+      LicenseName: {type: string}
+      Status: {$ref: '#/types/ApplicationStatus'}
+      ConfigurationPage: {type: string, description: Relative URL to the application configuration page.}
+      ValidationResult: {type: string, description: Complete URL to a validation or result page.}
+      VendorHomePage: {type: string}
+      SignatureStatus:
+        type: string
+        description: '``Signed``, ``Unsigned`` or ``Unknown`` (needs reinstalling on AXIS OS 12.8 or later).'
+      SignedStatus: {type: string, description: The attribute name used in the response XSD; see ``SignatureStatus``.}
+      Resources:
+        type: array
+        items: {$ref: '#/types/ApplicationResource'}
+        x-xml: {path: Resources/Resource}
+      CompatibleOsVersions:
+        type: array
+        items: {$ref: '#/types/CompatibleOsVersionRange'}
+        x-xml: {path: CompatibleOsVersions/VersionRange}
+  ApplicationList:
+    type: object
+    required: [applications]
+    properties:
+      applications:
+        type: array
+        items: {$ref: '#/types/InstalledApplication'}
+        x-xml: {path: application}
+  AcapInfo:
+    type: object
+    properties:
+      supportedSdks:
+        type: array
+        items: {type: string}
+        x-xml: {path: supportedSdks/sdk}
+        description: SDKs whose applications are able to run on the device, for example ``acap3``, ``acap4-cv``, ``acap4-native``.
+
+operations:
+  start_application:
+    summary: Start the application.
+    effect: action
+    binding:
+      method: POST
+      query: {action: start}
+      reply: text_ok
+    params: {$ref: '#/types/PackageRequest'}
+    positional: [package]
+    examples:
+    - title: Start an application
+      request: {query: {package: vmd}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/applications/application-api/#control-application
+  stop_application:
+    summary: Stop the application.
+    effect: action
+    binding:
+      method: POST
+      query: {action: stop}
+      reply: text_ok
+    params: {$ref: '#/types/PackageRequest'}
+    positional: [package]
+  restart_application:
+    summary: Restart the application.
+    effect: action
+    binding:
+      method: POST
+      query: {action: restart}
+      reply: text_ok
+    params: {$ref: '#/types/PackageRequest'}
+    positional: [package]
+  remove_application:
+    summary: Remove the application and its data.
+    effect: write
+    write: delete
+    binding:
+      method: POST
+      query: {action: remove}
+      reply: text_ok
+    params: {$ref: '#/types/PackageRequest'}
+    positional: [package]
+  get_application_config:
+    summary: Retrieve the value of a config parameter that applies to all ACAP applications.
+    description: Requires AXIS OS 11.2 or later.
+    effect: read
+    binding:
+      path: /axis-cgi/applications/config.cgi
+      method: POST
+      query: {action: get}
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    params: {$ref: '#/types/ConfigNameRequest'}
+    positional: [name]
+    result: {$ref: '#/types/ConfigValue'}
+    errors:
+      1: {description: 'Malformed request. ``value`` must be either true or false. From AXIS OS 12.2 this is replaced with HTTP 400 Bad Request.', kind: invalid_argument}
+    examples:
+    - title: Read whether unsigned applications are allowed
+      request: {query: {name: AllowUnsigned}}
+      response:
+        status: 200
+        text: |-
+          <reply result="ok">
+              <param name="AllowUnsigned" value="true" />
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-api/#configure-applications
+    - title: Failed request
+      request: {query: {name: AllowUnsigned}}
+      response:
+        status: 200
+        text: |-
+          <reply result="error">
+              <error type="1" message="Error: gdbus call failed" />
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-api/#configure-applications
+  set_application_config:
+    summary: Set the value of a config parameter that applies to all ACAP applications.
+    description: Requires AXIS OS 11.2 or later.
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/applications/config.cgi
+      method: POST
+      query: {action: set}
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    params: {$ref: '#/types/SetConfigRequest'}
+    positional: [name, value]
+    result: {$ref: '#/types/ConfigValue'}
+    errors:
+      1: {description: 'Malformed request. ``value`` must be either true or false. From AXIS OS 12.2 this is replaced with HTTP 400 Bad Request.', kind: invalid_argument}
+  remove_license_key:
+    summary: Remove a license key.
+    effect: write
+    write: delete
+    binding:
+      path: /axis-cgi/applications/license.cgi
+      method: POST
+      query: {action: removelicensekey}
+      reply: text_ok
+    params: {$ref: '#/types/LicensePackageRequest'}
+    positional: [package]
+    errors:
+      21: {description: Invalid license key file., kind: invalid_argument}
+      22: {description: File upload failed. See the system log for more information., kind: internal}
+      23: {description: Failed to remove the license key file. See the system log for more information., kind: internal}
+      24: {description: The application is not installed., kind: not_found}
+      25: {description: The key's application ID does not match the installed application., kind: invalid_argument}
+      26: {description: The license key cannot be used with this version of the application., kind: unsupported}
+      30: {description: Wrong serial number., kind: invalid_argument}
+      31: {description: The license key has expired., kind: invalid_argument}
+  list_applications:
+    summary: List information about installed ACAP applications.
+    description: Requires ``Properties.EmbeddedDevelopment.Version`` 1.20 or later.
+    effect: read
+    binding:
+      path: /axis-cgi/applications/list.cgi
+      method: POST
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    result: {$ref: '#/types/ApplicationList'}
+    examples:
+    - title: List installed applications
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <reply result="ok">
+              <application
+                  Name="vmd"
+                  NiceName="Video Motion Detection"
+                  Vendor="Axis Communications"
+                  Version="4.7-3"
+                  Bundled="Yes"
+                  ApplicationID="1234"
+                  License="None"
+                  Status="Running"
+                  ConfigurationPage="local/vmd/config.html"
+                  SignatureStatus="Signed">
+                  <Resources>
+                      <Resource name="DeepLearningProcessor" used="No"/>
+                  </Resources>
+                  <CompatibleOsVersions>
+                      <VersionRange>
+                          <Min>10.12</Min>
+                          <Max>12.1</Max>
+                      </VersionRange>
+                  </CompatibleOsVersions>
+              </application>
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-api/#list-installed-applications
+  get_info:
+    summary: Retrieve general information related to ACAP support on the device (supported SDKs).
+    effect: read
+    binding:
+      path: /axis-cgi/applications/info.cgi
+      method: POST
+      reply:
+        xml:
+          status_error: {attribute: result, value: error}
+    result: {$ref: '#/types/AcapInfo'}
+    examples:
+    - title: Read general information
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <reply result="ok">
+              <supportedSdks>
+                  <sdk>acap3</sdk>
+                  <sdk>acap4-cv</sdk>
+                  <sdk>acap4-native</sdk>
+              </supportedSdks>
+          </reply>
+      source: https://developer.axis.com/vapix/applications/application-api/#read-general-information
+
+  upload_application:
+    summary: Upload and install an ACAP application package (.eap).
+    description: >-
+      The application is installed but not started. If an application with the same name exists, the upload upgrades it: data and
+      parameters are kept, the version is not compared and a running application is restarted. A failed or interrupted upgrade
+      removes both versions. Installing a signed application needs about twice the size of the package in free RAM.
+    effect: write
+    write: create
+    binding:
+      path: /axis-cgi/applications/upload.cgi
+      method: POST
+      encoding: multipart
+      reply: text_ok
+    params:
+      type: object
+      required: [package]
+      properties:
+        package:
+          type: string
+          format: binary
+          x-upload: {part: file, content_type: application/octet-stream}
+          description: The application package (.eap), as bytes, a Path or an Upload(stream, size).
+    positional: [package]
+    errors:
+      2: {description: Verification failed. The signature of the application package is either missing or invalid., kind: invalid_argument}
+      3: {description: Application package too large. The package file is too large or the disk is full., kind: invalid_argument}
+      5: {description: Application package not compatible with the Axis device. See the system log for more information., kind: unsupported}
+      12: {description: Upload currently unavailable. An application package upload is ongoing., kind: unavailable}
+      13: {description: Installation failed. The application package requires a user or group that is not allowed., kind: invalid_argument}
+      14: {description: Application package already exists in the application store but with a different letter case., kind: invalid_argument}
+      27: {description: Upgrade not allowed. The vendor ID of the package must be the same as the vendor ID of the application it replaces., kind: invalid_argument}
+      29: {description: Invalid manifest.json or package.conf file., kind: invalid_argument}
+      51: {description: Serial number in Developer Mode does not match the device serial number., kind: invalid_argument}
+      52: {description: Developer Mode application upgrade not allowed. The vendor ID for Developer Mode has changed., kind: invalid_argument}
+      53: {description: Application vendor ID does not match the Developer Mode vendor ID., kind: invalid_argument}
+      54: {description: Developer Mode application does not allow the application's manifest contents., kind: invalid_argument}
+    examples:
+    - title: Upload an application package
+      request:
+        parts:
+        - {name: file, content_type: application/octet-stream, content: EAPDATA}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/applications/application-api/#upload-application
+  upload_license_key:
+    summary: Upload and install a license key for an application.
+    description: The docs name the action and the package parameter but not how the key file is sent; it is sent as a multipart file part named file, as for upload.cgi.
+    effect: write
+    write: create
+    binding:
+      path: /axis-cgi/applications/license.cgi
+      method: POST
+      encoding: multipart
+      url_query: {action: uploadlicensekey}
+      reply: text_ok
+    params:
+      type: object
+      required: [package, license_key]
+      x-masked: [license_key]
+      properties:
+        package: {type: string, x-in: query, description: The name of the application package to which the license key belongs.}
+        license_key:
+          type: string
+          format: binary
+          x-upload: {part: file, content_type: application/octet-stream}
+          description: The license key file, as bytes, a Path or an Upload(stream, size).
+    positional: [package, license_key]
+    errors:
+      21: {description: Invalid license key file., kind: invalid_argument}
+      22: {description: File upload failed. See the system log for more information., kind: internal}
+      24: {description: The application is not installed., kind: not_found}
+      25: {description: The key's application ID does not match the installed application., kind: invalid_argument}
+      26: {description: The license key cannot be used with this version of the application., kind: unsupported}
+      30: {description: Wrong serial number., kind: invalid_argument}
+      31: {description: The license key has expired., kind: invalid_argument}
+sources:
+- url: https://developer.axis.com/vapix/applications/application-api/
+  sha256_md: 051ada2f8412c794bfde243a0cd387783104b8a99c1f57d83f74bee7300ec671
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - upload_license_key: the docs do not say how the key file is sent; a multipart part named file is assumed (no example).
+  - The list.cgi example in the docs has a stray ">" after ValidationResult; the attribute table says SignatureStatus while the XSD defines SignedStatus (plus VendorHomePage and LicenseName). Both names are modelled.
+  - The attribute table lists CompatibleOsVersions/@VersionRange and VersionRange/@Min as attributes, but the example and XSD use child elements; the XSD is followed.
+  - info.cgi has no XSD and no documented errors; the AXIS OS 2024-05-03 version history mentions new upload error codes without saying which.
+  - The config.cgi value parameter is marked optional in the table, but it is required for action=set; modelled as required for set_application_config.
+  - The page gives no AXIS OS minimum for the API as a whole; discovery uses the existence of Properties.EmbeddedDevelopment.Version.
+  migrated_from: v1
+  curated: true

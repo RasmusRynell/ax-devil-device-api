@@ -1,0 +1,93 @@
+format: 2
+id: findmydevice
+name: Find my device
+summary: Locate an Axis device, for instance by playing a sound or flashing a status LED.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: find_my_device
+  class: FindMyDevice
+docs:
+- https://developer.axis.com/vapix/network-video/find-my-device/
+access: admin
+discovery:
+- {api_discovery: findmydevice}
+
+binding:
+  path: /axis-cgi/findmydevice.cgi
+  major: 1
+  versions: ['1.0', '1.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100:
+    description: Internal error. Out-of-memory errors will also return this error code.
+    kind: internal
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON format., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing or invalid., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2200: {description: Transport layer error (e.g. request not HTTP POST).}
+  2201: {description: 'Busy, already performing method.', kind: unavailable}
+
+operations:
+  find:
+    summary: Start the mechanism that locates the device.
+    description: The identification methods (sound, LED) depend on the device. Using them while another API uses the same functions can cause unexpected behavior.
+    effect: action
+    binding: {method: find}
+    params:
+      type: object
+      properties:
+        duration:
+          type: integer
+          maximum: 3600
+          description: "How long the search sequence lasts, in seconds, at most 3600."
+    examples:
+    - title: Find
+      request:
+        params: {duration: 10}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/find-my-device/#find
+    - title: Find fails
+      request:
+        params: {duration: 10}
+      response:
+        error: {code: 1100, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/find-my-device/#find
+  stop:
+    summary: Halt the mechanism that locates the device during a duration period set by find.
+    effect: action
+    binding: {method: stop}
+    examples:
+    - title: Stop
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/find-my-device/#stop
+    - title: Stop fails
+      request:
+        params: {}
+      response:
+        error: {code: 1100, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/find-my-device/#stop
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/find-my-device/
+  sha256_md: 7832e0d30ccbca873fe1e1c43d21b646d2c7a0995fdaf172ffebb8b6e9047c9d
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The default duration when params.duration is omitted, and the minimum duration, are not documented.
+  - The examples use apiVersion 1.0 (find), 1.1 (stop) and 2.1 (getSupportedVersions returning ["1.3", "2.1"]); no version history is documented, so versions 1.0 and 1.1 are listed for major 1.
+  - The minimum AXIS OS version is not stated.
+  migrated_from: v1
+  curated: true

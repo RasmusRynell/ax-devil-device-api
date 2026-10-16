@@ -1,0 +1,250 @@
+format: 2
+id: ntp
+name: NTP API
+summary: Get NTP/NTS client info and set NTP client configuration (static/DHCP servers, NTS KE servers, poll intervals)
+  via /axis-cgi/ntp.cgi.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: ntp
+  class: Ntp
+docs:
+- https://developer.axis.com/vapix/network-video/ntp-api/
+access: admin
+discovery:
+- {api_discovery: ntp}
+requires:
+  firmware: '9.10'
+
+binding:
+  path: /axis-cgi/ntp.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error, kind: internal}
+  2000: {description: Invalid request, kind: invalid_argument}
+  2001: {description: Request body too large, kind: invalid_argument}
+  3000: {description: Invalid JSON data, kind: invalid_argument}
+  4000: {description: Method does not exist, kind: not_found}
+  4001: {description: The specified version is not supported, kind: unsupported}
+  4002: {description: Authorization failed, kind: access_denied}
+  4003: {description: Missing parameter(s), kind: invalid_argument}
+  4004: {description: Invalid parameter(s), kind: invalid_argument}
+
+types:
+  NtpInfo:
+    type: object
+    description: NTP configuration of the device. The ``client`` section is present only on devices with NTP client support.
+    properties:
+      client: {$ref: '#/types/NtpClient'}
+  NtpClient:
+    type: object
+    description: State and configuration of the NTP client.
+    x-read-only: [maxSupportedStaticServers, advertisedServers, synced, timeToNextSync, timeOffset]
+    properties:
+      enabled:
+        type: boolean
+        description: 'Enabled state of the NTP client. true: enabled and running; false: disabled and not running.'
+      NTSEnabled:
+        type: boolean
+        description: 'true: the NTP client uses NTS instead of regular NTP; false: NTS is disabled.'
+      NTSKEServerCACerts:
+        type: array
+        items: {type: string}
+        description: Optional. List of CA certificates to trust for certification validation.
+      serversSource:
+        type: string
+        enum: [DHCP, static]
+        description: 'DHCP: uses NTP servers listed in a DHCP lease, falls back to static if none were obtained.
+          static: uses a static list of NTP servers set by the user.'
+      maxSupportedStaticServers:
+        type: integer
+        description: The maximum number of static servers that the client can use for time synchronization.
+      staticServers:
+        type: array
+        items: {type: string}
+        description: A list of static NTP servers. Used if serversSource is static and NTS is disabled.
+      advertisedServers:
+        type: array
+        items: {type: string}
+        description: A list of NTP servers received in a DHCP lease. Used if serversSource is DHCP and NTS is disabled.
+      staticNTSKEServers:
+        type: array
+        items: {type: string}
+        description: A static list of NTS Key Establishment servers, validated by system trusted CA certificates
+          if not specified by NTSKEServerCACerts.
+      synced: {type: boolean, description: Indicates that time has been synced with NTP after a reboot.}
+      timeToNextSync:
+        type: integer
+        description: Remaining time (seconds) until the next synchronization attempt; 0 if no NTP servers are used.
+      timeOffset:
+        type: number
+        description: Time offset between local and server time (milliseconds). Only used if synced is true.
+      minpoll:
+        type: integer
+        description: Minimum interval between synchronization attempts, as a power of 2 in seconds (e.g. 6 = 64
+          s).
+      maxpoll:
+        type: integer
+        description: Maximum interval between synchronization attempts, as a power of 2 in seconds.
+
+operations:
+  get_ntp_info:
+    summary: Retrieve the NTP configuration of the device.
+    effect: read
+    binding: {method: getNTPInfo}
+    result: {$ref: '#/types/NtpInfo'}
+    examples:
+    - title: Retrieve the NTP configuration
+      request:
+        params: {}
+      response:
+        data:
+          client:
+            enabled: true
+            NTSEnabled: false
+            serversSource: DHCP
+            maxSupportedStaticServers: 5
+            staticServers: [192.168.0.80]
+            advertisedServers: [ntp.someserver.com, 12.7.232.11]
+            staticNTSKEServers: [ntske.someserver.com, 13.8.343.12]
+            synced: true
+            timeToNextSync: 1234
+            timeOffset: -12.34
+            minpoll: 2
+            maxpoll: 2
+      source: https://developer.axis.com/vapix/network-video/ntp-api/#configure-the-ntp-client
+    - title: Retrieve the NTP configuration (error)
+      request:
+        params: {}
+      response:
+        error: {code: 1000, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/ntp-api/#configure-the-ntp-client
+  set_ntp_client_configuration:
+    summary: Set the NTP client configuration.
+    effect: write
+    write: patch
+    binding: {method: setNTPClientConfiguration}
+    round_trip:
+      from: NtpClient
+    params:
+      type: object
+      x-name: SetNtpClientConfigurationRequest
+      properties:
+        enabled:
+          type: boolean
+          description: 'Desired state of the NTP client. true: enabled and running; false: disabled. enabled=true
+            must be used in order to use NTP, both with or without NTS.'
+        NTSEnabled:
+          type: boolean
+          description: 'Specifies if NTS is used. true: use NTS instead of regular NTP; false: NTS disabled.'
+        NTSKEServerCACerts:
+          type: array
+          items: {type: string}
+          description: Optional. List of CA certificates to trust for certification validation. Table lists it as
+            params.client.NTSKEServerCACerts; request syntax as params.NTSKEServerCACerts.
+        serversSource:
+          type: string
+          enum: [DHCP, static]
+          description: 'Source of the server list. DHCP: NTP servers from a DHCP lease; static: user-set static
+            list.'
+        staticServers:
+          type: array
+          items: {type: string}
+          description: List of static NTP servers (IP addresses or domain names); used if serversSource is static
+            and NTS disabled.
+        staticNTSKEServers:
+          type: array
+          items: {type: string}
+          description: Static list of NTS KE servers used to synchronize time over NTS; limited by maxSupportedStaticServers.
+            Validated by system trusted CA certificates if NTSKEServerCACerts not specified.
+        minpoll:
+          type: integer
+          minimum: 0
+          maximum: 24
+          default: 6
+          description: Minimum poll interval (power of 2 seconds). Default 6. Allowed 0-24; should not be greater
+            than maxpoll.
+        maxpoll:
+          type: integer
+          minimum: 0
+          maximum: 24
+          default: 10
+          description: Maximum poll interval (power of 2 seconds). Default 10. Allowed 0-24.
+    errors:
+      4004/subCode 1: {description: The invalid parameter is `enabled`., kind: invalid_argument}
+      4004/subCode 2: {description: The invalid parameter is `serversSource`., kind: invalid_argument}
+      4004/subCode 3:
+        description: The invalid parameter is `staticServers` or one of its list values.
+        kind: invalid_argument
+      4004/subCode 5: {description: The invalid parameter is `NTSEnabled`., kind: invalid_argument}
+      4004/subCode 6:
+        description: The invalid parameter is `staticNTSKEServers` or one of its list values.
+        kind: invalid_argument
+      4004/subCode 7:
+        description: The invalid parameter is `minpoll` valid values range from (0) to (24).
+        kind: invalid_argument
+      4004/subCode 8:
+        description: The invalid parameter is `maxpoll` valid values range from (0) to (24).
+        kind: invalid_argument
+      4004/subCode 9: {description: The invalid parameter is `NTSKEServerCACerts`., kind: invalid_argument}
+    examples:
+    - title: Configure the NTP client
+      request:
+        params:
+          enabled: true
+          NTSEnabled: false
+          serversSource: static
+          staticServers: [192.168.0.91, 192.168.0.92]
+          staticNTSKEServers: [ntske.someserver.com, 13.8.343.12]
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ntp-api/#configure-the-ntp-client
+    - title: Missing parameter(s)
+      request:
+        params:
+          enabled: true
+          NTSEnabled: false
+          serversSource: static
+          staticServers: [192.168.0.91, 192.168.0.92]
+          staticNTSKEServers: [ntske.someserver.com, 13.8.343.12]
+      response:
+        error: {code: 4003, message: Missing parameter(s)}
+      source: https://developer.axis.com/vapix/network-video/ntp-api/#configure-the-ntp-client
+    - title: Invalid parameter(s) with subCode
+      request:
+        params:
+          enabled: true
+          NTSEnabled: false
+          serversSource: static
+          staticServers: [192.168.0.91, 192.168.0.92]
+          staticNTSKEServers: [ntske.someserver.com, 13.8.343.12]
+      response:
+        error: {code: 4004, message: Invalid parameter(s), details: {subCode: 1}}
+      source: https://developer.axis.com/vapix/network-video/ntp-api/#configure-the-ntp-client
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/ntp-api/
+  sha256_md: 5d37220deb656f8f1e15563d4edc0936481f647589bb047c418572bd368597b0
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Example curl URLs are malformed ("http://<servername>http://<servername>/axis-cgi/ntp.cgi").
+  - getNTPInfo param table says method="getNtpInfo" while syntax uses getNTPInfo.
+  - setNTPClientConfiguration table uses params.client.NTSKEServerCACerts while syntax uses params.NTSKEServerCACerts.
+  - Overview mentions a server section in getNTPInfo response, which is not documented.
+  - Example timeOffset -12.34 and minpoll 2/maxpoll 2.
+  - 'Doc says "The minimum value should not be lower than the maximum values" (likely inverted: minpoll should not
+    exceed maxpoll).'
+  - Example IP 13.8.343.12 is not a valid IPv4 address (doc example).
+  - Error subCode 4 is not listed.
+  - getSupportedVersions security level stated as Administrator.
+  migrated_from: v1
+  curated: true

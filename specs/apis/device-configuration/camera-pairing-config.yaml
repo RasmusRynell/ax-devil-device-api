@@ -1,0 +1,317 @@
+format: 2
+id: camera-pairing-config
+name: Edge-to-edge camera pairing API
+summary: Pair the device to an external camera to view the camera's video on the device.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: camera_pairing
+  class: CameraPairing
+docs:
+- https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-pairing-api/
+access: admin
+discovery:
+- dca: {api: camera-pairing, version: v1}
+
+binding: {root: /config/rest/camera-pairing/v1}
+
+errors:
+  101: {description: The specified address is already assigned to the device itself. Occurs when you try to create a camera pairing to the device itself., kind: invalid_argument}
+  102: {description: The specified address is not valid. Occurs when the specified address is not a valid IPv4/IPv6 address or a DNS name., kind: invalid_argument}
+  104: {description: Maximum number of camera pairings reached. Occurs when you try to create a second camera pairing.}
+  106: {description: Lost connection. The streaming connection is lost., kind: unavailable}
+  107: {description: Unauthorized. Unauthorized streaming., kind: access_denied}
+  108: {description: Could not connect. Could not connect to streaming., kind: unavailable}
+
+types:
+  Address: {type: string, maxLength: 64, description: Address for the camera pairing}
+  CameraPairingStatus:
+    type: string
+    enum: [NOT_PAIRED, PAIRED, ERROR, CONNECTING]
+    description: Current status of the camera pairing
+  CameraPairingStreamingProtocol:
+    type: string
+    enum: [RTSP, SRTSP]
+    description: Streaming protocol used for the camera pairing
+  Description: {type: string, maxLength: 128, description: Description of the paired camera}
+  ID:
+    type: string
+    maxLength: 64
+    description: The unique ID generated automatically for the camera pairing
+  Password: {type: string, maxLength: 64, description: Password for the camera pairing}
+  ProductModel: {type: string, maxLength: 64, description: The product model of the paired camera}
+  ProductName: {type: string, maxLength: 64, description: The full product name of the paired camera}
+  SelectedVideoChannel:
+    type: string
+    maxLength: 64
+    description: Video Channel to pull the stream from on the paired camera
+  Username: {type: string, maxLength: 64, description: Username for the camera pairing}
+  VideoChannels:
+    type: array
+    items: {type: [string, 'null']}
+    description: Array of strings representing video channel names on the paired device.
+  CameraPairing:
+    type: object
+    description: The whole API tree.
+    properties:
+      cameraPairings:
+        type: array
+        items: {$ref: '#/types/Pairing'}
+  Pairing:
+    type: object
+    description: A camera pairing. The password is never returned.
+    required: [id]
+    x-read-only: [id, productModel, productName, status, videoChannels]
+    properties:
+      address: {$ref: '#/types/Address', description: Address for the camera pairing.}
+      description: {$ref: '#/types/Description', description: Description of the paired camera.}
+      id:
+        $ref: '#/types/ID'
+        description: The unique ID generated automatically for the camera pairing.
+      productModel: {$ref: '#/types/ProductModel', description: The product model of the paired camera.}
+      productName: {$ref: '#/types/ProductName', description: The full product name of the paired camera.}
+      selectedVideoChannel:
+        $ref: '#/types/SelectedVideoChannel'
+        description: Video Channel to pull the stream from on the paired camera.
+      status: {$ref: '#/types/CameraPairingStatus', description: Current status of the camera pairing.}
+      streamingProtocol: {$ref: '#/types/CameraPairingStreamingProtocol'}
+      username: {$ref: '#/types/Username', description: Username for the camera pairing.}
+      verifyCertificate:
+        type: boolean
+        description: Indicates whether to verify the certificates. It is only useful when `streamingProtocol` is
+          set to `SRTSP`.
+      videoChannels: {$ref: '#/types/VideoChannels', description: Video channels available on the paired camera.}
+  AddCameraPairingRequest:
+    type: object
+    description: Arguments of ``add_camera_pairing``.
+    required:
+    - address
+    - username
+    - password
+    - streamingProtocol
+    - verifyCertificate
+    - description
+    x-masked: [password]
+    properties:
+      address: {$ref: '#/types/Address', description: Address for the camera pairing.}
+      username: {$ref: '#/types/Username', description: Username for the camera pairing.}
+      password: {$ref: '#/types/Password', description: Password for the camera pairing.}
+      streamingProtocol: {$ref: '#/types/CameraPairingStreamingProtocol'}
+      verifyCertificate:
+        type: boolean
+        description: Indicates whether to verify the certificates. It is only useful when `streamingProtocol` is
+          set to `SRTSP`.
+      description: {$ref: '#/types/Description', description: Description of the paired camera.}
+
+operations:
+  get_all:
+    summary: The whole camera pairing tree.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/CameraPairing'}
+  list_camera_pairings:
+    summary: List the camera pairings.
+    effect: read
+    binding: {method: GET, path: /cameraPairings}
+    result:
+      type: array
+      items: {$ref: '#/types/Pairing'}
+  get_camera_pairing:
+    summary: One camera pairing.
+    effect: read
+    binding: {method: GET, path: '/cameraPairings/{id}'}
+    params:
+      type: object
+      x-name: PairingIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/ID'}
+    result: {$ref: '#/types/Pairing'}
+    examples:
+    - title: Get current camera pairing settings
+      request: {path: /cameraPairings/CameraPairing-1717587844-211730}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {address: 192.168.0.90, description: Intercom, id: CameraPairing-1717587844-211730, productModel: I7010-VE, productName: AXIS I7010-VE Network Intercom, status: PAIRED, streamingProtocol: SRTSP, username: root, verifyCertificate: true}
+      source: https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-pairing-api/
+  add_camera_pairing:
+    summary: Pair an external camera to the device.
+    description: Only one camera pairing can exist at a time (error 104).
+    effect: write
+    write: create
+    binding: {method: POST, path: /cameraPairings, body: object}
+    params: {$ref: '#/types/AddCameraPairingRequest'}
+    result: {$ref: '#/types/Pairing'}
+    errors:
+      101: {description: The address belongs to the device itself.}
+      104: {description: A camera pairing already exists.}
+    examples:
+    - title: Pair an external camera to a device
+      request:
+        path: /cameraPairings
+        body:
+          data: {address: 192.168.0.90, description: Intercom, password: secret, streamingProtocol: SRTSP, username: root, verifyCertificate: true}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {address: 192.168.0.90, description: Intercom, id: CameraPairing-1717587392-934150, productModel: I7010-VE, productName: AXIS I7010-VE Network Intercom, status: PAIRED, streamingProtocol: SRTSP, username: root, verifyCertificate: true}
+      source: https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-pairing-api/
+  get_camera_pairing_status:
+    summary: The current status of a camera pairing.
+    description: When the status is ``ERROR``, read the pairing with ``get_camera_pairing`` for more information.
+    effect: read
+    binding: {method: GET, path: '/cameraPairings/{id}/status'}
+    params:
+      type: object
+      x-name: PairingIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/ID'}
+    result: {$ref: '#/types/CameraPairingStatus'}
+    examples:
+    - title: Get current camera pairing status
+      request: {path: /cameraPairings/CameraPairing-1717585565-843505/status}
+      response:
+        status: 200
+        body: {status: success, data: PAIRED}
+      source: https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-pairing-api/
+  remove_camera_pairing:
+    summary: Unpair an external camera from the device.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/cameraPairings/{id}'}
+    params:
+      type: object
+      x-name: PairingIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/ID'}
+  set_camera_pairing_address:
+    summary: Set the address of a camera pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /cameraPairings/{id}/address
+      body_field: address
+      body: value
+    params:
+      type: object
+      required: [id, address]
+      properties:
+        id: {$ref: '#/types/ID'}
+        address: {$ref: '#/types/Address', description: Address for the camera pairing.}
+  set_camera_pairing_description:
+    summary: Set the description of a camera pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /cameraPairings/{id}/description
+      body_field: description
+      body: value
+    params:
+      type: object
+      required: [id, description]
+      properties:
+        id: {$ref: '#/types/ID'}
+        description: {$ref: '#/types/Description', description: Description of the paired camera.}
+  set_camera_pairing_password:
+    summary: Set the password of a camera pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /cameraPairings/{id}/password
+      body_field: password
+      body: value
+    params:
+      type: object
+      required: [id, password]
+      x-masked: [password]
+      properties:
+        id: {$ref: '#/types/ID'}
+        password: {$ref: '#/types/Password', description: Password for the camera pairing.}
+  set_camera_pairing_selected_video_channel:
+    summary: Set the selected video channel of a camera pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /cameraPairings/{id}/selectedVideoChannel
+      body_field: selectedVideoChannel
+      body: value
+    params:
+      type: object
+      required: [id, selectedVideoChannel]
+      properties:
+        id: {$ref: '#/types/ID'}
+        selectedVideoChannel:
+          $ref: '#/types/SelectedVideoChannel'
+          description: Video Channel to pull the stream from on the paired camera.
+  set_camera_pairing_streaming_protocol:
+    summary: Set the streaming protocol of a camera pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /cameraPairings/{id}/streamingProtocol
+      body_field: streamingProtocol
+      body: value
+    params:
+      type: object
+      required: [id, streamingProtocol]
+      properties:
+        id: {$ref: '#/types/ID'}
+        streamingProtocol: {$ref: '#/types/CameraPairingStreamingProtocol'}
+  set_camera_pairing_username:
+    summary: Set the username of a camera pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /cameraPairings/{id}/username
+      body_field: username
+      body: value
+    params:
+      type: object
+      required: [id, username]
+      properties:
+        id: {$ref: '#/types/ID'}
+        username: {$ref: '#/types/Username', description: Username for the camera pairing.}
+  set_camera_pairing_verify_certificate:
+    summary: Set the verify certificate of a camera pairing.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /cameraPairings/{id}/verifyCertificate
+      body_field: verifyCertificate
+      body: value
+    params:
+      type: object
+      required: [id, verifyCertificate]
+      properties:
+        id: {$ref: '#/types/ID'}
+        verifyCertificate:
+          type: boolean
+          description: Indicates whether to verify the certificates. It is only useful when `streamingProtocol`
+            is set to `SRTSP`.
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-pairing-api/
+  sha256_md: ee3388783e9ec366138d57228222470738b22c6f5f88cf053af0f900015efa76
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The docs examples show status "Paired" while the CameraPairingStatus enum is NOT_PAIRED, PAIRED, ERROR, CONNECTING; the enum is used. Source: https://developer.axis.com/vapix/device-configuration/edge-to-edge-camera-pairing-api/'
+  - 'The docs give streamingProtocol no Datatype; the CameraPairingStreamingProtocol type (RTSP, SRTSP) is assumed, matching the description and examples.'
+  - 'videoChannels items are nullable in the docs and modelled as string | null. selectedVideoChannel and videoChannels are not in the docs ADD required list or examples.'
+  migrated_from: v1
+  curated: true

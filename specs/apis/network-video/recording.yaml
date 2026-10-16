@@ -1,0 +1,462 @@
+format: 2
+id: recording
+name: Recording API (Edge storage)
+summary: Manage edge recordings, namely continuous recording profiles, searching, starting, stopping and removing recordings.
+section: network-video
+family: cgi
+status: released
+python:
+  module: recording
+  class: Recording
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: operator
+discovery:
+- param: {name: Properties.LocalStorage.LocalStorage, value: 'yes'}
+requires:
+  firmware: '5.40'
+
+binding: {path: /axis-cgi/record/continuous/addconfiguration.cgi}
+
+types:
+  RecordingType:
+    type: string
+    enum: [triggered, scheduled, continuous]
+  RecordingStatus:
+    type: string
+    enum: [recording, completed, unknown]
+  ContinuousProfile:
+    type: object
+    required: [profile]
+    x-xml: {root: configure}
+    properties:
+      profile: {type: integer, description: The number of the new continuous recording profile.}
+  ContinuousConfiguration:
+    type: object
+    required: [profile]
+    properties:
+      profile: {type: integer, description: The profile number.}
+      diskid: {type: string, description: The ID of the disk where the recording is stored.}
+      options: {type: string, description: The stream options.}
+      eventid: {type: string, description: The event ID of the profile.}
+  ContinuousConfigurations:
+    type: object
+    x-xml: {root: continuousrecordingconfigurations}
+    properties:
+      configurations:
+        type: array
+        items: {$ref: "#/types/ContinuousConfiguration"}
+        x-xml: {path: continuousrecordingconfiguration}
+  RecordingVideo:
+    type: object
+    properties:
+      mimetype: {type: string, description: 'Video MIME type, for example image/jpeg or video/x-h264.'}
+
+      source: {type: string, description: Video source.}
+      framerate: {type: string, description: Frame rate.}
+      resolution: {type: string, description: Video resolution.}
+      width: {type: integer, description: Image width in pixels.}
+      height: {type: integer, description: Image height in pixels.}
+  RecordingAudio:
+    type: object
+    properties:
+      mimetype: {type: string, description: Audio MIME type.}
+      source: {type: string, description: Audio source.}
+      bitrate: {type: integer, description: Bit rate.}
+      samplerate: {type: integer, description: Sample rate.}
+  RecordingInfo:
+    type: object
+    required: [diskid, recordingid]
+    properties:
+      diskid: {type: string, description: The ID of the disk the recording is stored on.}
+      recordingid: {type: string, description: The recording ID.}
+      recordinggroupid: {type: string, description: The recording group used to create the recording.}
+      starttime: {type: string, description: Start time of the recording (UTC).}
+      starttimelocal: {type: string, description: Start time of the recording (local time).}
+      stoptime: {type: string, description: Stop time of the recording (UTC); empty while the recording is ongoing.}
+      stoptimelocal: {type: string, description: Stop time of the recording (local time); empty while the recording is ongoing.}
+      recordingtype: {$ref: "#/types/RecordingType"}
+      eventid: {type: string, description: Name of the event that initiated the recording.}
+      eventtrigger: {type: string, description: The trigger of the event that initiated the recording.}
+      recordingstatus: {$ref: "#/types/RecordingStatus"}
+      source: {type: string, description: 'Multichannel video encoders only: the video channel used for the recording.'}
+      video:
+        type: array
+        items: {$ref: "#/types/RecordingVideo"}
+        x-xml: {path: video}
+      audio:
+        type: array
+        items: {$ref: "#/types/RecordingAudio"}
+        x-xml: {path: audio}
+  RecordingList:
+    type: object
+    x-xml: {root: recordings}
+    properties:
+      totalNumberOfRecordings:
+        type: integer
+        description: The number of recordings on all attached disks, or on the given disk when diskid is used.
+        x-xml: {attribute: totalnumberofrecordings}
+      numberOfRecordings:
+        type: integer
+        description: The number of matched recordings, without regard to startatresultnumber and maxnumberofresults.
+        x-xml: {attribute: numberofrecordings}
+      recordings:
+        type: array
+        items: {$ref: "#/types/RecordingInfo"}
+        x-xml: {path: recording}
+  EventIds:
+    type: object
+    x-xml: {root: eventids}
+    properties:
+      eventIds:
+        type: array
+        items: {type: string}
+        x-xml: {path: eventid}
+  RecordingSources:
+    type: object
+    x-xml: {root: sources}
+    properties:
+      sources:
+        type: array
+        items: {type: string}
+        x-xml: {path: source}
+  StartedRecording:
+    type: object
+    required: [recordingid]
+    x-xml: {root: record}
+    properties:
+      recordingid: {type: string, description: The ID of the started recording.}
+
+operations:
+  add_continuous_configuration:
+    summary: Add a continuous recording profile; recording starts when possible.
+    description: >-
+      Available if Properties.LocalStorage.ContinuousRecording=yes and
+      Properties.LocalStorage.NbrOfContinuousRecordingProfiles > 0. An existing profile cannot be changed; remove it
+      and add a new one instead.
+    effect: write
+    write: create
+    binding:
+      method: GET
+      reply: {xml: {status_error: {attribute: result, value: ERROR, message: errormsg}}}
+    params:
+      type: object
+      required: [diskid, options]
+      properties:
+        diskid: {type: string, description: 'The ID of the disk to record to, for example SD_DISK.'}
+        options:
+          type: string
+          description: 'Stream options for the recording as plain text, for example ``streamprofile=MyProfile`` or
+            other image URL settings. The client percent-encodes them.'
+        eventid:
+          type: string
+          default: continuous
+          description: The event ID that classifies the recording. Used with ``list_recordings`` to select recordings
+            from this profile.
+    result: {$ref: "#/types/ContinuousProfile"}
+    examples:
+    - title: Add a continuous recording configuration for the SD card
+      request: {query: {diskid: SD_DISK, options: resolution=640x480, eventid: continuous_0}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/continuousconfigurationadd1.xsd">
+            <configure profile="1"
+                   result="OK" />
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#add-continuous-recording-profile
+  list_continuous_configurations:
+    summary: List continuous recording profiles.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/record/continuous/listconfiguration.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        profile: {type: integer, description: 'The profile to list. If omitted, all profiles are listed.'}
+
+    positional: [profile]
+    result: {$ref: "#/types/ContinuousConfigurations"}
+    examples:
+    - title: List all continuous recording profiles
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/continuousconfigurationlist1.xsd">
+            <continuousrecordingconfigurations>
+              <continuousrecordingconfiguration profile="1"
+                    diskid="SD_DISK"
+                    options="resolution=640x480"
+                    eventid="continuous_0" />
+            </continuousrecordingconfigurations>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#list-continuous-recording-profiles
+  remove_continuous_configuration:
+    summary: Stop and remove a continuous recording profile.
+    effect: write
+    write: delete
+    binding:
+      path: /axis-cgi/record/continuous/removeconfiguration.cgi
+      method: GET
+      reply: {xml: {status_error: {attribute: result, value: ERROR, message: errormsg}}}
+    params:
+      type: object
+      required: [profile]
+      properties:
+        profile: {type: integer, description: The profile number from ``add_continuous_configuration`` or ``list_continuous_configurations``.}
+    positional: [profile]
+  list_recordings:
+    summary: Search for recordings and list information about the recordings found.
+    description: >-
+      With ``listentity=recording`` (the default) one of recordinggroupid, eventid, source, starttime, stoptime or
+      recordingid is required. Pass ``recordingid="all"`` to list every recording.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/record/list.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        recordingid:
+          type: string
+          description: '"all" or a recording ID.'
+        maxnumberofresults: {type: integer, minimum: 1, description: Maximum number of recordings returned.}
+        startatresultnumber: {type: integer, minimum: 1, description: Start the result on the n:th recording.}
+        recordinggroupid: {type: string, description: Include recordings that belong to this recording group.}
+        eventid: {type: string, description: Name of the event that triggered the recording.}
+        diskid: {type: string, description: The ID of the disk to search.}
+        starttime:
+          type: string
+          description: Include recordings with any part on or after this time. UTC ISO 8601 combined date and time,
+            ``<yyyy>-<mm>-<dd>T<HH>:<MM>:<SS>[.<mmmm>]Z`` or with a ``±hh:mm`` offset.
+        stoptime:
+          type: string
+          description: Include recordings with any part on or before this time. UTC ISO 8601 combined date and time,
+            ``<yyyy>-<mm>-<dd>T<HH>:<MM>:<SS>[.<mmmm>]Z`` or with a ``±hh:mm`` offset.
+        sortorder:
+          type: string
+          enum: [ascending, descending]
+          default: descending
+          description: Sort by recording start time.
+        source:
+          type: string
+          description: 'Multichannel video encoders: "Quad" or a channel number (product dependent).'
+    positional: [recordingid]
+    result: {$ref: "#/types/RecordingList"}
+    examples:
+    - title: List all recordings
+      request: {query: {recordingid: all}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/list1.xsd">
+            <recordings totalnumberofrecordings="3" numberofrecordings="3" >
+              <recording diskid="NetworkShare"
+                recordingid="20110812_081211_016F_00408C1834FD" />
+              <recording diskid="NetworkShare"
+                recordingid="20110813_093530_025B_00408C1834FD" />
+              <recording diskid="NetworkShare"
+                recordingid="20110813_103530_037C_00408C1834FD" />
+            </recordings>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#common-examples
+    - title: List continuous recordings in a period
+      request:
+        query:
+          eventid: continuous_nas
+          starttime: '2011-08-12T08:12:11Z'
+          stoptime: '2011-08-14T10:10:00Z'
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/list1.xsd">
+            <recordings totalnumberofrecordings="6" numberofrecordings="3" >
+              <recording diskid="NetworkShare"
+                recordingid="20110812_081211_016F_00408C1834FD"
+                starttime="2011-08-12T08:12:11Z"
+                stoptime="2011-08-13T09:30:30Z" />
+              <recording diskid="NetworkShare"
+                recordingid="20110813_093530_025B_00408C1834FD"
+                starttime="2011-08-13T09:35:30Z"
+                stoptime="2011-08-13T10:30:30Z" />
+              <recording diskid="NetworkShare"
+                recordingid="20110813_103530_037C_00408C1834FD"
+                starttime="2011-08-13T10:35:30Z"
+                stoptime="2011-08-14T10:10:00Z" />
+            </recordings>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#common-examples
+  list_event_ids:
+    summary: List all event IDs used by recordings.
+    access: viewer
+    effect: read
+    binding:
+      path: /axis-cgi/record/list.cgi
+      method: GET
+      query: {listentity: eventid}
+      reply: xml
+    params:
+      type: object
+      properties:
+        diskid: {type: string, description: Only list event IDs of recordings on this disk.}
+    positional: [diskid]
+    result: {$ref: "#/types/EventIds"}
+    examples:
+    - title: Event IDs on the SD card
+      request: {query: {listentity: eventid, diskid: SD_DISK}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/recording/list1.xsd">
+            <eventids >
+              <eventid> motion </eventid>
+              <eventid> audio detection </eventid>
+            </eventids>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#common-examples
+  list_recording_sources:
+    summary: List all sources in which recordings were found.
+    access: viewer
+    effect: read
+    binding:
+      path: /axis-cgi/record/list.cgi
+      method: GET
+      query: {listentity: source}
+      reply: xml
+    params:
+      type: object
+      properties:
+        diskid: {type: string, description: Only list sources of recordings on this disk.}
+    positional: [diskid]
+    result: {$ref: "#/types/RecordingSources"}
+  start_recording:
+    summary: Start a recording at once and return its recording ID.
+    description: Deprecated; removed in AXIS OS 13. The recording must be stopped with ``stop_recording``.
+    effect: action
+    binding:
+      path: /axis-cgi/record/record.cgi
+      method: GET
+      reply: {xml: {status_error: {attribute: result, value: ERROR, message: errormsg}}}
+    params:
+      type: object
+      required: [diskid]
+      properties:
+        diskid: {type: string, description: 'The ID of the disk to record to, for example SD_DISK.'}
+        options:
+          type: string
+          description: 'Stream options as plain text, for example ``streamprofile=MyProfile``. The system default
+            is used if omitted.'
+    positional: [diskid]
+    result: {$ref: "#/types/StartedRecording"}
+  stop_recording:
+    summary: Stop an active recording.
+    description: Deprecated; removed in AXIS OS 13.
+    effect: action
+    binding:
+      path: /axis-cgi/record/stop.cgi
+      method: GET
+      reply: {xml: {status_error: {attribute: result, value: ERROR, message: errormsg}}}
+    params:
+      type: object
+      required: [recordingid]
+      properties:
+        recordingid: {type: string, description: The ID of the recording to stop.}
+    positional: [recordingid]
+  remove_recordings:
+    summary: Remove one or more recordings.
+    description: >-
+      Required if none of recordinggroupid, beforetime, eventid or source is given: recordingid. Active recordings
+      matched by beforetime are stopped and then removed.
+    effect: write
+    write: delete
+    binding:
+      path: /axis-cgi/record/remove.cgi
+      method: GET
+      reply: {xml: {status_error: {attribute: result, value: ERROR, message: errormsg}}}
+    params:
+      type: object
+      properties:
+        recordingid:
+          type: string
+          description: '"all" or comma-separated recording IDs.'
+        recordinggroupid:
+          type: string
+          description: Remove all non-ongoing recordings of a recording group. Cannot be combined with recordingid,
+            beforetime, eventid or source.
+        diskid: {type: string, description: The ID of the disk to remove recordings from.}
+        beforetime:
+          type: string
+          description: Remove all recordings with any part on or before this time (UTC ISO 8601). Cannot be combined
+            with recordingid or recordinggroupid.
+        eventid: {type: string, description: Remove recordings triggered by this event ID. Cannot be combined with recordingid or recordinggroupid.}
+        source: {type: string, description: Remove recordings from this video source. Cannot be combined with recordingid or recordinggroupid.}
+    positional: [recordingid]
+
+  play_recording:
+    summary: Play an MJPEG recording as a stream (deprecated since AXIS OS 10.2).
+    description: >-
+      The stream has the same format as the live view stream. Only MJPEG recordings can be played this way; use
+      ``play_recording_rtsp`` for other formats. Use the result as a context manager.
+    access: viewer
+    effect: read
+    binding:
+      path: /axis-cgi/record/play.cgi
+      method: GET
+      reply: {stream: {decoder: mjpeg}}
+    params:
+      type: object
+      required: [recordingid]
+      properties:
+        recordingid: {type: string, description: The ID of the recording to play.}
+        mediatype: {type: string, enum: [video, audio], description: 'What to play. Default: video.'}
+        rate: {type: string, pattern: '^(max|[0-9]+/[0-9]+)$', description: 'The playback rate: ``max`` (as fast as possible) or a fraction numerator/denominator of the original rate.'}
+        starttime: {type: string, description: Playback start time (UTC ISO 8601); playback starts at the frame closest to it. Default is the beginning.}
+        stoptime: {type: string, description: Playback stop time (UTC ISO 8601); playback stops at the frame closest to it. Default is the end.}
+    positional: [recordingid]
+  play_recording_rtsp:
+    summary: Build the RTSP URL for playing a recording in any media format.
+    description: >-
+      Send PLAY to the URL. A ``Range`` header (``npt``, ``clock`` or ``smpte``) selects the part to play; that header
+      is not part of the URL.
+    access: viewer
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      required: [recordingid]
+      properties:
+        recordingid: {type: string, description: The ID of the recording to play.}
+        pull: {type: boolean, description: 'Stream as fast as possible; only useful when tunneling RTSP over HTTP. Default: off.'}
+    positional: [recordingid]
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The docs describe the list.cgi response as depending on listentity=recordingid, while the parameter table allows recording, eventid and source; the spec follows the table and omits the argument for recordings.
+  - recordinggroupid is typed string with valid values Integer, and source is typed integer with valid values Quad or channel number.
+  - The listconfiguration XSD names the elements continousrecordingconfiguration(s) (typo); the spec follows the documented sample reply.
+  - The documented list examples elide attributes and child elements with "..."; the spec examples drop the elisions. The third example had stoptime 010:30:30 (typo for 10:30:30).
+  - The docs require a profile attribute in the continuous add/remove replies only on success.
+  - The discovery properties Properties.LocalStorage.ContinuousRecording and Properties.API.RTSP.Version only apply to some operations and are not used for discovery.
+  migrated_from: v1
+  curated: true

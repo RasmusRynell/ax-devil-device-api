@@ -1,0 +1,199 @@
+format: 2
+id: ssh-config
+name: SSH management API
+summary: Manage the SSH accounts on the device.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: ssh_config
+  class: SshConfig
+docs:
+- https://developer.axis.com/vapix/device-configuration/ssh-management/
+access: admin
+discovery:
+- dca: {api: ssh, version: v2}
+
+binding: {root: /config/rest/ssh/v2}
+
+types:
+  CommentType:
+    type: string
+    minLength: 0
+    maxLength: 256
+    pattern: '^[^: ]*$'
+    description: The full name or comment of the SSH user
+  PasswordType: {type: string, minLength: 1, maxLength: 256, description: The password of the SSH user}
+  UsernameType:
+    type: string
+    minLength: 1
+    maxLength: 32
+    pattern: ^[a-z*][a-z0-9-*]*[$]?$
+    description: The user name of the SSH user
+  Ssh:
+    type: object
+    description: The whole API tree.
+    properties:
+      users:
+        type: array
+        items: {$ref: '#/types/User'}
+  User:
+    type: object
+    description: The SSH users collection
+    required: [username]
+    properties:
+      comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
+      username: {$ref: '#/types/UsernameType', description: The user name of the SSH user}
+  UpdateUserRequest:
+    type: object
+    description: Arguments of ``update_user``.
+    required: [username]
+    x-masked: [password]
+    properties:
+      username: {$ref: '#/types/UsernameType'}
+      password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
+      comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
+  AddUserRequest:
+    type: object
+    description: Arguments of ``add_user``.
+    required: [username, password]
+    x-masked: [password]
+    properties:
+      comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
+      password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
+      username: {$ref: '#/types/UsernameType', description: The user name of the SSH user}
+
+operations:
+  get_all:
+    summary: All data of the SSH Management API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Ssh'}
+  list_users:
+    summary: List the users.
+    effect: read
+    binding: {method: GET, path: /users}
+    result:
+      type: array
+      items: {$ref: '#/types/User'}
+    examples:
+    - title: Get all of the SSH users
+      request: {path: /users}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {username: username1, comment: comment1}
+          - {username: username2, comment: comment2}
+      source: https://developer.axis.com/vapix/device-configuration/ssh-management/
+  get_user:
+    summary: Get one user.
+    effect: read
+    binding: {method: GET, path: '/users/{username}'}
+    params:
+      type: object
+      x-name: UsernameRequest
+      required: [username]
+      properties:
+        username: {$ref: '#/types/UsernameType'}
+    result: {$ref: '#/types/User'}
+    examples:
+    - title: Get an existing SSH user
+      request: {path: /users/username1}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {username: username1, comment: comment1}
+      source: https://developer.axis.com/vapix/device-configuration/ssh-management/
+  update_user:
+    summary: Update a user.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/users/{username}', body: object}
+    params: {$ref: '#/types/UpdateUserRequest'}
+    examples:
+    - title: Modify an existing SSH user
+      request:
+        path: /users/username1
+        body:
+          data: {password: newpassword, comment: new comment}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/ssh-management/
+      x-contract: {skip: "the example comment contains a space, which the documented comment_type pattern ^[^: ]*$ forbids"}
+  add_user:
+    summary: Add a user.
+    effect: write
+    write: create
+    binding: {method: POST, path: /users, body: object}
+    params: {$ref: '#/types/AddUserRequest'}
+    examples:
+    - title: Add a new SSH user
+      request:
+        path: /users
+        body:
+          data: {username: username1, password: password1, comment: comment1}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/ssh-management/
+  remove_user:
+    summary: Remove a user.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/users/{username}'}
+    params:
+      type: object
+      x-name: UsernameRequest
+      required: [username]
+      properties:
+        username: {$ref: '#/types/UsernameType'}
+    examples:
+    - title: Remove an existing SSH user
+      request: {path: /users/username1}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/ssh-management/
+  set_user_password:
+    summary: Set the password of a user.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/users/{username}/password', body_field: password, body: value}
+    params:
+      type: object
+      required: [username, password]
+      x-masked: [password]
+      properties:
+        username: {$ref: '#/types/UsernameType'}
+        password: {$ref: '#/types/PasswordType', description: The password of the SSH user}
+    positional: [username, password]
+  set_user_comment:
+    summary: Set the comment (full name) of a user.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/users/{username}/comment', body_field: comment, body: value}
+    params:
+      type: object
+      required: [username, comment]
+      properties:
+        username: {$ref: '#/types/UsernameType'}
+        comment: {$ref: '#/types/CommentType', description: The full name or comment of the SSH user}
+    positional: [username, comment]
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/ssh-management/
+  sha256_md: d93ae6da471c4f81203f8cdaf625fd68c359dbc83b361c8fdfac49fd8ebda0d5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The comment_type pattern ^[^: ]*$ forbids spaces and colons, although the docs example uses the comment "new comment" and the property is described as a full name. The schema follows the data type table.'
+  - The docs say a comment, if used, cannot be an empty string, while comment_type allows length 0. The schema follows the data type table.
+  - 'The docs example for listing users has invalid JSON ("status: "success"); corrected here.'
+  migrated_from: v1
+  curated: true

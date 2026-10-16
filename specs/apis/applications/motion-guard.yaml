@@ -1,0 +1,408 @@
+format: 2
+id: motion-guard
+name: Motion guard
+summary: Configure the AXIS Motion Guard ACAP, which raises events when objects move in an include area.
+section: applications
+family: jsonrpc
+status: released
+python:
+  module: motion_guard
+  class: MotionGuard
+docs:
+  - https://developer.axis.com/vapix/applications/motion-guard/
+access: admin
+discovery:
+  - acap: {name: MotionGuard}
+requires: {firmware: null, application: AXIS Motion Guard}
+binding:
+  path: /local/motionguard/control.cgi
+  major: 1
+  versions: ["1.1", "1.2", "1.3"]
+  negotiation: {get_supported_versions: {key: apiVersions}}
+  params_placement: params
+
+errors:
+  1000: {description: Application error. The application failed to handle the request., kind: internal}
+  2000: {description: Unsupported version. The major version number is not supported., kind: unsupported}
+  2001: {description: Invalid format. The request does not follow the JSON schema., kind: invalid_argument}
+  2002: {description: Incoherent format. Parts of the request contradict each other (for example several profiles with the same uid)., kind: invalid_argument}
+  2003: {description: Missing parameter. A mandatory parameter is missing., kind: invalid_argument}
+  2004: {description: Invalid parameter. A parameter has an invalid value., kind: invalid_argument}
+  8000: {description: Unsupported product. The product is not supported by this version of the application., kind: unsupported}
+  9000: {description: Invalid license. The license file is invalid or missing., kind: unavailable}
+  1000-1999: {description: "Reserved for camera application (server) errors, for example a configuration that could not be read; see the server log. Restarting the camera may help.", kind: internal}
+  2000-2999: {description: "Reserved for client errors, for example a wrong format or an invalid parameter.", kind: invalid_argument}
+  9000-9999: {description: "Reserved for license errors; upload a valid license file for the ACAP.", kind: unavailable}
+
+types:
+  Point:
+    type: array
+    items: {type: number, minimum: -1, maximum: 1}
+    description: "``[x, y]`` normalized to the image size; the visible view spans -1 to 1 in both directions. Exactly two items."
+
+  Camera:
+    type: object
+    description: Settings shared by all profiles that use the camera (video channel).
+    required: [id]
+    properties:
+      active: {type: boolean, description: "When false, all profiles of the camera are inactive. Default true."}
+      id: {type: integer, minimum: 1, description: "Camera value used with ``media.amp``; starts at 1."}
+      rotation: {enum: [0, 90, 180, 270], description: "Rotation of the camera in degrees. Should match ``Image.I<camera>.Appearance.Rotation``. Default 0."}
+      overlayResolution: {type: string, pattern: "^[0-9]+x[0-9]+$", description: "Since 1.3. ``<width>x<height>`` of the video streams that get alarming objects burnt in. Optional unless a profile enables ``alarmOverlayEnabled``."}
+
+  SizePercentageFilter:
+    type: object
+    description: Objects at or below this width and height (percent of the image) cannot raise an alarm.
+    required: [type, data]
+    properties:
+      type: {const: sizePercentage}
+      data:
+        type: array
+        items: {type: integer, minimum: 3, maximum: 100}
+        description: "``[w, h]`` in percent of the image. Exactly two items. Default ``[5, 5]``."
+      active: {type: boolean}
+
+  SizePerspectiveFilter:
+    type: object
+    description: Objects smaller than this real-world size cannot raise an alarm. Requires perspective bars; only one size filter may be active.
+    required: [type, data]
+    properties:
+      type: {const: sizePerspective}
+      data:
+        type: array
+        items: {type: integer}
+        description: "``[w, h]`` real-world size in cm. Exactly two items."
+      active: {type: boolean}
+
+  TimeShortLivedLimitFilter:
+    type: object
+    description: Seconds an object must have been in the camera view before it can raise an alarm. An alarm raised earlier is suppressed, and raised after the time if the object is still in view.
+    required: [type, data]
+    properties:
+      type: {const: timeShortLivedLimit}
+      data: {type: integer, minimum: 1, maximum: 5, description: "Seconds. Default 1."}
+      active: {type: boolean}
+
+  DistanceSwayingObjectFilter:
+    type: object
+    description: Global setting. Maximum distance an object may sway without raising an alarm; delays all alarms.
+    required: [type, data]
+    properties:
+      type: {const: distanceSwayingObject}
+      data: {type: integer, minimum: 3, maximum: 20, description: "Percent of the image. Default 5."}
+      active: {type: boolean}
+
+  ExcludeAreaFilter:
+    type: object
+    description: Polygon in which objects are ignored. Up to three per profile; there is no ``active`` flag, an unused area is removed.
+    required: [type, data]
+    properties:
+      type: {const: excludeArea}
+      data:
+        type: array
+        items: {$ref: "#/types/Point"}
+
+  Filter:
+    description: Exclusion filter. All filters are optional; a filter that is not present is disabled.
+    oneOf:
+      - $ref: "#/types/SizePercentageFilter"
+      - $ref: "#/types/SizePerspectiveFilter"
+      - $ref: "#/types/TimeShortLivedLimitFilter"
+      - $ref: "#/types/DistanceSwayingObjectFilter"
+      - $ref: "#/types/ExcludeAreaFilter"
+
+  Trigger:
+    type: object
+    description: The include area of a profile. A profile has exactly one (the docs say this may change).
+    required: [type, data]
+    properties:
+      type: {const: includeArea}
+      data:
+        type: array
+        items: {$ref: "#/types/Point"}
+        description: Include area polygon, normalized -1..1.
+
+  PerspectiveBar:
+    type: object
+    description: A vertical line, in the rotation of the camera, that calibrates real-world sizes.
+    required: [type, data]
+    properties:
+      type: {const: bar}
+      data:
+        type: array
+        items: {$ref: "#/types/Point"}
+        description: Start point (touching the ground plane) and end point. Exactly two items.
+      height: {type: integer, description: "Real-world height (cm) of an object at the same location and with the same perceived height as the bar."}
+
+  Profile:
+    type: object
+    description: One motion detection profile.
+    required: [uid, camera]
+    properties:
+      name: {type: string, maxLength: 15, description: "Up to 15 unicode characters; part of the event nice name. ``&&``, ``<`` and ``>`` are not allowed. Default ``Profile <uid>``."}
+      camera: {type: integer, description: "Must match the ``id`` of a camera in ``cameras``. Default 1."}
+      uid: {type: integer, description: "Unique id of the profile. Default 1."}
+      alarmOverlayEnabled: {type: boolean, description: "Since 1.3. Show the alarming objects of the profile burnt into the overlay video stream. Default false."}
+      filters:
+        type: array
+        items: {$ref: "#/types/Filter"}
+      triggers:
+        type: array
+        items: {$ref: "#/types/Trigger"}
+        description: Exactly one ``includeArea``.
+      presets:
+        type: array
+        items: {type: integer}
+        description: "Since 1.1. Mechanical PTZ cameras only (an error on other cameras). At most one preset index (``PTZ.Preset.P0.Position.P<index>``), -1 for any preset, -2 for anywhere. Empty or omitted: always active."
+      perspective:
+        type: array
+        items: {$ref: "#/types/PerspectiveBar"}
+        description: Perspective bars; needed for the ``sizePerspective`` filter. Default empty.
+
+  Configuration:
+    type: object
+    description: The complete application configuration. The same shape is read and written.
+    required: [cameras, profiles]
+    x-read-only: [configurationStatus]
+    properties:
+      cameras:
+        type: array
+        items: {$ref: "#/types/Camera"}
+      profiles:
+        type: array
+        items: {$ref: "#/types/Profile"}
+        description: To remove a profile, leave it out of the array.
+      configurationStatus: {type: integer, minimum: 0, description: "Ignored by ``set_configuration``. 0 is the default configuration; increased by one on every set and reset to 1 after ``INT_MAX``."}
+
+  AlarmOverlayCamera:
+    type: object
+    properties:
+      id: {type: integer, description: "Same as ``cameras[].id`` in the configuration."}
+      availableResolutions:
+        type: array
+        items: {type: string}
+        description: "Resolutions (``<width>x<height>``) that support alarm overlay for the camera."
+
+  AlarmOverlayCapabilities:
+    type: object
+    description: Since 1.3.
+    properties:
+      isSupported: {type: boolean}
+      maxNbrActiveCameras: {type: integer, description: "Cameras of a multichannel device that can use the feature at once; 0 if not supported."}
+      cameras:
+        type: array
+        items: {$ref: "#/types/AlarmOverlayCamera"}
+
+  FilterCapability:
+    type: object
+    description: Bounds of one filter type. The type of ``min``, ``max`` and ``default`` depends on the filter (``[w, h]`` percent, an integer, or ``[x, y]``).
+    properties:
+      type: {enum: [sizePercentage, timeShortLivedLimit, distanceSwayingObject, excludeArea]}
+      min: {}
+      max: {}
+      default: {}
+      defaultActive: {type: boolean}
+      minNbrVertices: {type: integer}
+      maxNbrVertices: {type: integer}
+      minNbrInstances: {type: integer}
+      maxNbrInstances: {type: integer}
+      defaultInstance:
+        type: array
+        items: {$ref: "#/types/Point"}
+
+  TriggerCapability:
+    type: object
+    properties:
+      type: {const: includeArea}
+      min:
+        type: array
+        items: {type: number}
+        description: "``[x, y]`` minimum position."
+      max:
+        type: array
+        items: {type: number}
+        description: "``[x, y]`` maximum position."
+      minNbrVertices: {type: integer}
+      maxNbrVertices: {type: integer}
+      minNbrInstances: {type: integer}
+      maxNbrInstances: {type: integer}
+      defaultInstance:
+        type: array
+        items: {$ref: "#/types/Point"}
+
+  ProfileCapabilities:
+    type: object
+    properties:
+      minNbrProfilesPerCamera: {type: integer}
+      maxNbrProfilesPerCamera: {type: integer}
+      minLengthName: {type: integer}
+      maxLengthName: {type: integer}
+
+  PresetCapabilities:
+    type: object
+    description: Mechanical PTZ cameras only.
+    properties:
+      maxNbrPresetsPerProfile: {type: integer}
+      defaultPreset: {type: integer}
+
+  ConfigurationCapabilities:
+    type: object
+    description: Boundaries and default values. Constant for a given camera.
+    properties:
+      alarmOverlay: {$ref: "#/types/AlarmOverlayCapabilities"}
+      filters:
+        type: array
+        items: {$ref: "#/types/FilterCapability"}
+      triggers:
+        type: array
+        items: {$ref: "#/types/TriggerCapability"}
+      profiles: {$ref: "#/types/ProfileCapabilities"}
+      presets: {$ref: "#/types/PresetCapabilities"}
+
+  SendAlarmEventRequest:
+    type: object
+    required: [profile]
+    properties:
+      profile: {type: integer, description: "The ``uid`` of the profile that sends the event. A profile with this uid must exist."}
+
+operations:
+  get_configuration:
+    summary: Get the current configuration of the ACAP.
+    effect: read
+    binding: {method: getConfiguration}
+    result: {$ref: "#/types/Configuration"}
+    examples:
+      - title: Get the configuration
+        request: {params: {}}
+        response:
+          data:
+            cameras: [{active: true, id: 1, rotation: 0, overlayResolution: 1280x720}]
+            profiles:
+              - name: Profile 1
+                uid: 1
+                camera: 1
+                alarmOverlayEnabled: true
+                filters:
+                  - {type: sizePercentage, data: [5, 5], active: false}
+                  - {type: distanceSwayingObject, data: 5, active: true}
+                  - {type: excludeArea, data: [[-0.9, -0.9], [-0.5, -0.9], [-0.5, -0.5], [-0.9, -0.5]]}
+                triggers:
+                  - type: includeArea
+                    data: [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]
+                perspective: []
+            configurationStatus: 1
+        source: https://developer.axis.com/vapix/applications/motion-guard/#getconfiguration
+      - title: Unsupported product
+        request: {params: {}}
+        response: {error: {code: 8000, message: Unsupported Product}}
+        source: https://developer.axis.com/vapix/applications/motion-guard/#getconfiguration
+    errors:
+      1000: {description: Application error. The application failed to return a configuration., kind: internal}
+
+  set_configuration:
+    summary: Replace the complete configuration of the ACAP.
+    description: >-
+      Uploads a complete configuration; a profile that is left out is removed. The application is not restarted,
+      but ongoing events are set inactive when the configuration is applied, which stops ongoing recordings
+      (for all cameras on multichannel products). If there is still motion in the include area and no exclusion
+      filter hinders the alarm, the event becomes active directly after the configuration is applied. Clients using apiVersion 1.2 or lower leave the alarm
+      overlay settings unchanged. The POST size is limited, so the request is sent minified.
+    effect: write
+    write: replace
+    binding: {method: setConfiguration}
+    params: {$ref: "#/types/Configuration"}
+    round_trip:
+      from: Configuration
+    since_fields:
+      params.cameras.overlayResolution: "1.3"
+      params.profiles.alarmOverlayEnabled: "1.3"
+      params.profiles.presets: "1.1"
+    examples:
+      - title: Enable alarm overlay for a profile
+        request:
+          params:
+            cameras: [{active: true, id: 1, rotation: 0, overlayResolution: 1280x720}]
+            profiles:
+              - name: Profile 1
+                uid: 1
+                camera: 1
+                alarmOverlayEnabled: true
+                filters:
+                  - {type: sizePercentage, data: [5, 5], active: true}
+                triggers:
+                  - type: includeArea
+                    data: [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/applications/motion-guard/#setconfiguration
+      - title: Invalid license
+        request:
+          params:
+            cameras: [{active: true, id: 1, rotation: 0}]
+            profiles: []
+        response: {error: {code: 9000, message: Invalid License}}
+        source: https://developer.axis.com/vapix/applications/motion-guard/#setconfiguration
+
+  get_configuration_capabilities:
+    summary: Get the boundaries and default values of the ACAP.
+    effect: read
+    binding: {method: getConfigurationCapabilities}
+    result: {$ref: "#/types/ConfigurationCapabilities"}
+    examples:
+      - title: Get the configuration capabilities
+        request: {params: {}}
+        response:
+          data:
+            filters:
+              - {type: sizePercentage, min: [3, 3], max: [100, 100], default: [5, 5], defaultActive: true}
+              - {type: timeShortLivedLimit, min: 1, max: 5, default: 1, defaultActive: true}
+              - {type: distanceSwayingObject, min: 3, max: 20, default: 5, defaultActive: true}
+            triggers:
+              - type: includeArea
+                min: [-1, -1]
+                max: [1, 1]
+                minNbrVertices: 3
+                maxNbrVertices: 10
+                minNbrInstances: 1
+                maxNbrInstances: 1
+                defaultInstance: [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]
+            profiles: {minNbrProfilesPerCamera: 1, maxNbrProfilesPerCamera: 10, minLengthName: 1, maxLengthName: 15}
+        source: https://developer.axis.com/vapix/applications/motion-guard/#getconfigurationcapabilities
+
+  send_alarm_event:
+    summary: Send a stateful alarm event for a profile, to test VMS integrations.
+    description: >-
+      Sends a stateful alarm event, in Axis and ONVIF format, for the profile. The event is active for a few seconds
+      and the response returns immediately. VMS installers use it to check that the VMS configuration is correct. The profile sends events regardless of its current state; on PTZ
+      products a profile connected to another preset also sends them.
+    access: operator
+    effect: action
+    binding: {method: sendAlarmEvent}
+    errors:
+      2002: {description: "Incoherent format. The request cannot be handled, for example the profile does not exist or is on an inactive camera.", kind: not_found}
+    params: {$ref: "#/types/SendAlarmEventRequest"}
+    positional: [profile]
+    examples:
+      - title: Send an alarm event for profile 1
+        request: {params: {profile: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/applications/motion-guard/#sendalarmevent
+
+sources:
+- url: https://developer.axis.com/vapix/applications/motion-guard/
+  sha256_md: 3b7ba4859361e2730007dc72727ba43025da64778825f5018317f1d9f0d7a8a6
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+    - "The documented examples contain placeholders (r, w, h, t, resolution) and are not valid JSON; the examples here use concrete values that follow the field tables."
+    - "The ACAP Name reported by applications/list.cgi is not documented (the docs only say to use list.cgi; the example for the related VMD 3 shows name=\"VMD3\"). The acap discovery name MotionGuard is inferred from the application's /local/motionguard/control.cgi path; verify on a device. The docs' additional identification by Properties.EmbeddedDevelopment.Version is not used."
+    - "The visual feedback example uses 'overlayRotation' instead of overlayResolution, and the text 'OverlayResolution' with a capital O; the table name overlayResolution is used."
+    - "Capabilities example uses maxNbrPresets while the table says maxNbrPresetsPerProfile; the table name is used. The table also misspells defaultActive as 'defautActive' for timeShortLivedLimit."
+    - "alarmOverlayEnabled is typed int in the table but documented as true/false; modelled as boolean."
+    - "configurationStatus valid values are listed as MAX_INT only; modelled as a non-negative integer."
+    - "Which fields the device always returns is not stated beyond 'all properties are mandatory unless otherwise specified'; only cameras, profiles, camera id and profile uid/camera are required."
+    - "The docs say a profile has exactly one include area, 'but this can change in the future'."
+    - "The docs describe an event stream over RTSP; that is not a JSON-RPC method and is not modelled."
+  migrated_from: v1
+  curated: true

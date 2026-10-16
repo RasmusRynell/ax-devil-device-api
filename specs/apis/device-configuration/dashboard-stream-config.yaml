@@ -1,0 +1,90 @@
+format: 2
+id: dashboard-stream-config
+name: Dashboard stream API
+summary: Configure the air quality dashboard stream, its display language and dark mode.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: dashboard_stream
+  class: DashboardStream
+docs:
+  - https://developer.axis.com/vapix/device-configuration/environmental-sensor/dashboard-stream-api/
+access: viewer
+discovery:
+  - dca: {api: dashboard-stream, version: v1}
+binding:
+  root: /config/rest/dashboard-stream/v1
+
+types:
+  Language:
+    type: string
+    enum: [cs, de, en, es, fr, it, nl, pl, pt, fi, sv, vi, tr, ru, th, ko, zh, zh-TW, ja]
+    description: The display language of the dashboard stream.
+  DashboardStream:
+    type: object
+    description: The whole API tree.
+    properties:
+      darkmode: {type: boolean, description: Enable or disable dark mode.}
+      language: {$ref: "#/types/Language", description: Language display in dashboard stream.}
+
+operations:
+  get_all:
+    summary: Dark mode and language of the dashboard stream.
+    effect: read
+    binding: {method: GET, path: ""}
+    result: {$ref: "#/types/DashboardStream"}
+    examples:
+      - title: Get root entity
+        request: {path: ""}
+        response:
+          status: 200
+          body:
+            status: success
+            data: {darkmode: true, language: en}
+        source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/dashboard-stream-api/
+
+  get_darkmode:
+    summary: Whether dark mode is enabled.
+    effect: read
+    binding: {method: GET, path: /darkmode}
+    result: {type: boolean}
+
+  set_darkmode:
+    summary: Enable or disable dark mode.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /darkmode, body_field: darkmode, body: value}
+    params:
+      type: object
+      required: [darkmode]
+      properties:
+        darkmode: {type: boolean, description: Enable or disable dark mode.}
+
+  get_language:
+    summary: The display language of the dashboard stream.
+    effect: read
+    binding: {method: GET, path: /language}
+    result: {$ref: "#/types/Language"}
+
+  set_language:
+    summary: Set the display language of the dashboard stream.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /language, body_field: language, body: value}
+    params:
+      type: object
+      required: [language]
+      properties:
+        language: {$ref: "#/types/Language", description: Language display in dashboard stream.}
+
+sources:
+  - url: https://developer.axis.com/vapix/device-configuration/environmental-sensor/dashboard-stream-api/
+    sha256_md: b908b58d571aedcf47836d5fb6df3d48d79e470bf9f5c8f42445573d9c1fe73e
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  migrated_from: v1
+  curated: true

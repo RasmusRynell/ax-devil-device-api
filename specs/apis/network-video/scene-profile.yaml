@@ -1,0 +1,96 @@
+format: 2
+id: scene-profile
+name: Scene profile API
+summary: Switch between predefined sets of image settings (scene profiles) through the ImageSource.I#.SceneProfile parameter.
+section: network-video
+family: cgi
+status: released
+python:
+  module: scene_profile
+  class: SceneProfile
+docs:
+- https://developer.axis.com/vapix/network-video/video-streaming/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '6.25'
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  list_scene_profiles:
+    summary: List the supported scene profile values and their display names.
+    description: >-
+      The reply is the XML schema definition of the parameter, whose ``<entry value="..." niceValue="..."/>`` elements
+      list the supported profiles. Valid profiles are product dependent. ``image_source`` is the index n of
+      ``ImageSource.I<n>.SceneProfile``; it fills the fixed ``group`` argument.
+    effect: read
+    binding:
+      method: GET
+      query: {action: listdefinitions, listformat: xmlschema, group: 'ImageSource.I{image_source}.SceneProfile'}
+      reply: xml
+    params:
+      type: object
+      required: [image_source]
+      properties:
+        image_source: {type: integer, minimum: 0, description: 'Image source index n of ImageSource.I<n>.SceneProfile, 0 for the first.'}
+        responseformat: {type: string, description: 'The example uses rfc.'}
+        responsecharset: {type: string, description: 'The example uses utrf (sic).'}
+    positional: [image_source]
+    result: {x-xml: true}
+    examples:
+    - title: List the supported scene profiles
+      request:
+        query: {responseformat: rfc, responsecharset: utrf, group: ImageSource.I0.SceneProfile}
+      response:
+        status: 200
+        text: |-
+          <entry value="forensic" niceValue="Forensic" />
+          <entry value="vivid" niceValue="Vivid" />
+          <entry value="traffic_overview" niceValue="Traffic Overview" />
+          <entry value="license_plate" niceValue="License Plate" />
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#list-supported-scene-profiles
+  set_scene_profile:
+    summary: Change the scene profile of an image source.
+    description: >-
+      Sets ImageSource.I<n>.SceneProfile; the value is one of forensic, vivid,
+      traffic_overview, indoor, outdoor or license_plate (product dependent). The device answers 200 OK and changes
+      nothing when the value is invalid. All streams are affected. The obsolete profile0, profile1 and profile2 are
+      replaced by forensic, vivid and traffic_overview.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [image_source, 'ImageSource.I{image_source}.SceneProfile']
+      properties:
+        image_source: {type: integer, minimum: 0, description: 'Image source index n of ImageSource.I<n>.SceneProfile, 0 for the first.'}
+        'ImageSource.I{image_source}.SceneProfile':
+          type: string
+          x-python-name: profile
+          description: 'Scene profile: forensic, vivid, traffic_overview, indoor, outdoor or license_plate (product dependent; the obsolete profile0, profile1 and profile2 are replaced by forensic, vivid and traffic_overview).'
+    positional: [image_source, profile]
+    examples:
+    - title: Switch to the Vivid scene profile
+      request: {query: {ImageSource.I0.SceneProfile: vivid}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#change-scene-profiles
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-streaming/
+  sha256_md: c5a6a629959b129e10f70c9855786d7282b383fadd6c44254103acc40c4a5a30
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The documented list reply is a fragment of entry elements without an enclosing document, so the result stays the raw XML element until the full reply is known.
+  - responsecharset=utrf in the example is likely a typo for utf8.
+  - The body of the update reply is not shown (only HTTP 200); param.cgi answers OK, so the reply is read as OK.
+  - The discovery property ImageSource.I#.SceneProfile is not a Name=value probe and is not used for discovery.
+  migrated_from: v1
+  curated: true

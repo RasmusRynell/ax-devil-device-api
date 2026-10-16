@@ -1,0 +1,1894 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ax-devil.local/specs/schema.json",
+  "title": "VAPIX API spec, format 2",
+  "type": "object",
+  "required": [
+    "format",
+    "id",
+    "name",
+    "section",
+    "family",
+    "python",
+    "operations"
+  ],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {}
+  },
+  "properties": {
+    "format": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "section": {
+      "type": "string"
+    },
+    "family": {
+      "enum": [
+        "jsonrpc",
+        "dca",
+        "cgi",
+        "service_json",
+        "soap",
+        "rest",
+        "ws",
+        "rtsp"
+      ]
+    },
+    "status": {
+      "enum": [
+        "released",
+        "beta",
+        "alpha",
+        "deprecated"
+      ]
+    },
+    "python": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "class": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]*$"
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      },
+      "required": [
+        "module",
+        "class"
+      ]
+    },
+    "docs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "access": {
+      "enum": [
+        "anonymous",
+        "viewer",
+        "operator",
+        "admin",
+        "unknown"
+      ]
+    },
+    "discovery": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "api_discovery": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "api_discovery"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "dca": {
+                "type": "object",
+                "properties": {
+                  "api": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "patternProperties": {
+                  "^x-": {}
+                },
+                "required": [
+                  "api",
+                  "version"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "dca"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "param": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "compare": {
+                    "enum": [
+                      "==",
+                      ">="
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "patternProperties": {
+                  "^x-": {}
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "param"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "acap": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "patternProperties": {
+                  "^x-": {}
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "acap"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "service": {
+                "type": "object",
+                "properties": {
+                  "namespace": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "patternProperties": {
+                  "^x-": {}
+                },
+                "required": [
+                  "namespace"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "service"
+            ]
+          }
+        ]
+      }
+    },
+    "requires": {
+      "type": "object",
+      "properties": {
+        "firmware": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "application": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      }
+    },
+    "binding": {
+      "type": "object"
+    },
+    "errors": {
+      "$ref": "#/$defs/errors"
+    },
+    "types": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/schema"
+      },
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      }
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/operation"
+      },
+      "propertyNames": {
+        "pattern": "^[a-z_][a-z0-9_]*$"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "sha256_md": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "stub"
+          ]
+        },
+        "open_questions": {
+          "type": "array"
+        },
+        "migrated_from": {
+          "type": "string"
+        },
+        "curated": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "jsonrpc"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              },
+              "major": {
+                "type": "integer"
+              },
+              "versions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^\\d+\\.\\d+$"
+                }
+              },
+              "negotiation": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "none",
+                      null
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "get_supported_versions": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "auth": {
+                            "enum": [
+                              "required",
+                              "anonymous",
+                              "if_challenged"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false,
+                        "patternProperties": {
+                          "^x-": {}
+                        }
+                      }
+                    },
+                    "additionalProperties": false,
+                    "patternProperties": {
+                      "^x-": {}
+                    },
+                    "required": [
+                      "get_supported_versions"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "fixed": {
+                        "type": "string",
+                        "pattern": "^\\d+\\.\\d+$"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "patternProperties": {
+                      "^x-": {}
+                    },
+                    "required": [
+                      "fixed"
+                    ]
+                  }
+                ]
+              },
+              "params_placement": {
+                "enum": [
+                  "params",
+                  "top_level"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "path",
+              "major"
+            ]
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "method": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "multipart": {
+                      "type": "object",
+                      "properties": {
+                        "json_part": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "patternProperties": {
+                        "^x-": {}
+                      }
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "method"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "dca"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "root": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "root"
+            ]
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "method": {
+                      "enum": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "enum": [
+                        "none",
+                        "object",
+                        "value"
+                      ]
+                    },
+                    "body_field": {
+                      "type": "string"
+                    },
+                    "key_styles": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "enum": [
+                          "segment",
+                          "dots_to_slashes",
+                          "path"
+                        ]
+                      }
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "method"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "cgi"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "path"
+            ]
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "method": {
+                      "enum": [
+                        "GET",
+                        "POST"
+                      ]
+                    },
+                    "query": {
+                      "type": "object"
+                    },
+                    "encoding": {
+                      "enum": [
+                        "query",
+                        "form",
+                        "multipart",
+                        "body"
+                      ]
+                    },
+                    "accept": {
+                      "type": "string"
+                    },
+                    "reply": {
+                      "$ref": "#/$defs/reply"
+                    },
+                    "stream": {
+                      "type": "boolean"
+                    },
+                    "content_type": {
+                      "type": "string"
+                    },
+                    "url_query": {
+                      "type": "object"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "service_json"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "path"
+            ]
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "operation": {
+                      "type": "string"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "operation"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "soap"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              },
+              "namespace": {
+                "type": "string"
+              },
+              "namespaces": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            }
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "element": {
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    },
+                    "namespaces": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "action",
+                        "element"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "rest"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "root": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            },
+            "required": [
+              "root"
+            ]
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "method": {
+                      "enum": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "enum": [
+                        "none",
+                        "object",
+                        "value"
+                      ]
+                    },
+                    "body_field": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "anyOf": [
+                    {
+                      "required": [
+                        "method"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "rtsp"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "session"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "ws"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            }
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "required": [
+                    "session"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "rtsp"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "binding": {
+            "type": "object",
+            "properties": {
+              "auth": {
+                "enum": [
+                  "required",
+                  "anonymous",
+                  "if_challenged"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x-": {}
+            }
+          },
+          "operations": {
+            "additionalProperties": {
+              "properties": {
+                "binding": {
+                  "type": "object",
+                  "properties": {
+                    "auth": {
+                      "enum": [
+                        "required",
+                        "anonymous",
+                        "if_challenged"
+                      ]
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "rtsp": {
+                      "$ref": "#/$defs/rtsp_binding"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  },
+                  "required": [
+                    "rtsp"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "errors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "not": {
+              "pattern": ",\\s*kind:\\s*[a-z_]+\\s*$"
+            }
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message_prefix": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "access_denied",
+              "unavailable",
+              "invalid_argument",
+              "not_found",
+              "unsupported",
+              "internal"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "patternProperties": {
+          "^x-": {}
+        },
+        "required": [
+          "description"
+        ]
+      }
+    },
+    "reply": {
+      "oneOf": [
+        {
+          "enum": [
+            "text_ok",
+            "text",
+            "xml",
+            "binary",
+            "json",
+            "text_kv",
+            "text_lines",
+            "stream"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text_kv": {
+              "type": "object",
+              "properties": {
+                "strip_prefix": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "patternProperties": {
+                "^x-": {}
+              }
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "text_kv"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "xml": {
+              "type": "object",
+              "properties": {
+                "error_elements": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "status_error": {
+                  "type": "object",
+                  "properties": {
+                    "attribute": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "code": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^x-": {}
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "patternProperties": {
+                "^x-": {}
+              }
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "xml"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "binary": {
+              "type": "object",
+              "properties": {
+                "media_types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "signatures": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]*$"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "patternProperties": {
+                "^x-": {}
+              }
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "binary"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text_ok": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "text_ok"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "json": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "json"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text_lines": {
+              "type": "object",
+              "properties": {
+                "skip": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false,
+              "patternProperties": {
+                "^x-": {}
+              }
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "text_lines"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stream": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "decoder": {
+                  "enum": [
+                    "bytes",
+                    "mjpeg",
+                    "lines"
+                  ]
+                },
+                "encoding": {
+                  "type": "string"
+                },
+                "media_types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "patternProperties": {
+                "^x-": {}
+              }
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "stream"
+          ]
+        }
+      ]
+    },
+    "schema": {
+      "type": [
+        "object",
+        "boolean"
+      ],
+      "properties": {
+        "$ref": {
+          "type": "string",
+          "pattern": "^#/types/[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "oneOf": [
+            {
+              "enum": [
+                "string",
+                "integer",
+                "number",
+                "boolean",
+                "null",
+                "array",
+                "object"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "string",
+                  "integer",
+                  "number",
+                  "boolean",
+                  "null",
+                  "array",
+                  "object"
+                ]
+              }
+            }
+          ]
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/schema"
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "$ref": "#/$defs/schema"
+        },
+        "additionalProperties": {
+          "$ref": "#/$defs/schema"
+        },
+        "enum": {
+          "type": "array"
+        },
+        "oneOf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/schema"
+          }
+        },
+        "anyOf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/schema"
+          }
+        },
+        "allOf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/schema"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "x-nullable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "x-masked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "x-read-only": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "x-python-name": {
+          "type": "string"
+        },
+        "x-name": {
+          "type": "string"
+        },
+        "x-arg-name": {
+          "type": "string"
+        },
+        "x-arg-optional": {
+          "type": "boolean"
+        },
+        "x-style": {
+          "enum": [
+            "plain",
+            "csv",
+            "axis_bool",
+            "spread",
+            "flag"
+          ]
+        },
+        "x-xml": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "text"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "child": {
+                  "type": "string"
+                },
+                "attribute": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "title": {},
+        "examples": {},
+        "example": {},
+        "deprecated": {},
+        "uniqueItems": {},
+        "minProperties": {},
+        "maxProperties": {},
+        "format": {},
+        "default": {},
+        "const": {},
+        "minimum": {},
+        "maximum": {},
+        "exclusiveMinimum": {},
+        "exclusiveMaximum": {},
+        "multipleOf": {},
+        "minLength": {},
+        "maxLength": {},
+        "minItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "since": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "pattern": {},
+        "readOnly": {},
+        "writeOnly": {},
+        "x-in": {
+          "enum": [
+            "query",
+            "form",
+            "body",
+            "content_type"
+          ]
+        },
+        "x-upload": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "part": {
+                  "type": "string"
+                },
+                "filename": {
+                  "type": "string"
+                },
+                "content_type": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "access": {
+          "enum": [
+            "anonymous",
+            "viewer",
+            "operator",
+            "admin",
+            "unknown"
+          ]
+        },
+        "effect": {
+          "enum": [
+            "read",
+            "write",
+            "action",
+            "unknown"
+          ]
+        },
+        "write": {
+          "enum": [
+            "replace",
+            "patch",
+            "create",
+            "delete"
+          ]
+        },
+        "since": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "binding": {
+          "type": "object"
+        },
+        "params": {
+          "$ref": "#/$defs/schema"
+        },
+        "positional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "result": {
+          "$ref": "#/$defs/schema"
+        },
+        "round_trip": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string"
+            },
+            "set": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "required": [
+            "from"
+          ]
+        },
+        "since_fields": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+$"
+          }
+        },
+        "errors": {
+          "$ref": "#/$defs/errors"
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x-contract": {
+                "type": "object",
+                "properties": {
+                  "template": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "support": {
+          "enum": [
+            "docs-only",
+            "verified",
+            "known-broken"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      },
+      "required": [
+        "summary"
+      ]
+    },
+    "session_binding": {
+      "type": "object",
+      "description": "A WebSocket session (generated `connect` context manager).",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean"
+            ]
+          }
+        },
+        "codec": {
+          "enum": [
+            "events",
+            "datahub",
+            "raw"
+          ]
+        },
+        "setup": {
+          "enum": [
+            "events",
+            "datahub",
+            "none"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "rtsp_binding": {
+      "type": "object",
+      "description": "An RTSP URL builder (no request is made).",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      }
+    }
+  }
+}

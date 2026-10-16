@@ -1,0 +1,86 @@
+format: 2
+id: axis-audio-manager-pro-ws
+name: AXIS Audio Manager Pro WebSocket audio
+summary: Send and receive binary audio of an Audio Manager Pro audio session over a WebSocket.
+section: audio-systems
+family: ws
+status: released
+python:
+  module: axis_audio_manager_pro_ws
+  class: AxisAudioManagerProWs
+docs:
+- https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+access: admin
+requires:
+  application: AXIS Audio Manager Pro (server software)
+
+binding: {}
+
+operations:
+  receive_audio:
+    summary: Open a WebSocket that receives binary audio from a WS audio session.
+    description: Audio is only transmitted over this connection if a duplex device is configured within the audio session.
+      The frames are binary audio; the session passes them through unchanged (`bytes`). The audio session is a WS audio
+      session created with the audio sessions REST API.
+    effect: read
+    binding:
+      session: {path: '/api/v1.2/audioSessions/{audioSessionId}/ws/recv'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string, description: The ID of the WebSocket audio session.}
+    examples:
+    - title: Receive audio from a session
+      request: {params: {audioSessionId: abc}, path: /api/v1.2/audioSessions/abc/ws/recv}
+      source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#establish-websocket-connection-to-receive-audio-data
+  send_audio:
+    summary: Open a WebSocket that sends binary audio to a WS audio session.
+    description: The audio stream must be sent in binary format (binary frames).
+    effect: action
+    binding:
+      session: {path: '/api/v1.2/audioSessions/{audioSessionId}/ws/send'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string, description: The ID of the WebSocket audio session.}
+    examples:
+    - title: Send audio to a session
+      request: {params: {audioSessionId: abc}, path: /api/v1.2/audioSessions/abc/ws/send}
+      source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#establish-websocket-connection-to-send-audio-data
+  send_receive_audio:
+    summary: Open a bidirectional WebSocket that sends and receives binary audio of a WS audio session.
+    description: Audio in both directions is binary frames.
+    effect: action
+    binding:
+      session: {path: '/api/v1.2/audioSessions/{audioSessionId}/ws/sendrecv'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string, description: The ID of the WebSocket audio session.}
+    examples:
+    - title: Send and receive audio of a session
+      request: {params: {audioSessionId: abc}, path: /api/v1.2/audioSessions/abc/ws/sendrecv}
+      source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#establish-a-bidirectional-websocket-connection-to-send-audio-data
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+  sha256_md: 89322d1075108ff822e8902b659d7862b1a178df9f5ea217077686d8978d0a81
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'BLOCKED(stomp-codec): notifications: the real-time notifications WebSocket (wss://<servername>/api/v1.2/notifications,
+    topics /topic/audiofiles, /topic/audioSessions, /topic/targets, /topic/volumeControllers, /topic/pagingConfigurations)
+    speaks STOMP 1.0/1.1/1.2; the session runtime has no STOMP codec, and the payload formats are not documented.'
+  - 'BLOCKED(binary-audio-format): the audio frame format (codec, sample rate) of the ws/recv, ws/send and ws/sendrecv
+    connections is not documented here (see the "How To AXIS Audio Manager Pro API" document), so the session carries
+    raw bytes only; the examples check the handshake path, not any audio.'
+  - 'The server is not a device: Digest over HTTPS only, with the account set in the Audio Manager Pro System settings;
+    the access level above is a placeholder.'
+  - Audio sessions themselves (create, list, delete, play) are the REST audio sessions API, not part of this spec.
+  migrated_from: v1
+  curated: true

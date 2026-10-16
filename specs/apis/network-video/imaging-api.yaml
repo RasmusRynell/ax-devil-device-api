@@ -1,0 +1,82 @@
+format: 2
+id: imaging-api
+name: Imaging API
+summary: '``param.cgi`` parameters for CCD/CMOS image sources (``ImageSource.I#.Sensor``, ``ImageSource.I#``, ``ImageSource.I#.Appearance``).'
+section: network-video
+family: cgi
+status: released
+python:
+  module: imaging
+  class: Imaging
+docs:
+  - https://developer.axis.com/vapix/network-video/imaging-api/
+access: operator
+requires:
+  firmware: "5.00"
+binding:
+  path: /axis-cgi/param.cgi
+
+operations:
+  list_parameters:
+    summary: 'Image source parameters as ``{"ImageSource.I0.Sensor.Brightness": "50"}`` (``root.`` removed).'
+    description: >-
+      Groups: ``ImageSource.I0.Sensor`` (BacklightCompensation, Brightness, ColorLevel, Contrast, Exposure,
+      ExposureWindow, MaxGain, Sharpness, WDR, WhiteBalance, Stabilizer, Defog, SensorProtector, ...),
+      ``ImageSource.I0`` (AutoRotation, CameraTiltOrientation, ShockTriggeredLensCalibration) and
+      ``ImageSource.I0.Appearance`` (AutoRotationEnabled). The sensor group is product dependent and only
+      available in network cameras, so check which parameters the device has and their valid values first.
+      Modular cameras extend the sensor group to other channels.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: array
+          items: {type: string}
+          minItems: 1
+          x-style: csv
+          description: Groups to list, e.g. ``ImageSource.I0.Sensor``.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+
+  update_parameters:
+    summary: 'Set image source parameters, e.g. ``{"ImageSource.I0.Sensor.Brightness": "60"}``.'
+    description: >-
+      Only the given parameters change. Operators can read and write the sensor parameters; the stabilizer
+      parameters are readable by viewers, and operators can only read ``ShockTriggeredLensCalibration``.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/imaging-api/
+    sha256_md: 30f035c4923733c322cf213eda3ce5134cda13c75d6178cd74c2a1399c6139c1
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  open_questions:
+    - The identification says "AXIS OS: 5.00 or higer" (typo for higher), and its property ImageSource.I0.Sensor.parameters is not a concrete parameter, so no discovery entry is given.
+    - Exposure valid values are listed as "auto flickerfree50, flickerfree60, hold" (mixed separators).
+    - The ExposurePriority description is ambiguous; the values 0, 50 and 100 are documented.
+    - StabilizerMargin 0...9999 is read as 1/100 degree (50 means 0.5 degrees); the unit is not stated explicitly.
+    - The error codes section only says errors come as HTML text with 200 OK; no codes are listed.
+    - Defaults of AutoRotation and CameraTiltOrientation are not documented.
+    - The parameter names carry the image source index, so values are passed and returned as maps instead of typed models.
+  migrated_from: v1
+  curated: true

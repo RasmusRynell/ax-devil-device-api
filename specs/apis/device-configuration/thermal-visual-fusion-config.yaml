@@ -1,0 +1,152 @@
+format: 2
+id: thermal-visual-fusion-config
+name: Thermal visual fusion configuration
+summary: Control the thermal visual fusion view - base source, overlay transparency and alignment.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: thermal_visual_fusion
+  class: ThermalVisualFusion
+docs:
+- https://developer.axis.com/vapix/device-configuration/thermal-visual-fusion-configuration-api/
+access: admin
+discovery:
+- dca: {api: thermal-visual-fusion, version: v1}
+
+binding: {root: /config/rest/thermal-visual-fusion/v1beta}
+
+types:
+  AbsCoordinate:
+    type: number
+    minimum: -1
+    maximum: 1
+    description: The coordinate used in absolute coordinates system. (-1.0, -1.0) is bottom left corner and (1.0,
+      1.0) is top right corner of the stream. (0.0, 0.0) is center of the stream.
+  Alignment:
+    type: object
+    description: Distance between the center of the thermal stream and the center of visual stream. Any part of
+      the overlaid stream that is outside the base stream will be cropped out. Use the `[-1..1]` coordinate system.
+    properties:
+      x: {$ref: '#/types/AbsCoordinate', description: x-axis part of the alignment.}
+      y: {$ref: '#/types/AbsCoordinate', description: y-axis part of the alignment.}
+  FusionModeEnum:
+    type: string
+    enum: [VISUAL, THERMAL]
+    description: The base source for the fusion stream. Visual means that the fusion stream will use a visual stream
+      as the base and overlay thermal stream on top. For Thermal mode, it is the other way around.
+  FusionMoveEnum:
+    type: string
+    enum: [MOVE_LEFT, MOVE_RIGHT, MOVE_UP, MOVE_DOWN]
+    description: What movement to apply to the alignment in fusion.
+  Transparency:
+    type: number
+    minimum: 0
+    maximum: 1
+    description: Transparency value of the overlaid stream. 0.0 means that the stream is fully transparent and 1.0
+      means fully opaque.
+  ThermalVisualFusion:
+    type: object
+    description: The whole API tree.
+    properties:
+      alignment: {$ref: '#/types/Alignment', description: Alignment of the overlaid stream.}
+      fusionMode: {$ref: '#/types/FusionModeEnum', description: The mode of the thermal visual fusion.}
+      transparency: {$ref: '#/types/Transparency', description: Transparency of the overlaid stream.}
+
+operations:
+  get_all:
+    summary: All data of the Thermal visual fusion configuration API.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/ThermalVisualFusion'}
+  get_alignment:
+    summary: Read the alignment of the overlaid stream.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /alignment}
+    result: {$ref: '#/types/Alignment'}
+  set_alignment:
+    summary: Set the alignment of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /alignment, body_field: alignment, body: value}
+    params:
+      type: object
+      required: [alignment]
+      properties:
+        alignment: {$ref: '#/types/Alignment', description: Alignment of the overlaid stream.}
+  get_fusion_mode:
+    summary: Read the fusion mode.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /fusionMode}
+    result: {$ref: '#/types/FusionModeEnum'}
+  set_fusion_mode:
+    summary: Set the fusion mode of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /fusionMode, body_field: fusionMode, body: value}
+    params:
+      type: object
+      required: [fusionMode]
+      properties:
+        fusionMode: {$ref: '#/types/FusionModeEnum', description: The mode of the thermal visual fusion.}
+    examples:
+    - title: Change fusion mode
+      request:
+        path: /fusionMode
+        body: {data: VISUAL}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/thermal-visual-fusion-configuration-api/
+  get_transparency:
+    summary: Read the transparency of the overlaid stream.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /transparency}
+    result: {$ref: '#/types/Transparency'}
+  set_transparency:
+    summary: Set the transparency of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /transparency, body_field: transparency, body: value}
+    params:
+      type: object
+      required: [transparency]
+      properties:
+        transparency: {$ref: '#/types/Transparency', description: Transparency of the overlaid stream.}
+    examples:
+    - title: Change transparency setting
+      request:
+        path: /transparency
+        body: {data: 0.5}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/thermal-visual-fusion-configuration-api/
+  reset_alignment:
+    summary: Reset the alignment to factory settings.
+    effect: action
+    binding: {method: POST, path: /resetAlignment, body: none}
+  update_alignment:
+    summary: Update alignment of the fusion stream.
+    effect: action
+    binding: {method: POST, path: /updateAlignment, body: object}
+    params:
+      type: object
+      properties:
+        fusionMoveAlignment: {$ref: '#/types/FusionMoveEnum', description: What movement to apply to alignment in
+            fusion.}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/thermal-visual-fusion-configuration-api/
+  sha256_md: d188fd06bffbbb670936790d5c529e58a5cf09a54fe49fb60e382b469f6446d1
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions: []
+  migrated_from: v1
+  curated: true

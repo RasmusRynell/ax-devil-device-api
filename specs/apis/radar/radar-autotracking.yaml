@@ -1,0 +1,510 @@
+format: 2
+id: radar-autotracking
+name: Radar autotracking
+summary: Configure the autotracking software of an Axis radar, which steers a PTZ camera to follow detected objects.
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: radar_autotracking
+  class: RadarAutotracking
+docs:
+- https://developer.axis.com/vapix/radar/radar-autotracking/
+access: operator
+discovery:
+- {api_discovery: radar-autotracking}
+- param: {name: Properties.Radar.Radar, value: 'yes'}
+requires:
+  firmware: '7.10'
+
+binding:
+  path: /axis-cgi/radar-autotracking.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  100:
+    description: UNSUPPORTED_API_VERSION. The requested API version is not supported by this implementation.
+    kind: unsupported
+  102:
+    description: JSON_KEY_NOT_FOUND_ERROR. A mandatory input parameter was not found in the input.
+    kind: invalid_argument
+  103:
+    description: JSON_INVALID_TYPE. The type of a provided JSON parameter was incorrect.
+    kind: invalid_argument
+  200:
+    description: JSON_INVALID_ERROR. The provided JSON input was invalid.
+    kind: invalid_argument
+  300: {description: "PARAM_INVALID_VALUE_ERROR. Invalid parameter value.", kind: invalid_argument}
+
+types:
+  ConnectionState:
+    enum: [disconnected, connecting, autotune, connected, connect_failed]
+
+  CameraConnection:
+    type: object
+    description: The PTZ camera the radar is connected to. The password is never returned.
+    required: [state]
+    properties:
+      ip: {type: string, description: IP address of the PTZ camera. Empty when disconnected.}
+      user: {type: string, description: User name used to log in to the PTZ camera.}
+      state: {$ref: "#/types/ConnectionState", description: State of the connection.}
+
+  RangedValue:
+    type: object
+    description: A current value with its allowed range. The unit depends on the operation.
+    required: [value]
+    properties:
+      value: {type: number, description: The current value.}
+      minValue: {type: number, description: The smallest allowed value.}
+      maxValue: {type: number, description: The largest allowed value.}
+
+  Flag:
+    type: object
+    required: [value]
+    properties:
+      value: {type: boolean, description: Whether the feature is enabled.}
+
+  ReturnToHomeTimeout:
+    type: object
+    required: [value]
+    properties:
+      value: {type: number, description: The timeout in seconds.}
+      minTimeout: {type: number, description: The minimum timeout in seconds.}
+      maxTimeout: {type: number, description: The maximum timeout in seconds.}
+
+  ObjectTypes:
+    type: object
+    description: Which object types the camera tracks.
+    required: [small, human, vehicle, unknown]
+    properties:
+      small: {type: boolean, description: Track small objects.}
+      human: {type: boolean, description: Track humans.}
+      vehicle: {type: boolean, description: Track vehicles.}
+      unknown: {type: boolean, description: Track unidentified objects.}
+
+  SetObjectTypesToTrackRequest:
+    type: object
+    description: Arguments of ``set_object_types_to_track``. All four object types are set at once.
+    required: [small, human, vehicle, unknown]
+    properties:
+      small: {type: boolean, description: Track small objects.}
+      human: {type: boolean, description: Track humans.}
+      vehicle: {type: boolean, description: Track vehicles.}
+      unknown: {type: boolean, description: Track unidentified objects.}
+
+  ObjectType:
+    enum: [small, human, vehicle, unknown]
+
+  ReturnToHomeTimeoutCapabilities:
+    type: object
+    properties:
+      minValue: {type: number}
+      maxValue: {type: number}
+
+  ObjectTypesCapabilities:
+    type: object
+    properties:
+      types: {type: array, items: {$ref: "#/types/ObjectType"}, description: The object types that can be tracked.}
+
+  Capabilities:
+    type: object
+    description: The capabilities of the API version in use.
+    properties:
+      returnToHomeEnabled: {type: object, description: Present if return to home is supported.}
+      returnToHomeTimeout: {$ref: "#/types/ReturnToHomeTimeoutCapabilities"}
+      objectTypesToTrack: {$ref: "#/types/ObjectTypesCapabilities"}
+
+  SetCameraConnectionRequest:
+    type: object
+    description: Arguments of ``set_camera_connection``. An empty ``ip`` disconnects from the camera.
+    required: [ip, user, pass]
+    x-masked: [pass]
+    properties:
+      ip: {type: string, description: The camera's IP address.}
+      user: {type: string, description: The username to log in to the camera.}
+      pass: {type: string, x-python-name: password, description: The password to log in to the camera.}
+
+operations:
+  get_camera_connection:
+    summary: Get the current camera connection and its state.
+    effect: read
+    binding: {method: getCameraConnection}
+    result: {$ref: "#/types/CameraConnection"}
+    examples:
+      - title: Get the camera connection
+        request: {params: {}}
+        response: {data: {ip: 192.168.0.91, user: operator, state: connected}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#camera-connection
+      - title: JSON input error
+        request: {params: {}}
+        response: {error: {code: 200, message: JSON input error}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#camera-connection
+
+  set_camera_connection:
+    summary: Set the camera connection of the radar and try to connect.
+    description: Information on the connection state is available from ``get_camera_connection``. An empty IP address disconnects.
+    effect: write
+    write: replace
+    binding: {method: setCameraConnection}
+    params: {$ref: "#/types/SetCameraConnectionRequest"}
+    examples:
+      - title: Set the camera connection
+        request: {params: {ip: 192.168.0.91, user: operator, pass: secret}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#camera-connection
+      - title: Invalid IP address
+        request: {params: {ip: 192.168.0.91, user: operator, pass: secret}}
+        response: {error: {code: 300, message: "Invalid value '192.168.0.91' for parameter 'ip'"}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#camera-connection
+
+  get_camera_mounting_height:
+    summary: Get the mounting height in meters and its allowed range.
+    effect: read
+    binding: {method: getCameraMountingHeight}
+    result: {$ref: "#/types/RangedValue"}
+    examples:
+      - title: Get the camera mounting height
+        request: {params: {}}
+        response: {data: {value: 5.1, minValue: 1.0, maxValue: 16.0}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-mounting-height
+
+  set_camera_mounting_height:
+    summary: Set the mounting height (see ``get_camera_mounting_height`` for allowed values).
+    effect: write
+    write: patch
+    binding: {method: setCameraMountingHeight}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: "The vertical mounting height of the camera, measured in meters."}
+    positional: [value]
+    examples:
+      - title: Set the camera mounting height
+        request: {params: {value: 5.1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-mounting-height
+      - title: Value out of range
+        request: {params: {value: 8.1}}
+        response: {error: {code: 300, message: "Invalid value '8.1000' for parameter 'value'"}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-mounting-height
+
+  get_camera_pan_offset:
+    summary: Get the camera pan offset in degrees and its allowed range.
+    effect: read
+    binding: {method: getCameraPanOffset}
+    result: {$ref: "#/types/RangedValue"}
+    examples:
+      - title: Get the camera pan offset
+        request: {params: {}}
+        response: {data: {value: 118.35, minValue: -360.0, maxValue: 360.0}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-pan-offset
+
+  set_camera_pan_offset:
+    summary: Set the camera pan offset (see ``get_camera_pan_offset`` for allowed values).
+    effect: write
+    write: patch
+    binding: {method: setCameraPanOffset}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: "The camera pan offset, measured in degrees."}
+    positional: [value]
+    examples:
+      - title: Set the camera pan offset
+        request: {params: {value: 118.35}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-pan-offset
+
+  save_camera_pan_offset:
+    summary: Read the current pan position from the connected camera and save it as the camera pan offset.
+    effect: action
+    binding: {method: saveCameraPanOffset}
+    errors:
+      301: {description: "INVALID_CONNECTION_ERROR. Invalid connection to the camera.", kind: unavailable}
+    examples:
+      - title: Save the pan offset
+        request: {params: {}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#save-camera-pan-offset
+      - title: No camera connected
+        request: {params: {}}
+        response: {error: {code: 301, message: No camera connected}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#save-camera-pan-offset
+
+  get_camera_tilt_offset:
+    summary: Get the camera tilt offset in degrees and its allowed range.
+    effect: read
+    binding: {method: getCameraTiltOffset}
+    result: {$ref: "#/types/RangedValue"}
+    examples:
+      - title: Get the camera tilt offset
+        request: {params: {}}
+        response: {data: {value: -2.7, minValue: -10.0, maxValue: 10.0}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-tilt-offset
+
+  set_camera_tilt_offset:
+    summary: Set the camera tilt offset (see ``get_camera_tilt_offset`` for allowed values).
+    effect: write
+    write: patch
+    binding: {method: setCameraTiltOffset}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: "The camera tilt offset, measured in degrees."}
+    positional: [value]
+    examples:
+      - title: Set the camera tilt offset
+        request: {params: {value: -1.2}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-tilt-offset
+
+  save_camera_tilt_offset:
+    summary: Read the current tilt position from the connected camera and save it as the camera tilt offset.
+    effect: action
+    binding: {method: saveCameraTiltOffset}
+    errors:
+      301: {description: "INVALID_CONNECTION_ERROR. Invalid connection to the camera.", kind: unavailable}
+    examples:
+      - title: Save the tilt offset
+        request: {params: {}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#save-camera-tilt-offset
+
+  get_camera_zoom_degree:
+    summary: Get the zoom degree in percent and its allowed range.
+    effect: read
+    binding: {method: getCameraZoomDegree}
+    result: {$ref: "#/types/RangedValue"}
+    examples:
+      - title: Get the camera zoom degree
+        request: {params: {}}
+        response: {data: {value: 50.0, minValue: 0.0, maxValue: 100.0}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-zoom-degree
+
+  set_camera_zoom_degree:
+    summary: Set the zoom degree (in percent) of the camera.
+    effect: write
+    write: patch
+    binding: {method: setCameraZoomDegree}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: "The camera zoom degree, measured in percent."}
+    positional: [value]
+    examples:
+      - title: Set the camera zoom degree
+        request: {params: {value: 50.0}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-camera-zoom-degree
+
+  get_tracking_enabled:
+    summary: Get whether tracking is enabled.
+    effect: read
+    binding: {method: getTrackingEnabled}
+    result: {$ref: "#/types/Flag"}
+    examples:
+      - title: Get the tracking state
+        request: {params: {}}
+        response: {data: {value: true}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#enabledisable-tracking
+
+  set_tracking_enabled:
+    summary: Enable or disable the radar tracking.
+    effect: write
+    write: patch
+    binding: {method: setTrackingEnabled}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: boolean, description: "True to enable tracking, false to disable it."}
+    positional: [value]
+    examples:
+      - title: Enable tracking
+        request: {params: {value: true}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#enabledisable-tracking
+
+  get_guard_tour_enabled:
+    summary: Get whether the guard tour is enabled.
+    effect: read
+    binding: {method: getGuardTourEnabled}
+    result: {$ref: "#/types/Flag"}
+    examples:
+      - title: Get the guard tour state
+        request: {params: {}}
+        response: {data: {value: true}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#enabledisable-guard-tour
+
+  set_guard_tour_enabled:
+    summary: Enable or disable the guard tour.
+    effect: write
+    write: patch
+    binding: {method: setGuardTourEnabled}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: boolean, description: "True to enable the guard tour, false to disable it."}
+    positional: [value]
+    examples:
+      - title: Enable the guard tour
+        request: {params: {value: true}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#enabledisable-guard-tour
+
+  get_guard_tour_time:
+    summary: Get the guard tour time in seconds and its allowed range.
+    effect: read
+    binding: {method: getGuardTourTime}
+    result: {$ref: "#/types/RangedValue"}
+    examples:
+      - title: Get the guard tour time
+        request: {params: {}}
+        response: {data: {value: 4.0, minValue: 1.0, maxValue: 60.0}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-guard-tour-time
+
+  set_guard_tour_time:
+    summary: Set the guard tour time (see ``get_guard_tour_time`` for allowed values).
+    effect: write
+    write: patch
+    binding: {method: setGuardTourTime}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: "The guard tour time, measured in seconds."}
+    positional: [value]
+    examples:
+      - title: Set the guard tour time
+        request: {params: {value: 1.5}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-guard-tour-time
+
+  get_return_to_home_enabled:
+    summary: Get whether return to home is enabled.
+    effect: read
+    binding: {method: getReturnToHomeEnabled}
+    result: {$ref: "#/types/Flag"}
+    examples:
+      - title: Get the return to home state
+        request: {params: {}}
+        response: {data: {value: true}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#enabledisable-return-to-home
+
+  set_return_to_home_enabled:
+    summary: Enable or disable the return to home function.
+    effect: write
+    write: patch
+    binding: {method: setReturnToHomeEnabled}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: boolean, description: "True to enable return to home, false to disable it."}
+    positional: [value]
+    examples:
+      - title: Enable return to home
+        request: {params: {value: true}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#enabledisable-return-to-home
+
+  get_return_to_home_timeout:
+    summary: Get the return to home timeout in seconds and its allowed range.
+    effect: read
+    binding: {method: getReturnToHomeTimeout}
+    result: {$ref: "#/types/ReturnToHomeTimeout"}
+    examples:
+      - title: Get the return to home timeout
+        request: {params: {}}
+        response: {data: {value: 5, minTimeout: 1, maxTimeout: 300}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-return-to-home-timeout
+
+  set_return_to_home_timeout:
+    summary: Set the return to home timeout.
+    effect: write
+    write: patch
+    binding: {method: setReturnToHomeTimeout}
+    params:
+      type: object
+      required: [value]
+      properties:
+        value: {type: number, description: The timeout in seconds.}
+    positional: [value]
+    examples:
+      - title: Set the return to home timeout
+        request: {params: {value: 5}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-return-to-home-timeout
+
+  get_object_types_to_track:
+    summary: Get which object types are tracked.
+    effect: read
+    binding: {method: getObjectTypesToTrack}
+    result: {$ref: "#/types/ObjectTypes"}
+    examples:
+      - title: Get the object types to track
+        request: {params: {}}
+        response: {data: {small: false, human: true, vehicle: true, unknown: false}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-object-types-to-track
+
+  set_object_types_to_track:
+    summary: Set which object types are tracked.
+    effect: write
+    write: replace
+    binding: {method: setObjectTypesToTrack}
+    params: {$ref: "#/types/SetObjectTypesToTrackRequest"}
+    round_trip:
+      from: ObjectTypes
+    examples:
+      - title: Track humans and vehicles
+        request: {params: {small: false, human: true, vehicle: true, unknown: false}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-object-types-to-track
+      - title: Invalid value
+        request: {params: {small: false, human: true, vehicle: true, unknown: false}}
+        response: {error: {code: 300, message: "Invalid value '100' for parameter 'small'"}}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#adjust-object-types-to-track
+
+  get_capabilities:
+    summary: Get the capabilities of the API version in use.
+    effect: read
+    binding: {method: getCapabilities}
+    result: {$ref: "#/types/Capabilities"}
+    examples:
+      - title: Get the capabilities
+        request: {params: {}}
+        response:
+          data:
+            returnToHomeEnabled: {}
+            returnToHomeTimeout: {minValue: 1, maxValue: 300}
+            objectTypesToTrack: {types: [small, human, vehicle, unknown]}
+        source: https://developer.axis.com/vapix/radar/radar-autotracking/#supported-capabilities
+
+sources:
+- url: https://developer.axis.com/vapix/radar/radar-autotracking/
+  sha256_md: 91878bcf13b8fb4a9dbce64c8ebbd85d5de52fd960c0a50cb4f4123ca574ff85
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The first camera connection example sends getCameraConnection with curl --request GET and a JSON body; all other requests use POST, which is used here. https://developer.axis.com/vapix/radar/radar-autotracking/#camera-connection
+  - The setCameraPanOffset syntax shows the path /axi-cgi/radar-autotracking.cgi (typo); /axis-cgi/radar-autotracking.cgi is used.
+  - The setCameraMountingHeight response syntax shows method setMountingHeight (typo).
+  - The getCapabilities syntax uses returnToHomeTimeOut while the example uses returnToHomeTimeout; the example spelling is used.
+  - The getReturnToHomeTimeout example uses minValue/maxValue while the table uses minTimeout/maxTimeout; the table is used and the example is corrected.
+  - The getSupportedVersions syntax uses apiVersion 1.1 and its failure example uses the key apiVersions; only 1.0 appears elsewhere.
+  - The getCameraZoomDegree table describes minValue and maxValue both as the zoom degree in percent (copy error).
+  - The camera connection state event (RTSP event topic axis:RadarAutotracking/CameraConnection) is not a JSON-RPC method and is not modelled; its payload is not documented.
+  - Which result fields are always present is not stated; only the value and state fields are modelled as required.
+  migrated_from: v1
+  curated: true

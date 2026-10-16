@@ -1,0 +1,110 @@
+format: 2
+id: object-snapshot-config
+name: Object snapshot
+summary: Configure cropped object snapshots attached to analytics metadata.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: object_snapshot
+  class: ObjectSnapshot
+docs:
+- https://developer.axis.com/vapix/device-configuration/object-snapshot-configuration/
+access: admin
+discovery:
+- dca: {api: object-snapshot, version: v1}
+
+binding: {root: /config/rest/object-snapshot/v1}
+
+types:
+  Enabled: {type: boolean, description: Whether to generate cropped snapshots of objects that downstream analytics metadata producers can include.}
+  Margin: {type: boolean, description: Whether the cropped snapshot includes more of the image around the object bounding box.}
+
+  ObjectSnapshot:
+    type: object
+    description: The whole API tree.
+    properties:
+      enabled: {$ref: "#/types/Enabled"}
+      margin: {$ref: "#/types/Margin"}
+
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``. Only the given fields change.
+    properties:
+      enabled: {$ref: "#/types/Enabled"}
+      margin: {$ref: "#/types/Margin"}
+
+operations:
+  get_all:
+    summary: All Object Snapshot settings.
+    effect: read
+    binding: {method: GET, path: ""}
+    result: {$ref: "#/types/ObjectSnapshot"}
+    examples:
+      - title: Get Object Snapshot settings
+        request: {}
+        response: {status: 200, body: {status: success, data: {enabled: true, margin: true}}}
+        source: https://developer.axis.com/vapix/device-configuration/object-snapshot-configuration/
+
+  update_all:
+    summary: Update the Object Snapshot settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "", body: object}
+    params: {$ref: "#/types/UpdateAllRequest"}
+    round_trip:
+      from: ObjectSnapshot
+    examples:
+      - title: Enable Object Snapshot with margin
+        request: {path: "", body: {data: {enabled: true, margin: true}}}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/object-snapshot-configuration/
+
+  get_enabled:
+    summary: Whether Object Snapshot is enabled.
+    effect: read
+    binding: {method: GET, path: /enabled}
+    result: {$ref: "#/types/Enabled"}
+
+  set_enabled:
+    summary: Enable or disable Object Snapshot.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {$ref: "#/types/Enabled"}
+    examples:
+      - title: Disable Object Snapshot
+        request: {path: /enabled, body: {data: false}}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/object-snapshot-configuration/
+
+  get_margin:
+    summary: Whether snapshots include a margin around the object.
+    effect: read
+    binding: {method: GET, path: /margin}
+    result: {$ref: "#/types/Margin"}
+
+  set_margin:
+    summary: Include or exclude a margin around the object in snapshots.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /margin, body_field: margin, body: value}
+    params:
+      type: object
+      required: [margin]
+      properties:
+        margin: {$ref: "#/types/Margin"}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/object-snapshot-configuration/
+  sha256_md: 5250d75abb330f06d300e06576ee36a9a221dc0294a6bb3b78dbed75308a17c4
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  migrated_from: v1
+  curated: true

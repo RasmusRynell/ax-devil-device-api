@@ -1,0 +1,392 @@
+format: 2
+id: temperature-alarm
+name: Temperature alarm API
+summary: Configure temperature alarm zones on thermal cameras, read zone status and spot temperatures, set the temperature scale.
+section: network-video
+family: cgi
+status: released
+python:
+  module: temperature_alarm
+  class: TemperatureAlarm
+docs:
+- https://developer.axis.com/vapix/network-video/thermal-imaging/
+access: operator
+discovery:
+- param: {name: Properties.TemperatureAlarm.TemperatureDetection, value: 'yes'}
+requires:
+  firmware: '5.55'
+
+binding: {path: /axis-cgi/temperature_alarm/schemaversions.cgi}
+
+errors:
+  10: {description: Error while processing the request.}
+  20: {description: Invalid request., kind: invalid_argument}
+  40: {description: Specified version is not supported., kind: unsupported}
+
+types:
+  DetectionType:
+    type: string
+    enum: [above, below, increase]
+    description: 'above: alarm when the temperature rises above the threshold. below: alarm when it falls below the threshold. increase: alarm when it increases more than the temperature within the delay time.'
+  TemperatureType:
+    type: string
+    enum: [maximum, minimum]
+    description: Whether the maximum or the minimum temperature of the zone determines when alarms are triggered.
+  AlarmZone:
+    type: object
+    description: The configuration of one temperature alarm zone. Temperatures are in the unit set with set_temperature_scale.
+    required: [ZoneId]
+    properties:
+      ZoneId: {type: integer, description: The zone ID., x-xml: {child: ZoneId}}
+      Name: {type: string, description: The zone name., x-xml: {child: Name}}
+      Xleft: {type: integer, description: The left X coordinate., x-xml: {child: Xleft}}
+      Xright: {type: integer, description: The right X coordinate., x-xml: {child: Xright}}
+      Ytop: {type: integer, description: The top Y coordinate., x-xml: {child: Ytop}}
+      Ybottom: {type: integer, description: The bottom Y coordinate., x-xml: {child: Ybottom}}
+      Emissivity: {type: number, description: The emissivity., x-xml: {child: Emissivity}}
+      DetectionType:
+        $ref: '#/types/DetectionType'
+        x-xml: {child: DetectionType}
+      Temperature:
+        type: integer
+        description: The threshold temperature; for detection type increase the maximum allowed increase during the delay time.
+        x-xml: {child: Temperature}
+      TemperatureType:
+        $ref: '#/types/TemperatureType'
+        x-xml: {child: TemperatureType}
+      DelayTime: {type: integer, description: The delay time in seconds., x-xml: {child: DelayTime}}
+  AlarmZones:
+    type: object
+    x-xml: {root: Success/GetSuccess}
+    required: [AlarmZone]
+    properties:
+      AlarmZone:
+        type: array
+        items: {$ref: '#/types/AlarmZone'}
+        x-python-name: zones
+        x-xml: {path: AlarmZone}
+  AlarmZoneStatus:
+    type: object
+    description: The status of one temperature alarm zone. Temperatures are in the unit set with set_temperature_scale.
+    required: [ZoneId]
+    properties:
+      ZoneId: {type: integer, description: The zone ID., x-xml: {child: ZoneId}}
+      AverageTemperature: {type: number, description: The average temperature in the zone., x-xml: {child: AverageTemperature}}
+      MinimumTemperature: {type: number, description: The minimum temperature in the zone., x-xml: {child: MinimumTemperature}}
+      MaximumTemperature: {type: number, description: The maximum temperature in the zone., x-xml: {child: MaximumTemperature}}
+      Triggered:
+        type: string
+        enum: ['Yes', 'No']
+        description: Yes while the stateful tns1:VideoSource/tnsaxis:TemperatureDetection event is active.
+        x-xml: {child: Triggered}
+  AlarmZoneStatuses:
+    type: object
+    x-xml: {root: Success/GetZoneStatusSuccess}
+    required: [AlarmZone]
+    properties:
+      AlarmZone:
+        type: array
+        items: {$ref: '#/types/AlarmZoneStatus'}
+        x-python-name: zones
+        x-xml: {path: AlarmZone}
+  SpotTemperature:
+    type: object
+    x-xml: {root: Success/GetSpotTemperatureSuccess}
+    required: [SpotTemperature]
+    properties:
+      SpotTemperature: {type: number, description: The returned spot temperature in the unit set with set_temperature_scale., x-xml: {child: SpotTemperature}}
+  SchemaVersion:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: Schema version, major.minor.
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: SchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve the supported XML schema versions.
+    access: viewer
+    effect: read
+    binding: {method: GET, reply: xml}
+    result: {$ref: '#/types/SchemaVersions'}
+    examples:
+    - title: Schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <SchemaVersionsSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+            </SchemaVersionsSuccess>
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  set_temperature_scale:
+    summary: Set the temperature scale to Celsius or Fahrenheit (also used by the Isotherm API).
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/temperature_alarm/settemperaturescale.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [unit]
+      properties:
+        unit: {type: string, enum: [Celsius, Fahrenheit], description: The temperature scale to use.}
+    positional: [unit]
+    examples:
+    - title: Set the temperature scale to Celsius
+      request:
+        query: {unit: Celsius}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <GeneralSuccess />
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  set_zone:
+    summary: Create or update a temperature alarm zone.
+    description: >-
+      The zone is identified by its ID. Zone coordinates are those of the unrotated and unmirrored image, with
+      (0,0) in the upper left corner. For detection types above and below, temperature is the threshold and
+      delaytime the time between successive measurements. For increase, temperature is the change and delaytime
+      the time window.
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/temperature_alarm/set.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, minimum: 0, description: The zone ID.}
+        name: {type: string, description: A user-friendly name for the zone.}
+        left: {type: integer, minimum: 0, maximum: 9999, description: The left X coordinate of the zone.}
+        right: {type: integer, minimum: 0, maximum: 9999, description: The right X coordinate of the zone.}
+        top: {type: integer, minimum: 0, maximum: 9999, description: The top Y coordinate of the zone.}
+        bottom: {type: integer, minimum: 0, maximum: 9999, description: The bottom Y coordinate of the zone.}
+        emissivity:
+          type: number
+          minimum: 0.5
+          maximum: 1
+          description: Emissivity of the objects in the zone; used to improve temperature measurement. The device default is 0.95.
+        detectiontype:
+          $ref: '#/types/DetectionType'
+        temperature:
+          type: integer
+          description: The threshold temperature; for detectiontype increase the maximum allowed increase during delaytime. In the unit set with set_temperature_scale.
+        temperaturetype:
+          $ref: '#/types/TemperatureType'
+        delaytime:
+          type: integer
+          minimum: 0
+          maximum: 60
+          description: Time between successive temperature measurements (or the time window for detectiontype increase) in seconds.
+    positional: [id]
+    examples:
+    - title: Alarm when the maximum temperature rises above 85
+      request:
+        query: {id: '0', name: zone0, left: '100', right: '2000', top: '200', bottom: '2500', emissivity: '0.87', temperature: '85', temperaturetype: maximum, detectiontype: above, delaytime: '5'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <GeneralSuccess />
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+    - title: Alarm when the minimum temperature falls below 0
+      request:
+        query: {id: '0', name: zone0, left: '100', right: '2000', top: '200', bottom: '2500', emissivity: '0.87', temperature: '0', temperaturetype: minimum, detectiontype: below, delaytime: '5'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <GeneralSuccess />
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+    - title: Alarm when the minimum temperature rises above 22
+      request:
+        query: {id: '0', name: zone0, left: '100', right: '2000', top: '200', bottom: '2500', emissivity: '0.87', temperature: '22', temperaturetype: minimum, detectiontype: above, delaytime: '5'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <GeneralSuccess />
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+    - title: Alarm when the temperature increases more than 20 degrees in 30 seconds
+      request:
+        query: {id: '0', name: zone0, left: '100', right: '2000', top: '200', bottom: '2500', emissivity: '0.87', temperature: '20', temperaturetype: maximum, detectiontype: increase, delaytime: '30'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <GeneralSuccess />
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  get_zones:
+    summary: Retrieve all temperature alarm zones.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/temperature_alarm/get.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/AlarmZones'}
+    examples:
+    - title: All zones
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <Success>
+              <GetSuccess>
+                <AlarmZone>
+                  <ZoneId>0</ZoneId>
+                  <Name>zone0</Name>
+                  <Xleft>100</Xleft>
+                  <Xright>2000</Xright>
+                  <Ytop>200</Ytop>
+                  <Ybottom>2500</Ybottom>
+                  <Emissivity>0.87</Emissivity>
+                  <DetectionType>above</DetectionType>
+                  <Temperature>85</Temperature>
+                  <TemperatureType>maximum</TemperatureType>
+                  <DelayTime>5</DelayTime>
+                </AlarmZone>
+              </GetSuccess>
+            </Success>
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  get_zone_status:
+    summary: Retrieve the status of each temperature alarm zone.
+    description: The status includes the average, minimum and maximum temperature of each zone and whether an alarm is triggered.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/temperature_alarm/getzonestatus.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/AlarmZoneStatuses'}
+    examples:
+    - title: Zone status
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <Success>
+              <GetZoneStatusSuccess>
+                <AlarmZone>
+                  <ZoneId>0</ZoneId>
+                  <AverageTemperature>25</AverageTemperature>
+                  <MinimumTemperature>22</MinimumTemperature>
+                  <MaximumTemperature>27</MaximumTemperature>
+                  <Triggered>No</Triggered>
+                </AlarmZone>
+              </GetZoneStatusSuccess>
+            </Success>
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  remove_zone:
+    summary: Remove a temperature alarm zone.
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/temperature_alarm/remove.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, minimum: 0, description: Zone ID of the zone to remove.}
+    positional: [id]
+    examples:
+    - title: Remove zone 2
+      request:
+        query: {id: '2'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <GeneralSuccess />
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+  get_spot_temperature:
+    summary: Retrieve the temperature at a point in the image.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/temperature_alarm/getspottemperature.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [coordinates]
+      properties:
+        coordinates:
+          type: array
+          items: {type: integer, minimum: 0, maximum: 9999}
+          minItems: 2
+          maxItems: 2
+          x-style: csv
+          description: The X and Y coordinates of the point, each 0 to 9999, with X=0 Y=0 in the image upper left corner.
+        emissivity:
+          type: number
+          minimum: 0.5
+          maximum: 1
+          description: Emissivity of the object; used to improve temperature measurement. The device default is 0.95.
+    positional: [coordinates]
+    result: {$ref: '#/types/SpotTemperature'}
+    examples:
+    - title: Spot temperature
+      request:
+        query: {coordinates: '4598,6742', emissivity: '0.98'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <TemperatureResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Temperature1.xsd">
+            <Success>
+              <GetSpotTemperatureSuccess>
+                <SpotTemperature>36.5</SpotTemperature>
+              </GetSpotTemperatureSuccess>
+            </Success>
+          </TemperatureResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#temperature-alarm-api
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/thermal-imaging/
+  sha256_md: 73f1394bae1b30679e93cf7bcd42a09115d0d19b6ba75396499fdff51312fa51
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - get_zone_status takes no arguments per the reference; the docs request example passes id=2 but the response shows ZoneId 0 (all zones are returned).
+  - Several curl examples in the Markdown are mangled (HTTP block embedded in --data); request URLs are taken from the HTTP tab.
+  - Only id is documented as required for set.cgi. Whether omitted arguments keep an existing zone's values (patch) or reset to defaults is not stated, so the write semantics are recorded as create. Only emissivity has a documented default (0.95); it is not sent unless given.
+  - No error codes for invalid coordinates or emissivity are documented beyond 10/20/40.
+  - Temperature1.xsd is not mirrored; temperature value types (integer vs decimal) are not stated for the status and spot temperature (number is used).
+  - The replies of the set, remove and temperature scale calls are the General success response; the spot temperature example reply is constructed from the body syntax.
+  - The temperature scale is global; the isotherm API also uses it.
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,222 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: isotherm
+name: Isotherm API
+summary: Enable isothermal imaging and set the isotherm palette temperature ranges (lower, middle, upper limits).
+section: network-video
+family: cgi
+status: released
+python:
+  module: isotherm
+  class: Isotherm
+docs:
+- https://developer.axis.com/vapix/network-video/thermal-imaging/
+access: operator
+discovery:
+- param: {name: Properties.Isotherm.Isotherm, value: 'yes'}
+requires:
+  firmware: '5.55'
+
+binding: {path: /axis-cgi/isotherm/schemaversions.cgi}
+
+types:
+  SchemaVersion:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber:
+        type: string
+        description: major.minor
+        x-xml: {child: VersionNumber}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: SchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: '#/types/SchemaVersion'}
+        x-xml: {path: SchemaVersion}
+  IsothermMode:
+    type: string
+    enum: [enabled, disabled]
+  ModeStatus:
+    type: object
+    x-xml: {root: Success/GetModeSuccess}
+    required: [Mode]
+    properties:
+      Mode:
+        $ref: '#/types/IsothermMode'
+        x-xml: {child: Mode}
+  Limits:
+    type: object
+    x-xml: {root: Success/GetLimitsSuccess}
+    description: Temperature limits in the unit set by the temperature alarm API (Celsius or Fahrenheit).
+    required: [Upper, Middle, Lower]
+    properties:
+      Upper: {type: integer, description: The upper temperature limit., x-xml: {child: Upper}}
+      Middle: {type: integer, description: The middle temperature limit., x-xml: {child: Middle}}
+      Lower: {type: integer, description: The lower temperature limit., x-xml: {child: Lower}}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve the supported XML schema versions.
+    access: viewer
+    effect: read
+    binding: {method: GET, reply: xml}
+    result: {$ref: '#/types/SchemaVersions'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <IsothermResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Isotherm1.xsd">
+            <SchemaVersionsSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+              [...]
+            </SchemaVersionsSuccess>
+          </IsothermResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#isotherm-api
+  set_mode:
+    summary: Enable or disable isothermal imaging.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/isotherm/setmode.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [mode]
+      properties:
+        mode: {$ref: '#/types/IsothermMode'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Enable
+      request:
+        query: {mode: enabled}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <IsothermResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Isotherm1.xsd">
+            <GeneralSuccess />
+          </IsothermResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#isotherm-api
+  get_mode:
+    summary: Check if isothermal imaging is enabled.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/isotherm/getmode.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/ModeStatus'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Get mode
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <IsothermResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Isotherm1.xsd">
+            <Success>
+              <GetModeSuccess>
+                <Mode>disabled</Mode>
+              </GetModeSuccess>
+            </Success>
+          </IsothermResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#isotherm-api
+  set_limits:
+    summary: Set the upper, middle and lower limits of the isotherm palette temperature ranges.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/isotherm/setlimits.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      properties:
+        upper:
+          type: integer
+          description: The upper temperature limit, in the unit set by temperature_alarm/settemperaturescale.cgi.
+        middle:
+          type: integer
+          description: The middle temperature limit, in the unit set by temperature_alarm/settemperaturescale.cgi.
+        lower:
+          type: integer
+          description: The lower temperature limit, in the unit set by temperature_alarm/settemperaturescale.cgi.
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Set limits
+      request:
+        query: {upper: '80', middle: '70', lower: '50'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <IsothermResponse SchemaVersion="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/Isotherm1.xsd">
+            <GeneralSuccess />
+          </IsothermResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#isotherm-api
+  get_limits:
+    summary: Retrieve the current isotherm temperature limits.
+    access: viewer
+    effect: read
+    binding: {path: /axis-cgi/isotherm/getlimits.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/Limits'}
+    errors:
+      10: {description: Error while processing the request.}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+    examples:
+    - title: Get limits
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <IsothermResponse SchemaVersion="1.0">
+            <Success>
+              <GetLimitsSuccess>
+                <Upper>80</Upper>
+                <Middle>70</Middle>
+                <Lower>50</Lower>
+              </GetLimitsSuccess>
+            </Success>
+          </IsothermResponse>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#get-limits
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/thermal-imaging/
+  sha256_md: 73f1394bae1b30679e93cf7bcd42a09115d0d19b6ba75396499fdff51312fa51
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - No schemaversion argument is documented for the isotherm CGIs (unlike other XML CGIs).
+  - Iso-Fire-WH description repeats 'between the lower and middle limits' for both yellow and orange.
+  - Relationship between limits ordering (lower<middle<upper) not stated; no validation errors documented beyond 10/20/40.
+  - Isotherm1.xsd is not in raw/specs.
+  - The get_limits example is a reconstruction from the documented body syntax, not a device reply.
+  migrated_from: v1
+  curated: true

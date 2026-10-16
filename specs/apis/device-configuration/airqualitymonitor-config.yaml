@@ -1,0 +1,1551 @@
+format: 2
+id: airqualitymonitor-config
+name: Air Quality monitor API
+summary: Read and configure air quality sensors, their limits and dashboard, and query their history.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: air_quality_monitor
+  class: AirQualityMonitor
+docs:
+- https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+access: admin
+discovery:
+- dca:
+    api: airqualitymonitor
+    version: v1
+binding:
+  root: /config/rest/airqualitymonitor/v1
+types:
+  AirQualityMonitor:
+    type: object
+    description: The whole API tree.
+    properties:
+      configurations:
+        type: array
+        items:
+          $ref: '#/types/Configuration'
+      sensors:
+        type: array
+        items:
+          $ref: '#/types/Sensor'
+  Configuration:
+    type: object
+    description: Configuration of air quality monitor
+    required:
+    - sensorId
+    x-read-only:
+    - sensorId
+    properties:
+      cloudMetadataEnable:
+        type: boolean
+        description: Cloud metadata enable
+      cloudMetadataFrequency:
+        $ref: '#/types/CloudMetadataFrequency'
+        description: Cloud metadata frequency
+      dashboardItems:
+        $ref: '#/types/DashboardItems'
+        description: Dashboard items
+      dashboardTitle:
+        type: string
+        description: Dashboard title
+      maxAqi:
+        $ref: '#/types/Limit'
+        description: Maximum AQI
+      maxCo2:
+        $ref: '#/types/Limit'
+        description: Maximum CO2
+      maxHumidity:
+        $ref: '#/types/Limit'
+        description: Maximum humidity
+      maxNox:
+        $ref: '#/types/Limit'
+        description: Maximum NOx
+      maxPm10p0:
+        $ref: '#/types/Limit'
+        description: Maximum PM10.0
+      maxPm1p0:
+        $ref: '#/types/Limit'
+        description: Maximum PM1.0
+      maxPm2p5:
+        $ref: '#/types/Limit'
+        description: Maximum PM2.5
+      maxPm4p0:
+        $ref: '#/types/Limit'
+        description: Maximum PM4.0
+      maxTemperature:
+        $ref: '#/types/Limit'
+        description: Maximum temperature
+      maxVoc:
+        $ref: '#/types/Limit'
+        description: Maximum VOC
+      minAqi:
+        $ref: '#/types/Limit'
+        description: Minimum AQI
+      minCo2:
+        $ref: '#/types/Limit'
+        description: Minimum CO2
+      minHumidity:
+        $ref: '#/types/Limit'
+        description: Minimum humidity
+      minNox:
+        $ref: '#/types/Limit'
+        description: Minimum NOx
+      minPm10p0:
+        $ref: '#/types/Limit'
+        description: Minimum PM10.0
+      minPm1p0:
+        $ref: '#/types/Limit'
+        description: Minimum PM1.0
+      minPm2p5:
+        $ref: '#/types/Limit'
+        description: Minimum PM2.5
+      minPm4p0:
+        $ref: '#/types/Limit'
+        description: Minimum PM4.0
+      minTemperature:
+        $ref: '#/types/Limit'
+        description: Minimum temperature
+      minVoc:
+        $ref: '#/types/Limit'
+        description: Minimum VOC
+      sensorId:
+        $ref: '#/types/SensorId'
+        description: Sensor ID
+      storageEnable:
+        type: boolean
+        description: Storage enable
+      storageMode:
+        $ref: '#/types/StorageMode'
+        description: Storage mode
+      temperatureScale:
+        $ref: '#/types/TemperatureScale'
+        description: Temperature scale unit
+      validationPeriodAqi:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period AQI
+      validationPeriodCo2:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period CO2
+      validationPeriodHumidity:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period humidity
+      validationPeriodNox:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period NOx
+      validationPeriodPm10p0:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM10.0
+      validationPeriodPm1p0:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM1.0
+      validationPeriodPm2p5:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM2.5
+      validationPeriodPm4p0:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM4.0
+      validationPeriodTemperature:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period temperature
+      validationPeriodVaping:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period vaping
+      validationPeriodVoc:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period VOC
+      vapeSensitivity:
+        $ref: '#/types/VapeSensitivity'
+        description: Vape sensitivity
+  Sensor:
+    type: object
+    description: Status of air quality sensor
+    required:
+    - sensorId
+    properties:
+      connected:
+        type: boolean
+        description: Sensor connection status
+      defaultSensor:
+        type: boolean
+        description: True if it's a default sensor
+      sensorId:
+        $ref: '#/types/SensorId'
+        description: Sensor ID
+      type:
+        type: string
+        description: Sensor type name
+  UpdateConfigurationRequest:
+    type: object
+    description: Arguments of ``update_configuration``.
+    required:
+    - sensorId
+    properties:
+      sensorId:
+        $ref: '#/types/SensorId'
+        description: Sensor ID
+      cloudMetadataEnable:
+        type: boolean
+        description: Cloud metadata enable
+      cloudMetadataFrequency:
+        $ref: '#/types/CloudMetadataFrequency'
+        description: Cloud metadata frequency
+      dashboardItems:
+        $ref: '#/types/DashboardItems'
+        description: Dashboard items
+      dashboardTitle:
+        type: string
+        description: Dashboard title
+      maxAqi:
+        $ref: '#/types/Limit'
+        description: Maximum AQI
+      maxCo2:
+        $ref: '#/types/Limit'
+        description: Maximum CO2
+      maxHumidity:
+        $ref: '#/types/Limit'
+        description: Maximum humidity
+      maxNox:
+        $ref: '#/types/Limit'
+        description: Maximum NOx
+      maxPm10p0:
+        $ref: '#/types/Limit'
+        description: Maximum PM10.0
+      maxPm1p0:
+        $ref: '#/types/Limit'
+        description: Maximum PM1.0
+      maxPm2p5:
+        $ref: '#/types/Limit'
+        description: Maximum PM2.5
+      maxPm4p0:
+        $ref: '#/types/Limit'
+        description: Maximum PM4.0
+      maxTemperature:
+        $ref: '#/types/Limit'
+        description: Maximum temperature
+      maxVoc:
+        $ref: '#/types/Limit'
+        description: Maximum VOC
+      minAqi:
+        $ref: '#/types/Limit'
+        description: Minimum AQI
+      minCo2:
+        $ref: '#/types/Limit'
+        description: Minimum CO2
+      minHumidity:
+        $ref: '#/types/Limit'
+        description: Minimum humidity
+      minNox:
+        $ref: '#/types/Limit'
+        description: Minimum NOx
+      minPm10p0:
+        $ref: '#/types/Limit'
+        description: Minimum PM10.0
+      minPm1p0:
+        $ref: '#/types/Limit'
+        description: Minimum PM1.0
+      minPm2p5:
+        $ref: '#/types/Limit'
+        description: Minimum PM2.5
+      minPm4p0:
+        $ref: '#/types/Limit'
+        description: Minimum PM4.0
+      minTemperature:
+        $ref: '#/types/Limit'
+        description: Minimum temperature
+      minVoc:
+        $ref: '#/types/Limit'
+        description: Minimum VOC
+      storageEnable:
+        type: boolean
+        description: Storage enable
+      storageMode:
+        $ref: '#/types/StorageMode'
+        description: Storage mode
+      temperatureScale:
+        $ref: '#/types/TemperatureScale'
+        description: Temperature scale unit
+      validationPeriodAqi:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period AQI
+      validationPeriodCo2:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period CO2
+      validationPeriodHumidity:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period humidity
+      validationPeriodNox:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period NOx
+      validationPeriodPm10p0:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM10.0
+      validationPeriodPm1p0:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM1.0
+      validationPeriodPm2p5:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM2.5
+      validationPeriodPm4p0:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period PM4.0
+      validationPeriodTemperature:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period temperature
+      validationPeriodVaping:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period vaping
+      validationPeriodVoc:
+        $ref: '#/types/ValidationPeriod'
+        description: Validation period VOC
+      vapeSensitivity:
+        $ref: '#/types/VapeSensitivity'
+        description: Vape sensitivity
+  SensorId:
+    type: string
+    description: Identifier of an air quality sensor; the key of both collections.
+  Limit:
+    type: number
+    description: Lower or upper bound of a measured value, in the unit of that measurement.
+  ValidationPeriod:
+    type: integer
+    description: Validation period of a measurement.
+  CloudMetadataFrequency:
+    type: integer
+    description: Cloud metadata frequency.
+  StorageMode:
+    type: integer
+    description: Storage mode.
+  VapeSensitivity:
+    type: integer
+    description: Vape detection sensitivity.
+  TemperatureScale:
+    type: string
+    description: Temperature scale unit, for example CELSIUS or FAHRENHEIT.
+  MeasurementCategory:
+    type: string
+    description: Measurement category, for example PM2_5. The dashboard item names are the known categories.
+  DashboardItems:
+    type: object
+    description: Which measurements the dashboard shows or hides.
+    properties:
+      hidden:
+        type: array
+        items:
+          type: string
+      visible:
+        type: array
+        items:
+          type: string
+  HistoryDataResult:
+    type: object
+    description: Historical measurements; measurement[i] was taken at timestamp[i].
+    properties:
+      measurement:
+        type: array
+        items:
+          type: number
+      timestamp:
+        type: array
+        items:
+          type: integer
+          description: Unix time in seconds.
+  VapingRecord:
+    type: object
+    description: Times when vaping was detected.
+    properties:
+      timestamp:
+        type: array
+        items:
+          type: integer
+          description: Unix time in seconds.
+  GetHistoryDataRequest:
+    type: object
+    description: Arguments of ``get_history_data``.
+    required:
+    - sensorId
+    - category
+    - startTime
+    - endTime
+    properties:
+      sensorId:
+        $ref: '#/types/SensorId'
+      category:
+        $ref: '#/types/MeasurementCategory'
+      startTime:
+        type: integer
+        description: Start of the period, Unix time in seconds.
+      endTime:
+        type: integer
+        description: End of the period, Unix time in seconds.
+  GetVapingRecordRequest:
+    type: object
+    description: Arguments of ``get_vaping_record``.
+    required:
+    - sensorId
+    - startTime
+    - endTime
+    properties:
+      sensorId:
+        $ref: '#/types/SensorId'
+      startTime:
+        type: integer
+        description: Start of the period, Unix time in seconds.
+      endTime:
+        type: integer
+        description: End of the period, Unix time in seconds.
+  SensorIdRequest:
+    type: object
+    description: Arguments of the per-sensor reads.
+    required:
+    - sensorId
+    properties:
+      sensorId:
+        $ref: '#/types/SensorId'
+operations:
+  get_all:
+    summary: All data of the Air Quality monitor API API.
+    effect: read
+    binding:
+      method: GET
+      path: ''
+    result:
+      $ref: '#/types/AirQualityMonitor'
+  list_configurations:
+    summary: List the configurations.
+    effect: read
+    binding:
+      method: GET
+      path: /configurations
+    result:
+      type: array
+      items:
+        $ref: '#/types/Configuration'
+    examples:
+    - title: Get all configurations
+      request:
+        path: /configurations
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - cloudMetadataEnable: false
+            cloudMetadataFrequency: 1
+            dashboardItems:
+              hidden: []
+              visible:
+              - TEMPERATURE
+              - HUMIDITY
+              - CO2
+              - NOX
+              - PM1_0
+              - PM2_5
+              - PM4_0
+              - PM10_0
+              - VAPING
+              - VOC
+              - AQI
+            dashboardTitle: Dashboard
+            maxAqi: 500
+            maxCo2: 40000
+            maxHumidity: 100
+            maxNox: 500
+            maxPm10p0: 1000
+            maxPm1p0: 1000
+            maxPm2p5: 1000
+            maxPm4p0: 1000
+            maxTemperature: 45
+            maxVoc: 500
+            minAqi: 0
+            minCo2: 0
+            minHumidity: 0
+            minNox: 0
+            minPm10p0: 0
+            minPm1p0: 0
+            minPm2p5: 0
+            minPm4p0: 0
+            minTemperature: -10
+            minVoc: 0
+            sensorId: My-SensorId
+            storageEnable: true
+            storageMode: 1
+            temperatureScale: CELSIUS
+            validationPeriodAqi: 0
+            validationPeriodCo2: 0
+            validationPeriodHumidity: 0
+            validationPeriodNox: 0
+            validationPeriodPm10p0: 0
+            validationPeriodPm1p0: 0
+            validationPeriodPm2p5: 0
+            validationPeriodPm4p0: 0
+            validationPeriodTemperature: 0
+            validationPeriodVaping: 0
+            validationPeriodVoc: 0
+            vapeSensitivity: 3
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+    access: viewer
+  get_configuration:
+    summary: Get one configuration.
+    effect: read
+    binding:
+      method: GET
+      path: /configurations/{sensor_id}
+    params:
+      type: object
+      x-name: SensorIdRequest
+      required:
+      - sensorId
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+    result:
+      $ref: '#/types/Configuration'
+    examples:
+    - title: Get a single configuration
+      request:
+        path: /configurations/My-SensorId/dashboardTitle
+      response:
+        status: 200
+        body:
+          status: success
+          data: Dashboard
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+      x-contract:
+        skip: Documents the per-property read of dashboardTitle (a bare string), which has no operation here; get_configuration
+          returns the whole Configuration.
+    access: viewer
+  update_configuration:
+    summary: Update a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}
+      body: object
+    params:
+      $ref: '#/types/UpdateConfigurationRequest'
+    examples:
+    - title: Set all configurations
+      request:
+        path: /configurations/My-SensorId
+        body:
+          data:
+            cloudMetadataEnable: true
+            cloudMetadataFrequency: 60
+            dashboardItems:
+              hidden:
+              - PM1_0
+              - PM2_5
+              - PM4_0
+              - PM10_0
+              visible:
+              - TEMPERATURE
+              - HUMIDITY
+              - CO2
+              - NOX
+              - VAPING
+              - VOC
+              - AQI
+            dashboardTitle: newDashboard
+            maxAqi: 111
+            maxCo2: 11111
+            maxHumidity: 66
+            maxNox: 5
+            maxPm10p0: 55
+            maxPm1p0: 99
+            maxPm2p5: 9
+            maxPm4p0: 89
+            maxTemperature: 40
+            maxVoc: 321
+            minAqi: 1
+            minCo2: 27
+            minHumidity: 64
+            minNox: 37
+            minPm10p0: 555
+            minPm1p0: 777
+            minPm2p5: 96
+            minPm4p0: 45
+            minTemperature: -1
+            minVoc: 4
+            storageEnable: false
+            storageMode: 2
+            temperatureScale: FAHRENHEIT
+            validationPeriodAqi: 1
+            validationPeriodCo2: 2
+            validationPeriodHumidity: 3
+            validationPeriodNox: 4
+            validationPeriodPm10p0: 5
+            validationPeriodPm1p0: 6
+            validationPeriodPm2p5: 7
+            validationPeriodPm4p0: 8
+            validationPeriodTemperature: 9
+            validationPeriodVaping: 10
+            validationPeriodVoc: 11
+            vapeSensitivity: 5
+      response:
+        status: 200
+        body:
+          status: success
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+    access: admin
+    round_trip:
+      from: Configuration
+  set_configuration_cloud_metadata_enable:
+    summary: Set the cloud metadata enable of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/cloudMetadataEnable
+      body_field: cloud_metadata_enable
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - cloudMetadataEnable
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        cloudMetadataEnable:
+          type: boolean
+          description: Cloud metadata enable
+    access: admin
+  set_configuration_cloud_metadata_frequency:
+    summary: Set the cloud metadata frequency of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/cloudMetadataFrequency
+      body_field: cloud_metadata_frequency
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - cloudMetadataFrequency
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        cloudMetadataFrequency:
+          $ref: '#/types/CloudMetadataFrequency'
+          description: Cloud metadata frequency
+    access: admin
+  set_configuration_dashboard_items:
+    summary: Set the dashboard items of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/dashboardItems
+      body_field: dashboard_items
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - dashboardItems
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        dashboardItems:
+          $ref: '#/types/DashboardItems'
+          description: Dashboard items
+    access: admin
+  set_configuration_dashboard_title:
+    summary: Set the dashboard title of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/dashboardTitle
+      body_field: dashboard_title
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - dashboardTitle
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        dashboardTitle:
+          type: string
+          description: Dashboard title
+    access: admin
+    examples:
+    - title: Set a single configuration
+      request:
+        path: /configurations/My-SensorId/dashboardTitle
+        body:
+          data: newDashboard
+      response:
+        status: 200
+        body:
+          status: success
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+  set_configuration_max_aqi:
+    summary: Set the maximum AQI of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxAqi
+      body_field: max_aqi
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxAqi
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxAqi:
+          $ref: '#/types/Limit'
+          description: Maximum AQI
+    access: admin
+  set_configuration_max_co2:
+    summary: Set the max co2 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxCo2
+      body_field: max_co2
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxCo2
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxCo2:
+          $ref: '#/types/Limit'
+          description: Maximum CO2
+    access: admin
+  set_configuration_max_humidity:
+    summary: Set the max humidity of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxHumidity
+      body_field: max_humidity
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxHumidity
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxHumidity:
+          $ref: '#/types/Limit'
+          description: Maximum humidity
+    access: admin
+  set_configuration_max_nox:
+    summary: Set the max nox of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxNox
+      body_field: max_nox
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxNox
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxNox:
+          $ref: '#/types/Limit'
+          description: Maximum NOx
+    access: admin
+  set_configuration_max_pm10p0:
+    summary: Set the max pm10p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxPm10p0
+      body_field: max_pm10p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxPm10p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxPm10p0:
+          $ref: '#/types/Limit'
+          description: Maximum PM10.0
+    access: admin
+  set_configuration_max_pm1p0:
+    summary: Set the max pm1p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxPm1p0
+      body_field: max_pm1p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxPm1p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxPm1p0:
+          $ref: '#/types/Limit'
+          description: Maximum PM1.0
+    access: admin
+  set_configuration_max_pm2p5:
+    summary: Set the max pm2p5 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxPm2p5
+      body_field: max_pm2p5
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxPm2p5
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxPm2p5:
+          $ref: '#/types/Limit'
+          description: Maximum PM2.5
+    access: admin
+  set_configuration_max_pm4p0:
+    summary: Set the max pm4p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxPm4p0
+      body_field: max_pm4p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxPm4p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxPm4p0:
+          $ref: '#/types/Limit'
+          description: Maximum PM4.0
+    access: admin
+  set_configuration_max_temperature:
+    summary: Set the max temperature of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxTemperature
+      body_field: max_temperature
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxTemperature
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxTemperature:
+          $ref: '#/types/Limit'
+          description: Maximum temperature
+    access: admin
+  set_configuration_max_voc:
+    summary: Set the max voc of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/maxVoc
+      body_field: max_voc
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - maxVoc
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        maxVoc:
+          $ref: '#/types/Limit'
+          description: Maximum VOC
+    access: admin
+  set_configuration_min_aqi:
+    summary: Set the min aqi of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minAqi
+      body_field: min_aqi
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minAqi
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minAqi:
+          $ref: '#/types/Limit'
+          description: Minimum AQI
+    access: admin
+  set_configuration_min_co2:
+    summary: Set the min co2 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minCo2
+      body_field: min_co2
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minCo2
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minCo2:
+          $ref: '#/types/Limit'
+          description: Minimum CO2
+    access: admin
+  set_configuration_min_humidity:
+    summary: Set the min humidity of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minHumidity
+      body_field: min_humidity
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minHumidity
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minHumidity:
+          $ref: '#/types/Limit'
+          description: Minimum humidity
+    access: admin
+  set_configuration_min_nox:
+    summary: Set the min nox of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minNox
+      body_field: min_nox
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minNox
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minNox:
+          $ref: '#/types/Limit'
+          description: Minimum NOx
+    access: admin
+  set_configuration_min_pm10p0:
+    summary: Set the min pm10p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minPm10p0
+      body_field: min_pm10p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minPm10p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minPm10p0:
+          $ref: '#/types/Limit'
+          description: Minimum PM10.0
+    access: admin
+  set_configuration_min_pm1p0:
+    summary: Set the min pm1p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minPm1p0
+      body_field: min_pm1p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minPm1p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minPm1p0:
+          $ref: '#/types/Limit'
+          description: Minimum PM1.0
+    access: admin
+  set_configuration_min_pm2p5:
+    summary: Set the min pm2p5 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minPm2p5
+      body_field: min_pm2p5
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minPm2p5
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minPm2p5:
+          $ref: '#/types/Limit'
+          description: Minimum PM2.5
+    access: admin
+  set_configuration_min_pm4p0:
+    summary: Set the min pm4p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minPm4p0
+      body_field: min_pm4p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minPm4p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minPm4p0:
+          $ref: '#/types/Limit'
+          description: Minimum PM4.0
+    access: admin
+  set_configuration_min_temperature:
+    summary: Set the min temperature of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minTemperature
+      body_field: min_temperature
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minTemperature
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minTemperature:
+          $ref: '#/types/Limit'
+          description: Minimum temperature
+    access: admin
+  set_configuration_min_voc:
+    summary: Set the min voc of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/minVoc
+      body_field: min_voc
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - minVoc
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        minVoc:
+          $ref: '#/types/Limit'
+          description: Minimum VOC
+    access: admin
+  set_configuration_storage_enable:
+    summary: Set the storage enable of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/storageEnable
+      body_field: storage_enable
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - storageEnable
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        storageEnable:
+          type: boolean
+          description: Storage enable
+    access: admin
+  set_configuration_storage_mode:
+    summary: Set the storage mode of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/storageMode
+      body_field: storage_mode
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - storageMode
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        storageMode:
+          $ref: '#/types/StorageMode'
+          description: Storage mode
+    access: admin
+  set_configuration_temperature_scale:
+    summary: Set the temperature scale of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/temperatureScale
+      body_field: temperature_scale
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - temperatureScale
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        temperatureScale:
+          $ref: '#/types/TemperatureScale'
+          description: Temperature scale unit
+    access: admin
+  set_configuration_validation_period_aqi:
+    summary: Set the validation period aqi of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodAqi
+      body_field: validation_period_aqi
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodAqi
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodAqi:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period AQI
+    access: admin
+  set_configuration_validation_period_co2:
+    summary: Set the validation period co2 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodCo2
+      body_field: validation_period_co2
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodCo2
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodCo2:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period CO2
+    access: admin
+  set_configuration_validation_period_humidity:
+    summary: Set the validation period humidity of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodHumidity
+      body_field: validation_period_humidity
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodHumidity
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodHumidity:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period humidity
+    access: admin
+  set_configuration_validation_period_nox:
+    summary: Set the validation period nox of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodNox
+      body_field: validation_period_nox
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodNox
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodNox:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period NOx
+    access: admin
+  set_configuration_validation_period_pm10p0:
+    summary: Set the validation period pm10p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodPm10p0
+      body_field: validation_period_pm10p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodPm10p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodPm10p0:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period PM10.0
+    access: admin
+  set_configuration_validation_period_pm1p0:
+    summary: Set the validation period pm1p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodPm1p0
+      body_field: validation_period_pm1p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodPm1p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodPm1p0:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period PM1.0
+    access: admin
+  set_configuration_validation_period_pm2p5:
+    summary: Set the validation period pm2p5 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodPm2p5
+      body_field: validation_period_pm2p5
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodPm2p5
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodPm2p5:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period PM2.5
+    access: admin
+  set_configuration_validation_period_pm4p0:
+    summary: Set the validation period pm4p0 of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodPm4p0
+      body_field: validation_period_pm4p0
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodPm4p0
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodPm4p0:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period PM4.0
+    access: admin
+  set_configuration_validation_period_temperature:
+    summary: Set the validation period temperature of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodTemperature
+      body_field: validation_period_temperature
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodTemperature
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodTemperature:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period temperature
+    access: admin
+  set_configuration_validation_period_vaping:
+    summary: Set the validation period vaping of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodVaping
+      body_field: validation_period_vaping
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodVaping
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodVaping:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period vaping
+    access: admin
+  set_configuration_validation_period_voc:
+    summary: Set the validation period voc of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/validationPeriodVoc
+      body_field: validation_period_voc
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - validationPeriodVoc
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        validationPeriodVoc:
+          $ref: '#/types/ValidationPeriod'
+          description: Validation period VOC
+    access: admin
+  set_configuration_vape_sensitivity:
+    summary: Set the vape sensitivity of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensor_id}/vapeSensitivity
+      body_field: vape_sensitivity
+      body: value
+    params:
+      type: object
+      required:
+      - sensorId
+      - vapeSensitivity
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+        vapeSensitivity:
+          $ref: '#/types/VapeSensitivity'
+          description: Vape sensitivity
+    access: admin
+  list_sensors:
+    summary: List the sensors.
+    effect: read
+    binding:
+      method: GET
+      path: /sensors
+    result:
+      type: array
+      items:
+        $ref: '#/types/Sensor'
+    examples:
+    - title: Get all sensors status
+      request:
+        path: /sensors
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - connected: true
+            defaultSensor: true
+            type: d6210
+            sensorId: My-SensorId
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+    access: viewer
+  get_sensor:
+    summary: Get one sensor.
+    effect: read
+    binding:
+      method: GET
+      path: /sensors/{sensor_id}
+    params:
+      type: object
+      x-name: SensorIdRequest
+      required:
+      - sensorId
+      properties:
+        sensorId:
+          $ref: '#/types/SensorId'
+    result:
+      $ref: '#/types/Sensor'
+    access: viewer
+  get_history_data:
+    summary: Historical measurements of one category between two times.
+    access: operator
+    effect: read
+    binding:
+      method: POST
+      path: /sensors/{sensor_id}/getHistoryData
+      body: object
+    params:
+      $ref: '#/types/GetHistoryDataRequest'
+    examples:
+    - title: Get history data
+      request:
+        path: /sensors/My-SensorId/getHistoryData
+        body:
+          data:
+            category: PM2_5
+            startTime: 1730186422
+            endTime: 1730186542
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            measurement:
+            - 3.4
+            - 3.3
+            - 3.3
+            - 3.2
+            timestamp:
+            - 1730186440
+            - 1730186471
+            - 1730186502
+            - 1730186533
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+    result:
+      $ref: '#/types/HistoryDataResult'
+  get_vaping_record:
+    summary: Times when vaping was detected between two times.
+    access: operator
+    effect: read
+    binding:
+      method: POST
+      path: /sensors/{sensor_id}/getVapingRecord
+      body: object
+    params:
+      $ref: '#/types/GetVapingRecordRequest'
+    examples:
+    - title: Get vaping record
+      request:
+        path: /sensors/My-SensorId/getVapingRecord
+        body:
+          data:
+            startTime: 1732015630
+            endTime: 1732525760
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            timestamp:
+            - 1732525635
+            - 1732525666
+            - 1732525697
+            - 1732525728
+            - 1732525759
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+    result:
+      $ref: '#/types/VapingRecord'
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-api/
+  sha256_md: 8dd422efc8471ad832ea041a7c580aa075ac5178f869d2593c04ec35dc9fba38
+  retrieved_at: '2026-10-11'
+provenance:
+  completeness: partial
+  open_questions:
+  - The docs have no Data types section. Field types, required request fields and the timestamp unit (Unix seconds) are inferred
+    from the examples; limits are typed number, the other numeric settings integer.
+  - temperatureScale, storageMode, vapeSensitivity, the history category and the dashboard item names have no documented value
+    sets; CELSIUS, FAHRENHEIT, PM2_5 and the dashboard items appear only in examples.
+  - The 40 per-property GET operations (GET /configurations/{sensor_id}/{property}) are documented but not modelled; get_configuration
+    returns the whole configuration.
+  - Error codes are not documented.
+  migrated_from: v1
+  curated: true

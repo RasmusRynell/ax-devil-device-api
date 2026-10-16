@@ -1,0 +1,330 @@
+format: 2
+id: network-share
+name: Network share API
+summary: Add, list, modify, remove, bind, unbind and test CIFS/SMB network shares used as edge storage.
+section: network-video
+family: cgi
+status: released
+python:
+  module: network_share
+  class: NetworkShare
+docs:
+  - https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: admin
+discovery:
+  - param: {name: Properties.NetworkShare.NetworkShare, value: "yes"}
+  - param: {name: Properties.NetworkShare.CIFS, value: "yes"}
+requires:
+  firmware: "5.40"
+binding:
+  path: /axis-cgi/disks/networkshare/list.cgi
+
+errors:
+  10: {description: Error while processing the request., kind: internal}
+  20: {description: Invalid request., kind: invalid_argument}
+  40: {description: Specified version is not supported., kind: unsupported}
+
+types:
+  XmlSchemaVersion:
+    type: string
+    pattern: ^[0-9]+(\.[0-9]+)?$
+    description: Major version of the XML schema to use for the response (``<integer>[.<integer>]``).
+  NetworkShareEntry:
+    type: object
+    description: One network share.
+    required: [NiceName, ShareId, Address, Share]
+    properties:
+      NiceName: {type: string, description: User-friendly name of the share.}
+      ShareId: {type: string, description: Share ID.}
+      Address: {type: string, description: Network address (IPv4 address or host name) of the storage device.}
+      Share: {type: string, description: Name of the share on the storage device.}
+      User: {type: string, description: User name for a user on the share.}
+      DiskId: {type: string, description: Disk ID of the disk the share is bound to. Absent when the share is unbound.}
+  NetworkShareList:
+    type: object
+    x-xml: {root: ListSuccess/NetworkShares}
+    required: [NumberOfShares]
+    properties:
+      NumberOfShares: {type: integer, minimum: 0, description: Number of network shares.}
+      NetworkShare:
+        type: array
+        items: {$ref: "#/types/NetworkShareEntry"}
+        x-python-name: shares
+        x-xml: {path: NetworkShare}
+  AddedShare:
+    type: object
+    x-xml: {root: AddSuccess}
+    required: [ShareId]
+    properties:
+      ShareId: {type: string, description: Share ID of the added share.}
+  BoundShare:
+    type: object
+    x-xml: {root: BindSuccess}
+    required: [DiskId]
+    properties:
+      DiskId: {type: string, description: Disk ID of the disk the share was bound to.}
+  StartedTest:
+    type: object
+    x-xml: {root: TestSuccess}
+    required: [JobId]
+    properties:
+      JobId: {type: string, description: Job ID to pass to ``get_job_progress``.}
+  JobProgress:
+    type: object
+    x-xml: {root: JobSuccess}
+    description: >-
+      Progress of a test job. ``progress`` is absent when the job has finished successfully; a job
+      that finished with errors raises an API error with the job's error code.
+    properties:
+      Progress:
+        type: integer
+        minimum: 0
+        maximum: 100
+        x-python-name: progress
+        description: Progress of the job in percent.
+        x-xml: {child: Progress}
+  SchemaVersionInfo:
+    type: object
+    required: [VersionNumber]
+    properties:
+      VersionNumber: {type: string, description: Schema version (major.minor)., x-xml: {child: VersionNumber}}
+      Deprecated:
+        type: boolean
+        description: If true, this version of the XML schema is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: SchemaVersionsSuccess}
+    required: [SchemaVersion]
+    properties:
+      SchemaVersion:
+        type: array
+        items: {$ref: "#/types/SchemaVersionInfo"}
+        x-xml: {path: SchemaVersion}
+
+operations:
+  list_shares:
+    summary: List network shares and their parameters.
+    access: operator
+    effect: read
+    binding: {method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        shareid: {type: string, description: '``all`` or comma-separated Share IDs of the shares to list.'}
+    positional: [shareid]
+    result: {$ref: "#/types/NetworkShareList"}
+    examples:
+      - title: List all network shares
+        request: {query: {schemaversion: "1", shareid: all}}
+        response:
+          status: 200
+          text: |-
+            <?xml version="1.0" encoding="utf-8"?>
+            <NetworkShareResponse SchemaVersion="1.0"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:noNamespaceSchemaLocation=
+                "http://www.axis.com/vapix/http_cgi/networkshare1.xsd">
+              <ListSuccess>
+                <NetworkShares NumberOfShares="1">
+                  <NetworkShare NiceName="My Share"
+                    ShareId="35419"
+                    Address="mynas.mycompany.com"
+                    Share="myshare"
+                    User="nasuser" />
+                </NetworkShares>
+              </ListSuccess>
+            </NetworkShareResponse>
+        source: https://developer.axis.com/vapix/network-video/edge-storage-api/#list-network-shares
+
+  add_share:
+    summary: Add a network share (NAS or other CIFS/SMB server).
+    effect: write
+    write: create
+    binding: {path: /axis-cgi/disks/networkshare/add.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [nicename, address, share]
+      x-masked: [pass]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        nicename: {type: string, description: User-friendly name for the share.}
+        address: {type: string, description: IPv4 address or host name of the storage device.}
+        share: {type: string, description: Name of the share on the storage device.}
+        shareid:
+          type: string
+          pattern: ^[A-Za-z0-9-]+$
+          description: Unique Share ID. Assigned by the product when omitted.
+        user: {type: string, description: User name for a user on the share.}
+        pass: {type: string, x-python-name: password, description: Password for the user.}
+    result: {$ref: "#/types/AddedShare"}
+    errors:
+      200: {description: Invalid ShareId., kind: invalid_argument}
+      210: {description: The ShareId is not unique., kind: invalid_argument}
+      220: {description: The NiceName is not unique., kind: invalid_argument}
+      230: {description: Maximum number of network shares is already reached. No more shares can be added.}
+
+  remove_share:
+    summary: Remove network shares. They must be unbound first.
+    effect: write
+    write: delete
+    binding: {path: /axis-cgi/disks/networkshare/remove.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        shareid: {type: string, description: Comma-separated Share IDs of the shares to remove.}
+    positional: [shareid]
+    errors:
+      500: {description: The network share is bound and can't be removed. Unbind it first.}
+
+  modify_share:
+    summary: Modify a network share.
+    description: >-
+      ``nicename`` can always be changed. To change the other parameters the share must be unbound first.
+      Only the given parameters change.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/networkshare/modify.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      x-masked: [pass]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        shareid: {type: string, description: Share ID of the network share to modify.}
+        nicename: {type: string, description: User-friendly name for the share.}
+        address: {type: string, description: IPv4 address or host name of the storage device.}
+        share: {type: string, description: Name of the share on the storage device.}
+        user: {type: string, description: User name for a user on the share.}
+        pass: {type: string, x-python-name: password, description: Password for the user.}
+    positional: [shareid]
+    errors:
+      600: {description: The network share is bound and can't be modified. Unbind it first.}
+      610: {description: The new ShareId is not unique., kind: invalid_argument}
+      620: {description: The NiceName is not unique., kind: invalid_argument}
+
+  bind_share:
+    summary: Bind a network share to a disk and return the Disk ID.
+    description: The Disk ID is used with the disk management and recording APIs.
+    access: operator
+    effect: action
+    binding: {path: /axis-cgi/disks/networkshare/bind.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        shareid: {type: string, description: Share ID of the network share to bind.}
+        automaticmount:
+          type: boolean
+          x-style: axis_bool
+          default: true
+          description: Mount the disk automatically after binding. The device default is yes.
+    positional: [shareid]
+    result: {$ref: "#/types/BoundShare"}
+    errors:
+      300: {description: No available disk. Check if another network share is already bound.}
+      310: {description: The network share is already bound to a disk.}
+
+  unbind_share:
+    summary: Unbind a network share so it can be modified or removed.
+    access: operator
+    effect: action
+    binding: {path: /axis-cgi/disks/networkshare/unbind.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [shareid]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        shareid: {type: string, description: Share ID of the network share to unbind.}
+    positional: [shareid]
+    errors:
+      400: {description: The network share is mounted and can't be unbound. Unmount it with the disk management API.}
+
+  test_share:
+    summary: Start a job that tests whether a network share can be used as storage.
+    description: >-
+      The given parameters are only used for the test and are not stored. ``shareid`` can replace some or all
+      of address, share, user and password; arguments given together with it override the stored values.
+      Poll the returned job with ``get_job_progress``.
+    access: operator
+    effect: action
+    binding: {path: /axis-cgi/disks/networkshare/test.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      x-masked: [pass]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        address: {type: string, description: IPv4 address or host name of the storage device.}
+        share: {type: string, description: Name of the share on the storage device.}
+        user: {type: string, description: User name for a user on the share.}
+        pass: {type: string, x-python-name: password, description: Password for the user.}
+        shareid: {type: string, description: Share ID to take unspecified values from.}
+    result: {$ref: "#/types/StartedTest"}
+    errors: &test_errors
+      700: {description: No such hostname., kind: not_found}
+      710: {description: Error while mounting network share.}
+      720: {description: Internal error while mounting network share., kind: internal}
+      730: {description: 'Too many tests or jobs started, wait for some to finish.', kind: unavailable}
+      740: {description: Problem writing to the share.}
+      750: {description: Problem reading data written to the share.}
+      760: {description: Problem connecting to the share.}
+
+  get_job_progress:
+    summary: Check the progress of a network share test job.
+    description: Typically polled until the job is done.
+    access: operator
+    effect: read
+    binding: {path: /axis-cgi/disks/networkshare/job.cgi, method: GET, reply: xml}
+    params:
+      type: object
+      required: [schemaversion, jobid]
+      properties:
+        schemaversion: {$ref: "#/types/XmlSchemaVersion"}
+        jobid: {type: string, description: Job ID returned by ``test_share``.}
+    positional: [schemaversion, jobid]
+    result: {$ref: "#/types/JobProgress"}
+    errors: *test_errors
+    examples:
+      - title: Check progress of job 1
+        request: {query: {schemaversion: "1", jobid: "1"}}
+        response:
+          status: 200
+          text: |-
+            <?xml version="1.0" encoding="utf-8"?>
+            <NetworkShareResponse SchemaVersion="1.0"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:noNamespaceSchemaLocation=
+                "http://www.axis.com/vapix/http_cgi/networkshare1.xsd">
+              <JobSuccess>
+                <Progress>15</Progress>
+              </JobSuccess>
+            </NetworkShareResponse>
+        source: https://developer.axis.com/vapix/network-video/edge-storage-api/#job-progress
+
+  get_schema_versions:
+    summary: List the supported XML schema versions and whether they are deprecated.
+    access: operator
+    effect: read
+    binding: {path: /axis-cgi/disks/networkshare/schemaversions.cgi, method: GET, reply: xml}
+    result: {$ref: "#/types/SchemaVersions"}
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+    sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  open_questions:
+    - The CGI overview table lists /axis-cgi/disks/list.cgi for listing shares, while the specification section and examples use /axis-cgi/disks/networkshare/list.cgi.
+    - The bind.cgi reply is documented as BindSuccess DiskID="..." but the XSD (networkshare1.xsd) and list.cgi use DiskId; the spec follows the XSD.
+    - The job reply carries no explicit finished flag; a finished job (GeneralSuccess inside JobSuccess) shows as progress absent.
+    - Success text for remove, modify and unbind says "disk encryption is disabled" (copy-paste in the docs); the reply is GeneralSuccess.
+    - schemaversion is marked Required only for job.cgi and Optional for test.cgi; it is optional elsewhere.
+    - Error 700-760 "kind" values (other than not_found, internal, unavailable) are left unset because the meaning is not specific.
+  migrated_from: v1
+  curated: true

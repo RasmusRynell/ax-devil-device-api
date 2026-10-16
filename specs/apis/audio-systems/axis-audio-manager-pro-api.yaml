@@ -1,0 +1,952 @@
+format: 2
+id: axis-audio-manager-pro-api
+name: AXIS Audio Manager Pro API
+summary: REST API of the AXIS Audio Manager Pro server. Manage audio sessions (HTTP, RTP, SIP, WS), targets, audio
+  files, volume controllers, visual profiles, paging configurations and server information.
+section: audio-systems
+family: rest
+status: released
+python:
+  module: axis_audio_manager_pro
+  class: AxisAudioManagerPro
+docs:
+- https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+access: admin
+requires:
+  application: AXIS Audio Manager Pro (server software)
+
+binding: {root: /api}
+
+errors:
+  400:
+    description: Invalid parameters. application/json error object, e.g. message "Unknown priority 'HIGHER'".
+    kind: invalid_argument
+  404: {description: Not found, kind: not_found}
+  422: {description: Change not allowed, kind: invalid_argument}
+  500: {description: Internal server error, kind: internal}
+
+types:
+  VisualProfileEnabled:
+    type: string
+    enum: [DEFAULT, 'FALSE', 'TRUE']
+    description: TRUE = use visualProfileId; DEFAULT = site default visual profile; FALSE = no visuals.
+  HttpWsCodec:
+    type: object
+    properties:
+      bitrate:
+        type: integer
+        description: Max bitrate in bps. Required for codecs PCM, OPUS, MP2 and MP3.
+      channelLayout: {type: string, enum: [MONO, STEREO]}
+      codec:
+        type: string
+        enum:
+        - PCM
+        - G711_ULAW
+        - G711_ALAW
+        - G722
+        - G723
+        - G726
+        - G728
+        - G729
+        - GSM
+        - MP2
+        - MP3
+        - AAC
+        - OPUS
+        - VORBIS
+        - FLAC
+        - WMA
+      sampleFormat: {type: string, enum: [S8, S16, S24, S32, FLOAT, DOUBLE]}
+      sampleRate: {type: integer, description: PCM sample rate in Hz.}
+  RtpCodec:
+    type: object
+    properties:
+      audioProfile:
+        type: string
+        enum:
+        - g711aMono8kHz
+        - g711uMono8kHz
+        - g722Mono16kHz
+        - l16Stereo48kHz
+        - l16Mono48kHz
+        - l16Stereo44kHz
+        - l16Mono44kHz
+        - l16Stereo32kHz
+        - l16Mono32kHz
+        - l16Stereo16kHz
+        - l16Mono16kHz
+        - mp2Stereo48kHz
+        - opusStereo48kHz
+        - opusMono48kHz
+      payloadType: {type: integer, description: Only used by codecs with dynamic payload types.}
+  DuplexDevice:
+    type: object
+    description: Device used for two-way audio; its source input is sent back to the session. sourceId may be omitted
+      if multiple inputs; omitting duplexDevice disables audio input.
+    properties:
+      id: {type: string, description: Unique device ID (e.g. dev_15).}
+      sourceId: {type: string, description: Unique device source ID (e.g. dsc_15).}
+  AudioSession:
+    oneOf:
+    - type: object
+      x-name: HttpAudioSession
+      required: [type, targets, id]
+      x-read-only: [id]
+      properties:
+        type: {const: HTTP}
+        customId: {type: string, description: Client-provided identifier used to reference the session.}
+        customText: {type: string, description: Custom text overriding the default text of the visual profile.}
+        id: {type: string, description: A unique audio session ID. Assigned by the server.}
+        prio:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          default: LOW
+          description: Priority of the session relative to other playing audio. A higher priority silences sessions
+            with a lower priority in the same targets.
+        targets:
+          type: array
+          items: {type: string}
+          description: The target IDs where audio will be played. Audio plays on all specified targets and cascades
+            to their children and descendants in the zone hierarchy.
+        visualProfileEnabled: {$ref: '#/types/VisualProfileEnabled'}
+        visualProfileId: {type: integer, description: The visual profile ID.}
+        codec:
+          $ref: '#/types/HttpWsCodec'
+          description: The codec of the session. The table of the docs calls it 'codecs=<object>'; the examples use 'codec'.
+        holdup:
+          type: integer
+          default: 200
+          description: Audio buffering delay in ms (typical 100-400). Higher values give stable delivery over unreliable
+            networks at the cost of latency.
+    - type: object
+      x-name: RtpAudioSession
+      required: [type, targets, id]
+      x-read-only: [id]
+      properties:
+        type: {const: RTP}
+        customId: {type: string, description: Client-provided identifier used to reference the session.}
+        customText: {type: string, description: Custom text overriding the default text of the visual profile.}
+        id: {type: string, description: A unique audio session ID. Assigned by the server.}
+        prio:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          default: LOW
+          description: Priority of the session relative to other playing audio. A higher priority silences sessions
+            with a lower priority in the same targets.
+        targets:
+          type: array
+          items: {type: string}
+          description: The target IDs where audio will be played. Audio plays on all specified targets and cascades
+            to their children and descendants in the zone hierarchy.
+        visualProfileEnabled: {$ref: '#/types/VisualProfileEnabled'}
+        visualProfileId: {type: integer, description: The visual profile ID.}
+        codecs:
+          type: array
+          items: {$ref: '#/types/RtpCodec'}
+        multicastGroup:
+          type: string
+          description: IPv4/IPv6 multicast group address; specify when RTP is transmitted via multicast.
+        port:
+          type: integer
+          description: RTP port; assigned by the server if omitted; error if occupied or outside configured range.
+    - type: object
+      x-name: SipAudioSession
+      required: [type, targets, id]
+      x-read-only: [id]
+      properties:
+        type: {const: SIP}
+        customId: {type: string, description: Client-provided identifier used to reference the session.}
+        customText: {type: string, description: Custom text overriding the default text of the visual profile.}
+        id: {type: string, description: A unique audio session ID. Assigned by the server.}
+        prio:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          default: LOW
+          description: Priority of the session relative to other playing audio. A higher priority silences sessions
+            with a lower priority in the same targets.
+        targets:
+          type: array
+          items: {type: string}
+          description: The target IDs where audio will be played. Audio plays on all specified targets and cascades
+            to their children and descendants in the zone hierarchy.
+        visualProfileEnabled: {$ref: '#/types/VisualProfileEnabled'}
+        visualProfileId: {type: integer, description: The visual profile ID.}
+        duplexDevice: {$ref: '#/types/DuplexDevice'}
+        extension: {type: string, description: 'Dialing extension; when dialed, the session is used.'}
+    - type: object
+      x-name: WsAudioSession
+      required: [type, targets, id]
+      x-read-only: [id]
+      properties:
+        type: {const: WS}
+        customId: {type: string, description: Client-provided identifier used to reference the session.}
+        customText: {type: string, description: Custom text overriding the default text of the visual profile.}
+        id: {type: string, description: A unique audio session ID. Assigned by the server.}
+        prio:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          default: LOW
+          description: Priority of the session relative to other playing audio. A higher priority silences sessions
+            with a lower priority in the same targets.
+        targets:
+          type: array
+          items: {type: string}
+          description: The target IDs where audio will be played. Audio plays on all specified targets and cascades
+            to their children and descendants in the zone hierarchy.
+        visualProfileEnabled: {$ref: '#/types/VisualProfileEnabled'}
+        visualProfileId: {type: integer, description: The visual profile ID.}
+        codec: {$ref: '#/types/HttpWsCodec'}
+        duplexDevice: {$ref: '#/types/DuplexDevice'}
+        holdup:
+          type: integer
+          default: 200
+          description: Audio buffering delay in ms (typical 100-400).
+    description: Discriminated by 'type' (HTTP, RTP, SIP, WS).
+  PlayAudioFilesRequest:
+    type: object
+    required: [fileIds]
+    properties:
+      customText: {type: string, description: Optional text overriding the visual profile's text.}
+      fileIds:
+        type: array
+        items: {type: string}
+        description: Audio file IDs played in sequence, each starting immediately after the previous.
+      repeat:
+        type: integer
+        default: 1
+        description: Number of times to play; <= 0 means infinite (stop with stopAudioFiles or by deleting the session).
+      visualProfileEnabled: {$ref: '#/types/VisualProfileEnabled'}
+      visualProfileId: {type: integer}
+  AudioSessionStatus:
+    type: object
+    required: [id, status, type]
+    properties:
+      availableDevices:
+        type: array
+        items: {type: string}
+        description: Devices currently available to receive audio in this session.
+      id: {type: string}
+      playbackStarted: {type: string, description: 'When the session started, e.g. 2023-01-12 12:53:32+0100.'}
+      prio: {type: string, enum: [HIGH, MEDIUM, LOW], description: The priority of the audio session.}
+      status: {type: string, enum: [notPlaying, playing]}
+      type: {type: string, enum: [HTTP, SIP, RTP, WS]}
+      unavailableDevices:
+        type: array
+        items: {type: string}
+        description: Devices unavailable because a higher-priority session is active on the same targets.
+  Target:
+    type: object
+    required: [id, type]
+    properties:
+      children:
+        type: array
+        items: {type: string}
+        description: IDs of direct child targets; always empty for devices (leaf nodes).
+      enabled:
+        type: boolean
+        description: Whether the target should play audio. For a destination all mapped sources are stopped, but
+          other audio can still play in its targets.
+      id: {type: string, description: Unique target ID (e.g. zon_1255).}
+      issues:
+        type: object
+        x-name: TargetIssues
+        description: Device targets only. Major and minor issues.
+        properties:
+          major:
+            type: array
+            items:
+              type: string
+              enum:
+              - MULTICAST_ERROR
+              - OUTPUT_GAIN_LOW
+              - UNSUPPORTED_HOST_FW
+              - UNSUPPORTED_DEV_TYPE
+              - UNSUPPORTED_TRANSPORT
+          minor:
+            type: array
+            items:
+              type: string
+              enum:
+              - MULTICAST_ERROR
+              - OUTPUT_GAIN_LOW
+              - UNSUPPORTED_HOST_FW
+              - UNSUPPORTED_DEV_TYPE
+              - UNSUPPORTED_TRANSPORT
+      lowestPriorityAvailable:
+        type: string
+        enum: [LOW, MEDIUM, HIGH, NONE]
+        description: Lowest priority for which the target is currently available; NONE if unavailable even for HIGH.
+      niceName: {type: string}
+      sources:
+        type: array
+        items:
+          type: object
+          x-name: TargetSourcesItem
+          properties:
+            enabled: {type: boolean}
+            id: {type: string}
+            name: {type: string}
+        description: Device targets only. Device sources such as Line-in.
+      status:
+        type: string
+        enum:
+        - unmanaged
+        - online
+        - offline
+        - playing
+        - 'error: NO_LICENCE'
+        - 'error: FACTORY_DEFAULTS'
+        - 'error: UNAUTHORIZED'
+        - 'error: UNSUPPORTED_HOST_FW'
+        - 'error: UNSUPPORTED_TRANSPORT'
+        description: End devices only.
+      type: {type: string, enum: [physicalZone, site, device, destination, outputStream]}
+  AudioFile:
+    type: object
+    required: [id, name, type]
+    properties:
+      id: {type: string}
+      length: {type: number, description: Length in seconds.}
+      library: {type: string, description: Library containing the file (e.g. Announcement).}
+      name: {type: string}
+      path: {type: string, description: Optional folder info (e.g. /Closing/).}
+      type: {type: string, enum: [FILE, PLAYLIST]}
+  VolumeController:
+    type: object
+    required: [id]
+    properties:
+      allowMute: {type: boolean}
+      contentClasses:
+        type: array
+        items:
+          type: object
+          x-name: VolumeControllerContentClassesItem
+          properties:
+            id: {type: string}
+            niceName: {type: string}
+      id: {type: string}
+      maxNegativeVolumeOffset:
+        type: integer
+        minimum: -100
+        maximum: 100
+        description: Minimum allowed value of the controller.
+      maxPositiveVolumeOffset:
+        type: integer
+        minimum: -100
+        maximum: 100
+        description: Maximum allowed value of the controller.
+      muted: {type: boolean}
+      niceName: {type: string}
+      targets:
+        type: array
+        items: {type: string}
+      volumeOffset:
+        type: number
+        minimum: -100
+        maximum: 100
+        description: Current volume offset [-100, +100].
+  LightProfile:
+    type: object
+    required: [id]
+    properties:
+      audioSync:
+        type: boolean
+        description: 'TRUE: light duration synchronized with audio playback; FALSE: controlled by duration.'
+      colors:
+        type: string
+        enum:
+        - RED
+        - GREEN
+        - BLUE
+        - YELLOW
+        - PURPLE
+        - TURQUOISE
+        - WHITE
+        - PINK
+        - AMBER
+      description: {type: string}
+      duration: {type: integer, description: Strobe time (s).}
+      id: {type: integer}
+      intensity: {type: integer, minimum: 0, maximum: 5}
+      name: {type: string}
+      pattern: {type: string, enum: ['OFF', STEADY, ALTERNATE, BLINK, PULSE, ROTATION]}
+      speed: {type: integer, minimum: 0, maximum: 5}
+      type:
+        type: string
+        enum: [AUDIO, SIGNALING]
+        description: Whether the profile controls audio LEDs or signaling LEDs.
+  VisualProfile:
+    type: object
+    required: [id]
+    properties:
+      audioSync: {type: boolean, description: True if the text should be synchronized with the audio.}
+      defaultCategories:
+        type: array
+        items:
+          type: object
+          x-name: VisualProfileDefaultCategoriesItem
+          properties:
+            category: {type: string, enum: [ANY, MUSIC, ADVERTISEMENT, ANNOUNCEMENT, PAGING]}
+            enabled: {type: boolean}
+      description: {type: string}
+      id: {type: integer}
+      lightEnabled: {type: boolean}
+      lightProfile: {$ref: '#/types/LightProfile'}
+      name: {type: string}
+      text:
+        type: string
+        description: 'Supported encodings: Latin 1 (8859-1), Latin CE (8859-2), Greek (8859-7), Cyrillic (8859-5),
+          Hebrew (8859-8).'
+      textBackgroundColor: {type: string, pattern: '^#[0-9A-Fa-f]{6}$'}
+      textColor: {type: string, pattern: '^#[0-9A-Fa-f]{6}$'}
+      textDuration: {type: integer, description: Text playback time in seconds.}
+      textLayout:
+        type: string
+        enum: [LARGE, MEDIUM, SMALL, LARGE_LEFT_TO_RIGHT]
+        description: 'Large: single line, horizontal scroll; medium/small: multiple lines, vertical scroll.'
+      textRepetition: {type: integer}
+      textScrollSpeed: {type: integer, minimum: 1, maximum: 10}
+      textTimeLimit:
+        type: boolean
+        description: 'When textAudioSync is false: true = show for textDuration; false = show textRepetition times.'
+      used: {type: boolean}
+  ServerInfo:
+    type: object
+    properties:
+      apiVersions:
+        type: array
+        items: {type: string}
+      licenseUntil: {type: string}
+      licensingStatus: {type: boolean}
+      locale: {type: string}
+      serverIps:
+        type: array
+        items: {type: string}
+      serverName: {type: string}
+      serverPort: {type: integer}
+      serverVersion: {type: string}
+      siteId: {type: string}
+      siteName: {type: string}
+      timeZone: {type: string}
+      trialActive: {type: boolean}
+  PagingConfiguration:
+    type: object
+    required: [id, type]
+    properties:
+      duplexDevice: {$ref: '#/types/DuplexDevice', description: Only for TWOWAY.}
+      extension: {type: string, description: Extension used for SIP dialing.}
+      id: {type: string, description: Paging source ID (e.g. pac_16).}
+      niceName: {type: string}
+      targets:
+        type: array
+        items: {type: string}
+        description: Destinations (ONEWAY) or a specific device (TWOWAY).
+      type: {type: string, enum: [ONEWAY, TWOWAY]}
+
+operations:
+  list_audio_sessions:
+    summary: Retrieve a list of available audio sessions.
+    effect: read
+    binding: {method: GET, path: /v1.2/audioSessions}
+    result:
+      type: array
+      items: {$ref: '#/types/AudioSession'}
+    examples:
+      - title: List audio sessions
+        request: {path: /v1.2/audioSessions}
+        response:
+          status: 200
+          body:
+            - {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codec: {bitrate: 192000, channelLayout: MONO, codec: PCM, sampleFormat: S8, sampleRate: 16000}, holdup: 200, type: HTTP}
+            - {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codecs: [{audioProfile: g711aMono8kHz, payloadType: 127}], multicastGroup: string, port: 0, type: RTP}
+            - {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, duplexDevice: {id: dev_15, sourceId: dsc_15}, extension: "3256", type: SIP}
+            - {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codec: {bitrate: 192000, channelLayout: MONO, codec: PCM, sampleFormat: S8, sampleRate: 16000}, duplexDevice: {id: dev_15, sourceId: dsc_15}, holdup: 200, type: WS}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#list-audio-sessions
+  create_audio_session:
+    summary: Create a new audio session (types HTTP, RTP, SIP, WS).
+    description: The docs show the request and response as arrays holding one session of each type; they are read as an
+      illustration of the four types, so one session is sent and one is returned (see the open questions).
+    effect: write
+    write: create
+    binding: {method: POST, path: /v1.2/audioSessions, body: value, body_field: body}
+    params:
+      type: object
+      required: [body]
+      properties:
+        body:
+          $ref: '#/types/AudioSession'
+          description: The session to create; 'type' selects HTTP, RTP, SIP or WS.
+    result: {$ref: '#/types/AudioSession'}
+    examples:
+      - title: Create an HTTP audio session
+        description: The docs show an array with one session of each type; the HTTP session is used.
+        request:
+          path: /v1.2/audioSessions
+          body: {customId: my-app-session-12345, customText: string, prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codec: {bitrate: 192000, channelLayout: MONO, codec: PCM, sampleFormat: S8, sampleRate: 16000}, holdup: 200, type: HTTP}
+        response: {status: 200, body: {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codec: {bitrate: 192000, channelLayout: MONO, codec: PCM, sampleFormat: S8, sampleRate: 16000}, holdup: 200, type: HTTP}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#create-an-audio-session
+      - title: Create an RTP audio session
+        request:
+          path: /v1.2/audioSessions
+          body: {customId: my-app-session-12345, customText: string, prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codecs: [{audioProfile: g711aMono8kHz, payloadType: 127}], multicastGroup: string, port: 0, type: RTP}
+        response: {status: 200, body: {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codecs: [{audioProfile: g711aMono8kHz, payloadType: 127}], multicastGroup: string, port: 0, type: RTP}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#create-an-audio-session
+  delete_audio_session_by_custom_id:
+    summary: Delete an audio session identified by customId (cancels ongoing playback).
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/v1.2/audioSessions/custom/{customId}'}
+    params:
+      type: object
+      required: [customId]
+      properties:
+        customId:
+          type: string
+          description: Must match the customId specified when the session was created (the docs mark it Optional, but it is
+            a path segment).
+    examples:
+      - title: Delete an audio session by custom ID
+        request: {path: /v1.2/audioSessions/custom/my-app-session-12345}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#delete-an-audio-session
+  play_audio_files_by_custom_id:
+    summary: Trigger playback of audio files from the site content library in the session (replaces current playback).
+    effect: action
+    binding:
+      method: POST
+      path: /v1.2/audioSessions/custom/{customId}/playAudioFiles
+      body: value
+      body_field: body
+    params:
+      type: object
+      required: [customId, body]
+      properties:
+        customId: {type: string}
+        body: {$ref: '#/types/PlayAudioFilesRequest'}
+    examples:
+      - title: Play audio files in a custom session
+        request:
+          path: /v1.2/audioSessions/custom/my-app-session-12345/playAudioFiles
+          body: {customText: 'Emergency: Evacuate Building Now', fileIds: ['12', '15'], repeat: 1, visualProfileEnabled: DEFAULT, visualProfileId: 0}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#start-playback-of-audio-files-in-an-audio-session
+  stop_audio_files_by_custom_id:
+    summary: Stop playback of audio files in a session identified by customId.
+    effect: action
+    binding: {method: POST, path: '/v1.2/audioSessions/custom/{customId}/stopAudioFiles'}
+    params:
+      type: object
+      required: [customId]
+      properties:
+        customId: {type: string}
+    examples:
+      - title: Stop audio files of a custom session
+        request: {path: /v1.2/audioSessions/custom/my-app-session-12345/stopAudioFiles}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#stop-audio-files-with-a-customid
+  oneshot_play_audio_files:
+    summary: Create a temporary audio session and play audio files; deleted after playback (or stop by deleting
+      the returned session).
+    effect: action
+    binding: {method: POST, path: /v1.2/audioSessions/oneshotPlayAudioFiles, body: object}
+    params:
+      type: object
+      required: [fileIds, targets]
+      properties:
+        customId: {type: string}
+        customText: {type: string}
+        fileIds:
+          type: array
+          items: {type: string}
+        prio:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          default: LOW
+          description: Priority of the session. The table lists it without the Optional marker but with the default LOW.
+        repeat: {type: integer, description: Number of times to play the files; <= 0 means infinite.}
+        targets:
+          type: array
+          items: {type: string}
+          description: The target IDs where audio will be played. In the example body; missing from the parameter table.
+        visualProfileEnabled: {$ref: '#/types/VisualProfileEnabled'}
+        visualProfileId: {type: integer}
+    result: {$ref: '#/types/AudioSession'}
+    examples:
+      - title: Play one shot audio files
+        description: The documented response is an array with one session of each type; the HTTP session is used.
+        request:
+          path: /v1.2/audioSessions/oneshotPlayAudioFiles
+          body: {customId: my-app-session-12345, customText: 'Emergency: Evacuate Building Now', fileIds: ['12', '15'], prio: LOW, repeat: 1, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0}
+        response: {status: 200, body: {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codec: {bitrate: 192000, channelLayout: MONO, codec: PCM, sampleFormat: S8, sampleRate: 16000}, holdup: 200, type: HTTP}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#play-one-shot-audio-files
+  delete_audio_session:
+    summary: Delete an audio session by id (cancels ongoing playback).
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/v1.2/audioSessions/{audioSessionId}'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+    examples:
+      - title: Delete a specific audio session
+        request: {path: /v1.2/audioSessions/156}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#delete-a-specific-audio-session
+  get_audio_session:
+    summary: Retrieve an existing audio session.
+    effect: read
+    binding: {method: GET, path: '/v1.2/audioSessions/{audioSessionId}'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+    result: {$ref: '#/types/AudioSession'}
+    examples:
+      - title: Retrieve a specific audio session
+        description: The documented response is an array with one session of each type; the HTTP session is used.
+        request: {path: /v1.2/audioSessions/156}
+        response: {status: 200, body: {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codec: {bitrate: 192000, channelLayout: MONO, codec: PCM, sampleFormat: S8, sampleRate: 16000}, holdup: 200, type: HTTP}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#retrieve-a-specific-audio-session
+  update_audio_session:
+    summary: Update targets and/or priority of an existing audio session.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/v1.2/audioSessions/{audioSessionId}', body: object}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+        prio: {type: string, enum: [HIGH, MEDIUM, LOW]}
+        targets:
+          type: array
+          items: {type: string}
+          description: List of target identifiers (zones or devices).
+    result: {$ref: '#/types/AudioSession'}
+    examples:
+      - title: Update an audio session
+        request:
+          path: /v1.2/audioSessions/156
+          body: {prio: LOW, targets: [string]}
+        response: {status: 200, body: {customId: my-app-session-12345, customText: string, id: "156", prio: LOW, targets: [zon_1256, dev_101], visualProfileEnabled: DEFAULT, visualProfileId: 0, codec: {bitrate: 192000, channelLayout: MONO, codec: PCM, sampleFormat: S8, sampleRate: 16000}, holdup: 200, type: HTTP}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#update-an-audio-session
+  play_audio_files:
+    summary: Play audio files in succession in an (HTTP) audio session; replaces current playback.
+    effect: action
+    binding:
+      method: POST
+      path: /v1.2/audioSessions/{audioSessionId}/playAudioFiles
+      body: value
+      body_field: body
+    params:
+      type: object
+      x-name: PlayAudioFilesRequestArgs
+      required: [audioSessionId, body]
+      properties:
+        audioSessionId: {type: string, description: The ID of the HTTP audio session.}
+        body: {$ref: '#/types/PlayAudioFilesRequest'}
+    examples:
+      - title: Play audio files
+        request:
+          path: /v1.2/audioSessions/156/playAudioFiles
+          body: {customText: 'Emergency: Evacuate Building Now', fileIds: ['12', '15'], repeat: 1, visualProfileEnabled: DEFAULT, visualProfileId: 0}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#play-audio-files
+  get_audio_session_status:
+    summary: Check session status including playback and device availability.
+    description: Since 1.1.
+    effect: read
+    binding: {method: GET, path: '/v1.2/audioSessions/{audioSessionId}/status'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+    result: {$ref: '#/types/AudioSessionStatus'}
+    examples:
+      - title: Check audio session status
+        request: {path: /v1.2/audioSessions/156/status}
+        response:
+          status: 200
+          body: {availableDevices: [dev_1256, dev_11], id: "156", playbackStarted: '2023-01-12 12:53:32+0100', prio: HIGH, status: notPlaying, type: HTTP, unavailableDevices: [dev_136, dev_31]}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#check-audio-session-status
+  stop_audio_files:
+    summary: Stop the audio files playback in the session.
+    effect: action
+    binding: {method: POST, path: '/v1.2/audioSessions/{audioSessionId}/stopAudioFiles'}
+    params:
+      type: object
+      required: [audioSessionId]
+      properties:
+        audioSessionId: {type: string}
+    examples:
+      - title: Stop audio files
+        request: {path: /v1.2/audioSessions/156/stopAudioFiles}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#stop-audio-files
+  list_targets:
+    summary: List all targets (physical zones, destinations, devices, ...).
+    effect: read
+    binding: {method: GET, path: /v1.2/targets}
+    result:
+      type: array
+      items: {$ref: '#/types/Target'}
+    examples:
+      - title: List targets
+        request: {path: /v1.2/targets}
+        response:
+          status: 200
+          body:
+            - {children: [zon_1256, dev_101], enabled: true, id: zon_1255, issues: {major: [MULTICAST_ERROR], minor: [MULTICAST_ERROR]}, lowestPriorityAvailable: LOW, niceName: First floor, sources: [{enabled: true, id: dev_src_15, name: Line-In}], status: online, type: physicalZone}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#list-targets
+  get_target:
+    summary: Retrieve a specific target.
+    effect: read
+    binding: {method: GET, path: '/v1.2/targets/{targetId}'}
+    params:
+      type: object
+      required: [targetId]
+      properties:
+        targetId: {type: string}
+    result: {$ref: '#/types/Target'}
+    examples:
+      - title: Retrieve a specific target
+        request: {path: /v1.2/targets/zon_1255}
+        response: {status: 200, body: {children: [zon_1256, dev_101], enabled: true, id: zon_1255, issues: {major: [MULTICAST_ERROR], minor: [MULTICAST_ERROR]}, lowestPriorityAvailable: LOW, niceName: First floor, sources: [{enabled: true, id: dev_src_15, name: Line-In}], status: online, type: physicalZone}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#retrieve-a-specific-target
+  update_target:
+    summary: Enable or disable a target (disabled = silenced; for destinations all mapped sources stop).
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/v1.2/targets/{targetId}', body: object}
+    params:
+      type: object
+      required: [targetId, enabled]
+      properties:
+        targetId: {type: string}
+        enabled: {type: boolean}
+    examples:
+      - title: Enable a target
+        request:
+          path: /v1.2/targets/zon_1255
+          body: {enabled: true}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#update-a-specific-target
+  list_audio_files:
+    summary: List audio files in the announcement and music library.
+    effect: read
+    binding: {method: GET, path: /v1.2/audioFiles}
+    result:
+      type: array
+      items: {$ref: '#/types/AudioFile'}
+    examples:
+      - title: List audio files
+        description: The docs show the id as the number 156; the table types it as a string.
+        request: {path: /v1.2/audioFiles}
+        response:
+          status: 200
+          body:
+            - {id: "156", length: 35.613, library: Announcement, name: Closing announcement.mp3, path: /Closing/, type: FILE}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#list-audio-files
+  get_audio_file:
+    summary: Retrieve metadata for an audio file.
+    effect: read
+    binding: {method: GET, path: '/v1.2/audioFiles/{audioFileId}'}
+    params:
+      type: object
+      required: [audioFileId]
+      properties:
+        audioFileId: {type: string}
+    result: {$ref: '#/types/AudioFile'}
+    examples:
+      - title: Retrieve a specific audio file
+        description: The documented response is an array with one file; the file is used.
+        request: {path: /v1.2/audioFiles/156}
+        response: {status: 200, body: {id: "156", length: 35.613, library: Announcement, name: Closing announcement.mp3, path: /Closing/, type: FILE}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#retrieve-a-specific-audio-file
+  list_volume_controllers:
+    summary: Retrieve all volume controllers.
+    effect: read
+    binding: {method: GET, path: /v1.2/volumeControllers}
+    result:
+      type: array
+      items: {$ref: '#/types/VolumeController'}
+    examples:
+      - title: Get all volume controllers
+        request: {path: /v1.2/volumeControllers}
+        response:
+          status: 200
+          body:
+            - {allowMute: true, contentClasses: [{id: "28", niceName: Music}], id: "156", maxNegativeVolumeOffset: -80, maxPositiveVolumeOffset: 80, muted: true, niceName: Music in kitchen, targets: [zon_1256, dev_101], volumeOffset: -5.33}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#get-all-volume-controllers
+  get_volume_controller:
+    summary: Retrieve a specific volume controller.
+    effect: read
+    binding: {method: GET, path: '/v1.2/volumeControllers/{volumeControllerId}'}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+    result: {$ref: '#/types/VolumeController'}
+    examples:
+      - title: Get a specific volume controller
+        description: The documented response is an array with one controller; the controller is used.
+        request: {path: /v1.2/volumeControllers/156}
+        response: {status: 200, body: {allowMute: true, contentClasses: [{id: "28", niceName: Music}], id: "156", maxNegativeVolumeOffset: -80, maxPositiveVolumeOffset: 80, muted: true, niceName: Music in kitchen, targets: [zon_1256, dev_101], volumeOffset: -5.33}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#get-a-specific-volume-controller
+  update_volume_controller:
+    summary: Modify a volume controller's mute state or volume offset.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/v1.2/volumeControllers/{volumeControllerId}', body: object}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+        muted:
+          type: boolean
+          default: false
+          description: Mutes all audio of the content types and targets the controller controls.
+        volumeOffset: {type: number, minimum: -100, maximum: 100}
+    examples:
+      - title: Unmute and set the volume offset
+        request:
+          path: /v1.2/volumeControllers/156
+          body: {muted: false, volumeOffset: -5.33}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#update-a-specific-volume-controller
+  offset_volume:
+    summary: Relative volume change (-100..+100); result clamped to [-100, +100] or configured max/min offset.
+    effect: action
+    binding:
+      method: POST
+      path: /v1.2/volumeControllers/{volumeControllerId}/offsetVolume
+      body: object
+    params:
+      type: object
+      required: [volumeControllerId, volumeOffset]
+      properties:
+        volumeControllerId: {type: string}
+        volumeOffset: {type: number, minimum: -100, maximum: 100}
+    examples:
+      - title: Increase the volume by 10
+        request:
+          path: /v1.2/volumeControllers/156/offsetVolume
+          body: {volumeOffset: 10}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#modify-offset-volume-of-a-volume-controller
+  toggle_mute:
+    summary: Switch between mute/unmute.
+    effect: action
+    binding: {method: POST, path: '/v1.2/volumeControllers/{volumeControllerId}/toggleMute'}
+    params:
+      type: object
+      required: [volumeControllerId]
+      properties:
+        volumeControllerId: {type: string}
+    examples:
+      - title: Toggle the mute state
+        request: {path: /v1.2/volumeControllers/156/toggleMute}
+        response: {status: 200}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#modify-the-mute-state-of-a-volume-controller
+  list_visual_profiles:
+    summary: Retrieve all visual profiles.
+    effect: read
+    binding: {method: GET, path: /v1.2/visualProfiles}
+    result:
+      type: array
+      items: {$ref: '#/types/VisualProfile'}
+    examples:
+      - title: Get all visual profiles
+        description: The docs write textBackgroundColor as "FF0000"; the table says "#FF0000".
+        request: {path: /v1.2/visualProfiles}
+        response:
+          status: 200
+          body:
+            - {audioSync: true, defaultCategories: [{category: MUSIC, enabled: true}], description: Red blink for attention, id: 54, lightEnabled: true, lightProfile: {audioSync: true, colors: RED, description: Visual profile for normal announcements, duration: 1, id: 43, intensity: 3, name: Normal announcement, pattern: BLINK, speed: 3, type: SIGNALING}, name: Red blink, text: Attention! Announcement ongoing., textBackgroundColor: '#FF0000', textColor: '#0000FF', textDuration: 1, textLayout: SMALL, textRepetition: 1, textScrollSpeed: 5, textTimeLimit: true, used: true}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#get-all-visual-profiles
+  get_visual_profile:
+    summary: Retrieve a visual profile.
+    effect: read
+    binding: {method: GET, path: '/v1.2/visualProfiles/{visualProfileId}'}
+    params:
+      type: object
+      required: [visualProfileId]
+      properties:
+        visualProfileId: {type: integer}
+    result: {$ref: '#/types/VisualProfile'}
+    examples:
+      - title: Get a visual profile
+        description: The docs write textBackgroundColor as "FF0000"; the table says "#FF0000".
+        request: {path: /v1.2/visualProfiles/54}
+        response: {status: 200, body: {audioSync: true, defaultCategories: [{category: MUSIC, enabled: true}], description: Red blink for attention, id: 54, lightEnabled: true, lightProfile: {audioSync: true, colors: RED, description: Visual profile for normal announcements, duration: 1, id: 43, intensity: 3, name: Normal announcement, pattern: BLINK, speed: 3, type: SIGNALING}, name: Red blink, text: Attention! Announcement ongoing., textBackgroundColor: '#FF0000', textColor: '#0000FF', textDuration: 1, textLayout: SMALL, textRepetition: 1, textScrollSpeed: 5, textTimeLimit: true, used: true}}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#get-a-visual-profile
+  get_server_info:
+    summary: Basic information about the AXIS Audio Manager Pro server (versions, licensing, name and addresses).
+    effect: read
+    binding: {method: GET, path: /serverInfo}
+    result: {$ref: '#/types/ServerInfo'}
+    examples:
+      - title: Get info about the server
+        request: {path: /serverInfo}
+        response:
+          status: 200
+          body: {apiVersions: ['1.0', '1.1'], licenseUntil: '2026-04-20T13:03:12.420Z', licensingStatus: true, locale: en_US, serverIps: [0.0.0.0, 10.0.21.123, 10.0.21.124], serverName: LAP5CG2113L89, serverPort: 443, serverVersion: 4.7.17, siteId: cdae2c07-3717-46f0-89b6-f977bea0c680, siteName: North Cardridge County Campus, timeZone: 'T+04:00', trialActive: true}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#get-info-about-the-server
+  list_paging_configurations:
+    summary: List all SIP paging configurations.
+    effect: read
+    binding: {method: GET, path: /v1.2/pagingConfigurations}
+    result:
+      type: array
+      items: {$ref: '#/types/PagingConfiguration'}
+
+    examples:
+      - title: List paging configs
+        request: {path: /v1.2/pagingConfigurations}
+        response:
+          status: 200
+          body:
+            - {duplexDevice: {id: dev_15, sourceId: dsc_15}, extension: "3256", id: pac_16, niceName: Kitchen, targets: [zon_12, zon_13], type: TWOWAY}
+        source: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/#list-paging-configs
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/axis-audio-manager-pro-api/
+  sha256_md: 89322d1075108ff822e8902b659d7862b1a178df9f5ea217077686d8978d0a81
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Session codec field: tables say ''codecs=<object>'' for HTTP and ''codec=<object>'' for WS; examples use ''codec''
+    (object) for HTTP/WS and ''codecs'' (array) for RTP; the examples are followed.'
+  - 'Examples of create session, one-shot, get session (by id), get audio file and get volume controller show JSON
+    arrays (the session examples hold one session of each type) although a single object is described. The schema
+    follows the prose (single object) and the examples use one element; whether the server really answers with an
+    array is unconfirmed.'
+  - The create-session request is also shown as an array of four sessions; one session is sent.
+  - The parameter table of the one-shot call omits 'targets' though the example body includes it (treated as required).
+  - customId is marked Optional in the path-parameter tables of the /custom/{customId} endpoints although it is a path
+    segment.
+  - 'Target table: issues and lowestPriorityAvailable are documented as ''0=MULTICAST_ERROR'' and ''0=LOW,1=MEDIUM,...'',
+    but the examples carry the names as strings; the names are used.'
+  - The audio file id is typed string in the table but the example shows the number 156; modelled as a string.
+  - The example of textBackgroundColor omits the leading '#' that the table shows; the table is followed.
+  - Status 'playbackStarted' format '2023-01-12 12:53:32+0100' is not ISO 8601; availableDevices is typed <string>
+    but is an array.
+  - 'Delete, stop, play, update-target, update-volume-controller and offset/toggle volume responses: 200 with application/json
+    declared, body not documented (no result is modelled).'
+  - Visual profile textTimeLimit references 'textAudioSync' which is not otherwise defined (the field is audioSync).
+  - Paths all use /api/v1.2 while the version history mentions API 1.0 and 1.1; the status endpoint was introduced in 1.1.
+  - Access (Digest over HTTPS only) is documented, but the docs also show http:// curl examples.
+  - 'BLOCKED(STOMP): the real-time notifications (wss://<server>/api/v1.2/notifications, topics /topic/audiofiles,
+    /topic/audioSessions, /topic/targets, /topic/volumeControllers, /topic/pagingConfigurations) use the STOMP
+    protocol, which the library has no codec for; the message payloads are undocumented.'
+  - 'The WebSocket audio endpoints (ws/recv, ws/send, ws/sendrecv) are modelled by the separate spec
+    axis-audio-manager-pro-ws.'
+  migrated_from: v1
+  curated: true

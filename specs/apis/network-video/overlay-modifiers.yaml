@@ -1,0 +1,110 @@
+format: 2
+id: overlay-modifiers
+name: Overlay modifiers
+summary: List the overlay modifiers (``%`` and ``#`` markup expanded in overlay text, file names and notifications) the device supports, grouped by function.
+section: network-video
+family: cgi
+status: released
+python:
+  module: overlay_modifiers
+  class: OverlayModifiers
+docs:
+  - https://developer.axis.com/vapix/network-video/overlay-api/
+access: operator
+discovery:
+  - param: {name: Properties.OverlayModifiers.OverlayModifiers, value: "yes"}
+requires:
+  firmware: "5.1"
+binding:
+  path: /axis-cgi/overlaymodifiers.cgi
+
+types:
+  Modifier:
+    type: object
+    required: [mod]
+    properties:
+      mod:
+        type: string
+        description: The modifier. It starts with ``%`` or ``#``, followed by one or two characters.
+      index:
+        type: boolean
+        description: >-
+          True for modifiers that need an additional index to be complete, such as ``#U`` (fan) and ``#TC``
+          (temperature sensor in Celsius): fan 1 is ``#U1`` and sensor 2 in Celsius is ``#TC2``. Absent otherwise.
+  ModifiersData:
+    type: object
+    required: [groups]
+    properties:
+      groups:
+        type: object
+        description: >-
+          Modifiers by group name: date, time, year, month, week, day, hour, minute, second, sysinfo, vidinfo,
+          ptzinfo, eventinfo, sensor, zwave, mqtt, autotracking, others. Which groups exist depends on the device.
+        additionalProperties:
+          type: array
+          items: {$ref: "#/types/Modifier"}
+  ModifiersResponse:
+    type: object
+    required: [apiVersion, data]
+    properties:
+      apiVersion: {type: string, description: The API version the data complies with.}
+      context: {type: integer, description: 'The ``context`` of the request, or 0 when it was left out.'}
+      method: {type: string, description: 'The requested method, ``getOverlayModifiers``.'}
+      data: {$ref: "#/types/ModifiersData"}
+
+operations:
+  get_overlay_modifiers:
+    summary: Retrieve the supported overlay modifiers grouped by function.
+    effect: read
+    binding: {method: GET, reply: json}
+    params:
+      type: object
+      properties:
+        context:
+          type: integer
+          description: Integer user data echoed in the response, or returned as 0 when left out.
+    result: {$ref: "#/types/ModifiersResponse"}
+    examples:
+      - title: Present supported modifiers
+        request: {query: {}}
+        response:
+          status: 200
+          text: |-
+            {
+              "apiVersion": "0.2",
+              "context": 1,
+              "method": "getOverlayModifiers",
+              "data": {
+                "groups": {
+                  "data": [
+                    {"mod": "%c"},
+                    {"mod": "%D"},
+                    {"mod": "%F"},
+                    {"mod": "%X"}
+                  ],
+                  "sysinfo": [
+                    {"mod": "#i"},
+                    {"mod": "#m"},
+                    {"mod": "#M"},
+                    {"mod": "#n"},
+                    {"mod": "#TC", "index": true},
+                    {"mod": "#TF", "index": true}
+                  ]
+                }
+              }
+            }
+        source: https://developer.axis.com/vapix/network-video/overlay-api/#present-supported-modifiers
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/overlay-api/
+    sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  open_questions:
+    - The docs say failure is "N/A, can only fail on a HTTP level", but an error example shows a 200-style JSON body with an error object (code 1000) and context "1" as a string. Such a body is not mapped to an API error; it fails result validation.
+    - The documented example elides groups with "........" and lists a group named "data" that the schema does not define; the example here drops the elisions.
+    - The JSON schema places `required` inside `properties`, so which top-level fields are guaranteed is inferred (apiVersion and data).
+    - The groups table lists zwave, which the JSON schema omits; groups are therefore a free-form map.
+  migrated_from: v1
+  curated: true

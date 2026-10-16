@@ -1,0 +1,280 @@
+format: 2
+id: video-streaming
+name: Video streaming over HTTP
+summary: 'HTTP image requests: JPEG, AVIF and bitmap snapshots, the image size, video status and the always-multicast SDP.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: video_streaming
+  class: VideoStreaming
+docs:
+- https://developer.axis.com/vapix/network-video/video-streaming/
+access: viewer
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/imagesize.cgi}
+
+types:
+  Camera:
+    type: string
+    pattern: ^([0-9]+|quad)$
+    description: >-
+      Selects the video source: ``1``, ``2``, ... or ``quad``. If omitted, ``camera=1`` is used. Only valid for products with
+      more than one video source (cameras with multiple view areas, video encoders with multiple channels).
+  Overlays:
+    type: string
+    enum: [all, text, image, application, 'off', all-sync, application-sync]
+    description: >-
+      Which overlays are visible. ``all``: all configured overlays. ``text``: only text overlays. ``image``: only image
+      overlays. ``application``: only overlays created by an application. ``off``: no overlays. ``all-sync``: all configured
+      overlays, synchronized with the video stream (may add latency). ``application-sync``: application overlays, synchronized
+      with the video stream (may add latency).
+  ImageRequest:
+    type: object
+    description: The image request arguments; unless given, the defaults configured on the device apply.
+    properties: &image_arguments
+      resolution:
+        type: string
+        description: Resolution of the returned image, for example ``320x240`` or ``QCIF``. Product and release dependent; see ``Properties.Image.Resolution``.
+      camera: {$ref: '#/types/Camera'}
+      compression:
+        type: integer
+        minimum: 0
+        maximum: 100
+        description: Compression level; higher values mean higher compression (lower quality, smaller image). Internally mapped and product dependent.
+      color:
+        type: integer
+        enum: [0, 1]
+        description: '``0`` black and white, ``1`` color.'
+      rotation:
+        type: integer
+        enum: [0, 90, 180, 270]
+        description: Rotate the image clockwise. The alternatives are defined by ``Properties.Image.Rotation``; 90, 180 and 270 are product and release dependent. Not applicable to AVIF.
+      mirror:
+        type: integer
+        enum: [0, 1]
+        description: '``0`` no horizontal mirroring, ``1`` mirror the image horizontally.'
+      palette:
+        type: string
+        description: Thermal cameras only. The color palette to use, applicable if ``Properties.Image.Palette.StreamPalette`` is ``yes`` or does not exist. See thermal-color-palettes.
+      squarepixel:
+        type: integer
+        enum: [0, 1]
+        description: '``1`` adjusts the aspect ratio to appear as intended (square pixel correction). Not applicable to AVIF.'
+      overlays: {$ref: '#/types/Overlays'}
+  JpegRequest:
+    type: object
+    description: The image request arguments plus the text overlay options shown in the JPEG examples.
+    properties:
+      <<: *image_arguments
+      text:
+        type: integer
+        minimum: 0
+        maximum: 1
+        description: Set to ``1`` to display text on the image. Defined in the Image API URL options.
+      textstring:
+        type: string
+        description: The text to display, for example ``My Camera``. Defined in the Image API URL options.
+  MjpegRequest:
+    type: object
+    description: The image request arguments plus the stream profile and the stream length. A value given after ``streamprofile`` overrides the saved one.
+    properties:
+      streamprofile:
+        type: string
+        description: Name of a saved stream profile (``StreamProfile.S#.Name``).
+      <<: *image_arguments
+      duration:
+        type: integer
+        minimum: 0
+        description: For how many seconds the video is generated and pushed to the client. ``0`` is unlimited.
+      nbrofframes:
+        type: integer
+        minimum: 0
+        description: How many frames the device generates and pushes. ``0`` is unlimited.
+      fps:
+        type: integer
+        minimum: 0
+        description: The frame rate. ``0`` is unlimited.
+  ImageSize:
+    type: object
+    required: [image width, image height]
+    properties:
+      image width: {type: integer, x-python-name: width, description: Image width in pixels.}
+      image height: {type: integer, x-python-name: height, description: Image height in pixels.}
+  VideoStatusRequest:
+    type: object
+    required: [status]
+    properties:
+      status:
+        type: array
+        items: {type: integer, minimum: 1}
+        x-style: csv
+        description: The video sources to check, 1 and up. The number of video sources is given by ``ImageSource.NbrOfSources``.
+  SdpRequest:
+    type: object
+    properties:
+      camera: {$ref: '#/types/Camera'}
+
+operations:
+  get_image_size:
+    summary: Retrieve the real image resolution, for example to verify the resolution after rotation.
+    description: >-
+      Accepts the image request arguments. A product that does not support the requested resolution replies with an error
+      message in the body (``<!-- Camera 1 not available. -->`` when ``camera`` is given), with HTTP 200. The device also
+      accepts POST.
+    effect: read
+    binding: {method: GET, accept: text/plain, reply: text_kv}
+    params: {$ref: '#/types/ImageRequest'}
+    result: {$ref: '#/types/ImageSize'}
+    examples:
+    - title: Default resolution for video source 1
+      request: {query: {camera: '1'}}
+      response:
+        status: 200
+        text: |-
+          image width = 720
+          image height = 576
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#image-resolution
+    - title: Specific resolution
+      request: {query: {resolution: QCIF, rotation: '180', squarepixel: '1', camera: '1'}}
+      response:
+        status: 200
+        text: |-
+          image width = 192
+          image height = 144
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#image-resolution
+  get_video_status:
+    summary: 'Retrieve whether there is an analog video signal on a video encoder''s video sources, as ``{"Video 1": "video"}``.'
+    description: Each value is ``video`` or ``no video`` (no analog video signal), with a leading space.
+    effect: read
+    binding: {path: /axis-cgi/videostatus.cgi, method: GET, accept: text/plain, reply: text_kv}
+    params: {$ref: '#/types/VideoStatusRequest'}
+    positional: [status]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+    - title: Request video status from video source 1, 2, 3 and 4
+      request: {query: {status: '1,2,3,4'}}
+      response:
+        status: 200
+        text: |-
+          Video 1 = video
+          Video 2 = no video
+          Video 3 = no video
+          Video 4 = video
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#video-status
+  get_bitmap:
+    summary: Request a bitmap image (deprecated; not supported on AXIS OS 11.0 and later).
+    description: Deprecated. Supported if ``Properties.Image.Format`` lists ``bitmap``.
+    effect: read
+    binding:
+      path: /axis-cgi/bitmap/image.bmp
+      method: GET
+      reply: {binary: {media_types: [image/bitmap]}}
+    params: {$ref: '#/types/ImageRequest'}
+    result: {type: string, format: binary}
+    examples:
+    - title: Request a bitmap image from video source 1 with resolution 320x240
+      request: {query: {resolution: 320x240, camera: '1'}}
+      response: {status: 200, content_type: image/bitmap, text: <bitmap image data>}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#bitmap
+  get_avif:
+    summary: Retrieve an AVIF image (snapshot).
+    description: Extensive use can affect product performance. ``rotation`` and ``squarepixel`` do not apply to AVIF.
+    effect: read
+    binding:
+      path: /axis-cgi/avif/image.cgi
+      method: GET
+      reply: {binary: {media_types: [image/avif]}}
+    params: {$ref: '#/types/ImageRequest'}
+    result: {type: string, format: binary}
+    examples:
+    - title: Request an AVIF image from video source 1 with resolution 320x240 and compression 25
+      request: {query: {resolution: 320x240, compression: '25', camera: '1'}}
+      response: {status: 200, content_type: image/avif, text: <AVIF image data>}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#avif-image-snapshot
+  get_jpeg:
+    summary: Retrieve a JPEG image (snapshot).
+    description: Extensive use can affect product performance.
+    effect: read
+    binding:
+      path: /axis-cgi/jpg/image.cgi
+      method: GET
+      reply: {binary: {media_types: [image/jpeg]}}
+    params: {$ref: '#/types/JpegRequest'}
+    result: {type: string, format: binary}
+    examples:
+    - title: Request a JPEG image from video source 1 with resolution 320x240 and compression 25
+      request: {query: {resolution: 320x240, compression: '25', camera: '1'}}
+      response: {status: 200, content_type: image/jpeg, text: <JPEG image data>}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#jpeg-image-snapshot
+    - title: Request a JPEG image from video source 2 with the text "My Camera" displayed
+      request: {query: {text: '1', textstring: My Camera, camera: '2'}}
+      response: {status: 200, content_type: image/jpeg, text: <JPEG image data>}
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#jpeg-image-snapshot
+  get_mjpeg_stream:
+    summary: Open a Motion JPEG stream.
+    description: >-
+      Returns a stream of ``multipart/x-mixed-replace`` parts, one JPEG per part. Arguments such as resolution and
+      compression are given in the request, or taken from a saved stream profile. Use the result as a context manager.
+    effect: read
+    binding:
+      path: /axis-cgi/mjpg/video.cgi
+      method: GET
+      reply: {stream: {decoder: mjpeg}}
+    params: {$ref: '#/types/MjpegRequest'}
+  get_always_multicast_sdp:
+    summary: Retrieve the Session Description Protocol (SDP) of the always-multicast stream of a video source.
+    description: >-
+      Requires ``Network.RTP.R0.AlwaysMulticastVideo=yes`` and AXIS OS 5.40 or later. Viewer, operator and admin can make
+      the request. The SDP tells a client which multicast address and port to join.
+    effect: read
+    binding:
+      path: /axis-cgi/alwaysmulti.sdp
+      method: GET
+      reply: text
+    params: {$ref: '#/types/SdpRequest'}
+    result: {type: string}
+    examples:
+    - title: Request the SDP of video source 1
+      request: {query: {camera: '1'}}
+      response:
+        status: 200
+        text: |-
+          v=0
+          o=- 1284464363092904 1284464363092904 IN IP4 axis
+          s=Multicast presentation
+          e=NONE
+          t=0 0
+          a=range:npt=0.000000-
+          m=video 50000 RTP/AVP 96
+          c=IN IP4 239.225.149.138/0
+          b=AS:50000
+          a=framerate:25.0
+          a=transform:1,0,0;0,1,0;0,0,1
+          a=rtpmap:96 H264/90000
+          a=fmtp:96 packetization-mode=1; profile-level-id=420029;
+          sprop-parameter-sets=Z0IAKeKQFgJNgScFAQXh4kRU,aM48gA==
+      source: https://developer.axis.com/vapix/network-video/video-streaming/#sdp
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/video-streaming/
+  sha256_md: c5a6a629959b129e10f70c9855786d7282b383fadd6c44254103acc40c4a5a30
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The RTSP section (media.amp URL options, DESCRIBE/SETUP/PLAY, RTSP over HTTP, source-specific multicast) is not a CGI API; the RTSP URL builders are in video-streaming-rtsp.
+  - Stream profile parameters are in stream-profile-parameters, the scene profile in scene-profile.
+  - The imagesize.cgi reply is shown both as "image width = 720" and "image width=<value>"; the text_kv codec trims the key but keeps the leading space of the value, which the integer fields tolerate.
+  - Image errors of imagesize.cgi arrive as HTTP 200 with an HTML comment or plain message in the body, and the error behaviour of the other image CGIs is not documented. A reply without any key=value line ("No camera specified (ex. camera=1)") is the device explaining a failure and surfaces as an ApiError carrying the text, like the HTML comment; a reply that has pairs but the wrong ones is a ResponseFormatError with a redacted excerpt.
+  - The error behaviour of the other image CGIs is not documented; imagesize.cgi errors (an HTML comment body with HTTP 200) raise ApiError.
+  - text and textstring appear in a JPEG example but not in the Image request arguments table (see the Image API URL options); they are modelled on get_jpeg only.
+  - The Bitmap section's "To check if the Axis product supports bitmap images, use" sentence is truncated in the docs (the example lists Properties.Image.Format).
+  - The camera argument is documented as a string (``1 ...`` or ``quad``), modelled with a pattern.
+  migrated_from: v1
+  curated: true

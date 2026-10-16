@@ -1,0 +1,833 @@
+format: 2
+id: snmp-config
+name: SNMP Configuration API
+summary: Configure the SNMP settings (v1, v2c, v3, traps and v3 users) on the device.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: snmp
+  class: Snmp
+docs:
+- https://developer.axis.com/vapix/device-configuration/snmp-api/
+access: admin
+discovery:
+- dca: {api: snmp, version: v1}
+
+binding: {root: /config/rest/snmp/v1}
+
+types:
+  CommunityNameType: {type: string, minLength: 1, maxLength: 32}
+  DscpType: {type: integer, minimum: 0, maximum: 63}
+  EngineBootsType: {type: integer, minimum: 0}
+  SupportedEncryptionTypeArray:
+    type: array
+    items: {$ref: '#/types/UserEncryptionTypeEnum'}
+  TransportProtocolEnum: {type: string, enum: [tcp, udp]}
+  TrapAddressType: {type: string, maxLength: 46}
+  UserEncryptionTypeEnum: {type: string, enum: [AES-128, AES-256]}
+  UserPasswdType: {type: string, minLength: 8, maxLength: 50}
+  UserNameType: {type: string, minLength: 1, maxLength: 32, pattern: '^[a-zA-Z_][a-zA-Z0-9_-]*$'}
+  UserAuthenticationTypeEnum: {type: string, enum: [SHA-256, SHA-512]}
+  SecurityLevelTypeEnum: {type: string, enum: [authNoPriv, authPriv]}
+  AccessTypeEnum: {type: string, enum: [readOnly, readWrite]}
+  Snmp:
+    type: object
+    description: The whole API tree.
+    required: [dscp, enabled, engineBoots, transportProtocol]
+    x-read-only: [ntcip_supported]
+    properties:
+      dscp: {$ref: '#/types/DscpType', description: The DSCP value used for QoS}
+      enabled: {type: boolean, description: Status of snmpd service}
+      engineBoots: {$ref: '#/types/EngineBootsType', description: Number of times snmpd has been started}
+      transportProtocol: {$ref: '#/types/TransportProtocolEnum', description: Transport Protocol string}
+      ntcip_supported: {type: boolean, description: Whether NTCIP is supported by the device.}
+      ntcip: {$ref: '#/types/Ntcip'}
+      snmpV1: {$ref: '#/types/SnmpV1'}
+      snmpV1V2Common: {$ref: '#/types/SnmpV1V2Common'}
+      snmpV2: {$ref: '#/types/SnmpV2'}
+      snmpV3: {$ref: '#/types/SnmpV3'}
+  Ntcip:
+    type: object
+    description: NTCIP support
+    required: [enabled]
+    properties:
+      enabled: {type: boolean, description: Status of NTCIP support}
+  SnmpV1:
+    type: object
+    description: V1 snmp support
+    required: [enabled]
+    properties:
+      enabled: {type: boolean, description: Status of V1 snmp support}
+  SnmpV1V2Common:
+    type: object
+    description: Entity that has common properties for snmp V1 and V2c
+    required: [address, readCommunity, writeCommunity]
+    x-masked: [readCommunity, writeCommunity]
+    properties:
+      address: {$ref: '#/types/TrapAddressType', description: Trap Address}
+      readCommunity: {$ref: '#/types/CommunityNameType', description: Read Community string}
+      writeCommunity: {$ref: '#/types/CommunityNameType', description: Write Community string}
+      trap: {$ref: '#/types/Trap'}
+  Trap:
+    type: object
+    description: Trap
+    x-masked: [community]
+    properties:
+      authFailEnabled: {type: boolean, description: Status of trap auth fail}
+      coldStartEnabled: {type: boolean, description: Status of trap coldstart}
+      community: {$ref: '#/types/CommunityNameType', description: Trap Community}
+      enabled: {type: boolean, description: Status of Trap usage}
+      linkDownEnabled: {type: boolean, description: Status of trap link down}
+      linkUpEnabled: {type: boolean, description: Status of trap link up}
+  SnmpV2:
+    type: object
+    description: V2c snmp support
+    required: [enabled]
+    properties:
+      enabled: {type: boolean, description: Status of V2c snmp support}
+  SnmpV3:
+    type: object
+    description: V3 snmp support
+    required: [enabled, supportedEncryption, userPasswdSet]
+    x-read-only: [supportedEncryption]
+    properties:
+      enabled: {type: boolean, description: Status of V3 snmp support}
+      supportedEncryption: {$ref: '#/types/SupportedEncryptionTypeArray', description: AES-128 or AES-256 encryption}
+      userEncryption:
+        $ref: '#/types/UserEncryptionTypeEnum'
+        description: Encryption algorithm for the SNMPv3 "initial" user
+      userPasswdSet: {type: boolean, description: Initial password-set status for the SNMPv3 "initial" user}
+      users:
+        type: array
+        items: {$ref: '#/types/User'}
+  User:
+    type: object
+    description: SNMPv3 user collection
+    required: [username, userAuthentication, securityLevel]
+    properties:
+      access: {$ref: '#/types/AccessTypeEnum', description: Access rights for the user}
+      securityLevel: {$ref: '#/types/SecurityLevelTypeEnum', description: Security level}
+      userAuthentication: {$ref: '#/types/UserAuthenticationTypeEnum', description: User authentication}
+      userEncryption: {$ref: '#/types/UserEncryptionTypeEnum', description: User encryption}
+      username: {$ref: '#/types/UserNameType', description: User name}
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``.
+    properties:
+      enabled: {type: boolean, description: Status of snmpd service}
+      engineBoots: {$ref: '#/types/EngineBootsType', description: Number of times snmpd has been started}
+      transportProtocol: {$ref: '#/types/TransportProtocolEnum', description: Transport Protocol string}
+      snmpV1V2Common: {$ref: '#/types/UpdateSnmpV1V2CommonRequest'}
+      snmpV1: {$ref: '#/types/UpdateSnmpV1Request'}
+      snmpV2: {$ref: '#/types/UpdateSnmpV2Request'}
+      snmpV3: {$ref: '#/types/UpdateSnmpV3Request'}
+      ntcip: {$ref: '#/types/UpdateNtcipRequest'}
+  UpdateNtcipRequest:
+    type: object
+    description: Arguments of ``update_ntcip``.
+    properties:
+      enabled: {type: boolean, description: Status of NTCIP support}
+  UpdateSnmpV1Request:
+    type: object
+    description: Arguments of ``update_snmp_v1``.
+    properties:
+      enabled: {type: boolean, description: Status of V1 snmp support}
+  UpdateSnmpV1V2CommonRequest:
+    type: object
+    description: Arguments of ``update_snmp_v1_v2_common``.
+    x-masked: [readCommunity, writeCommunity]
+    properties:
+      readCommunity: {$ref: '#/types/CommunityNameType', description: Read Community string}
+      writeCommunity: {$ref: '#/types/CommunityNameType', description: Write Community string}
+      address: {$ref: '#/types/TrapAddressType', description: Trap Address}
+      trap: {$ref: '#/types/UpdateTrapRequest'}
+  UpdateTrapRequest:
+    type: object
+    description: Arguments of ``update_trap``.
+    x-masked: [community]
+    properties:
+      authFailEnabled: {type: boolean, description: Status of trap auth fail}
+      coldStartEnabled: {type: boolean, description: Status of trap coldstart}
+      community: {$ref: '#/types/CommunityNameType', description: Trap Community}
+      enabled: {type: boolean, description: Status of Trap usage}
+      linkUpEnabled: {type: boolean, description: Status of trap link up}
+      linkDownEnabled: {type: boolean, description: Status of trap link down}
+  UpdateSnmpV2Request:
+    type: object
+    description: Arguments of ``update_snmp_v2``.
+    properties:
+      enabled: {type: boolean, description: Status of V2c snmp support}
+  UpdateSnmpV3Request:
+    type: object
+    description: Arguments of ``update_snmp_v3``.
+    x-masked: [userPasswd]
+    properties:
+      enabled: {type: boolean, description: Status of V3 snmp support}
+      userPasswd:
+        $ref: '#/types/UserPasswdType'
+        description: Initial password for the SNMPv3 "initial" user
+      userPasswdSet: {type: boolean, description: Initial password-set status for the SNMPv3 "initial" user}
+      userEncryption:
+        $ref: '#/types/UserEncryptionTypeEnum'
+        description: Encryption algorithm for the SNMPv3 "initial" user
+  UpdateUserRequest:
+    type: object
+    description: Arguments of ``update_user``.
+    required: [username]
+    x-nullable: [encryptPassphrase]
+    x-masked: [authPassphrase, encryptPassphrase]
+    properties:
+      username: {$ref: '#/types/UserNameType'}
+      userAuthentication: {$ref: '#/types/UserAuthenticationTypeEnum', description: User authentication}
+      authPassphrase: {$ref: '#/types/UserPasswdType', description: Authentication passphrase}
+      userEncryption: {$ref: '#/types/UserEncryptionTypeEnum', description: User encryption}
+      encryptPassphrase: {$ref: '#/types/UserPasswdType', description: Encryption passphrase}
+      securityLevel: {$ref: '#/types/SecurityLevelTypeEnum', description: Security level}
+      access: {$ref: '#/types/AccessTypeEnum', description: Access rights for the user}
+  AddUserRequest:
+    type: object
+    description: Arguments of ``add_user``.
+    required: [username, userAuthentication, authPassphrase, securityLevel]
+    x-nullable: [encryptPassphrase]
+    x-masked: [authPassphrase, encryptPassphrase]
+    properties:
+      username: {$ref: '#/types/UserNameType', description: User name}
+      userAuthentication: {$ref: '#/types/UserAuthenticationTypeEnum', description: User authentication}
+      authPassphrase: {$ref: '#/types/UserPasswdType', description: Authentication passphrase}
+      securityLevel: {$ref: '#/types/SecurityLevelTypeEnum', description: Security level}
+      userEncryption: {$ref: '#/types/UserEncryptionTypeEnum', description: User encryption}
+      encryptPassphrase: {$ref: '#/types/UserPasswdType', description: Encryption passphrase}
+      access: {$ref: '#/types/AccessTypeEnum', description: Access rights for the user}
+
+operations:
+  get_all:
+    summary: All SNMP settings.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Snmp'}
+  update_all:
+    summary: Update the general SNMP settings and any nested entity in one call.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '', body: object}
+    params: {$ref: '#/types/UpdateAllRequest'}
+    examples:
+    - title: Enable SNMP and set the transport protocol
+      request:
+        path: ''
+        body: {data: {enabled: true, transportProtocol: tcp}}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  get_dscp:
+    summary: Get the DSCP value used for SNMP traffic.
+    effect: read
+    binding: {method: GET, path: /dscp}
+    result: {$ref: '#/types/DscpType'}
+    examples:
+    - title: Get the DSCP value
+      request: {path: /dscp}
+      response: {status: 200, body: {status: success, data: 0}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  set_dscp:
+    summary: Set the dscp of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /dscp, body_field: dscp, body: value}
+    params:
+      type: object
+      required: [dscp]
+      properties:
+        dscp: {$ref: '#/types/DscpType', description: The DSCP value used for QoS}
+    examples:
+    - title: Set the DSCP value
+      request:
+        path: /dscp
+        body: {data: 1}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  get_engine_boots:
+    summary: Get the number of times snmpd has been started.
+    effect: read
+    binding: {method: GET, path: /engineBoots}
+    result: {$ref: '#/types/EngineBootsType'}
+    examples:
+    - title: Get number of times SNMP has started
+      request: {path: /engineBoots}
+      response: {status: 200, body: {status: success, data: 1}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  set_enabled:
+    summary: Set the enabled of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Status of snmpd service}
+  set_engine_boots:
+    summary: Set the engine boots of the device.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /engineBoots, body_field: engineBoots, body: value}
+    params:
+      type: object
+      required: [engineBoots]
+      properties:
+        engineBoots: {$ref: '#/types/EngineBootsType', description: Number of times snmpd has been started}
+  set_transport_protocol:
+    summary: Set the transport protocol of the device.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /transportProtocol
+      body_field: transportProtocol
+      body: value
+    params:
+      type: object
+      required: [transportProtocol]
+      properties:
+        transportProtocol: {$ref: '#/types/TransportProtocolEnum', description: Transport Protocol string}
+  get_ntcip:
+    summary: Get the ntcip settings.
+    effect: read
+    binding: {method: GET, path: /ntcip}
+    result: {$ref: '#/types/Ntcip'}
+  update_ntcip:
+    summary: Update the ntcip settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /ntcip, body: object}
+    params: {$ref: '#/types/UpdateNtcipRequest'}
+    round_trip:
+      from: Ntcip
+  set_ntcip_enabled:
+    summary: Set the enabled of the ntcip.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /ntcip/enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Status of NTCIP support}
+  get_snmp_v1:
+    summary: Get the snmp v1 settings.
+    effect: read
+    binding: {method: GET, path: /snmpV1}
+    result: {$ref: '#/types/SnmpV1'}
+  update_snmp_v1:
+    summary: Update the snmp v1 settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV1, body: object}
+    params: {$ref: '#/types/UpdateSnmpV1Request'}
+    round_trip:
+      from: SnmpV1
+  set_snmp_v1_enabled:
+    summary: Set the enabled of the snmp v1.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV1/enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Status of V1 snmp support}
+    examples:
+    - title: Enable SNMP V1
+      request:
+        path: /snmpV1/enabled
+        body: {data: true}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  get_snmp_v1_v2_common:
+    summary: Get the snmp v1 v2 common settings.
+    effect: read
+    binding: {method: GET, path: /snmpV1V2Common}
+    result: {$ref: '#/types/SnmpV1V2Common'}
+    examples:
+    - title: Get all common settings for SNMP V1 and V2
+      request: {path: /snmpV1V2Common}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            address: 0.0.0.0
+            readCommunity: public
+            trap: {authFailEnabled: true, coldStartEnabled: true, community: public, enabled: true, linkUpEnabled: true}
+            writeCommunity: write
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  update_snmp_v1_v2_common:
+    summary: Update the snmp v1 v2 common settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV1V2Common, body: object}
+    params: {$ref: '#/types/UpdateSnmpV1V2CommonRequest'}
+    round_trip:
+      from: SnmpV1V2Common
+    examples:
+    - title: Set the common SNMP settings
+      request:
+        path: /snmpV1V2Common
+        body: {data: {address: 0.0.0.0, readCommunity: string, writeCommunity: string}}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  set_snmp_v1_v2_common_address:
+    summary: Set the address of the snmp v1 v2 common.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV1V2Common/address, body_field: address, body: value}
+    params:
+      type: object
+      required: [address]
+      properties:
+        address: {$ref: '#/types/TrapAddressType', description: Trap Address}
+  set_snmp_v1_v2_common_read_community:
+    summary: Set the read community of the snmp v1 v2 common.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/readCommunity
+      body_field: readCommunity
+      body: value
+    params:
+      type: object
+      required: [readCommunity]
+      x-masked: [readCommunity]
+      properties:
+        readCommunity: {$ref: '#/types/CommunityNameType', description: Read Community string}
+  set_snmp_v1_v2_common_write_community:
+    summary: Set the write community of the snmp v1 v2 common.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/writeCommunity
+      body_field: writeCommunity
+      body: value
+    params:
+      type: object
+      required: [writeCommunity]
+      x-masked: [writeCommunity]
+      properties:
+        writeCommunity: {$ref: '#/types/CommunityNameType', description: Write Community string}
+  get_trap:
+    summary: Get the trap settings.
+    effect: read
+    binding: {method: GET, path: /snmpV1V2Common/trap}
+    result: {$ref: '#/types/Trap'}
+  update_trap:
+    summary: Update the trap settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV1V2Common/trap, body: object}
+    params: {$ref: '#/types/UpdateTrapRequest'}
+    round_trip:
+      from: Trap
+    examples:
+    - title: Enable trap related settings
+      request:
+        path: /snmpV1V2Common/trap
+        body: {data: {authFailEnabled: true, coldStartEnabled: true, community: string, enabled: true, linkUpEnabled: true, linkDownEnabled: true}}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  set_trap_auth_fail_enabled:
+    summary: Set the auth fail enabled of the trap.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/trap/authFailEnabled
+      body_field: authFailEnabled
+      body: value
+    params:
+      type: object
+      required: [authFailEnabled]
+      properties:
+        authFailEnabled: {type: boolean, description: Status of trap auth fail}
+  set_trap_cold_start_enabled:
+    summary: Set the cold start enabled of the trap.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/trap/coldStartEnabled
+      body_field: coldStartEnabled
+      body: value
+    params:
+      type: object
+      required: [coldStartEnabled]
+      properties:
+        coldStartEnabled: {type: boolean, description: Status of trap coldstart}
+  set_trap_community:
+    summary: Set the community of the trap.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/trap/community
+      body_field: community
+      body: value
+    params:
+      type: object
+      required: [community]
+      x-masked: [community]
+      properties:
+        community: {$ref: '#/types/CommunityNameType', description: Trap Community}
+  set_trap_enabled:
+    summary: Set the enabled of the trap.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/trap/enabled
+      body_field: enabled
+      body: value
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Status of Trap usage}
+  set_trap_link_down_enabled:
+    summary: Set the link down enabled of the trap.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/trap/linkDownEnabled
+      body_field: linkDownEnabled
+      body: value
+    params:
+      type: object
+      required: [linkDownEnabled]
+      properties:
+        linkDownEnabled: {type: boolean, description: Status of trap link down}
+  set_trap_link_up_enabled:
+    summary: Set the link up enabled of the trap.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV1V2Common/trap/linkUpEnabled
+      body_field: linkUpEnabled
+      body: value
+    params:
+      type: object
+      required: [linkUpEnabled]
+      properties:
+        linkUpEnabled: {type: boolean, description: Status of trap link up}
+  get_snmp_v2:
+    summary: Get the snmp v2 settings.
+    effect: read
+    binding: {method: GET, path: /snmpV2}
+    result: {$ref: '#/types/SnmpV2'}
+  update_snmp_v2:
+    summary: Update the snmp v2 settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV2, body: object}
+    params: {$ref: '#/types/UpdateSnmpV2Request'}
+    round_trip:
+      from: SnmpV2
+  set_snmp_v2_enabled:
+    summary: Set the enabled of the snmp v2.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV2/enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Status of V2c snmp support}
+    examples:
+    - title: Enable SNMP V2
+      request:
+        path: /snmpV2/enabled
+        body: {data: true}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  get_snmp_v3:
+    summary: Get the snmp v3 settings.
+    effect: read
+    binding: {method: GET, path: /snmpV3}
+    result: {$ref: '#/types/SnmpV3'}
+  update_snmp_v3:
+    summary: Update the snmp v3 settings.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV3, body: object}
+    params: {$ref: '#/types/UpdateSnmpV3Request'}
+    examples:
+    - title: Enable SNMP V3 and set the initial user password
+      request:
+        path: /snmpV3
+        body: {data: {enabled: true, userPasswd: password}}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  set_snmp_v3_enabled:
+    summary: Set the enabled of the snmp v3.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV3/enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Status of V3 snmp support}
+  set_snmp_v3_user_encryption:
+    summary: Set the user encryption of the snmp v3.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV3/userEncryption
+      body_field: userEncryption
+      body: value
+    params:
+      type: object
+      required: [userEncryption]
+      properties:
+        userEncryption:
+          $ref: '#/types/UserEncryptionTypeEnum'
+          description: Encryption algorithm for the SNMPv3 "initial" user
+  set_snmp_v3_user_passwd:
+    summary: Set the user passwd of the snmp v3.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV3/userPasswd, body_field: userPasswd, body: value}
+    params:
+      type: object
+      required: [userPasswd]
+      x-masked: [userPasswd]
+      properties:
+        userPasswd:
+          $ref: '#/types/UserPasswdType'
+          description: Initial password for the SNMPv3 "initial" user
+  set_snmp_v3_user_passwd_set:
+    summary: Set the user passwd set of the snmp v3.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /snmpV3/userPasswdSet, body_field: userPasswdSet, body: value}
+    params:
+      type: object
+      required: [userPasswdSet]
+      properties:
+        userPasswdSet: {type: boolean, description: Initial password-set status for the SNMPv3 "initial" user}
+  list_users:
+    summary: List the users.
+    effect: read
+    binding: {method: GET, path: /snmpV3/users}
+    result:
+      type: array
+      items: {$ref: '#/types/User'}
+  get_user:
+    summary: Get one user.
+    effect: read
+    binding: {method: GET, path: '/snmpV3/users/{username}'}
+    params:
+      type: object
+      x-name: UserUsernameRequest
+      required: [username]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+    result: {$ref: '#/types/User'}
+    examples:
+    - title: Get a user
+      request: {path: /snmpV3/users/happy_user}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            username: happy_user
+            userAuthentication: SHA-512
+            userEncryption: AES-256
+            securityLevel: authNoPriv
+            access: readOnly
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  update_user:
+    summary: Update a user.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/snmpV3/users/{username}', body: object}
+    params: {$ref: '#/types/UpdateUserRequest'}
+    examples:
+    - title: Update a user
+      request:
+        path: /snmpV3/users/happy_user
+        body:
+          data:
+            userAuthentication: SHA-512
+            authPassphrase: new-auth-passphrase
+            securityLevel: authNoPriv
+            access: readOnly
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  add_user:
+    summary: Add a user.
+    effect: write
+    write: create
+    binding: {method: POST, path: /snmpV3/users, body: object}
+    params: {$ref: '#/types/AddUserRequest'}
+    examples:
+    - title: Add a user with authentication and encryption (authPriv)
+      request:
+        path: /snmpV3/users
+        body:
+          data:
+            username: happy_user
+            userAuthentication: SHA-256
+            authPassphrase: auth-passphrase
+            userEncryption: AES-256
+            encryptPassphrase: priv-passphrase
+            securityLevel: authPriv
+            access: readWrite
+      response:
+        status: 201
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+    - title: Add an authentication-only user (authNoPriv)
+      request:
+        path: /snmpV3/users
+        body:
+          data:
+            username: pink_user
+            userAuthentication: SHA-512
+            authPassphrase: auth-passphrase
+            securityLevel: authNoPriv
+            access: readOnly
+      response:
+        status: 201
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  remove_user:
+    summary: Remove a user.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/snmpV3/users/{username}'}
+    params:
+      type: object
+      x-name: UserUsernameRequest
+      required: [username]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+    examples:
+    - title: Remove a user
+      request: {path: /snmpV3/users/pink_user}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  set_user_access:
+    summary: Set the access of a user.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV3/users/{username}/access
+      body_field: access
+      body: value
+    params:
+      type: object
+      required: [username, access]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+        access: {$ref: '#/types/AccessTypeEnum', description: Access rights for the user}
+  set_user_auth_passphrase:
+    summary: Set the auth passphrase of a user.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV3/users/{username}/authPassphrase
+      body_field: authPassphrase
+      body: value
+    params:
+      type: object
+      required: [username, authPassphrase]
+      x-masked: [authPassphrase]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+        authPassphrase: {$ref: '#/types/UserPasswdType', description: Authentication passphrase}
+  set_user_encrypt_passphrase:
+    summary: Set the encrypt passphrase of a user.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV3/users/{username}/encryptPassphrase
+      body_field: encryptPassphrase
+      body: value
+    params:
+      type: object
+      required: [username, encryptPassphrase]
+      x-masked: [encryptPassphrase]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+        encryptPassphrase: {$ref: '#/types/UserPasswdType', description: Encryption passphrase}
+  set_user_security_level:
+    summary: Set the security level of a user.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV3/users/{username}/securityLevel
+      body_field: securityLevel
+      body: value
+    params:
+      type: object
+      required: [username, securityLevel]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+        securityLevel: {$ref: '#/types/SecurityLevelTypeEnum', description: Security level}
+  set_user_authentication:
+    summary: Set the authentication algorithm of a user.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV3/users/{username}/userAuthentication
+      body_field: userAuthentication
+      body: value
+    params:
+      type: object
+      required: [username, userAuthentication]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+        userAuthentication: {$ref: '#/types/UserAuthenticationTypeEnum', description: User authentication}
+  set_user_encryption:
+    summary: Set the encryption algorithm of a user.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /snmpV3/users/{username}/userEncryption
+      body_field: userEncryption
+      body: value
+    params:
+      type: object
+      required: [username, userEncryption]
+      properties:
+        username: {$ref: '#/types/UserNameType'}
+        userEncryption: {$ref: '#/types/UserEncryptionTypeEnum', description: User encryption}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/snmp-api/
+  sha256_md: fabe121a33cdcf9899b2592e2a161b21261eb2e12a018126408a992b0d0c5f11
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The docs' structure tree omits ntcip and ntcip_supported, but the entity section defines them. They are modelled as documented.
+  - The docs' example for GET snmpV1V2Common shows data as a one-element array; modelled as an object per the entity definition.
+  - Per-property GET endpoints other than dscp and engineBoots (which the docs exemplify) are not modelled; the entity getters return the same data.
+  migrated_from: v1
+  curated: true

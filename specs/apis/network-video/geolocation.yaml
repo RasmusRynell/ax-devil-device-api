@@ -1,0 +1,170 @@
+format: 2
+id: geolocation
+name: Geolocation API
+summary: Set and get the geographical position (latitude, longitude, heading, free text) of a device.
+section: network-video
+family: cgi
+status: released
+python:
+  module: geolocation
+  class: Geolocation
+docs:
+- https://developer.axis.com/vapix/network-video/geolocation-api/
+access: admin
+discovery:
+- param: {name: Properties.Geolocation.Geolocation, value: 'yes'}
+- param: {name: Properties.Geolocation.Version, value: '0.01'}
+requires:
+  firmware: '6.25'
+
+binding: {path: /axis-cgi/geolocation/get.cgi}
+
+types:
+  Coordinate:
+    type: string
+    description: >-
+      ISO-6709 Annex H coordinate in DD, DDMM or DDMMSS form with a fixed number of integer digits (2 for latitude,
+      3 for longitude, or 4/5 and 6/7 with minutes and seconds). The device returns the format that was set.
+  Heading:
+    type: integer
+    minimum: 0
+    maximum: 360
+    description: Direction of the device in degrees, 0 = North, 90 = East, 270 = West.
+  GeoLocation:
+    type: object
+    properties:
+      Lat:
+        $ref: '#/types/Coordinate'
+        x-xml: {child: Lat}
+      Lng:
+        $ref: '#/types/Coordinate'
+        x-xml: {child: Lng}
+      Heading:
+        $ref: '#/types/Heading'
+        x-xml: {child: Heading}
+  Position:
+    type: object
+    description: The position of the device. Default values (0 and an empty string) are returned when nothing is set.
+    properties:
+      Location:
+        $ref: '#/types/GeoLocation'
+      Text:
+        type: string
+        description: Free text such as a location tag.
+        x-xml: {child: Text}
+      ValidPosition:
+        type: boolean
+        description: False when no geographical position is available or the data is outdated.
+        x-xml: {child: ValidPosition}
+      ValidHeading:
+        type: boolean
+        description: False when no valid heading is available or the data is outdated.
+        x-xml: {child: ValidHeading}
+    x-xml: {root: Success/GetSuccess}
+
+operations:
+  get_position:
+    summary: Get the position (latitude, longitude, heading, free text) and its validity flags.
+    effect: read
+    binding: {method: GET, reply: xml}
+    result: {$ref: '#/types/Position'}
+    examples:
+    - title: Get complete position data
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <PositionResponse SchemaVersion="1.0">
+              <Success>
+                  <GetSuccess>
+                      <Location>
+                          <Lat>51.0</Lat>
+                          <Lng>-0.1</Lng>
+                          <Heading>30</Heading>
+                      </Location>
+                      <Text>Free text</Text>
+                      <ValidPosition>true</ValidPosition>
+                      <ValidHeading>false</ValidHeading>
+                  </GetSuccess>
+              </Success>
+          </PositionResponse>
+      source: https://developer.axis.com/vapix/network-video/geolocation-api/#get-complete-position-data
+  set_position:
+    summary: Set some or all of the position fields.
+    description: >-
+      Only the given fields change. The device stores coordinates as given, without conversion between DD, DDMM and
+      DDMMSS.
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/geolocation/set.cgi
+      method: GET
+      reply:
+        xml: {error_elements: [Error]}
+    params:
+      type: object
+      properties:
+        lat: {$ref: '#/types/Coordinate', description: New value for latitude (WGS-84).}
+        lng: {$ref: '#/types/Coordinate', description: New value for longitude (WGS-84).}
+        heading: {$ref: '#/types/Heading', description: New value for heading.}
+        text: {type: string, description: 'New value for free text (location tag, e.g. "floor 2").'}
+    errors:
+      1: {description: Invalid parameter, kind: invalid_argument}
+      2: {description: Invalid value, kind: invalid_argument}
+      3: {description: Internal Error, kind: internal}
+    examples:
+    - title: Set position using DD units
+      request:
+        query: {lat: '51.1234', lng: '013.1234', heading: '30', text: '"freetext"'}
+      response:
+        status: 200
+        text: |-
+          <PositionResponse SchemaVersion="1.0">
+              <Success>
+                  <GeneralSuccess />
+              </Success>
+          </PositionResponse>
+      source: https://developer.axis.com/vapix/network-video/geolocation-api/#set-position
+    - title: Set position using DDMM units
+      request:
+        query: {lat: '5112.3456', lng: '01312.3456', heading: '30', text: '"freetext"'}
+      response:
+        status: 200
+        text: |-
+          <PositionResponse SchemaVersion="1.0">
+              <Success>
+                  <GeneralSuccess />
+              </Success>
+          </PositionResponse>
+      source: https://developer.axis.com/vapix/network-video/geolocation-api/#set-position
+    - title: Set position using DDMMSS units
+      request:
+        query: {lat: '511234.5678', lng: '0131234.5678', heading: '30', text: '"free text"'}
+      response:
+        status: 200
+        text: |-
+          <PositionResponse SchemaVersion="1.0">
+              <Success>
+                  <GeneralSuccess />
+              </Success>
+          </PositionResponse>
+      source: https://developer.axis.com/vapix/network-video/geolocation-api/#set-position
+
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/geolocation-api/
+  sha256_md: d0f8e666851770f9a01612742ccbc9ff386eb305eb90dc22911e73e0cac44f95
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The Orientation API (geoorientation: heading, installation height, tilt and roll, AXIS OS 11.5, selected with action=get/set) is announced but no CGI path, parameters or responses are documented, so it is not modelled.
+  - How ValidPosition and ValidHeading are set is not documented; set.cgi has no parameter for them.
+  - Examples quote the text value (text="freetext"); whether the quotes are stored literally is unclear. The examples also leave spaces in 'free text' unencoded.
+  - The error response lists ErrorCode 1, 2 and 3 in one SetError element as a syntax listing of the possible codes; a real reply carries one.
+  - The docs say GET/POST for both CGIs; only GET is modelled.
+  - The unit names DD, DDMM and DDMMSS are used in the examples but DMS and DMM in the introduction.
+  migrated_from: v1
+  curated: true

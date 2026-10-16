@@ -1,0 +1,209 @@
+format: 2
+id: groupview
+name: Group View
+summary: Get, list available and set the channel layout of a group view (for example quad or dual).
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: groupview
+  class: GroupView
+docs:
+- https://developer.axis.com/vapix/network-video/group-view/
+access: operator
+discovery:
+- {api_discovery: groupview}
+
+binding:
+  path: /axis-cgi/groupview.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error (also out-of-memory)., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed., kind: access_denied}
+  2107: {description: 'Transport-level error (HTTP 4XX, 5XX).'}
+
+types:
+  Channel:
+    type: object
+    description: A channel placed at one location of the group view.
+    required: [id]
+    properties:
+      id: {type: integer, description: Channel placed at this location.}
+  Layout:
+    type: array
+    items:
+      type: array
+      items: {$ref: "#/types/Channel"}
+    description: List of rows (top to bottom); each row is a list of channel elements (left to right).
+  AllowedChannels:
+    type: object
+    description: The channels that may be placed at one location of an available layout.
+    required: [id]
+    properties:
+      id:
+        type: array
+        items: {type: integer}
+        description: Channel IDs allowed at this location.
+  LayoutOption:
+    type: array
+    items:
+      type: array
+      items: {$ref: "#/types/AllowedChannels"}
+    description: One possible layout; a list of rows of locations, each with the channel IDs allowed there.
+  AvailableLayout:
+    type: object
+    required: [id, layout]
+    properties:
+      id: {type: integer, description: Group view ID.}
+      layout:
+        type: array
+        items: {$ref: "#/types/LayoutOption"}
+        description: List of possible layouts.
+  GroupViewLayout:
+    type: object
+    required: [id, layout]
+    properties:
+      id: {type: integer, description: Group view ID.}
+      layout: {$ref: "#/types/Layout"}
+
+operations:
+  get_layout:
+    summary: Request the current channel layout of a group view.
+    effect: read
+    binding: {method: getLayout}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The ID of the group view to check.}
+    result: {$ref: '#/types/GroupViewLayout'}
+    examples:
+    - title: Request channel layout
+      request:
+        params: {id: 5}
+      response:
+        data:
+          id: 5
+          layout:
+          - - {id: 1}
+            - {id: 2}
+          - - {id: 3}
+            - {id: 4}
+      source: https://developer.axis.com/vapix/network-video/group-view/#request-channel-layout
+  get_available_layout:
+    summary: Request possible layouts available to the group view(s).
+    effect: read
+    binding: {method: getAvailableLayout}
+    params:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Group view ID. Omit to get possible layouts for every ID supporting group view. The request
+            fails if the ID does not support group view.
+    result:
+      type: array
+      items: {$ref: '#/types/AvailableLayout'}
+    examples:
+    - title: Request potential channel layouts for one group view
+      source: https://developer.axis.com/vapix/network-video/group-view/#request-potential-channel-layouts
+      request:
+        params: {id: 5}
+      response:
+        data:
+        - id: 5
+          layout:
+          - - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+            - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+          - - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+          - - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+    - title: Request all available channel layouts
+      source: https://developer.axis.com/vapix/network-video/group-view/#request-all-available-channel-layouts
+      request:
+        params: {}
+      response:
+        data:
+        - id: 5
+          layout:
+          - - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+            - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+          - - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+          - - - {id: [1, 2, 3, 4]}
+              - {id: [1, 2, 3, 4]}
+        - id: 6
+          layout:
+          - - - {id: [1, 2]}
+              - {id: [3, 4]}
+  set_layout:
+    summary: Set the channel layout of a group view.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: setLayout}
+    params:
+      type: object
+      required: [id, layout]
+      properties:
+        id: {type: integer, description: The group view ID to set the layout for.}
+        layout:
+          $ref: '#/types/Layout'
+          description: 'New channel layout: list of rows, each a list of {id} channel elements from left to right.'
+    result: {$ref: '#/types/GroupViewLayout'}
+    errors:
+      1200: {description: List does not match an allowed layout., kind: invalid_argument}
+      2200: {description: Invalid value for ID in parameter layout., kind: invalid_argument}
+    examples:
+    - title: Set channel layouts for the group view (mirror)
+      source: https://developer.axis.com/vapix/network-video/group-view/#set-channel-layouts-for-the-group-view
+      request:
+        params:
+          id: 5
+          layout:
+          - - {id: 1}
+            - {id: 3}
+          - - {id: 4}
+            - {id: 2}
+      response:
+        data:
+          id: 5
+          layout:
+          - - {id: 1}
+            - {id: 3}
+          - - {id: 4}
+            - {id: 2}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/group-view/
+  sha256_md: c714801551f8162bac28ec042278adaebc17558ea2bc897ca9554f2733a4c221
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The method-specific error table (1200, 2200) appears after getSupportedVersions without a heading; assigned
+    to setLayout by content.
+  - The HTTP status of JSON error responses is given only in the error table (e.g. 400/500); the doc does not state
+    whether the body is returned with that status or 200.
+  - getSupportedVersions response table omits apiVersion.
+  migrated_from: v1
+  curated: true

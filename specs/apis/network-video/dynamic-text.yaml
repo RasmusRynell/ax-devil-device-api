@@ -1,0 +1,82 @@
+format: 2
+id: dynamic-text
+name: Dynamic text
+summary: Set and get the dynamic text slots that text overlays show through the D1 to D16 modifiers.
+section: network-video
+family: cgi
+status: released
+python:
+  module: dynamic_text
+  class: DynamicText
+docs:
+- https://developer.axis.com/vapix/network-video/overlay-api/
+access: operator
+
+binding: {path: /axis-cgi/dynamicoverlay.cgi}
+
+operations:
+  set_text:
+    summary: Set the dynamic text.
+    effect: write
+    write: patch
+    positional: [text]
+    binding:
+      method: GET
+      query: {action: settext}
+      reply: text
+    params:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string, description: The overlay text to apply.}
+        text_index:
+          type: integer
+          minimum: 1
+          maximum: 16
+          description: Select a dynamic text slot. A text index for a slot maps text to the modifiers `#D1...#D16`.
+            For example, `text_index=3&text=Hello` means that `Hello` will be mapped to `#D3`.
+        camera:
+          type: array
+          items: {type: string}
+          x-style: csv
+          description: Video channels to select. The device uses channel 1 when omitted. Only valid on products with
+            more than one video channel.
+  get_text:
+    summary: Get the dynamic text.
+    effect: read
+    positional: [text_index]
+    binding:
+      method: GET
+      query: {action: gettext}
+      reply: text
+    params:
+      type: object
+      properties:
+        text_index:
+          type: integer
+          minimum: 1
+          maximum: 16
+          description: Select a dynamic text slot. A text index for a slot maps text to the modifiers `#D1...#D16`.
+            For example, `text_index=3&text=Hello` means that `Hello` will be mapped to `#D3`.
+        camera:
+          type: array
+          items: {type: string}
+          x-style: csv
+          description: Video channels to select. The device uses channel 1 when omitted. Only valid on products with
+            more than one video channel.
+    result: {type: string}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/overlay-api/
+  sha256_md: b0b0e35e78f9ef81356c81bfa471e755c4378f76e4aa474447a4ad96a1b54ca5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - Response format of settext/gettext is not documented.
+  - No discovery properties are given for dynamic text.
+  - Whether text_index is required, and which slot is used when it is omitted, is not stated.
+  - The path /axis-cgi/dynamicoverlay.cgi differs from the Dynamic overlay API path /axis-cgi/dynamicoverlay/dynamicoverlay.cgi.
+  migrated_from: v1
+  curated: true

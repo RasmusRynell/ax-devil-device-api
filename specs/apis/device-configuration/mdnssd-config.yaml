@@ -1,0 +1,192 @@
+format: 2
+id: mdnssd-config
+name: mDNS-SD Configuration API
+summary: Enable mDNS-SD, set its friendly name and discover devices that advertise given services on the local network.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: mdnssd_config
+  class: MdnssdConfig
+docs:
+- https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+access: admin
+discovery:
+- dca: {api: mdnssd, version: v2}
+
+binding: {root: /config/rest/mdnssd/v2beta}
+
+errors:
+  100:
+    description: Invalid request. mDNS-SD is disabled during a discovery call.
+    kind: invalid_argument
+
+types:
+  Device:
+    type: object
+    description: Device found by discovery.
+    required: [deviceServices, friendlyName, hostname, interface, ipv4Address, ipv6Address]
+    properties:
+      deviceServices: {$ref: '#/types/DeviceServiceList', description: The services this device offers.}
+      friendlyName: {type: string, description: The friendlyname of the device.}
+      hostname: {type: string, description: The hostname of the device.}
+      interface: {type: string, description: On which local interface the device was discovered.}
+      ipv4Address: {$ref: '#/types/StringArray', description: A list of IPv4 addresses found on the device.}
+      ipv6Address: {$ref: '#/types/StringArray', description: A list of IPv6 addresses found on the device.}
+  DeviceService:
+    type: object
+    description: A service which a discovered device offers.
+    required: [serviceName, servicePort, serviceTxt]
+    properties:
+      serviceName: {type: string, description: The name of the service.}
+      servicePort: {type: integer, description: The port on which the service may be found.}
+      serviceTxt: {type: string, description: The text record of the service.}
+  DeviceServiceList:
+    type: array
+    items: {$ref: '#/types/DeviceService'}
+    description: A list of DeviceServices.
+  DiscoveryRequest:
+    type: object
+    description: Arguments of ``discovery``.
+    properties:
+      services: {$ref: '#/types/ServiceList', description: The services to look for during the discovery.}
+      timeout:
+        $ref: '#/types/Timeout'
+        description: The timeout for how many seconds a discovery should last.
+  Service:
+    type: string
+    pattern: ^_[A-Za-z0-9][A-Za-z0-9_-]{0,13}[A-Za-z0-9]\._(udp|tcp)$|^_[A-Za-z0-9]\._(udp|tcp)$
+    description: A service for the discovery to discover.
+  ServiceList:
+    type: array
+    items: {$ref: '#/types/Service'}
+    description: A list of services.
+  StringArray:
+    type: array
+    items: {type: string}
+    description: An array of strings.
+  Timeout: {type: integer, minimum: 1, maximum: 15, description: Valid timeout value in seconds.}
+  Mdnssd:
+    type: object
+    description: The whole API tree.
+    required: [enabled, friendlyName]
+    properties:
+      enabled: {type: boolean, description: The enabled state for mDNS-SD.}
+      friendlyName: {type: string, description: The friendly name for mDNS-SD.}
+
+operations:
+  get_all:
+    summary: All data of the mDNS-SD Configuration API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Mdnssd'}
+  get_enabled:
+    summary: Whether mDNS-SD is enabled.
+    effect: read
+    binding: {method: GET, path: /enabled}
+    result: {type: boolean}
+  get_friendly_name:
+    summary: Get the friendly name used for mDNS-SD.
+    effect: read
+    binding: {method: GET, path: /friendlyName}
+    result: {type: string}
+    examples:
+    - title: Get the friendly name
+      request: {path: /friendlyName}
+      response:
+        status: 200
+        body: {status: success, data: AXIS M1075-L - B8A44FE56631}
+      source: https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+  set_enabled:
+    summary: Enable or disable mDNS-SD.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /enabled, body_field: enabled, body: value}
+    positional: [enabled]
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: The enabled state for mDNS-SD.}
+    examples:
+    - title: Enable mDNS-SD
+      request:
+        path: /enabled
+        body: {data: true}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+  set_friendly_name:
+    summary: Set the friendly name used for mDNS-SD.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /friendlyName, body_field: friendlyName, body: value}
+    positional: [friendlyName]
+    params:
+      type: object
+      required: [friendlyName]
+      properties:
+        friendlyName: {type: string, description: The friendly name for mDNS-SD.}
+    examples:
+    - title: Set the friendly name
+      request:
+        path: /friendlyName
+        body: {data: string}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+  discovery:
+    summary: Discover devices on the local network that advertise any of the given services.
+    description: Fails with error 100 when mDNS-SD is disabled.
+    effect: action
+    binding: {method: POST, path: /discovery, body: object}
+    params: {$ref: '#/types/DiscoveryRequest'}
+    result:
+      type: array
+      items: {$ref: '#/types/Device'}
+    examples:
+    - title: Make discovery call
+      request:
+        path: /discovery
+        body:
+          data: {services: [_axis-video._tcp], timeout: 2}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - deviceServices:
+            - {serviceName: _axis-video._tcp, servicePort: 80, serviceTxt: macaddress=B8A44F1D58C3}
+            friendlyName: AXIS Q3536-LVE - B8A44F1D58C3
+            hostname: spechn-3.local.
+            interface: eth0
+            ipv4Address: [192.168.0.218]
+            ipv6Address: ['ccee:2da0:54ac:8a2f:baa4:4fff:fe1d:58c3', 'fe80::baa4:4fff:fe1d:58c3']
+      source: https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+    - title: Discovery while mDNS-SD is disabled
+      request:
+        path: /discovery
+        body:
+          data: {services: [_axis-video._tcp], timeout: 2}
+      response:
+        status: 200
+        body:
+          status: error
+          error: {code: 100, message: 'Backend defined error: "mDNS-SD is not enabled, can not call discovery."'}
+      source: https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/mdns-sd-api/
+  sha256_md: 5a13176f0d2b5e38cef3a03e8b54758a9a83cedb340ad21dba3514fe33ba2d55
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The docs do not say whether services and timeout are required for discovery; both are optional here.
+  - The docs Service pattern lacks the opening bracket of the second character class; it is repaired.
+  - The module is named mdnssd_config because mdnssd is taken by the classic mDNS-SD API.
+  migrated_from: v1
+  curated: true

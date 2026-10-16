@@ -1,0 +1,246 @@
+format: 2
+id: time-service
+name: Time API
+summary: Get and set date, time and time zone (IANA or POSIX) via /axis-cgi/time.cgi.
+section: network-video
+family: jsonrpc
+status: deprecated
+python:
+  module: time_service
+  class: TimeService
+docs:
+- https://developer.axis.com/vapix/network-video/time-api/
+access: viewer
+discovery:
+- {api_discovery: time-service}
+requires:
+  firmware: '9.30'
+
+binding:
+  path: /axis-cgi/time.cgi
+  major: 1
+  versions: ['1.0', '1.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error. Refer to message field or logs., kind: internal}
+  2000:
+    description: Invalid request. Only HTTP request type POST is supported.
+    kind: invalid_argument
+  2001: {description: Request body too large., kind: invalid_argument}
+  3000: {description: Invalid JSON data., kind: invalid_argument}
+  4000: {description: Method does not exist., kind: not_found}
+  4001: {description: The specified version is not supported., kind: unsupported}
+  4002: {description: Authorization failed., kind: access_denied}
+  4003: {description: Missing parameter(s)., kind: invalid_argument}
+  4004: {description: Invalid parameter(s)., kind: invalid_argument}
+
+types:
+  DateTimeInfo:
+    type: object
+    description: System date, time and time zone information.
+    required: [dateTime, localDateTime, maxYearSupported]
+    properties:
+      dateTime: {type: string, description: 'System date and time in UTC, ISO 8601. (format=date-time)'}
+      localDateTime: {type: string, description: 'Local date and time, ISO 8601. (format=date-time)'}
+      maxYearSupported: {type: integer, description: The latest year that the date can be set to.}
+      timeZone:
+        type: string
+        description: System time zone in IANA format, e.g. Europe/Stockholm. Omitted if not available.
+      posixTimeZone:
+        type: string
+        description: System time zone in POSIX format, e.g. EST5EDT,M3.2.0,M11.1.0. Omitted if not available.
+      dstEnabled:
+        type: boolean
+        description: DST flag controlling the POSIX string. Always true if the IANA format is present. Omitted if
+          POSIX time zone isn't available.
+      dhcpTimeZone:
+        type: string
+        description: DHCP time zone (IANA or POSIX). Omitted if not available. Introduced in API version 1.1.
+      dhcpTimeZoneUtilized:
+        type: boolean
+        description: Whether the DHCP time zone is used by the system. Omitted if DHCP time zone isn't available.
+          Introduced in API version 1.1.
+
+  AllDateTimeInfo:
+    type: object
+    description: The date and time information plus the available IANA time zones.
+    required: [dateTime, localDateTime, maxYearSupported]
+    properties:
+      dateTime: {type: string, description: 'System date and time in UTC, ISO 8601. (format=date-time)'}
+      localDateTime: {type: string, description: 'Local date and time, ISO 8601. (format=date-time)'}
+      maxYearSupported: {type: integer, description: The latest year that the date can be set to.}
+      timeZone:
+        type: string
+        description: System time zone in IANA format, e.g. Europe/Stockholm. Omitted if not available.
+      posixTimeZone:
+        type: string
+        description: System time zone in POSIX format, e.g. EST5EDT,M3.2.0,M11.1.0. Omitted if not available.
+      dstEnabled:
+        type: boolean
+        description: DST flag controlling the POSIX string. Always true if the IANA format is present. Omitted if
+          POSIX time zone isn't available.
+      dhcpTimeZone:
+        type: string
+        description: DHCP time zone (IANA or POSIX). Omitted if not available. Introduced in API version 1.1.
+      dhcpTimeZoneUtilized:
+        type: boolean
+        description: Whether the DHCP time zone is used by the system. Omitted if DHCP time zone isn't available.
+          Introduced in API version 1.1.
+      timeZones:
+        type: array
+        items: {type: string}
+        description: Supported time zones in the IANA format.
+
+operations:
+  get_date_time_info:
+    summary: Get system date, time, time zone and local time.
+    effect: read
+    binding: {method: getDateTimeInfo}
+    result: {$ref: '#/types/DateTimeInfo'}
+    examples:
+    - title: IANA only
+      request:
+        params: {}
+      response:
+        data:
+          dateTime: '2018-11-19T13:26:53Z'
+          localDateTime: '2018-11-19T14:26:53+01:00'
+          maxYearSupported: 2069
+          timeZone: Europe/Stockholm
+      source: https://developer.axis.com/vapix/network-video/time-api/#retrieve-date-and-time-information
+  get_all:
+    summary: Get all properties of get_date_time_info plus a list of available IANA time zones.
+    effect: read
+    binding: {method: getAll}
+    result: {$ref: "#/types/AllDateTimeInfo"}
+    examples:
+    - title: IANA, POSIX and DHCP (API 1.1)
+      request:
+        params: {}
+      response:
+        data:
+          dateTime: '2018-11-19T13:26:53Z'
+          localDateTime: '2018-11-19T14:26:53+01:00'
+          maxYearSupported: 2069
+          timeZone: Europe/Stockholm
+          posixTimeZone: CET-1CEST,M3.5.0,M10.5.0/3
+          dstEnabled: true
+          dhcpTimeZone: Europe/Berlin
+          dhcpTimeZoneUtilized: false
+          timeZones: [Africa/Abidjan, Africa/Accra]
+      source: https://developer.axis.com/vapix/network-video/time-api/#retrieve-date-and-time-information-and-list-of-available-time-zones
+  set_date_time:
+    summary: Set system date and time in UTC.
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setDateTime}
+    params:
+      type: object
+      required: [dateTime]
+      properties:
+        dateTime:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$
+          description: Date and time in UTC formatted as [YYYY]-[MM]-[DD]T[hh]:[mm]:[ss]Z (e.g. 2018-12-24T20:30:45Z).
+    result:
+      type: object
+      required: [dateTime]
+      properties:
+        dateTime: {type: string, description: Echoes the date and time that was set.}
+    examples:
+    - title: set_date_time
+      request:
+        params: {dateTime: '2018-12-24T14:28:53Z'}
+      response:
+        data: {dateTime: '2018-12-24T14:28:53Z'}
+      source: https://developer.axis.com/vapix/network-video/time-api/#set-date-and-time
+  set_time_zone:
+    summary: Set system time zone in IANA format (preferred).
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setTimeZone}
+    params:
+      type: object
+      required: [timeZone]
+      properties:
+        timeZone: {type: string, description: Which IANA time zone that should be set (see getAll timeZones).}
+    result:
+      type: object
+      required: [timeZone]
+      properties:
+        timeZone: {type: string, description: Echoes the time zone that was set.}
+    examples:
+    - title: set_time_zone
+      request:
+        params: {timeZone: Europe/Stockholm}
+      response:
+        data: {timeZone: Europe/Stockholm}
+      source: https://developer.axis.com/vapix/network-video/time-api/#set-time-zone
+  set_posix_time_zone:
+    summary: Set system time zone in POSIX format and the DST flag (not recommended).
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setPosixTimeZone}
+    params:
+      type: object
+      required: [posixTimeZone, enableDst]
+      properties:
+        posixTimeZone: {type: string, description: 'POSIX time zone, e.g. EST5EDT,M3.2.0,M11.1.0.'}
+        enableDst:
+          type: boolean
+          description: true activates the DST settings of the POSIX time zone string; false ignores them.
+    result:
+      type: object
+      required: [posixTimeZone, dstEnabled]
+      properties:
+        posixTimeZone: {type: string}
+        dstEnabled: {type: boolean}
+    examples:
+    - title: set_posix_time_zone
+      request:
+        params: {posixTimeZone: 'CET-1CEST,M3.5.0,M10.5.0/3', enableDst: true}
+      response:
+        data: {posixTimeZone: 'CET-1CEST,M3.5.0,M10.5.0/3', dstEnabled: true}
+      source: https://developer.axis.com/vapix/network-video/time-api/#set-posix-time-zone
+  reset_time_zone:
+    summary: Reset time zones back to the device default; DHCP time zone will be used when available.
+    access: operator
+    effect: action
+    since: '1.1'
+    binding: {method: resetTimeZone}
+    result:
+      type: object
+      required: [status]
+      properties:
+        status: {const: success}
+    examples:
+    - title: reset_time_zone
+      request:
+        params: {}
+      response:
+        data: {status: success}
+      source: https://developer.axis.com/vapix/network-video/time-api/#reset-time-zone
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/time-api/
+  sha256_md: 915e48143581939f596549a105a557d010d6989697fb260d524c3450f9032256
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The version in which resetTimeZone was introduced is not stated (examples use apiVersion 1.1); since: 1.1 is
+    inferred.'
+  - getSupportedVersions response syntax shows '<Major1>.<Major1>' (typo).
+  - Response syntax blocks miss a comma after timeZone and posixTimeZone is unquoted.
+  - Doc says 'six possible JSON responses' but shows four.
+  - '''setPosizTimeZone'' typo in Set POSIX Time Zone section.'
+  - 'The API is deprecated as of AXIS OS 12.4 in favour of the Device Configuration Time API.'
+  migrated_from: v1
+  curated: true

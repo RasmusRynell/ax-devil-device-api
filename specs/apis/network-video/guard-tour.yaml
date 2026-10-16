@@ -1,0 +1,271 @@
+format: 2
+id: guard-tour
+name: Guard tour API (preset tours)
+summary: Preset guard tours for PTZ cameras, defined in the dynamic GuardTour.G and GuardTour.G.Tour.T parameter groups through param.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: guard_tour
+  class: GuardTour
+docs:
+- https://developer.axis.com/vapix/network-video/guard-tour-api/
+access: operator
+discovery:
+- {api_discovery: guard-tour}
+- param: {name: Properties.GuardTour.GuardTour, value: 'yes'}
+
+binding: {path: /axis-cgi/param.cgi}
+
+types:
+  GuardTourGroup:
+    type: string
+    pattern: '^GuardTour\.G[0-9]+\.Tour$'
+    description: The Tour group of one guard tour, for example GuardTour.G0.Tour.
+
+operations:
+  get_properties:
+    summary: 'Guard tour support and limits as ``{"Properties.GuardTour.GuardTour": "yes"}`` (``root.`` removed).'
+    description: >-
+      Properties.GuardTour.GuardTour is yes or no. When it is yes, MaxGuardTour (most tours), MinGuardTourWaitTime
+      (shortest preset wait time) and GuardTourChannels (channels with guard tour capability, comma separated) are
+      also present.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list, group: Properties.GuardTour}
+      reply:
+        text_kv: {strip_prefix: root.}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Check that the Axis product supports guard tours
+      request:
+        query: {}
+      response: {status: 200, text: root.Properties.GuardTour.GuardTour=yes}
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+
+  list_parameters:
+    summary: 'List guard tour parameters as ``{"GuardTour.G0.Name": "value"}`` (``root.`` removed).'
+    description: >-
+      ``group`` is a group or parameter path and may use ``*`` wildcards, for example ``GuardTour.G0``,
+      ``GuardTour.G0.Tour.T0`` or ``GuardTour.G0.Tour.*.PresetNbr``. A tour (GuardTour.G#) has Running, Name,
+      CamNbr, RandomEnabled and TimeBetweenSequences. A preset (GuardTour.G#.Tour.T#) has PresetNbr, Position,
+      MoveSpeed, WaitTime and WaitTimeViewType.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply:
+        text_kv: {strip_prefix: root.}
+    positional: [group]
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: string
+          description: Group or parameter path, wildcards allowed (e.g. GuardTour.G0.Tour.*.PresetNbr).
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: List the new group GuardTour.G0
+      request:
+        query: {group: GuardTour.G0}
+      response:
+        status: 200
+        text: |-
+          root.GuardTour.G0.Running=no
+          root.GuardTour.G0.Name=GuardtourName
+          root.GuardTour.G0.CamNbr=1
+          root.GuardTour.G0.RandomEnabled=no
+          root.GuardTour.G0.TimeBetweenSequences=0
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+    - title: List the created parameters of a preset
+      request:
+        query: {group: GuardTour.G0.Tour.T0}
+      response:
+        status: 200
+        text: |-
+          root.GuardTour.G0.Tour.T0.PresetNbr=1
+          root.GuardTour.G0.Tour.T0.Position=1
+          root.GuardTour.G0.Tour.T0.MoveSpeed=70
+          root.GuardTour.G0.Tour.T0.WaitTime=10
+          root.GuardTour.G0.Tour.T0.WaitTimeViewType=Seconds
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+    - title: List the presets included in the tour
+      request:
+        query: {group: GuardTour.G0.Tour.*.PresetNbr}
+      response:
+        status: 200
+        text: |-
+          root.GuardTour.G0.Tour.T0.PresetNbr=1
+          root.GuardTour.G0.Tour.T1.PresetNbr=2
+          root.GuardTour.G0.Tour.T2.PresetNbr=5
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+
+  add_guard_tour:
+    summary: Add a guard tour (group GuardTour.G#); returns the device reply (``"G0 OK"``).
+    description: >-
+      The device assigns the group number and returns it in the reply. All settings are optional; the defaults are
+      Running=no, Name=GuardTourName, CamNbr=1, RandomEnabled=no. At most Properties.GuardTour.MaxGuardTour tours
+      can exist (group range 0 to 9).
+    access: operator
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {action: add, group: GuardTour, template: guardtour}
+      reply: text
+    params:
+      type: object
+      properties:
+        GuardTour.G.Name:
+          type: string
+          x-python-name: name
+          description: Name of the guard tour. It cannot contain the characters ", < or >.
+        GuardTour.G.CamNbr:
+          type: integer
+          x-python-name: cam_nbr
+          description: View area or video source the guard tour is defined for.
+        GuardTour.G.RandomEnabled:
+          type: boolean
+          x-style: axis_bool
+          x-python-name: random_enabled
+          description: Move between the preset positions in random order.
+        GuardTour.G.TimeBetweenSequences:
+          type: integer
+          minimum: 0
+          maximum: 9999
+          x-python-name: time_between_sequences
+          description: Minutes to wait between successive tours. The default is product-dependent.
+        GuardTour.G.Running:
+          type: boolean
+          x-style: axis_bool
+          x-python-name: running
+          description: Start the guard tour straight away.
+    result: {type: string}
+    examples:
+    - title: Add a guard tour
+      request:
+        query: {}
+      response: {status: 200, text: G0 OK}
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+    - title: Add a guard tour and set its name
+      request:
+        query: {GuardTour.G.Name: NightTour}
+      response: {status: 200, text: G1 OK}
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+
+  add_tour_preset:
+    summary: Add a preset position to a guard tour (group GuardTour.G#.Tour.T#); returns the device reply (``"T0 OK"``).
+    description: >-
+      ``group`` is the Tour group of the guard tour, for example ``GuardTour.G0.Tour``. ``parameters`` holds the
+      preset settings with the preset number omitted from the key, for example
+      ``{"GuardTour.G0.Tour.T.PresetNbr": "1", "GuardTour.G0.Tour.T.Position": "1"}``. PresetNbr (1 to 3600) is
+      required and must be given explicitly. Position (1 to 3600, default 1) orders the presets of a non-random tour.
+      MoveSpeed (1 to 100, default 70) applies to mechanical PTZ. WaitTime (0 to 3600, default 10) is in the unit set
+      by WaitTimeViewType (Seconds or Minutes, default Seconds). A preset that does not exist is ignored when the
+      tour runs.
+    access: operator
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {action: add, template: tour}
+      reply: text
+    positional: [group, parameters]
+    params:
+      type: object
+      required: [group, parameters]
+      properties:
+        group: {$ref: '#/types/GuardTourGroup'}
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    result: {type: string}
+    examples:
+    - title: Add the first preset position to the guard tour GuardTour.G0
+      request:
+        query:
+          group: GuardTour.G0.Tour
+          GuardTour.G0.Tour.T.PresetNbr: '1'
+          GuardTour.G0.Tour.T.Position: '1'
+      response: {status: 200, text: T0 OK}
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+
+  update_parameters:
+    summary: 'Set guard tour or preset parameters, for example ``{"GuardTour.G0.Name": "DayTour"}``.'
+    description: >-
+      Only the given parameters change. Use it to rename or reconfigure a tour and to start or stop it with
+      ``GuardTour.G#.Running`` set to ``yes`` or ``no``. For tours: Name, CamNbr, RandomEnabled,
+      TimeBetweenSequences (0 to 9999 minutes) and Running. For presets: PresetNbr, Position, MoveSpeed, WaitTime
+      and WaitTimeViewType.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    positional: [parameters]
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    examples:
+    - title: Set the guard tour name to DayTour
+      request:
+        query: {GuardTour.G0.Name: DayTour}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+    - title: Start the guard tour
+      request:
+        query: {GuardTour.G0.Running: 'yes'}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+    - title: Stop the guard tour
+      request:
+        query: {GuardTour.G0.Running: 'no'}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/guard-tour-api/#common-examples
+
+  remove_group:
+    summary: Remove a preset position (``GuardTour.G0.Tour.T0``) or a whole guard tour (``GuardTour.G0``).
+    description: >-
+      This only removes the preset from the guard tour. To remove the preset position from the product, use the PTZ
+      configuration API.
+    access: operator
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {action: remove}
+      reply: text_ok
+    positional: [group]
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: string
+          pattern: '^GuardTour\.G[0-9]+(\.Tour\.T[0-9]+)?$'
+          description: The group to remove, for example GuardTour.G0 or GuardTour.G0.Tour.T0.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/guard-tour-api/
+  sha256_md: eb05ace3319d3adb2b7fab7edc740d2ae772b0f353c548ee86a1b3d3a91ea123
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The Recorded tour API on the same page is modelled by the recorded-guard-tour spec.
+  - The wire names of tour and preset parameters contain the group number (GuardTour.G0.Tour.T.PresetNbr), so add_tour_preset and update_parameters take a map of wire names; typed fields would need templated argument names.
+  - The reply of action=remove and of action=update is not shown for the remove case on this page (OK is assumed from the Parameter management API); add replies are the device text G0 OK and T0 OK.
+  - Access for running a tour by an operator with or without PTZ control, against viewer, is ambiguous in the Running row.
+  migrated_from: v1
+  curated: true

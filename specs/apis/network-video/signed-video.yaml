@@ -1,0 +1,103 @@
+format: 2
+id: signed-video
+name: Signed Video
+summary: Enable or disable video signing per video channel with ``Image.I#.MPEG.SignedVideo.Enabled`` (param.cgi).
+section: network-video
+family: cgi
+status: released
+python:
+  module: signed_video
+  class: SignedVideo
+docs:
+- https://developer.axis.com/vapix/network-video/signed-video/
+access: admin
+discovery:
+- {api_discovery: signed-video}
+
+binding: {path: /axis-cgi/param.cgi}
+
+types:
+  SignedVideo:
+    type: object
+    description: The signed video setting of one channel.
+    required: [Enabled]
+    properties:
+      Enabled: {type: boolean, description: Whether signed video is enabled by default (``yes`` or ``no`` on the wire).}
+
+operations:
+  get_signed_video:
+    summary: Read whether signed video is enabled by default for a channel.
+    description: >-
+      ``n`` is the channel index, from 0 up to the number of channels of the product minus 1. The device answers
+      ``root.Image.I<n>.MPEG.SignedVideo.Enabled=yes`` or ``no``.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list, group: 'Image.I{n}.MPEG.SignedVideo.Enabled'}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: 'root.Image.I{n}.MPEG.SignedVideo.'}}
+    params:
+      type: object
+      required: [n]
+      properties:
+        n: {type: integer, minimum: 0, description: The channel index.}
+    positional: [n]
+    result: {$ref: '#/types/SignedVideo'}
+    examples:
+    - title: Read whether signed video is enabled on channel 0
+      request: {query: {group: Image.I0.MPEG.SignedVideo.Enabled}}
+      response: {status: 200, text: "root.Image.I0.MPEG.SignedVideo.Enabled=no\n"}
+      source: https://developer.axis.com/vapix/network-video/signed-video/#signedvideoenabled
+  set_signed_video:
+    summary: 'Enable or disable signed video by default for a channel, e.g. ``{"Image.I0.MPEG.SignedVideo.Enabled": "yes"}``.'
+    description: >-
+      Keys are ``Image.I#.MPEG.SignedVideo.Enabled`` where ``#`` is the channel index (0 up to the number of channels
+      minus 1); values are ``yes`` or ``no`` (the default is ``no``). Only the given parameters change.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters:
+          type: object
+          additionalProperties: {type: string, enum: ['yes', 'no']}
+          x-style: spread
+    positional: [parameters]
+    examples:
+    - title: Enable signed video on channel 0
+      request: {query: {Image.I0.MPEG.SignedVideo.Enabled: 'yes'}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/signed-video/#setup-signed-video-on-a-channel
+
+  stream_signed_video:
+    summary: Build the RTSP URL of a stream with video signing enabled or disabled for that stream.
+    effect: read
+    access: viewer
+    binding: {rtsp: {}}
+    params:
+      type: object
+      required: [videosigned]
+      properties:
+        videosigned: {type: boolean, description: "Enable (1) or disable (0) signed video for this stream."}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/signed-video/
+  sha256_md: 0244b469c00df21acb8689763f58eb9c0e2e7a6bc65578a17ca90bfc7985956b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The channel index sits inside the parameter name (Image.I#...), so set_signed_video takes the parameter map, while get_signed_video takes the channel index (the fixed ``group`` argument and the reply prefix are templated with it).
+  - AXIS OS minimum version not stated.
+  - Update security level is Admin; list security level is given as "Operator, Viewer" (ambiguous whether viewer suffices).
+  - Validation/verification of signed video (tools, formats) is not documented on this page.
+  - The docs show no response for the update request; the usual param.cgi reply ``OK`` is assumed.
+  migrated_from: v1
+  curated: true

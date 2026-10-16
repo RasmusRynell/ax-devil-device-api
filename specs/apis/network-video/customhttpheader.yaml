@@ -1,0 +1,116 @@
+format: 2
+id: customhttpheader
+name: Custom HTTP header API
+summary: List, add (set) and remove custom HTTP headers added to the HTTP responses of the device's web server.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: custom_http_header
+  class: CustomHttpHeader
+docs:
+- https://developer.axis.com/vapix/network-video/custom-http-header-api/
+access: admin
+discovery:
+- {api_discovery: customhttpheader}
+requires:
+  firmware: '9.80'
+
+binding:
+  path: /axis-cgi/customhttpheader.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error. Refer to message field or logs., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON format., kind: invalid_argument}
+  2102: {description: Method does not exist., kind: unsupported}
+
+types:
+  HeaderMap:
+    type: object
+    additionalProperties: {type: string}
+    description: Custom HTTP headers, header name to header value.
+
+operations:
+  list_headers:
+    summary: List the custom headers available on the device.
+    description: Includes headers that come pre-installed on some devices.
+    effect: read
+    binding: {method: list}
+    result: {$ref: "#/types/HeaderMap"}
+    examples:
+      - title: List custom headers
+        request: {params: {}}
+        response:
+          data:
+            Set-Cookie: deviceId=123; Max-Age=200
+            CustomName: CustomValue
+            Another-Example: Another-value
+        source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#list-custom-headers
+
+  set_headers:
+    summary: Set one or more custom headers.
+    description: >-
+      Each entry is a header name and its value. Setting several headers in one call requires AXIS OS 10.11.
+      The headers are included in the responses of the web server once it has been restarted.
+      Returns the headers that were set.
+    effect: write
+    write: patch
+    binding: {method: set}
+    params:
+      type: object
+      x-arg-name: headers
+      additionalProperties: {type: string}
+      description: Header name to header value.
+    result: {$ref: "#/types/HeaderMap"}
+    examples:
+      - title: Set CORS header
+        request: {params: {Access-Control-Allow-Origin: "http://axis.trusted.example.server.com"}}
+        response: {data: {Access-Control-Allow-Origin: "http://axis.trusted.example.server.com"}}
+        source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#set-cors-header
+      - title: Set a Cookie header
+        request: {params: {Set-Cookie: "deviceId=123; Max-Age=200"}}
+        response: {data: {Set-Cookie: "deviceId=123; Max-Age=200"}}
+        source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#set-a-cookie-header
+
+  remove_headers:
+    summary: Remove custom headers.
+    description: >-
+      The header is identified by its name, so the value is optional and can be omitted (pass an empty string).
+      Pre-installed headers can be removed too. The headers are no longer included once the web server has been restarted.
+      Returns the headers that were removed.
+    effect: write
+    write: delete
+    binding: {method: remove}
+    params:
+      type: object
+      x-arg-name: headers
+      additionalProperties: {type: string}
+      description: Header name to header value; the value is not used to identify the header.
+    result: {$ref: "#/types/HeaderMap"}
+    examples:
+      - title: Remove the Set-Cookie header
+        request: {params: {Set-Cookie: "deviceId=123; Max-Age=200"}}
+        response: {data: {Set-Cookie: "deviceId=123; Max-Age=200"}}
+        source: https://developer.axis.com/vapix/network-video/custom-http-header-api/#remove-a-custom-header
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/custom-http-header-api/
+  sha256_md: 71a278f4884a247d3b36d79e7987baf0bb8d4353455f1de12fc6ee2fe3cec2c3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The parameter tables name params.CustomHeaderName and params.CustomHeaderValue, but the examples show params as a map
+    of header name to value; the map form is used.
+  - Whether the web server restarts automatically after set or remove is not stated ("once it has been restarted").
+  - Whether the value may be omitted on remove is stated in prose only; the schema keeps it a string.
+  - The getSupportedVersions tables name the method "remove" (copy and paste error in the docs).
+  migrated_from: v1
+  curated: true

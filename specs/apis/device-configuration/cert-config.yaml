@@ -1,0 +1,574 @@
+format: 2
+id: cert-config
+name: Certificate Management
+summary: Generate and install certificates, and fetch, replace and remove installed certificates, CA certificates and keystores.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: cert
+  class: Cert
+docs:
+- https://developer.axis.com/vapix/device-configuration/certificate-management/
+access: viewer
+discovery:
+- dca: {api: cert, version: v1}
+
+binding: {root: /config/rest/cert/v1}
+
+types:
+  Alias: {type: string, minLength: 1, maxLength: 128, description: The client-defined alias of the certificate.}
+  SubjectAltName: {type: string, pattern: '^(IP|DNS):.+$', description: 'A subject alternative name, prefixed with either "IP:" or "DNS:", e.g. "DNS:example.org".'}
+  SanList:
+    type: array
+    items: {$ref: '#/types/SubjectAltName'}
+    description: 'Subject alternative names, each prefixed with either "IP:" or "DNS:", e.g. "DNS:example.org".'
+  KeystoreCertifications:
+    type: array
+    items: {type: string}
+    description: 'A list of security standards for the subsystem that a keystore is certified with. E.g. "FIPS 140-2 Level 2".'
+  KeystoreKeyType:
+    type: string
+    enum: [RSA-1024, RSA-2048, RSA-3072, RSA-4096, EC-P256, EC-P384, EC-P521]
+    description: A key algorithm and strength offered by a keystore.
+  SecurityLevel:
+    type: string
+    enum: [SOFTWARE, TRUSTED_ENVIRONMENT, STRONG]
+    description: The protection level of private keys offered by a keystore.
+
+  Cert:
+    type: object
+    description: The whole API tree.
+    required: [ca_certificates, certificates, keystores, settings]
+    properties:
+      ca_certificates: {type: array, items: {$ref: '#/types/CaCertificate'}}
+      certificates: {type: array, items: {$ref: '#/types/Certificate'}}
+      keystores: {type: array, items: {$ref: '#/types/Keystore'}}
+      settings: {$ref: '#/types/Settings'}
+  CaCertificate:
+    type: object
+    description: An installed CA certificate (never has a private key).
+    required: [alias, certificate]
+    properties:
+      alias: {$ref: '#/types/Alias', description: Identifier for this certificate entry.}
+      certificate: {type: string, description: The X.509 certificate in PEM format. Can be replaced with a newer version.}
+  Certificate:
+    type: object
+    description: An installed server or client certificate with its private key. The private key is never returned.
+    required: [alias, certificate, keystore]
+    properties:
+      alias: {$ref: '#/types/Alias', description: Identifier for this certificate entry.}
+      certificate: {type: string, description: The X.509 certificate in PEM format. Can be replaced with a freshly signed version for the same private key.}
+      keystore: {type: string, description: The keystore this private key is protected by. Can not be changed once the private key has been protected.}
+  Keystore:
+    type: object
+    description: A keystore available for protecting private keys.
+    required: [id, certifications, key_types, security_level]
+    properties:
+      id: {type: string, description: Keystore identifier.}
+      certifications: {$ref: '#/types/KeystoreCertifications', description: The security standards of the subsystem that this keystore is certified with.}
+      key_types: {type: array, items: {$ref: '#/types/KeystoreKeyType'}, description: The key types offered by the keystore.}
+      security_level: {$ref: '#/types/SecurityLevel', description: The level of protection for private keys that this keystore offers.}
+  Settings:
+    type: object
+    description: Global settings for certificate management.
+    required: [keystore]
+    properties:
+      keystore: {type: string, description: The selected keystore. Newly installed or generated private keys are protected in it by default.}
+
+  CreateCertificateRequest:
+    type: object
+    description: Arguments of ``create_certificate``.
+    required: [alias, subject]
+    x-nullable: [key_type, keystore, subject_alt_names, valid_from, valid_to]
+    properties:
+      alias: {$ref: '#/types/Alias', description: Identifier for this certificate.}
+      subject: {type: string, description: 'Subject distinguished name, defined in RFC 4514.'}
+      key_type: {type: string, description: 'The key algorithm and strength that should be used. Default is EC-P256 or the keystore default. RSA keys are RSA-<bitlength>, e.g. RSA-2048; EC keys are EC-P256, EC-P384 or EC-P521. Not all keystores support all key types.'}
+      keystore: {type: string, description: 'The keystore in which this private key should be generated. If not specified, the configured default keystore is used.'}
+      subject_alt_names: {$ref: '#/types/SanList', description: Subject alternative names.}
+      valid_from: {type: integer, description: 'The validity start date for the certificate. Default value is today. Number of seconds since Unix epoch.'}
+      valid_to: {type: integer, description: 'The validity end date for the certificate. Default value is one year from today. Number of seconds since Unix epoch.'}
+  InstallFromPkcs12Request:
+    type: object
+    description: Arguments of ``install_from_pkcs12``.
+    required: [alias, pkcs12]
+    x-nullable: [keystore]
+    x-masked: [passphrase, pkcs12]
+    properties:
+      alias: {$ref: '#/types/Alias', description: New identifier for this certificate.}
+      pkcs12: {type: string, description: 'The raw data for the PKCS12 archive, base64-encoded.'}
+      passphrase: {type: string, description: The passphrase for the PKCS12 archive.}
+      keystore: {type: string, description: The keystore protecting the private key. The configured default keystore will be used if this parameter is not specified.}
+  AddCaCertificateRequest:
+    type: object
+    description: Arguments of ``add_ca_certificate``.
+    required: [alias, certificate]
+    properties:
+      alias: {$ref: '#/types/Alias', description: Identifier for this certificate entry.}
+      certificate: {type: string, description: The X.509 certificate in PEM format.}
+  UpdateCaCertificateRequest:
+    type: object
+    description: Arguments of ``update_ca_certificate``. The new certificate must be for the same public key.
+    required: [alias]
+    properties:
+      alias: {$ref: '#/types/Alias'}
+      certificate: {type: string, description: The X.509 certificate in PEM format.}
+  AddCertificateRequest:
+    type: object
+    description: Arguments of ``add_certificate``.
+    required: [alias, certificate, private_key]
+    x-masked: [private_key]
+    properties:
+      alias: {$ref: '#/types/Alias', description: Identifier for this certificate entry.}
+      certificate: {type: string, description: The X.509 certificate in PEM format.}
+      private_key: {type: string, description: The private key in PEM format. It can not be extracted again once it is protected.}
+      keystore: {type: string, description: The keystore to protect the private key in. The configured default keystore is used if not specified.}
+  UpdateCertificateRequest:
+    type: object
+    description: Arguments of ``update_certificate``. The private key is kept.
+    required: [alias]
+    properties:
+      alias: {$ref: '#/types/Alias'}
+      certificate: {type: string, description: 'The X.509 certificate in PEM format, signed for the same private key.'}
+  GetCsrRequest:
+    type: object
+    description: Arguments of ``get_csr``. Omitted fields are copied from the existing certificate; an empty value leaves the field out of the request.
+    required: [alias]
+    x-nullable: [subject, subject_alt_names]
+    properties:
+      alias: {$ref: '#/types/Alias'}
+      subject: {type: string, description: 'Optional new subject DN, which if used, will replace the original.'}
+      subject_alt_names: {$ref: '#/types/SanList', description: 'Optional new list of alternative names, which if used, will replace the original.'}
+
+operations:
+  get_all:
+    summary: All CA certificates, certificates, keystores and settings.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Cert'}
+
+  create_certificate:
+    summary: Generate a self-signed certificate with a new private key inside a keystore.
+    description: The private key never leaves the device. Fetch a signing request with ``get_csr`` and replace the certificate with ``update_certificate`` to get it signed by a CA.
+    access: admin
+    effect: action
+    binding: {method: POST, path: /create_certificate, body: object}
+    params: {$ref: '#/types/CreateCertificateRequest'}
+    errors:
+      5: {description: "The key type is not supported by the selected keystore", kind: invalid_argument}
+      100: {description: "Maintenance is required on the device before the key type can be generated", kind: unavailable}
+    examples:
+    - title: Generate a new certificate
+      request:
+        path: /create_certificate
+        body:
+          data:
+            alias: My-Certificate
+            key_type: EC-P256
+            keystore: SE0
+            subject: C=SE,CN=example.com
+            subject_alt_names: ['DNS:example.com']
+            valid_from: 1681740370
+            valid_to: 1713276370
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+    - title: Generate a certificate with a key type the keystore does not support
+      request:
+        path: /create_certificate
+        body:
+          data:
+            alias: My-Certificate
+            key_type: RSA-4096
+            keystore: TPM0
+            subject: C=SE,CN=example.com
+            subject_alt_names: ['DNS:example.com']
+            valid_from: 1681740370
+            valid_to: 1713276370
+      response:
+        status: 200
+        body:
+          status: error
+          error:
+            code: 5
+            message: 'Validation error: Failed to generate key pair: This key algorithm is not supported on TPM'
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  install_from_pkcs12:
+    summary: Install a certificate and private key from a passphrase protected PKCS12 archive.
+    access: admin
+    effect: action
+    binding: {method: POST, path: /install_from_pkcs12, body: object}
+    params: {$ref: '#/types/InstallFromPkcs12Request'}
+    errors:
+      5: {description: "The private key type is not supported by the selected keystore", kind: invalid_argument}
+      100: {description: "Maintenance is required on the device before the private key type can be uploaded", kind: unavailable}
+    examples:
+    - title: Upload a passphrase protected PKCS#12 archive
+      request:
+        path: /install_from_pkcs12
+        body:
+          data:
+            alias: My-Certificate
+            pkcs12: base64-encoded-pkcs12-file-data
+            passphrase: my-password
+            keystore: SE0
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  list_ca_certificates:
+    summary: List the installed CA certificates.
+    effect: read
+    binding: {method: GET, path: /ca_certificates}
+    result: {type: array, items: {$ref: '#/types/CaCertificate'}}
+    examples:
+    - title: List all CA certificates
+      request: {path: /ca_certificates}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - alias: My-CA
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+          - alias: Another-CA
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  get_ca_certificate:
+    summary: Get one CA certificate.
+    effect: read
+    binding: {method: GET, path: '/ca_certificates/{alias}'}
+    params:
+      type: object
+      x-name: CaCertificateAliasRequest
+      required: [alias]
+      properties:
+        alias: {$ref: '#/types/Alias'}
+    result: {$ref: '#/types/CaCertificate'}
+    examples:
+    - title: Fetch details about a CA certificate
+      request: {path: /ca_certificates/My-CA}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            alias: My-CA
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  add_ca_certificate:
+    summary: Install a CA certificate.
+    access: admin
+    effect: write
+    write: create
+    binding: {method: POST, path: /ca_certificates, body: object}
+    params: {$ref: '#/types/AddCaCertificateRequest'}
+    examples:
+    - title: Upload a CA certificate
+      request:
+        path: /ca_certificates
+        body:
+          data:
+            alias: My-CA
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+      response:
+        status: 201
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  update_ca_certificate:
+    summary: Replace a CA certificate with a newer version for the same public key.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/ca_certificates/{alias}', body: object}
+    params: {$ref: '#/types/UpdateCaCertificateRequest'}
+    examples:
+    - title: Replace a CA certificate
+      request:
+        path: /ca_certificates/My-CA
+        body:
+          data:
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  remove_ca_certificate:
+    summary: Remove a CA certificate.
+    access: admin
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/ca_certificates/{alias}'}
+    params:
+      type: object
+      x-name: CaCertificateAliasRequest
+      required: [alias]
+      properties:
+        alias: {$ref: '#/types/Alias'}
+    examples:
+    - title: Delete a CA certificate
+      request: {path: /ca_certificates/My-CA}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  list_certificates:
+    summary: List the installed certificates with private keys. Private keys are never returned.
+    effect: read
+    binding: {method: GET, path: /certificates}
+    result: {type: array, items: {$ref: '#/types/Certificate'}}
+    examples:
+    - title: List all certificates with private keys
+      request: {path: /certificates}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - alias: My-Certificate
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+            keystore: SE0
+          - alias: Another Certificate
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+            keystore: TPM0
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  get_certificate:
+    summary: Get one certificate with a private key.
+    effect: read
+    binding: {method: GET, path: '/certificates/{alias}'}
+    params:
+      type: object
+      x-name: CertificateAliasRequest
+      required: [alias]
+      properties:
+        alias: {$ref: '#/types/Alias'}
+    result: {$ref: '#/types/Certificate'}
+    examples:
+    - title: Fetch details about a certificate with private key
+      request: {path: /certificates/My-Certificate}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            alias: My-Certificate
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+            keystore: SE0
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  add_certificate:
+    summary: Install a certificate together with its private key.
+    access: admin
+    effect: write
+    write: create
+    binding: {method: POST, path: /certificates, body: object}
+    params: {$ref: '#/types/AddCertificateRequest'}
+    examples:
+    - title: Upload a certificate with private key
+      request:
+        path: /certificates
+        body:
+          data:
+            alias: My-Certificate
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+            keystore: SE0
+            private_key: |-
+              -----BEGIN PRIVATE KEY-----
+              pem-encoded-data
+              -----END PRIVATE KEY-----
+      response:
+        status: 201
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  update_certificate:
+    summary: Replace a certificate, keeping its private key.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/certificates/{alias}', body: object}
+    params: {$ref: '#/types/UpdateCertificateRequest'}
+    examples:
+    - title: Replace a certificate but keep its private key
+      request:
+        path: /certificates/My-Certificate
+        body:
+          data:
+            certificate: |-
+              -----BEGIN CERTIFICATE-----
+              pem-encoded-data
+              -----END CERTIFICATE-----
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  remove_certificate:
+    summary: Remove a certificate and its private key.
+    access: admin
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/certificates/{alias}'}
+    params:
+      type: object
+      x-name: CertificateAliasRequest
+      required: [alias]
+      properties:
+        alias: {$ref: '#/types/Alias'}
+    examples:
+    - title: Delete a certificate with private key
+      request: {path: /certificates/My-Certificate}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  get_csr:
+    summary: Get a PKCS10 certificate signing request in PEM format for an installed certificate.
+    access: admin
+    effect: action
+    binding: {method: POST, path: '/certificates/{alias}/get_csr', body: object}
+    params: {$ref: '#/types/GetCsrRequest'}
+    result: {type: string}
+    examples:
+    - title: Obtain a certificate signing request
+      request:
+        path: /certificates/My-Certificate/get_csr
+        body:
+          data: {subject: 'C=SE,CN=example.com', subject_alt_names: ['DNS:example.com']}
+      response:
+        status: 200
+        body:
+          status: success
+          data: |-
+            -----BEGIN CERTIFICATE REQUEST-----
+            pem-encoded-data
+            -----END CERTIFICATE REQUEST-----
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  list_keystores:
+    summary: List the keystores available for protecting private keys.
+    effect: read
+    binding: {method: GET, path: /keystores}
+    result: {type: array, items: {$ref: '#/types/Keystore'}}
+    examples:
+    - title: List all available keystores
+      request: {path: /keystores}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - id: TPM0
+            security_level: STRONG
+            certifications: [CC EAL4+, FIPS 140-2 Level 2]
+            key_types: [RSA-1024, RSA-2048, EC-P256]
+          - id: SOFTWARE0
+            security_level: SOFTWARE
+            certifications: []
+            key_types: [RSA-1024, RSA-2048, RSA-4096, EC-P256, EC-P384, EC-P521]
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  get_keystore:
+    summary: Get one keystore.
+    effect: read
+    binding: {method: GET, path: '/keystores/{id}'}
+    params:
+      type: object
+      x-name: KeystoreIdRequest
+      required: [id]
+      properties:
+        id: {type: string, description: Keystore identifier.}
+    result: {$ref: '#/types/Keystore'}
+    examples:
+    - title: Fetch details about a keystore
+      request: {path: /keystores/SE0}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            id: SE0
+            security_level: STRONG
+            certifications: [CC EAL6+]
+            key_types: [RSA-1024, RSA-2048, RSA-4096, EC-P256, EC-P384, EC-P521]
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+  get_settings:
+    summary: Get the global certificate management settings.
+    effect: read
+    binding: {method: GET, path: /settings}
+    result: {$ref: '#/types/Settings'}
+
+  set_settings_keystore:
+    summary: Select the default keystore for new private keys.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /settings/keystore, body_field: keystore, body: value}
+    params:
+      type: object
+      required: [keystore]
+      properties:
+        keystore: {type: string, description: The selected keystore. Newly installed or generated private keys are protected in it by default.}
+    examples:
+    - title: Set a keystore as the default keystore
+      request:
+        path: /settings/keystore
+        body: {data: SE0}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/certificate-management/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/certificate-management/
+  sha256_md: 7fc2d2e0944cf2c43cf4cf8031107198842847c7d5bc23f9783f3814c2583ff6
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The docs list no operations for certificates.private_key; it is accepted on add_certificate only and never returned.'
+  - 'The docs example for get_csr returns the PEM under data.alias, but the data tables say the response is a string; the example is corrected to a string.'
+  - 'The docs example for create_certificate uses key_type NIST-P256, which is not a documented key type; corrected to EC-P256.'
+  - 'Which operations other than create_certificate and install_from_pkcs12 can return error codes 5 and 100 is not documented.'
+  migrated_from: v1
+  curated: true

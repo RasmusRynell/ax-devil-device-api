@@ -1,0 +1,724 @@
+format: 2
+id: cellular-routing-config
+name: Cellular routing API
+summary: Routing, DHCP and port mapping between the cellular WWAN interface and the Ethernet LAN port of a cellular host.
+section: device-configuration
+family: dca
+status: beta
+python:
+  module: cellular_routing
+  class: CellularRouting
+docs:
+  - https://developer.axis.com/vapix/device-configuration/cellular-routing-api/
+access: admin
+discovery:
+  - dca: {api: cellular-routing, version: v1}
+binding:
+  root: /config/rest/cellular-routing/v1beta
+
+types:
+  NetworkPort: {type: integer, minimum: 0, maximum: 65535}
+  PortAlignment:
+    type: integer
+    minimum: 1
+    maximum: 100
+    description: >-
+      Alignment of the LAN host source port ranges. Each device's first source port is rounded up
+      to a multiple of this value (for example 20000, 20010, 20020 with 10).
+  Ipv4Address: {type: string, minLength: 0, maxLength: 15}
+  MacAddress: {type: string, minLength: 17, maxLength: 17}
+  ListIndex: {type: string, minLength: 1, maxLength: 3, pattern: "^[0-9]+$"}
+  DhcpServerMode:
+    type: string
+    enum: [LOCAL, PASSTHROUGH]
+    description: >-
+      ``LOCAL`` (default) gives the LAN hosts a private network; ``PASSTHROUGH`` extends the
+      cellular subnet to the LAN so a LAN host gets the cellular IP.
+  MainMode:
+    type: string
+    enum: [DUAL_UPLINK, WWAN_ROUTING, DUAL_UPLINK_WWAN_OUT_ONLY]
+    description: >-
+      ``DUAL_UPLINK`` (factory default) runs DHCP clients on both Ethernet and WWAN.
+      ``WWAN_ROUTING`` makes the device a standalone cellular router for its LAN hosts.
+      ``DUAL_UPLINK_WWAN_OUT_ONLY`` is like ``DUAL_UPLINK`` but WWAN accepts outbound traffic only.
+  PortMapMode:
+    type: string
+    enum: [PRIMARY_CELLULAR_HOST, PRIMARY_LAN_HOST, PRIMARY_CELLULAR_HOST_WWAN_OUT_ONLY]
+    description: >-
+      Which host is primary. ``PRIMARY_LAN_HOST`` forwards all ports to the LAN host except the
+      cellular host management ports; ``PRIMARY_CELLULAR_HOST`` keeps normal ports on the cellular host
+      and forwards only LAN host management ports; ``PRIMARY_CELLULAR_HOST_WWAN_OUT_ONLY`` allows
+      outbound traffic only.
+
+  IpRange:
+    type: object
+    description: The first and last IP in a range.
+    required: [firstIp, lastIp]
+    properties:
+      firstIp: {$ref: "#/types/Ipv4Address"}
+      lastIp: {$ref: "#/types/Ipv4Address"}
+  StaticMacIpLease:
+    type: object
+    description: A static lease tying a MAC address to an IP address.
+    required: [ip, macAddress]
+    properties:
+      ip: {$ref: "#/types/Ipv4Address"}
+      macAddress: {$ref: "#/types/MacAddress"}
+  CellularIpv4Info:
+    type: object
+    description: IPv4 information provided by the cellular network (the UE IP is the publicly visible address).
+    properties:
+      ueIp: {$ref: "#/types/Ipv4Address"}
+      gateway: {$ref: "#/types/Ipv4Address"}
+      ipPrefixLength: {type: integer}
+      nameServers: {type: array, items: {$ref: "#/types/Ipv4Address"}, description: DNS name servers provided by the cellular network.}
+  SourceDestinationPort:
+    type: object
+    description: A mapped port.
+    properties:
+      name: {type: string, description: The protocol name of the port.}
+      source: {$ref: "#/types/NetworkPort"}
+      destination: {$ref: "#/types/NetworkPort"}
+  DestinationPort:
+    type: object
+    description: A LAN host port.
+    properties:
+      name: {type: string, description: The protocol name of the port.}
+      destination: {$ref: "#/types/NetworkPort"}
+  ConfiguredPortMapping:
+    type: object
+    description: The configured port mappings of one destination IP.
+    properties:
+      destinationIp: {$ref: "#/types/Ipv4Address"}
+      name: {type: string, description: The mDNS name of the LAN host. Only filled in when LAN host discovery was requested.}
+      ports: {type: array, items: {$ref: "#/types/SourceDestinationPort"}}
+
+  ConnectionMonitor:
+    type: object
+    description: Features to monitor the cellular network connection.
+    required: [autoRecovery]
+    properties:
+      autoRecovery: {type: boolean, description: Monitor the cellular data connection and try to recover if it goes down.}
+  MacLease:
+    type: object
+    description: >-
+      A MAC address for static leases. The first one decides which device gets all ports in
+      ``PRIMARY_LAN_HOST`` mode and the first IP of the range.
+    required: [index, macAddress]
+    x-read-only: [index]
+    properties:
+      index: {$ref: "#/types/ListIndex"}
+      macAddress: {$ref: "#/types/MacAddress"}
+  DhcpLocalConfig:
+    type: object
+    description: DHCP server configuration for a private LAN network (``LOCAL`` mode).
+    required: [ipPrefixLength, ipRange, serverIp, staticLeases]
+    x-read-only: [ipPrefixLength, serverIp, staticLeases]
+    properties:
+      ipPrefixLength: {type: integer, description: Prefix length of the smallest subnet that contains ipRange. Calculated.}
+      ipRange: {$ref: "#/types/IpRange"}
+      serverIp: {$ref: "#/types/Ipv4Address"}
+      staticLeases: {type: array, items: {$ref: "#/types/StaticMacIpLease"}}
+  DhcpPassthroughConfig:
+    type: object
+    description: >-
+      DHCP configuration that extends the cellular subnet to the LAN (``PASSTHROUGH`` mode). Before the
+      cellular connection is up, ipRange may be empty.
+    required: [ipPrefixLength, ipPrefixLengthOverride, serverIp, staticLeases]
+    x-read-only: [ipPrefixLength, ipPrefixLengthOverride, serverIp, staticLeases]
+    properties:
+      ipPrefixLength: {type: integer, description: Prefix length of the DHCP server IP based on the uplink DHCP configuration.}
+      ipPrefixLengthOverride: {type: integer, description: 0 when ipRange fits the cellular subnet; otherwise the expanded prefix length (smaller than ipPrefixLength).}
+      ipRange: {$ref: "#/types/IpRange"}
+      serverIp: {$ref: "#/types/Ipv4Address"}
+      staticLeases: {type: array, items: {$ref: "#/types/StaticMacIpLease"}}
+  DhcpServer:
+    type: object
+    description: DHCP server settings for the LAN port.
+    required: [mode, serverCheckEnabled]
+    properties:
+      mode: {$ref: "#/types/DhcpServerMode"}
+      serverCheckEnabled: {type: boolean, description: Check for an existing DHCP server on the LAN network.}
+      localConfig: {$ref: "#/types/DhcpLocalConfig"}
+      macLeases: {type: array, items: {$ref: "#/types/MacLease"}}
+      passthroughConfig: {$ref: "#/types/DhcpPassthroughConfig"}
+  MainSettings:
+    type: object
+    description: The main configuration of cellular routing.
+    required: [mode]
+    x-read-only: [cellularIpv4Info]
+    properties:
+      mode: {$ref: "#/types/MainMode"}
+      cellularIpv4Info: {$ref: "#/types/CellularIpv4Info"}
+  CellularHostDefaultPort:
+    type: object
+    description: A default management port of the cellular host. It cannot be added or removed; only the source port can change.
+    required: [index, name, source, destination]
+    x-read-only: [index, name, destination]
+    properties:
+      index: {$ref: "#/types/ListIndex"}
+      name: {type: string, description: The protocol name of the port.}
+      source: {$ref: "#/types/NetworkPort"}
+      destination: {$ref: "#/types/NetworkPort"}
+  CellularHostPort:
+    type: object
+    description: A custom port of the cellular host.
+    required: [index, name, source, destination]
+    x-read-only: [index]
+    properties:
+      index: {$ref: "#/types/ListIndex"}
+      name: {type: string, description: The protocol name of the port.}
+      source: {$ref: "#/types/NetworkPort"}
+      destination: {$ref: "#/types/NetworkPort"}
+  CellularHost:
+    type: object
+    description: Network ports for the cellular host.
+    properties:
+      defaultPorts: {type: array, items: {$ref: "#/types/CellularHostDefaultPort"}}
+      ports: {type: array, items: {$ref: "#/types/CellularHostPort"}}
+  LanHostPort:
+    type: object
+    description: A custom port applied symmetrically to all LAN hosts.
+    required: [index, name, destination]
+    x-read-only: [index]
+    properties:
+      index: {$ref: "#/types/ListIndex"}
+      name: {type: string, description: The protocol name of the port.}
+      destination: {$ref: "#/types/NetworkPort"}
+  LanHost:
+    type: object
+    description: Network ports for the hosts on the LAN DHCP server network.
+    required: [defaultPorts, sourceBasePort, sourceMaxPort, sourcePortListAlignment]
+    x-read-only: [defaultPorts, sourceMaxPort]
+    properties:
+      defaultPorts: {type: array, items: {$ref: "#/types/DestinationPort"}, description: Default destination ports applied to all LAN hosts.}
+      sourceBasePort: {$ref: "#/types/NetworkPort"}
+      sourceMaxPort: {$ref: "#/types/NetworkPort"}
+      sourcePortListAlignment: {$ref: "#/types/PortAlignment"}
+      ports: {type: array, items: {$ref: "#/types/LanHostPort"}}
+  PortMapping:
+    type: object
+    description: Port mapping configuration for the cellular host and LAN hosts.
+    required: [mode]
+    properties:
+      mode: {$ref: "#/types/PortMapMode"}
+      cellularHost: {$ref: "#/types/CellularHost"}
+      lanHost: {$ref: "#/types/LanHost"}
+  CellularRouting:
+    type: object
+    description: The whole API tree.
+    properties:
+      connectionMonitor: {$ref: "#/types/ConnectionMonitor"}
+      dhcpServer: {$ref: "#/types/DhcpServer"}
+      main: {$ref: "#/types/MainSettings"}
+      portMapping: {$ref: "#/types/PortMapping"}
+
+  AddMacLeaseRequest:
+    type: object
+    description: Arguments of ``add_mac_lease``.
+    required: [macAddress]
+    properties:
+      macAddress: {$ref: "#/types/MacAddress"}
+  AddCellularHostPortRequest:
+    type: object
+    description: Arguments of ``add_cellular_host_port``.
+    required: [name, source, destination]
+    properties:
+      name: {type: string, description: The protocol name of the port.}
+      source: {$ref: "#/types/NetworkPort"}
+      destination: {$ref: "#/types/NetworkPort"}
+  AddLanHostPortRequest:
+    type: object
+    description: Arguments of ``add_lan_host_port``.
+    required: [name, destination]
+    properties:
+      name: {type: string, description: The protocol name of the port.}
+      destination: {$ref: "#/types/NetworkPort"}
+  ConfiguredPortMappingsRequest:
+    type: object
+    description: Arguments of ``get_configured_port_mappings``.
+    properties:
+      includeOnlyActivePorts: {type: boolean, description: "Only active mappings (an empty list when ports are inactive, for example in DUAL_UPLINK mode). When false, all potential mappings for the whole DHCP IP range."}
+      enableLanHostDiscovery: {type: boolean, description: "Look up mDNS names of the connected LAN hosts and fill in the name field of the result."}
+
+operations:
+
+  get_all:
+    summary: The whole API tree.
+    access: operator
+    effect: read
+    binding: {method: GET, path: ""}
+    result: {$ref: "#/types/CellularRouting"}
+
+  get_connection_monitor:
+    summary: Get the connection monitor settings.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/connectionMonitor"}
+    result: {$ref: "#/types/ConnectionMonitor"}
+
+  set_connection_monitor_auto_recovery:
+    summary: Set whether the cellular connection is monitored and recovered.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/connectionMonitor/autoRecovery", body: value, body_field: autoRecovery}
+    params:
+      type: object
+      required: [autoRecovery]
+      properties:
+        autoRecovery: {type: boolean}
+
+  get_dhcp_server:
+    summary: Get the DHCP server settings.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/dhcpServer"}
+    result: {$ref: "#/types/DhcpServer"}
+
+  set_dhcp_server_mode:
+    summary: Set the DHCP server mode.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/dhcpServer/mode", body: value, body_field: mode}
+    params:
+      type: object
+      required: [mode]
+      properties:
+        mode: {$ref: "#/types/DhcpServerMode"}
+    examples:
+      - title: Enable PASSTHROUGH mode
+        request:
+          path: /dhcpServer/mode
+          body: {data: PASSTHROUGH}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-a-connected-camera
+
+  set_dhcp_server_server_check_enabled:
+    summary: Enable or disable the check for an existing DHCP server on the LAN.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/dhcpServer/serverCheckEnabled", body: value, body_field: serverCheckEnabled}
+    params:
+      type: object
+      required: [serverCheckEnabled]
+      properties:
+        serverCheckEnabled: {type: boolean}
+
+  get_dhcp_local_config:
+    summary: Get the DHCP configuration of LOCAL mode.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/dhcpServer/localConfig"}
+    result: {$ref: "#/types/DhcpLocalConfig"}
+
+  set_dhcp_local_config_ip_range:
+    summary: Set the IP range of LOCAL mode.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/dhcpServer/localConfig/ipRange", body: value, body_field: ipRange}
+    params:
+      type: object
+      required: [ipRange]
+      properties:
+        ipRange: {$ref: "#/types/IpRange"}
+    examples:
+      - title: Increase the number of local DHCP IP addresses
+        request:
+          path: /dhcpServer/localConfig/ipRange
+          body: {data: {firstIp: 192.168.1.2, lastIp: 192.168.1.4}}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-multiple-connected-cameras
+
+  get_dhcp_passthrough_config:
+    summary: Get the DHCP configuration of PASSTHROUGH mode.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/dhcpServer/passthroughConfig"}
+    result: {$ref: "#/types/DhcpPassthroughConfig"}
+    examples:
+      - title: Check the DHCP passthrough configuration
+        request:
+          path: /dhcpServer/passthroughConfig
+        response:
+          status: 200
+          body: {status: success, data: {ipPrefixLength: 30, ipPrefixLengthOverride: 29, ipRange: {firstIp: 172.26.248.34, lastIp: 172.26.248.35}, serverIp: 172.26.248.33, staticLeases: [{ip: 172.26.248.34, macAddress: "B8:A4:4F:27:9D:82"}]}}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-a-connected-camera-with-additional-network-accessories
+
+  set_dhcp_passthrough_config_ip_range:
+    summary: Set the IP range of PASSTHROUGH mode.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/dhcpServer/passthroughConfig/ipRange", body: value, body_field: ipRange}
+    params:
+      type: object
+      required: [ipRange]
+      properties:
+        ipRange: {$ref: "#/types/IpRange"}
+    examples:
+      - title: Increase the number of DHCP IP addresses
+        request:
+          path: /dhcpServer/passthroughConfig/ipRange
+          body: {data: {firstIp: 172.26.248.34, lastIp: 172.26.248.35}}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-a-connected-camera-with-additional-network-accessories
+
+  list_mac_leases:
+    summary: List the MAC addresses for static leases.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/dhcpServer/macLeases"}
+    result: {type: array, items: {$ref: "#/types/MacLease"}}
+
+  get_mac_lease:
+    summary: Get one MAC address lease.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/dhcpServer/macLeases/{index}"}
+    params:
+      type: object
+      x-name: IndexRequest
+      required: [index]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+    result: {$ref: "#/types/MacLease"}
+
+  add_mac_lease:
+    summary: Add a MAC address for static leases.
+    effect: write
+    write: create
+    binding: {method: POST, path: /dhcpServer/macLeases, body: object}
+    params:
+      $ref: "#/types/AddMacLeaseRequest"
+    round_trip:
+      from: MacLease
+    examples:
+      - title: Specify the primary device
+        x-contract: {skip: "The documented example PATCHes the collection with a bare MAC string, which does not match the documented Add operation (POST with macAddress)."}
+        request:
+          path: /dhcpServer/macLeases
+          body: {data: "B8:A4:4F:27:9D:82"}
+        response: {status: 200, body: {status: success, data: {macAddress: "B8:A4:4F:27:9D:82"}}}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-a-connected-camera-with-additional-network-accessories
+
+  remove_mac_lease:
+    summary: Remove a MAC address lease.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: "/dhcpServer/macLeases/{index}"}
+    params:
+      type: object
+      x-name: IndexRequest
+      required: [index]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+
+  set_mac_lease_mac_address:
+    summary: Set the MAC address of a lease.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/dhcpServer/macLeases/{index}/macAddress", body: value, body_field: macAddress}
+    params:
+      type: object
+      required: [index, macAddress]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+        macAddress: {$ref: "#/types/MacAddress"}
+
+  get_main:
+    summary: Get the main settings, including the cellular IPv4 information.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/main"}
+    result: {$ref: "#/types/MainSettings"}
+
+  set_main_mode:
+    summary: Set the main mode that controls routing.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/main/mode", body: value, body_field: mode}
+    params:
+      type: object
+      required: [mode]
+      properties:
+        mode: {$ref: "#/types/MainMode"}
+    examples:
+      - title: Enable cellular WWAN routing
+        request:
+          path: /main/mode
+          body: {data: WWAN_ROUTING}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-a-connected-camera
+
+  get_port_mapping:
+    summary: Get the port mapping settings.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping"}
+    result: {$ref: "#/types/PortMapping"}
+
+  set_port_mapping_mode:
+    summary: Set which host is the primary host.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/mode", body: value, body_field: mode}
+    params:
+      type: object
+      required: [mode]
+      properties:
+        mode: {$ref: "#/types/PortMapMode"}
+
+  get_configured_port_mappings:
+    summary: Get the currently configured port mappings.
+    access: operator
+    effect: read
+    binding: {method: POST, path: /portMapping/getConfiguredPortMappings, body: object}
+    params:
+      $ref: "#/types/ConfiguredPortMappingsRequest"
+    result: {type: array, items: {$ref: "#/types/ConfiguredPortMapping"}}
+    examples:
+      - title: Get the active port mapping and discovery information
+        request:
+          path: /portMapping/getConfiguredPortMappings
+          body: {data: {includeOnlyActivePorts: true, enableLanHostDiscovery: true}}
+        response:
+          status: 200
+          body: {status: success, data: [{destinationIp: 172.26.248.54, name: "AXIS P3265-LVE - B8A44F279D82", ports: [{destination: 80, name: http, source: 80}, {destination: 22, name: ssh, source: 22}]}]}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-a-connected-camera
+
+  get_cellular_host:
+    summary: Get the cellular host ports.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/cellularHost"}
+    result: {$ref: "#/types/CellularHost"}
+    examples:
+      - title: Retrieve the management ports of the cellular host
+        request:
+          path: /portMapping/cellularHost
+        response:
+          status: 200
+          body: {status: success, data: {defaultPorts: [{destination: 80, index: "0", name: http, source: 11080}, {destination: 443, index: "1", name: https, source: 11443}, {destination: 554, index: "2", name: rtsp, source: 11554}, {destination: 22, index: "3", name: ssh, source: 11022}], ports: []}}
+        source: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/#enable-cellular-routing-for-a-connected-camera
+
+  list_cellular_host_default_ports:
+    summary: List the default ports of the cellular host.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/cellularHost/defaultPorts"}
+    result: {type: array, items: {$ref: "#/types/CellularHostDefaultPort"}}
+
+  get_cellular_host_default_port:
+    summary: Get one default port of the cellular host.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/cellularHost/defaultPorts/{index}"}
+    params:
+      type: object
+      x-name: IndexRequest
+      required: [index]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+    result: {$ref: "#/types/CellularHostDefaultPort"}
+
+  set_cellular_host_default_port_source:
+    summary: Set the source port of a default cellular host port.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/cellularHost/defaultPorts/{index}/source", body: value, body_field: source}
+    params:
+      type: object
+      required: [index, source]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+        source: {$ref: "#/types/NetworkPort"}
+
+  list_cellular_host_ports:
+    summary: List the custom ports of the cellular host.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/cellularHost/ports"}
+    result: {type: array, items: {$ref: "#/types/CellularHostPort"}}
+
+  get_cellular_host_port:
+    summary: Get one custom port of the cellular host.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/cellularHost/ports/{index}"}
+    params:
+      type: object
+      x-name: IndexRequest
+      required: [index]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+    result: {$ref: "#/types/CellularHostPort"}
+
+  add_cellular_host_port:
+    summary: Add a custom port to the cellular host.
+    effect: write
+    write: create
+    binding: {method: POST, path: /portMapping/cellularHost/ports, body: object}
+    params:
+      $ref: "#/types/AddCellularHostPortRequest"
+    round_trip:
+      from: CellularHostPort
+
+  remove_cellular_host_port:
+    summary: Remove a custom port of the cellular host.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: "/portMapping/cellularHost/ports/{index}"}
+    params:
+      type: object
+      x-name: IndexRequest
+      required: [index]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+
+  set_cellular_host_port_destination:
+    summary: Set the destination port of a custom cellular host port.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/cellularHost/ports/{index}/destination", body: value, body_field: destination}
+    params:
+      type: object
+      required: [index, destination]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+        destination: {$ref: "#/types/NetworkPort"}
+
+  set_cellular_host_port_name:
+    summary: Set the name of a custom cellular host port.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/cellularHost/ports/{index}/name", body: value, body_field: name}
+    params:
+      type: object
+      required: [index, name]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+        name: {type: string}
+
+  set_cellular_host_port_source:
+    summary: Set the source port of a custom cellular host port.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/cellularHost/ports/{index}/source", body: value, body_field: source}
+    params:
+      type: object
+      required: [index, source]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+        source: {$ref: "#/types/NetworkPort"}
+
+  get_lan_host:
+    summary: Get the LAN host port settings.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/lanHost"}
+    result: {$ref: "#/types/LanHost"}
+
+  set_lan_host_source_base_port:
+    summary: Set the base source port of the LAN host ports.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/lanHost/sourceBasePort", body: value, body_field: sourceBasePort}
+    params:
+      type: object
+      required: [sourceBasePort]
+      properties:
+        sourceBasePort: {$ref: "#/types/NetworkPort"}
+
+  set_lan_host_source_port_list_alignment:
+    summary: Set the alignment of the LAN host source port ranges.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/lanHost/sourcePortListAlignment", body: value, body_field: sourcePortListAlignment}
+    params:
+      type: object
+      required: [sourcePortListAlignment]
+      properties:
+        sourcePortListAlignment: {$ref: "#/types/PortAlignment"}
+
+  list_lan_host_ports:
+    summary: List the custom ports of the LAN hosts.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/lanHost/ports"}
+    result: {type: array, items: {$ref: "#/types/LanHostPort"}}
+
+  get_lan_host_port:
+    summary: Get one custom LAN host port.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/portMapping/lanHost/ports/{index}"}
+    params:
+      type: object
+      x-name: IndexRequest
+      required: [index]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+    result: {$ref: "#/types/LanHostPort"}
+
+  add_lan_host_port:
+    summary: Add a custom port applied to all LAN hosts.
+    effect: write
+    write: create
+    binding: {method: POST, path: /portMapping/lanHost/ports, body: object}
+    params:
+      $ref: "#/types/AddLanHostPortRequest"
+    round_trip:
+      from: LanHostPort
+
+  remove_lan_host_port:
+    summary: Remove a custom LAN host port.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: "/portMapping/lanHost/ports/{index}"}
+    params:
+      type: object
+      x-name: IndexRequest
+      required: [index]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+
+  set_lan_host_port_destination:
+    summary: Set the destination port of a custom LAN host port.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/lanHost/ports/{index}/destination", body: value, body_field: destination}
+    params:
+      type: object
+      required: [index, destination]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+        destination: {$ref: "#/types/NetworkPort"}
+
+  set_lan_host_port_name:
+    summary: Set the name of a custom LAN host port.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/portMapping/lanHost/ports/{index}/name", body: value, body_field: name}
+    params:
+      type: object
+      required: [index, name]
+      properties:
+        index: {$ref: "#/types/ListIndex"}
+        name: {type: string}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/cellular-routing-api/
+  sha256_md: 735f05001ebebb95f650255090a07b8ac90329b8fd206dffa84af9199a28b3c3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+    - >-
+      The API is in beta; the REST root is /config/rest/cellular-routing/v1beta (as in all examples) while the
+      entity names say v1.
+    - 'Discovery: /config/discover lists beta APIs by major version ("v1", with "state": "beta"); only the REST root carries the beta suffix (v1beta), so discovery looks for v1.'
+    - The docs do not state the permissions of add and remove operations; admin (the setter permission) is assumed.
+    - Which result fields are always present is not stated; fields of the cellular IPv4 info and the optional aggregate parents are left optional.
+    - The documented MAC lease example PATCHes the collection with a bare MAC string, unlike the documented Add operation.
+  migrated_from: v1
+  curated: true

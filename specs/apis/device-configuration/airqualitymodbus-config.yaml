@@ -1,0 +1,187 @@
+format: 2
+id: airqualitymodbus-config
+name: Air quality Modbus
+summary: The VAPIX® Air quality Modbus API enables applications and users to configure Modbus parameters(such as
+  service status and port settings) for the Air quality...
+section: device-configuration
+family: dca
+status: released
+python:
+  module: airqualitymodbus
+  class: AirQualityModbus
+docs:
+- https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
+access: admin
+discovery:
+- dca: {api: airqualitymodbus, version: v1}
+
+binding: {root: /config/rest/airqualitymodbus/v1}
+
+types:
+  ModbusPort:
+    type: integer
+    minimum: 1024
+    maximum: 65535
+    description: The range of modbus port is 1024 - 65535
+  SensorId:
+    type: string
+    minLength: 1
+    pattern: ^[A-Za-z0-9][A-Za-z0-9_-]*$
+    description: A Unique alphanumeric ID. The documented pattern is numeric only (^[1-9]\d*|0$), but the description and every example (My-SensorId) use alphanumeric ids.
+  AirQualityModbus:
+    type: object
+    description: The whole API tree.
+    properties:
+      configurations:
+        type: array
+        items: {$ref: '#/types/Configuration'}
+  Configuration:
+    type: object
+    description: Configuration of air quality modbus
+    x-read-only: [sensorId]
+    properties:
+      modbusEnable: {type: boolean, description: Modbus enable}
+      modbusPort: {$ref: '#/types/ModbusPort', description: Modbus port}
+      sensorId: {$ref: '#/types/SensorId', description: Sensor ID}
+  UpdateConfigurationRequest:
+    type: object
+    description: Arguments of ``update_configuration``.
+    required: [sensorId]
+    properties:
+      sensorId: {$ref: '#/types/SensorId'}
+      modbusEnable: {type: boolean, description: Modbus enable}
+      modbusPort: {$ref: '#/types/ModbusPort', description: Modbus port}
+
+operations:
+  get_all:
+    access: viewer
+    summary: All data of the Air quality Modbus API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/AirQualityModbus'}
+  list_configurations:
+    access: viewer
+    summary: List the configurations.
+    effect: read
+    binding: {method: GET, path: /configurations}
+    result:
+      type: array
+      items: {$ref: '#/types/Configuration'}
+    examples:
+    - title: Get all configurations
+      request:
+        path: /configurations
+      response:
+        status: 200
+        body: {status: success, data: [{modbusEnable: false, modbusPort: 1502}]}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
+  get_configuration:
+    access: viewer
+    summary: Get one configuration.
+    effect: read
+    binding: {method: GET, path: '/configurations/{sensorId}'}
+    params:
+      type: object
+      x-name: ConfigurationSensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {$ref: '#/types/Configuration'}
+  get_configuration_modbus_enable:
+    summary: Get the modbus enable of a configuration.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: '/configurations/{sensorId}/modbusEnable'}
+    params:
+      type: object
+      x-name: ConfigurationSensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {type: boolean}
+    examples:
+    - title: Get a single configuration
+      request:
+        path: /configurations/My-SensorId/modbusEnable
+      response:
+        status: 200
+        body: {status: success, data: false}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
+  get_configuration_modbus_port:
+    summary: Get the modbus port of a configuration.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: '/configurations/{sensorId}/modbusPort'}
+    params:
+      type: object
+      x-name: ConfigurationSensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {$ref: '#/types/ModbusPort'}
+  update_configuration:
+    summary: Update a configuration.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/configurations/{sensorId}', body: object}
+    params: {$ref: '#/types/UpdateConfigurationRequest'}
+    examples:
+    - title: Set all configurations
+      request:
+        path: /configurations/My-SensorId
+        body: {data: {modbusEnable: true, modbusPort: 1502}}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
+  set_configuration_modbus_enable:
+    summary: Set the modbus enable of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensorId}/modbusEnable
+      body_field: modbusEnable
+      body: value
+    params:
+      type: object
+      required: [sensorId, modbusEnable]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+        modbusEnable: {type: boolean, description: Modbus enable}
+    examples:
+    - title: Set a single configuration
+      request:
+        path: /configurations/My-SensorId/modbusEnable
+        body: {data: true}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
+  set_configuration_modbus_port:
+    summary: Set the modbus port of a configuration.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /configurations/{sensorId}/modbusPort
+      body_field: modbusPort
+      body: value
+    params:
+      type: object
+      required: [sensorId, modbusPort]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+        modbusPort: {$ref: '#/types/ModbusPort', description: Modbus port}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/environmental-sensor/air-quality-modbus-api/
+  sha256_md: f62688dc9f967ed9dad54b9d82624c6ba6160437698fcaa9a9ee3c57c99d2450
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Same API airqualitymodbus.v1 is also documented on .../environmental-sensor/modbus-api/ (spec airqualitymodbus-modbus-api-config); there sensorId has GET permissions, here it lists no operations. sensorId is modelled as a read-only key and no sensorId getter is generated. The docs example for the collection GET omits sensorId, so it is optional in responses.'
+  migrated_from: v1
+  curated: true

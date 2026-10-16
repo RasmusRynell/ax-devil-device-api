@@ -1,30 +1,36 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "ax-devil-device-api"
-version = "0.7.0"
-description = "Python library for interacting with Axis device APIs"
+version = "1.0.0.dev0"
+description = "Typed sync and async Python client for Axis device VAPIX APIs"
 readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
+requires-python = ">=3.11"
+license = "MIT"
 authors = [
     {name = "Rasmus Rynell", email = "Rynell.Rasmus@gmail.com"},
 ]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+    "Framework :: AsyncIO",
+]
 dependencies = [
-    "requests>=2.25.0",
-    "click>=8.0.0",
-    "rich>=13.9.4",
-    "urllib3>=2.5.0",
+    "httpx>=0.28",
+    "httpx-ws>=0.9.0,<0.10",
+    "pydantic>=2.14",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "cryptography==44.0.2",
-]
+socks = ["httpx[socks]"]
+
+[project.scripts]
+ax-devil = "ax_devil_device_api.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/rasmusrynell/ax-devil-device-api"
@@ -32,5 +38,37 @@ Repository = "https://github.com/rasmusrynell/ax-devil-device-api.git"
 Documentation = "https://github.com/rasmusrynell/ax-devil-device-api#readme"
 "Bug Tracker" = "https://github.com/rasmusrynell/ax-devil-device-api/issues"
 
-[project.scripts]
-ax-devil-device-api = "ax_devil_device_api.cli:cli"
+[dependency-groups]
+dev = [
+    "pytest",
+    "anyio",
+    "pyright",
+    "ruff>=0.17.0",
+    "pyyaml>=6.0.3",
+    "jsonschema>=4.26.0",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ax_devil_device_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.pyright]
+include = ["src", "tests"]
+extraPaths = ["tests", "tests/unit"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = ["dist"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ax_devil_device_api", "codegen"]

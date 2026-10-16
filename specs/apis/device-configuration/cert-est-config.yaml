@@ -1,0 +1,353 @@
+format: 2
+id: cert-est-config
+name: Enrollment over secure transport
+summary: Configure EST profiles so the device enrolls and renews certificates automatically.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: cert_est
+  class: CertEst
+docs:
+- https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+access: admin
+discovery:
+- dca: {api: cert-est, version: v1}
+
+binding: {root: /config/rest/cert-est/v1}
+
+types:
+  Alias: {type: string, minLength: 1, maxLength: 128, description: Client-defined identifier}
+  CertificateList:
+    type: array
+    items: {$ref: '#/types/Alias'}
+    description: Certificates list
+  CommonName:
+    type: string
+    minLength: 1
+    maxLength: 64
+    description: The Common Name is used to specify the fully qualified domain name (FQDN) of the server or the
+      name of the individual or organization for which the certificate is issued.
+  Service:
+    type: string
+    enum: [WEBSERVER, NETAUTH, MQTT, RTSPS]
+    description: A service to configure with an EST enrolled certificate.
+  ServiceList:
+    type: array
+    items: {$ref: '#/types/Service'}
+    description: Service list
+  Status:
+    type: string
+    enum: [UNCONNECTED, CONNECTED, ENROLLED]
+    description: The EST profiles status.
+  Subject:
+    type: object
+    description: Subject of the CSR that will be sent to the EST server. Uses the default subject settings if left
+      empty.
+    x-nullable: [cn]
+    properties:
+      cn: {$ref: '#/types/CommonName', description: Common Name}
+  SubjectAltNameList:
+    type: array
+    items: {$ref: '#/types/SubjectAlternativeName'}
+    description: Subject Alternative Name list
+  SubjectAlternativeName:
+    type: string
+    pattern: '^(IP|DNS):.+$'
+    description: The Subject Alternative Name is used to specify additional domain names and IP addresses for which
+      the certificate is issued.
+  CertEst:
+    type: object
+    description: The whole API tree.
+    required: [supportedServices]
+    properties:
+      supportedServices:
+        $ref: '#/types/ServiceList'
+        description: List of the services that can have enrolled certificates assigned to it.
+      profiles:
+        type: array
+        items: {$ref: '#/types/Profile'}
+  Profile:
+    type: object
+    description: EST profiles.
+    required: [id]
+    x-nullable:
+    - caCertificates
+    - certificate
+    - server
+    - services
+    - subject
+    - subjectAlternativeNames
+    x-read-only: [status]
+    properties:
+      caCertificates: {$ref: '#/types/CertificateList', description: EST server CA certificates}
+      certificate: {$ref: '#/types/Alias', description: Existing certificate to base CSR on}
+      id: {$ref: '#/types/Alias', description: EST profile identifier.}
+      server: {type: string, description: EST server hostname.}
+      services: {$ref: '#/types/ServiceList', description: Services to assign enrolled certificate to}
+      status: {$ref: '#/types/Status', description: Status of the setup of the EST profile}
+      subject: {$ref: '#/types/Subject', description: x509 subject of the enrolled certificate}
+      subjectAlternativeNames:
+        $ref: '#/types/SubjectAltNameList'
+        description: Subject alternative names, each prefixed with either "IP:" or "DNS:", e.g. "DNS:example.org"
+  UpdateProfileRequest:
+    type: object
+    description: Arguments of ``update_profile``.
+    required: [id]
+    x-nullable: [caCertificates, certificate, server, services, subject, subjectAlternativeNames]
+    properties:
+      id: {$ref: '#/types/Alias'}
+      caCertificates: {$ref: '#/types/CertificateList', description: EST server CA certificates}
+      certificate: {$ref: '#/types/Alias', description: Existing certificate to base CSR on}
+      server: {type: string, description: EST server hostname.}
+      services: {$ref: '#/types/ServiceList', description: Services to assign enrolled certificate to}
+      subject: {$ref: '#/types/Subject', description: x509 subject of the enrolled certificate}
+      subjectAlternativeNames:
+        $ref: '#/types/SubjectAltNameList'
+        description: Subject alternative names, each prefixed with either "IP:" or "DNS:", e.g. "DNS:example.org"
+  AddProfileRequest:
+    type: object
+    description: Arguments of ``add_profile``.
+    required: [id]
+    x-nullable: [caCertificates, certificate, server, services, subject, subjectAlternativeNames]
+    properties:
+      id: {$ref: '#/types/Alias', description: EST profile identifier.}
+      server: {type: string, description: EST server hostname.}
+      caCertificates: {$ref: '#/types/CertificateList', description: EST server CA certificates}
+      certificate: {$ref: '#/types/Alias', description: Existing certificate to base CSR on}
+      subject: {$ref: '#/types/Subject', description: x509 subject of the enrolled certificate}
+      subjectAlternativeNames:
+        $ref: '#/types/SubjectAltNameList'
+        description: Subject alternative names, each prefixed with either "IP:" or "DNS:", e.g. "DNS:example.org"
+      services: {$ref: '#/types/ServiceList', description: Services to assign enrolled certificate to}
+
+operations:
+  get_all:
+    summary: Supported services and all EST profiles.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/CertEst'}
+  get_supported_services:
+    summary: Services that can be assigned an enrolled certificate.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /supportedServices}
+    result: {$ref: '#/types/ServiceList'}
+  list_profiles:
+    summary: List the profiles.
+    effect: read
+    binding: {method: GET, path: /profiles}
+    result:
+      type: array
+      items: {$ref: '#/types/Profile'}
+  get_profile:
+    summary: Get one profile.
+    effect: read
+    binding: {method: GET, path: '/profiles/{id}'}
+    params:
+      type: object
+      x-name: ProfileIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/Alias'}
+    result: {$ref: '#/types/Profile'}
+  update_profile:
+    summary: Update a profile.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/profiles/{id}', body: object}
+    params: {$ref: '#/types/UpdateProfileRequest'}
+    round_trip:
+      from: Profile
+    examples:
+    - title: Set EST server CA certificates
+      request:
+        path: /profiles/EST
+        body:
+          data: {caCertificates: [root-cert-GlobalSign, inter-cert-GlobalSign]}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+    - title: Set client certificate
+      request:
+        path: /profiles/EST
+        body:
+          data: {certificate: client_cert}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+    - title: Set Subject Alternative Names of CSR
+      request:
+        path: /profiles/EST
+        body:
+          data: {subjectAlternativeNames: ['IP:127.0.0.1']}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+  add_profile:
+    summary: Add a profile.
+    effect: write
+    write: create
+    binding: {method: POST, path: /profiles, body: object}
+    params: {$ref: '#/types/AddProfileRequest'}
+    round_trip:
+      from: Profile
+    examples:
+    - title: Set an EST profile
+      request:
+        path: /profiles
+        body:
+          data:
+            caCertificates: [root-cert-GlobalSign, inter-cert-GlobalSign]
+            certificate: client_cert
+            id: EST Profile
+            server: 192.168.0.1:443/.well-known/est
+            subject: {cn: My EST Client}
+      response:
+        status: 201
+        body:
+          status: success
+          data:
+            caCertificates: [root-cert-GlobalSign, inter-cert-GlobalSign]
+            certificate: client_cert
+            id: EST Profile
+            server: 192.168.0.1:443/.well-known/est
+            services: null
+            subject: {cn: My EST Client}
+            subjectAlternativeNames: null
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+  remove_profile:
+    summary: Remove a profile.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/profiles/{id}'}
+    params:
+      type: object
+      x-name: ProfileIdRequest
+      required: [id]
+      properties:
+        id: {$ref: '#/types/Alias'}
+    examples:
+    - title: Delete an EST profile
+      request: {path: /profiles/EST}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+  set_profile_ca_certificates:
+    summary: Set the ca certificates of a profile.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /profiles/{id}/caCertificates
+      body_field: caCertificates
+      body: value
+    params:
+      type: object
+      required: [id, caCertificates]
+      properties:
+        id: {$ref: '#/types/Alias'}
+        caCertificates: {$ref: '#/types/CertificateList', description: EST server CA certificates}
+  set_profile_certificate:
+    summary: Set the certificate of a profile.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /profiles/{id}/certificate
+      body_field: certificate
+      body: value
+    params:
+      type: object
+      required: [id, certificate]
+      properties:
+        id: {$ref: '#/types/Alias'}
+        certificate: {$ref: '#/types/Alias', description: Existing certificate to base CSR on}
+  set_profile_server:
+    summary: Set the server of a profile.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/profiles/{id}/server', body_field: server, body: value}
+    params:
+      type: object
+      required: [id, server]
+      properties:
+        id: {$ref: '#/types/Alias'}
+        server: {type: string, description: EST server hostname.}
+    examples:
+    - title: Set EST server
+      request:
+        path: /profiles/EST/server
+        body: {data: 'www.example.com:8443'}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+  set_profile_services:
+    summary: Set the services of a profile.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/profiles/{id}/services', body_field: services, body: value}
+    params:
+      type: object
+      required: [id, services]
+      properties:
+        id: {$ref: '#/types/Alias'}
+        services: {$ref: '#/types/ServiceList', description: Services to assign enrolled certificate to}
+  set_profile_subject:
+    summary: Set the subject of a profile.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/profiles/{id}/subject', body_field: subject, body: value}
+    params:
+      type: object
+      required: [id, subject]
+      properties:
+        id: {$ref: '#/types/Alias'}
+        subject: {$ref: '#/types/Subject', description: x509 subject of the enrolled certificate}
+    examples:
+    - title: Set subject field of CSR
+      request:
+        path: /profiles/EST/subject
+        body:
+          data: {cn: Common Name of certificate}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+  set_profile_subject_alternative_names:
+    summary: Set the subject alternative names of a profile.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /profiles/{id}/subjectAlternativeNames
+      body_field: subjectAlternativeNames
+      body: value
+    params:
+      type: object
+      required: [id, subjectAlternativeNames]
+      properties:
+        id: {$ref: '#/types/Alias'}
+        subjectAlternativeNames:
+          $ref: '#/types/SubjectAltNameList'
+          description: Subject alternative names, each prefixed with either "IP:" or "DNS:", e.g. "DNS:example.org"
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/enrollment-over-secure-transport-api/
+  sha256_md: 1643b25bab0d6af674e7518dbb072bf4ebc5ce8747e09ed63f8bdfff43c1a05b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The error events (tnsaxis:CertificateManagement/EST/Error over the /vapix/ws-data-stream WebSocket, codes 0-7) are not modeled; they belong to the event streaming APIs.'
+  - 'The docs give no per-property permissions for the profiles collection; operations inherit the admin default except get_supported_services (viewer).'
+  - 'set_profile_id (PATCH /profiles/{id}/id) is documented as a property SET but renames the key; not generated.'
+  - 'The docs example "Set EST server" PATCHes /profiles/EST with a bare string body; the property endpoint /profiles/EST/server is used instead (doc typo). The "Set subject field" example likewise sends {cn} to the profile path; the subject endpoint is used.'
+  migrated_from: v1
+  curated: true

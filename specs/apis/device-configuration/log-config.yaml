@@ -1,0 +1,141 @@
+format: 2
+id: log-config
+name: Log API
+summary: Turn persistent log storage on and off, clear the persistent log and write messages into the system log.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: log
+  class: Log
+docs:
+- https://developer.axis.com/vapix/device-configuration/log-api/
+access: admin
+discovery:
+- dca: {api: log, version: v1}
+
+binding: {root: /config/rest/log/v1}
+
+types:
+  LogMsg:
+    type: string
+    minLength: 0
+    maxLength: 4096
+    description: The message part of the log encoded in UTF-8
+  LogSeverity: {type: integer, minimum: 0, maximum: 7, description: Severity as defined by RFC5424}
+  WriteMessageRequest:
+    type: object
+    description: The message to be logged, it contains the severity level of the message and the message itself.
+    required: [msg]
+    x-nullable: [severity]
+    properties:
+      msg: {$ref: '#/types/LogMsg', description: Text that provides information of the event}
+      severity:
+        $ref: '#/types/LogSeverity'
+        description: Severity level of this message, default value is 6 meaning "Informational" level
+  Log:
+    type: object
+    description: The whole API tree.
+    properties:
+      persistent: {$ref: '#/types/Persistent'}
+  Persistent:
+    type: object
+    description: Status of saving logs to the persistent storage
+    required: [enabled]
+    properties:
+      enabled:
+        type: boolean
+        description: Whether it is enabled to save logs to the persistent storage. enabled is a property in the
+          log.v1.persistent entity that is able to switch the log saving to the persistent storage on and off.
+
+operations:
+  get_all:
+    summary: All data of the Log API.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Log'}
+  write_message:
+    summary: Write a log message to the system log with the given severity.
+    description: Avoid writing many large messages in a short time; that can overflow the storage.
+    effect: action
+    binding: {method: POST, path: /writeMessage, body: object}
+    params: {$ref: '#/types/WriteMessageRequest'}
+    examples:
+    - title: Write message into the system log
+      request:
+        path: /writeMessage
+        body:
+          data: {msg: message, severity: 7}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/log-api/
+  get_persistent:
+    summary: Get the persistent log storage status.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /persistent}
+    result: {$ref: '#/types/Persistent'}
+  get_persistent_enabled:
+    summary: Whether logs are saved to the persistent storage.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /persistent/enabled}
+    result: {type: boolean}
+    examples:
+    - title: Check status of saving logs to the persistent storage
+      request: {path: /persistent/enabled}
+      response:
+        status: 200
+        body: {status: success, data: true}
+      source: https://developer.axis.com/vapix/device-configuration/log-api/
+  set_persistent_enabled:
+    summary: Turn saving of logs to the persistent storage on or off. The persistent storage fills up while it is on; clear it with clear_log.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /persistent/enabled, body_field: enabled, body: value}
+    positional: [enabled]
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: Whether it is enabled to save logs to the persistent storage. enabled is a property in the
+            log.v1.persistent entity that is able to switch the log saving to the persistent storage on and off.
+    examples:
+    - title: Turn on/off the saving of logs to the persistent storage
+      request:
+        path: /persistent/enabled
+        body: {data: true}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/log-api/
+  clear_log:
+    summary: Clear log file storing all logs.
+    effect: action
+    binding: {method: POST, path: /persistent/clearLog, body: object}
+    examples:
+    - title: Clear the log file from the persistent storage
+      request:
+        path: /persistent/clearLog
+        body: {}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/log-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/log-api/
+  sha256_md: 0a4de80589f3b78639ca21ad2dc7904eeeab85b2dad9a338aabff6ae7aeadd68
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The docs give LogMsg the pattern ^.*$, which rejects newlines; it is left out so multi-line messages are accepted.'
+  - 'The docs send an empty body {} to clearLog, not {data: {}}; whether the device accepts both is unverified.'
+  migrated_from: v1
+  curated: true

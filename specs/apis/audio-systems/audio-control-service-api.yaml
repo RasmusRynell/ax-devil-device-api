@@ -1,0 +1,155 @@
+format: 2
+id: audio-control-service-api
+name: Audio control service API
+summary: Adjust the foreground and background volume (and input configuration) of an audio device via /vapix/audiocontrol.
+section: audio-systems
+family: service_json
+status: deprecated
+python:
+  module: audio_control_service
+  class: AudioControlService
+docs:
+- https://developer.axis.com/vapix/audio-systems/audio-control-service-api/
+access: admin
+discovery:
+- param: {name: Properties.API.AudioControl.Version, value: '1.0'}
+
+binding: {path: /vapix/audiocontrol}
+
+types:
+  Range:
+    type: object
+    description: Describes a range of valid values and the unit.
+    properties:
+      Unit: {type: string, description: 'The unit of the value, (e.g. dB).'}
+      MaxValue: {type: integer, description: The maximum value of the range.}
+      MinValue: {type: integer, description: The minimum value of the range.}
+  ControlCapabilities:
+    type: object
+    description: Reflects the optional functionality of the service. Static; does not change during device operation.
+    properties:
+      VolumeRanges: {$ref: '#/types/Range', description: Master volume ranges as supported by this service.}
+  Volume:
+    type: object
+    description: The configuration of foreground and background volumes for a device. Valid parameter values may
+      be defined by the service capabilities. All members are optional in SetVolume.
+    properties:
+      ForegroundVolume: {type: integer, description: The foreground volume.}
+      ForegroundVolumeUnit:
+        type: string
+        description: The unit of the foreground volume. Optional parameter to use if default unit type is not used.
+      ForegroundVolumeMute: {type: boolean, description: Mutes the foreground volume.}
+      BackgroundVolume: {type: integer, description: The background volume.}
+      BackgroundVolumeUnit:
+        type: string
+        description: The unit of the background volume. Optional parameter to use if default unit type is not used.
+      BackgroundVolumeMute: {type: boolean, description: Mutes the background volume of the Audio Relay Network.}
+  InputConfiguration:
+    type: object
+    description: Only shown in an example; no field table is documented. Field types taken from the example.
+    properties:
+      InputId:
+        type: string
+        description: Audio input id (e.g. analog_1). Valid values via GetControlCapabilities (per doc text).
+      ChannelId:
+        type: string
+        description: Channel id (e.g. Background). Valid values via GetControlCapabilities (per doc text).
+      Enabled: {type: boolean}
+
+operations:
+  get_control_capabilities:
+    summary: Returns the capabilities of the service.
+    effect: read
+    binding: {operation: 'axac:GetControlCapabilities'}
+    result:
+      type: object
+      required: [Capabilities]
+      properties:
+        Capabilities:
+          $ref: '#/types/ControlCapabilities'
+          description: The capability response message contains the capabilities that are present in the device.
+  get_volume:
+    summary: Returns the Volume of the Audio Relay network.
+    effect: read
+    binding: {operation: 'axac:GetVolume'}
+    result:
+      type: object
+      required: [Volume]
+      properties:
+        Volume: {$ref: '#/types/Volume', description: The returned volume.}
+    examples:
+    - title: JSON Request for GetVolume
+      request:
+        params: {}
+      response:
+        data:
+          Volume:
+            ForegroundVolume: -20
+            ForegroundVolumeUnit: dB
+            ForegroundVolumeMute: false
+            BackgroundVolume: -20
+            BackgroundVolumeUnit: dB
+            BackgroundVolumeMute: false
+      source: https://developer.axis.com/vapix/audio-systems/audio-control-service-api/#simple-curl-examples
+  set_volume:
+    summary: Requests that a Volume should be set.
+    description: All members of the Volume are optional, so a Volume with all members empty will be accepted, but
+      won't change anything.
+    effect: write
+    write: patch
+    binding: {operation: 'axac:SetVolume'}
+    params:
+      type: object
+      required: [Volume]
+      properties:
+        Volume:
+          $ref: '#/types/Volume'
+          description: The volume to set.
+    examples:
+    - title: Request to set volume JSON format
+      request:
+        params:
+          Volume: {ForegroundVolume: -21, BackgroundVolumeMute: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/audio-systems/audio-control-service-api/#adjust-volume
+  set_input_configuration:
+    summary: Specify which audio inputs should be used.
+    description: Valid values for InputId and ChannelId can be requested using axac:GetControlCapabilities. Not
+      all devices support line input capabilities, so it will not always be possible to adjust the feature.
+    effect: write
+    write: patch
+    binding: {operation: 'axac:SetInputConfiguration'}
+    params:
+      type: object
+      required: [InputConfiguration]
+      properties:
+        InputConfiguration:
+          $ref: '#/types/InputConfiguration'
+          description: The input configuration to apply.
+    examples:
+    - title: Request to set an input configuration in JSON format
+      request:
+        params:
+          InputConfiguration: {InputId: analog_1, ChannelId: Background, Enabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/audio-systems/audio-control-service-api/#adjust-inputconfiguration
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/audio-control-service-api/
+  sha256_md: 88c734605299cb8f80bc6145b428eaba60080b251175ab22eeb2dfc124238a80
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Example URLs contain a literal '...' before 'format=simple'; the simple key=value GET form is not modelled, only
+    the JSON form.
+  - GetControlCapabilities documents only VolumeRanges, although SetInputConfiguration says valid InputId/ChannelId
+    values come from GetControlCapabilities; those capability fields are undocumented.
+  - InputConfiguration has no field table; its fields are taken from the example.
+  - No error responses or per-command access levels are documented.
+  - Volume descriptions mention 'the Audio Relay Network' (copied from the Audio relay service API).
+  migrated_from: v1
+  curated: true

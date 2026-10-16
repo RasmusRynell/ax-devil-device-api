@@ -1,0 +1,131 @@
+format: 2
+id: parameter-management
+name: Parameter management
+summary: "``param.cgi``: list, update, add and remove device parameters."
+section: network-video
+family: cgi
+status: released
+python:
+  module: parameter_management
+  class: ParameterManagement
+docs:
+  - https://developer.axis.com/vapix/network-video/parameter-management/
+access: viewer
+discovery:
+  - param: {name: Properties.API.HTTP.Version, value: "3"}
+binding:
+  path: /axis-cgi/param.cgi
+
+types:
+  UserGroup:
+    enum: [anonymous, viewer, operator, admin]
+
+operations:
+  list:
+    summary: 'Parameter values as ``{"Group.Name": "value"}`` (``root.`` removed).'
+    description: >-
+      ``group`` entries may use ``*`` wildcards; omit it to list everything.
+      Only parameters readable by the user are returned.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    params:
+      type: object
+      properties:
+        group: {type: array, items: {type: string}, x-style: csv}
+        usergroup: {$ref: "#/types/UserGroup"}
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+      - title: List the Network parameters
+        request: {query: {group: Network}}
+        response: {status: 200, text: "root.Network.Media=auto\nroot.Network.Autoneg=normal\nroot.Network.Enabled=yes\n"}
+        source: https://developer.axis.com/vapix/network-video/parameter-management/#list
+
+  list_definitions:
+    summary: Parameter definitions (value, type, security level) as an XML element.
+    effect: read
+    binding:
+      method: GET
+      query: {action: listdefinitions, listformat: xmlschema}
+      reply: xml
+    params:
+      type: object
+      properties:
+        group: {type: string}
+        usergroup: {$ref: "#/types/UserGroup"}
+    positional: [group]
+    result: {x-xml: true}
+
+  update:
+    summary: 'Set parameters, e.g. ``{"Image.I0.Appearance.Resolution": "1920x1080"}``.'
+    description: Only the given parameters change.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: POST
+      encoding: form
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+        usergroup: {$ref: "#/types/UserGroup"}
+    positional: [parameters]
+    examples:
+      - title: Set the default image resolution
+        request: {form: {Image.I0.Appearance.Resolution: 320x240}}
+        response: {status: 200, text: OK}
+        source: https://developer.axis.com/vapix/network-video/parameter-management/#update
+
+  add:
+    summary: Add a dynamic group from a template; returns the device reply (``"<entry> OK"``).
+    access: operator
+    effect: write
+    write: create
+    binding:
+      method: POST
+      encoding: form
+      query: {action: add}
+      reply: text
+    params:
+      type: object
+      required: [template, group]
+      properties:
+        template: {type: string}
+        group: {type: string}
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+        force: {type: boolean, x-style: axis_bool}
+    positional: [template, group, parameters]
+    result: {type: string}
+
+  remove:
+    summary: Delete dynamic groups, e.g. ``["StreamProfile.S7"]``.
+    access: operator
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {action: remove}
+      reply: text_ok
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: array, items: {type: string}, x-style: csv}
+    positional: [group]
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/parameter-management/
+    sha256_md: 11618ed34c304e50f0ef5e6e727ef4c780192e7e0a0dcfe571ae90a95ac6b1e1
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,263 @@
+format: 2
+id: queue-monitor
+name: Queue monitor API
+summary: 'Queue Monitor ACAP: live people-in-queue counts per region, CSV queue history, data clearing, parameters and logs.'
+section: applications
+family: cgi
+status: released
+python:
+  module: queue_monitor
+  class: QueueMonitor
+docs:
+- https://developer.axis.com/vapix/applications/queue-monitor-api/
+access: admin
+requires:
+  application: Queue Monitor ACAP
+binding:
+  path: /local/queue/.api
+types:
+  DateSelection:
+    type: string
+    pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+    description: A date YYYYMMDD, a date interval YYYYMMDD-YYYYMMDD, comma separated dates YYYYMMDD,[..],YYYYMMDD, or all
+      (default) for all available data.
+  MinutesResolution:
+    type: string
+    enum:
+    - 15m
+    - 1h
+    - 24h
+    description: 15m = 15 minute bins (default), 1h = 1 hour bins, 24h = 1 day bins.
+  PeopleResolution:
+    type: string
+    enum:
+    - 1m
+    - 15m
+    - 1h
+    - 24h
+    description: 1m = 1 minute bins, 15m = 15 minute bins (default), 1h = 1 hour bins, 24h = 1 day bins.
+  LiveSumPeople:
+    type: object
+    required:
+    - serial
+    - name
+    - timestamp
+    properties:
+      serial:
+        type: string
+        description: Camera serial number.
+      name:
+        type: string
+        description: Name of the counter.
+      timestamp:
+        type: string
+        description: Time in the camera, YYYYMMDDhhmmss.
+      region1name:
+        type: string
+        description: Name of region 1.
+      region1people:
+        type: integer
+        description: Number of people standing in region 1.
+      region2name:
+        type: string
+        description: Name of region 2.
+      region2people:
+        type: integer
+        description: Number of people standing in region 2.
+      region3name:
+        type: string
+        description: Name of region 3.
+      region3people:
+        type: integer
+        description: Number of people standing in region 3.
+    description: The docs list only the region 1 fields; the examples show regions 1 to 3.
+operations:
+  get_live_sum_people:
+    summary: Get real-time people-in-queue data (people standing in queue at this moment).
+    effect: read
+    binding:
+      method: GET
+      query:
+        live-sum-people.json: null
+      reply: json
+    result:
+      $ref: '#/types/LiveSumPeople'
+    examples:
+    - title: Get real time people in queue data
+      request:
+        query:
+          live-sum-people.json: null
+      response:
+        status: 200
+        content_type: application/json
+        text: |
+          {
+              "serial": "ACCC8E20F09B",
+              "name": "Service Counter",
+              "timestamp": "20170113181132",
+              "region1name": "Product Display",
+              "region1people": 1,
+              "region2name": "Aisle Display",
+              "region2people": 0,
+              "region3name": "Service Counter",
+              "region3people": 3
+          }
+      source: https://developer.axis.com/vapix/applications/queue-monitor-api/#get-real-time-people-in-queue-data
+  export_csv_minutes:
+    summary: 'Request CSV minute data: minutes per region with High, Mid and Low queue.'
+    description: Returns plain text comma-separated values. The first line is a comma-separated header describing each column.
+      Each integer value states the number of minutes for which there has been a certain amount of queue (High/Mid/Low) for
+      a certain region.
+    effect: read
+    binding:
+      method: GET
+      query:
+        export-csv-minutes: null
+      reply: text
+    params:
+      type: object
+      x-name: ExportRequest
+      properties:
+        date:
+          $ref: '#/types/DateSelection'
+          default: all
+        res:
+          $ref: '#/types/MinutesResolution'
+          default: 15m
+    result:
+      type: string
+    examples:
+    - title: Historical minutes of queue data for 1st and 3rd May 2017 with a 5 hour resolution
+      request:
+        query:
+          date: 20170501,20170503
+          res: 5h
+      response:
+        status: 200
+        text: |-
+          Interval start,Interval stop,Camera serial number,Name,Region1 High,Region1 Mid,Region1 Low,Region2 High,Region2 Mid,Region2 Low,Region3 High,Region3 Mid,Region3 Low
+          2017-05-01 00:00:00,2017-05-01 05:00:00,00XXXXXXXXXX,Camera1,0,0,300,0,0,300,0,0,300
+          2017-05-01 05:00:00,2017-05-01 10:00:00,00XXXXXXXXXX,Camera1,0,0,300,0,0,300,0,20,280
+          2017-05-01 10:00:00,2017-05-01 15:00:00,00XXXXXXXXXX,Camera1,0,0,300,0,0,300,0,174,126
+          2017-05-01 15:00:00,2017-05-01 20:00:00,00XXXXXXXXXX,Camera1,0,0,300,0,0,300,0,109,191
+          2017-05-01 20:00:00,2017-05-02 01:00:00,00XXXXXXXXXX,Camera1,0,0,300,0,0,300,0,0,300
+          2017-05-03 00:00:00,2017-05-03 05:00:00,00XXXXXXXXXX,Camera1,0,0,300,0,0,300,0,0,300
+          2017-05-03 05:00:00,2017-05-03 10:00:00,00XXXXXXXXXX,Camera1,0,34,266,0,17,283,8,67,225
+      source: https://developer.axis.com/vapix/applications/queue-monitor-api/#request-csv-minute-data
+      x-contract:
+        skip: The example uses a resolution (res=5h) that is not in the documented value list; the table wins for the schema.
+  export_csv_people:
+    summary: 'Request CSV people data: average number of people per region.'
+    description: Returns plain text comma-separated values. The first line is a comma separated header describing each column.
+      Each integer value states the average number of people within a certain region of interest.
+    effect: read
+    binding:
+      method: GET
+      query:
+        export-csv-people: null
+      reply: text
+    params:
+      type: object
+      x-name: ExportPeopleRequest
+      properties:
+        date:
+          $ref: '#/types/DateSelection'
+          default: all
+        res:
+          $ref: '#/types/PeopleResolution'
+          default: 15m
+    result:
+      type: string
+    examples:
+    - title: Historical people in queue data with a 120 minute resolution
+      request:
+        query:
+          date: 20170428,20170503
+          res: 120m
+      response:
+        status: 200
+        text: |-
+          Interval start,Interval stop,Camera serial number,Name,People in Region1,People in Region2,People in Region3
+          2017-05-03 00:00:00,2017-05-03 02:00:00,00XXXXXXXXXX,Camera2,0,0,2
+          2017-05-03 02:00:00,2017-05-03 04:00:00,00XXXXXXXXXX,Camera2,1,1,1
+          2017-05-03 04:00:00,2017-05-03 06:00:00,00XXXXXXXXXX,Camera2,1,0,1
+          2017-05-03 06:00:00,2017-05-03 08:00:00,00XXXXXXXXXX,Camera2,1,0,2
+          2017-05-03 08:00:00,2017-05-03 10:00:00,00XXXXXXXXXX,Camera2,1,0,1
+      source: https://developer.axis.com/vapix/applications/queue-monitor-api/#request-csv-people-data
+      x-contract:
+        skip: The example uses a resolution (res=120m) that is not in the documented value list; the table wins for the schema.
+  clear_data:
+    summary: Clear the local queue data.
+    access: operator
+    effect: write
+    write: delete
+    binding:
+      path: /local/queue/.apioperator
+      method: GET
+      query:
+        clear-data: null
+      reply: text_ok
+    examples:
+    - title: Clear local queue data
+      request:
+        query:
+          clear-data: null
+      response:
+        status: 200
+        text: OK
+      source: https://developer.axis.com/vapix/applications/queue-monitor-api/#clear-local-queue-data
+  get_params:
+    summary: List the application parameters.
+    effect: read
+    binding:
+      method: GET
+      query:
+        params.json: null
+      reply: json
+    result:
+      type: object
+      additionalProperties: true
+  show_logs:
+    summary: Show the system log.
+    access: operator
+    effect: read
+    binding:
+      path: /local/queue/.apioperator
+      method: GET
+      query:
+        show-logs: null
+      reply: text
+    result:
+      type: string
+  generate_logs:
+    summary: Generate and download a log archive (tar.gz).
+    access: operator
+    effect: read
+    binding:
+      path: /local/queue/.apioperator
+      method: GET
+      query:
+        generate-logs: null
+      reply:
+        stream:
+          media_types:
+          - application/gzip
+sources:
+- url: https://developer.axis.com/vapix/applications/queue-monitor-api/
+  sha256_md: 7da5fd184429b85931523bcb607d8551339177b1ab0c7c8279ea5b76933e2555
+  retrieved_at: '2026-10-11'
+provenance:
+  completeness: partial
+  open_questions:
+  - Examples use res=5h and res=120m, which are not in the documented res value lists (15m/1h/24h and 1m/15m/1h/24h). https://developer.axis.com/vapix/applications/queue-monitor-api/#common-examples
+  - Example title says '4th of April' but the request uses date=20170428,20170503 and the output only shows 2017-05-03.
+  - 'setparams: the curl example carries no p/v pairs and no body; unclear whether pairs are query or form parameters.'
+  - params.json response structure, error responses, access levels and AXIS OS/ACAP version requirements are not documented.
+  - Return value table only lists region1 fields; number of regions not stated (examples show 3).
+  - 'BLOCKED(indexed-pairs): set_params: POST /local/queue/.apioperator?setparams takes parameters as indexed pairs p<n>=<parameter
+    name>&v<n>=<value> (for example p1=Counter.Enabled&v1=1&p2=WebReportUpload.Enabled&v2=1), and the docs do not say whether
+    the pairs go in the URL or a form body. A mapping argument can only be spread as name=value, and a templated name (p{n}/v{n})
+    would send a single pair per call, so the op is left out until the runtime has an indexed-pairs style for map arguments.'
+  - Access levels are not documented; clear_data, show_logs and generate_logs are marked operator from the .apioperator path.
+  migrated_from: v1
+  curated: true

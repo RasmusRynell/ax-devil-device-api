@@ -1,0 +1,174 @@
+format: 2
+id: audio-api
+name: Audio API
+summary: Receive (receive.cgi) and transmit (transmit.cgi) audio over HTTP, and build RTSP URLs with audio. Audio settings
+  are the Audio and AudioSource parameter groups (Parameter management API).
+section: audio-systems
+family: cgi
+status: released
+python:
+  module: audio
+  class: Audio
+docs:
+- https://developer.axis.com/vapix/audio-systems/audio-api/
+access: viewer
+discovery:
+- param: {name: Properties.Audio.Audio, value: 'yes'}
+- {api_discovery: audio-device-control}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/audio/receive.cgi}
+
+errors:
+  400: {description: 'Bad request. The request had a bad syntax, or could not be implemented (an invalid parameter value).', kind: invalid_argument}
+  405: {description: 'Method not allowed. The GET/POST is not allowed in the current (duplex) mode.', kind: unsupported}
+  415: {description: 'Unsupported media type. The request is not in an acceptable format and can not be processed.', kind: invalid_argument}
+  503: {description: 'Service unavailable. The maximum number of clients are already connected.', kind: unavailable}
+
+types:
+  AudioMimeType:
+    type: string
+    enum: [audio/basic, audio/axis-mulaw-128, audio/G726-32, audio/G726-24, audio/mpeg4-generic, audio/opus, audio/L24]
+    description: 'A documented audio compression format: G.711 mu-law (audio/basic), Axis mu-law 128, G.726 at 32 or 24 kbit/s, AAC (audio/mpeg4-generic), Opus or LPCM. The product supports some of them (Properties.Audio.Decoder.Format).'
+
+operations:
+  receive_audio:
+    summary: Request and configure an audio stream from the device (singlepart or multipart).
+    description: Singlepart (default) streams a continuous flow of audio packets in the codec's MIME type, with the content
+      type only set at the start of the connection; multipart (`httptype=multipart`) answers `multipart/x-mixed-replace`
+      with one audio block per part (G.711 512 bytes, G.726 32 kbit/s 256 bytes, G.726 24 kbit/s 192 bytes; AAC is not
+      supported). The stream is returned as raw bytes, also for multipart, so split the parts yourself.
+    effect: read
+    binding: {method: GET, reply: stream}
+    params:
+      type: object
+      properties:
+        audio: {type: integer, enum: [0, 1], description: Enable (1) or disable (0) audio.}
+        audiobitrate: {type: integer, minimum: 8000, description: The audio bit rate in bps. (unit=bps)}
+        audiocodec:
+          type: string
+          enum: [g711, g726, aac, opus, lpcm]
+          description: The audio codec type.
+        audiosamplerate: {type: integer, minimum: 8000, description: The audio sample rate in Hz. (unit=Hz)}
+        camera:
+          type: integer
+          minimum: 1
+          description: Select the audio configuration in Audio.A#. camera=1 -> Audio.A0. Number of configurations
+            is product-dependent.
+        httptype:
+          type: string
+          enum: [singlepart, multipart]
+          description: 'Choose streaming method. Some proxies require multipart. Default: parameter Audio.A#.HTTPMessageType.'
+        audiochannel:
+          type: integer
+          minimum: 1
+          description: Select the audio source in AudioSource.A#. audiochannel=2 -> AudioSource.A1. Mutually exclusive
+            with audiodeviceid+audioinputid.
+        audiodeviceid:
+          type: string
+          description: The audio device ID (id from Audio Device Control API). Supported only if audio-device-control
+            status is official in API discovery. Mutually exclusive with audiochannel.
+        audioinputid:
+          type: string
+          description: The audio device input ID (id from Audio Device Control API). Same support condition as audiodeviceid.
+        audionbrofchannels: {type: integer, minimum: 1, description: The number of audio channels.}
+    examples:
+    - title: Request an audio stream
+      request: {query: {}}
+      response: {status: 200, content_type: audio/basic, text: AUDIO}
+      source: https://developer.axis.com/vapix/audio-systems/audio-api/#audio-data-request
+    - title: Request a singlepart audio stream using HTTP
+      request: {query: {httptype: singlepart}}
+      response: {status: 200, content_type: audio/basic, text: AUDIO}
+      source: https://developer.axis.com/vapix/audio-systems/audio-api/#singlepart-audio-data-response
+    - title: Request a multipart audio stream using HTTP
+      request: {query: {httptype: multipart}}
+      response:
+        status: 200
+        content_type: multipart/x-mixed-replace; boundary=myboundary
+        text: "--myboundary\r\nContent-Type: audio/G726-32\r\nContent-Length: 5\r\n\r\nAUDIO\r\n--myboundary\r\n"
+      source: https://developer.axis.com/vapix/audio-systems/audio-api/#multipart-audio-data-response
+  transmit_audio:
+    summary: Transmit an audio stream to the device (POST audio data to transmit.cgi).
+    description: 'Sends the audio as the request body. The content type is set once at the start of the connection and
+      defaults to `audio/basic` (G.711 mu-law); pass `content_type` for another format (for example `audio/axis-mulaw-128`,
+      `audio/G726-32`, `audio/opus`). A content type on an `Upload` is used when `content_type` is not given. Check the
+      supported decoders in `Properties.Audio.Decoder.Format`. The server answers every successful playback; if playback
+      fails, the connection is closed without a response.'
+    access: viewer
+    effect: action
+    binding:
+      path: /axis-cgi/audio/transmit.cgi
+      method: POST
+      encoding: body
+      reply: text
+    params:
+      type: object
+      required: [audio]
+      properties:
+        audio: {type: string, format: binary, x-in: body, x-upload: {content_type: audio/basic}, description: The audio data.}
+        content_type:
+          $ref: '#/types/AudioMimeType'
+          x-in: content_type
+          description: 'The audio format of the data (the Content-Type of the request). Default: the content type of an Upload, else audio/basic.'
+        audiodeviceid:
+          type: string
+          description: The audio device ID (id from Audio Device Control API). Supported only if audio-device-control status is official in API discovery.
+        audiooutputid:
+          type: string
+          description: The audio device output ID. Same support condition as audiodeviceid.
+    result: {type: string}
+    examples:
+    - title: Transmit singlepart audio using G.711 mu-law
+      request: {body: AUDIO, content_type: audio/basic}
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/audio-systems/audio-api/#transmit-audio-data
+    - title: Transmit G.726 audio (the type is set per call; the docs show the header as <Audio MIME>)
+      request: {body: AUDIO, content_type: audio/G726-32}
+      response: {status: 200, text: ''}
+      source: https://developer.axis.com/vapix/audio-systems/audio-api/#transmit-audio-data
+  rtsp_audio_stream_url:
+    summary: Request an RTSP stream including audio.
+    description: RTSP streams include audio if the request contains audio=1 or if Audio.A#.Enabled and AudioSource.A#.AudioSupport
+      are enabled; audio=0 excludes audio. When AudioSource.A#.AudioSupport is enabled, the camera and audiochannel
+      arguments of receive.cgi can be used; camera specifies both video source and audio configuration.
+    effect: read
+    binding:
+      rtsp: {}
+    params:
+      type: object
+      properties:
+        videocodec: {type: string, description: 'The video codec of the media stream, for example h264 (the docs example requests video and audio).'}
+        audio: {type: integer, enum: [0, 1], description: '1 includes audio, 0 excludes it even when the parameters enable it.'}
+        camera: {type: integer, minimum: 1, description: 'Video source and audio configuration (Audio.A#; camera=1 is Audio.A0).'}
+        audiochannel: {type: integer, minimum: 1, description: 'The audio source (AudioSource.A#; audiochannel=2 is AudioSource.A1). Only when AudioSource.A#.AudioSupport is enabled.'}
+    examples:
+    - title: Request an RTSP stream with video and audio
+      request: {params: {videocodec: h264, audio: 1}}
+      response: {url: 'rtsp://camera.test:554/axis-media/media.amp?videocodec=h264&audio=1'}
+      source: https://developer.axis.com/vapix/audio-systems/audio-api/#common-examples
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/audio-api/
+  sha256_md: f2c11d2e3c73a46690335ed76dd5f5e9bf1a28f281c40673c1ae9953c4af879e
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'transmit.cgi: text says ''There are no arguments and values'' but an argument table (audiodeviceid, audiooutputid)
+    is given; syntax shows ''[&=<value>]'' without ''?''. Modelled with the two arguments in the URL query.'
+  - transmit.cgi success response body/status not documented ('will generate a server response for every successful
+    playback'); returned as text.
+  - receive.cgi 400 failed-request bodies are not modelled as examples (errors are raised before a stream is returned).
+  - 'BLOCKED(stream-multipart-audio): multipart receive.cgi parts are returned as raw bytes (the stream decoder
+    is for JPEG parts); the caller must split the boundaries.'
+  - AudioSource.A#.AudioEncoding valid values list 'lcpm' (probably lpcm).
+  - MicrophonePowerType description references 'MicrphonePower' (typo).
+  - Audio.DuplexMode table lists 'get' and 'post' meanings opposite to Properties.Audio.DuplexMode wording ('post'
+    = product can transmit simplex audio vs 'post' = send audio to the product).
+  - Event data nice name rendered as 'Above alarm leve`l' (typo).
+  - Gain parameters accept 'mute'/'inherit' or numbers; typed as string.
+  migrated_from: v1
+  curated: true

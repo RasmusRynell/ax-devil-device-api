@@ -1,0 +1,339 @@
+format: 2
+id: autopilot-config
+name: Autopilot API
+summary: The VAPIX® Autopilot API makes it possible to configure the PTZ camera's autopilot.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: autopilot
+  class: Autopilot
+docs:
+- https://developer.axis.com/vapix/device-configuration/autopilot-api/
+access: admin
+discovery:
+- dca: {api: autopilot, version: v1}
+
+binding: {root: /config/rest/autopilot/v1}
+
+types:
+  AutopilotState:
+    type: string
+    enum:
+    - autotuneFailed
+    - autotuneRetry
+    - autotuning
+    - calibrationNeeded
+    - checkCalibration
+    - checkCalibrationRemoteConnection
+    - checkCalibrationRemoteConnectionFailed
+    - checkZoom
+    - checkZoomFailed
+    - connectToPtz
+    - connectToPtzFailed
+    - disabled
+    - gotoStartPosition
+    - gotoStartPositionFailed
+    - paused
+    - running
+    - soloMode
+    - soloModeError
+    - start
+    - startCalibration
+    - waitingForPtz
+    description: The current state of the Autopilot.
+  CalibrationStatus:
+    type: string
+    enum: [uncalibrated, calibrated, calibrating, calibrationFailed]
+    description: The current calibration status.
+  ChannelCalibrated:
+    type: object
+    description: Data if a channel is calibrated to the connected remote PTZ.
+    properties:
+      calibrated: {type: boolean, description: If the channel is calibrated.}
+      channelId: {$ref: '#/types/ChannelId', description: The channel ID.}
+  ChannelId: {type: integer, description: Channel Id value.}
+  ChannelsCalibrated:
+    type: array
+    items: {$ref: '#/types/ChannelCalibrated'}
+    description: A list of channels and if they are calibrated.
+  ObjectSwitchTime:
+    type: integer
+    minimum: 0
+    maximum: 60
+    description: The object switch time, in seconds.
+  ScenarioData:
+    type: object
+    description: Data to configure a scenario.
+    properties:
+      channelId: {$ref: '#/types/ChannelId', description: Channel Id to which the scenario corresponds to.}
+      enabled: {type: boolean, description: Enable tracking for the scenario.}
+      priority:
+        $ref: '#/types/ScenarioPriority'
+        description: Priority of the scenario, higher values signifies higher priority.
+      scenarioId: {$ref: '#/types/ScenarioId', description: Scenario Id to which the scenario corresponds to.}
+  ScenarioId: {type: integer, description: Scenario Id value.}
+  ScenarioPriority:
+    type: integer
+    minimum: 1
+    maximum: 20
+    description: Priority value, higher values means a higher priority.
+  ScenariosData:
+    type: array
+    items: {$ref: '#/types/ScenarioData'}
+    description: Data to configure a list of scenarios.
+  Autopilot:
+    type: object
+    description: The whole API tree.
+    x-read-only: [inSoloMode, state]
+    properties:
+      enabled: {type: boolean, description: Turn on or off the Autopilot.}
+      inSoloMode:
+        type: boolean
+        description: Get if the Autopilot is in solo mode, i.e. when there is no connected remote PTZ.
+      state: {$ref: '#/types/AutopilotState', description: Get the current state of Autopilot.}
+      calibration: {$ref: '#/types/Calibration'}
+      objectSwitch: {$ref: '#/types/ObjectSwitch'}
+      scenarioConfiguration: {$ref: '#/types/ScenarioConfiguration'}
+  Calibration:
+    type: object
+    description: Control the calibration process.
+    x-read-only: [channelsCalibrated, status]
+    properties:
+      channelsCalibrated:
+        $ref: '#/types/ChannelsCalibrated'
+        description: Get a list of channels IDs and if they are calibrated to the remote PTZ.
+      status: {$ref: '#/types/CalibrationStatus', description: Get the current calibration status.}
+  ObjectSwitch:
+    type: object
+    description: Configure object switch for the Autopilot. This enables the Autopilot to switch tracking between
+      objects, with a fixed time.
+    properties:
+      enabled: {type: boolean, description: Enable object switching on or off.}
+      time: {$ref: '#/types/ObjectSwitchTime', description: Change the object switching time.}
+  ScenarioConfiguration:
+    type: object
+    description: Configure the scenarios.
+    properties:
+      scenarios:
+        $ref: '#/types/ScenariosData'
+        description: Scenarios that configures which objects to track.
+  UpdateAllRequest:
+    type: object
+    description: Arguments of ``update_all``.
+    properties:
+      enabled: {type: boolean, description: Turn on or off the Autopilot.}
+  UpdateObjectSwitchRequest:
+    type: object
+    description: Arguments of ``update_object_switch``.
+    properties:
+      enabled: {type: boolean, description: Enable object switching on or off.}
+      time: {$ref: '#/types/ObjectSwitchTime', description: Change the object switching time.}
+
+operations:
+  get_all:
+    summary: The whole Autopilot tree, including calibration, object switch and scenario configuration.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Autopilot'}
+  update_all:
+    summary: Turn the Autopilot on or off.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '', body: object}
+    params: {$ref: '#/types/UpdateAllRequest'}
+  set_enabled:
+    summary: Turn the Autopilot on or off.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Turn on or off the Autopilot.}
+    examples:
+    - title: Configure the autopilot
+      request:
+        path: /enabled
+        body:
+          data: true
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_in_solo_mode:
+    summary: Whether the Autopilot is in solo mode (no remote PTZ connected).
+    effect: read
+    binding: {method: GET, path: /inSoloMode}
+    result: {type: boolean}
+    examples:
+    - title: Verify that Autopilot is not in solo mode
+      request: {path: /inSoloMode}
+      response:
+        status: 200
+        body: {status: success, data: false}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_state:
+    summary: The current state of the Autopilot.
+    effect: read
+    binding: {method: GET, path: /state}
+    result: {$ref: '#/types/AutopilotState'}
+    examples:
+    - title: Autopilot fails to connect to the remote PTZ
+      request: {path: /state}
+      response:
+        status: 200
+        body: {status: success, data: connectToPtzFailed}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+    - title: Autopilot needs calibration
+      request: {path: /state}
+      response:
+        status: 200
+        body: {status: success, data: calibrationNeeded}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_calibration:
+    summary: Calibration status and calibrated channels.
+    effect: read
+    binding: {method: GET, path: /calibration}
+    result: {$ref: '#/types/Calibration'}
+  get_calibration_status:
+    summary: The current calibration status.
+    effect: read
+    binding: {method: GET, path: /calibration/status}
+    result: {$ref: '#/types/CalibrationStatus'}
+    examples:
+    - title: Successful calibration
+      request: {path: /calibration/status}
+      response:
+        status: 200
+        body: {status: success, data: calibrated}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_channels_calibrated:
+    summary: Which channels are calibrated to the remote PTZ.
+    effect: read
+    binding: {method: GET, path: /calibration/channelsCalibrated}
+    result: {$ref: '#/types/ChannelsCalibrated'}
+    examples:
+    - title: Verify that the channels are calibrated
+      request: {path: /calibration/channelsCalibrated}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {calibrated: true, channelId: 1}
+          - {calibrated: true, channelId: 2}
+          - {calibrated: true, channelId: 3}
+          - {calibrated: true, channelId: 4}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  abort_calibration:
+    summary: Abort the running calibration process.
+    effect: action
+    binding: {method: POST, path: /calibration/abort, body: none}
+  start_calibration:
+    summary: Start the calibration process.
+    description: Poll ``get_calibration_status`` for the outcome.
+    effect: action
+    binding: {method: POST, path: /calibration/start, body: object}
+    examples:
+    - title: Calibration process
+      request:
+        path: /calibration/start
+        body:
+          data: {}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  get_object_switch:
+    summary: Get the object switch settings.
+    effect: read
+    binding: {method: GET, path: /objectSwitch}
+    result: {$ref: '#/types/ObjectSwitch'}
+  update_object_switch:
+    summary: Update the object switch settings (only the given fields change).
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /objectSwitch, body: object}
+    params: {$ref: '#/types/UpdateObjectSwitchRequest'}
+    examples:
+    - title: Enable object switching
+      request:
+        path: /objectSwitch
+        body:
+          data: {enabled: true, time: 15}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  set_object_switch_enabled:
+    summary: Turn object switching on or off.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /objectSwitch/enabled, body_field: enabled, body: value}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: Enable object switching on or off.}
+  set_object_switch_time:
+    summary: Set how long an object is tracked before switching, in seconds.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /objectSwitch/time, body_field: time, body: value}
+    params:
+      type: object
+      required: [time]
+      properties:
+        time: {$ref: '#/types/ObjectSwitchTime', description: Change the object switching time.}
+  get_scenario_configuration:
+    summary: Get the scenario configuration.
+    effect: read
+    binding: {method: GET, path: /scenarioConfiguration}
+    result: {$ref: '#/types/ScenarioConfiguration'}
+  set_scenario_configuration_scenarios:
+    summary: Configure the scenarios to track.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /scenarioConfiguration/scenarios
+      body_field: scenarios
+      body: value
+    params:
+      type: object
+      required: [scenarios]
+      properties:
+        scenarios:
+          $ref: '#/types/ScenariosData'
+          description: Scenarios that configures which objects to track.
+    examples:
+    - title: Configure scenario
+      request:
+        path: /scenarioConfiguration/scenarios
+        body:
+          data:
+          - {scenarioId: 1, channelId: 1, enabled: true, priority: 10}
+          - {scenarioId: 2, channelId: 2, enabled: false, priority: 1}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/autopilot-api/
+  sha256_md: dc6ddcc7a8d5f049a9df2d7c6092dfc6c989a56605ae4d3ced56c9b57cbff154
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The "Configure the autopilot" example PATCHes /config/rest/autopilot/v1/enable, but the documented property is
+    "enabled". The spec uses /enabled. Source: https://developer.axis.com/vapix/device-configuration/autopilot-api/'
+  - The docs list the root entity as supporting Set without naming properties; update_all sends only ``enabled``
+    (the only settable root property).
+  migrated_from: v1
+  curated: true

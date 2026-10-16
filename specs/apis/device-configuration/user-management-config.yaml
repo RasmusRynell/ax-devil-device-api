@@ -1,0 +1,134 @@
+format: 2
+id: user-management-config
+name: User management API
+summary: View the available passphrase-complexity policies and manage the one in use.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: user_management_config
+  class: UserManagementConfig
+docs:
+- https://developer.axis.com/vapix/device-configuration/user-management-v2-api/
+access: admin
+discovery:
+- dca: {api: user-management, version: v2}
+
+binding: {root: /config/rest/user-management/v2}
+
+types:
+  PassphrasePolicy:
+    type: object
+    description: A passphrase policy
+    required: [desc, id]
+    properties:
+      desc: {type: string, description: The description of the policy}
+      id: {type: string, description: Unique identifier for a PassphraseProfile}
+  PassphrasePolicyList:
+    type: array
+    items: {$ref: '#/types/PassphrasePolicy'}
+    description: A list of passphrase policies
+  UserManagement:
+    type: object
+    description: The whole API tree.
+    properties:
+      settings: {$ref: '#/types/Settings'}
+  Settings:
+    type: object
+    description: Global settings for User Management
+    properties:
+      passphraseComplexity: {$ref: '#/types/PassphraseComplexity'}
+  PassphraseComplexity:
+    type: object
+    description: Passphrase complexity
+    x-read-only: [policies]
+    properties:
+      policies: {$ref: '#/types/PassphrasePolicyList', description: Available passphrase complexity policies}
+      policy: {type: string, description: Selected passphrase complexity policy}
+
+operations:
+  get_all:
+    summary: All data of the User management API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/UserManagement'}
+  get_settings:
+    summary: Get the global User management settings.
+    effect: read
+    binding: {method: GET, path: /settings}
+    result: {$ref: '#/types/Settings'}
+  get_passphrase_complexity:
+    summary: Get the passphrase complexity settings.
+    effect: read
+    binding: {method: GET, path: /settings/passphraseComplexity}
+    result: {$ref: '#/types/PassphraseComplexity'}
+  list_passphrase_policies:
+    summary: List the available passphrase-complexity policies.
+    description: Available without access rights on a factory-reset unit until the first account is registered.
+    effect: read
+    access: viewer
+    binding: {method: GET, path: /settings/passphraseComplexity/policies}
+    result: {$ref: '#/types/PassphrasePolicyList'}
+    examples:
+    - title: Get available passphrase-complexity policies
+      request: {path: /settings/passphraseComplexity/policies}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {desc: No passphrase complexity requirements, id: none}
+          - {desc: 'Passwords must be at least 15 characters long. No additional complexity requirements are required. This policy follows U.S. NIST 800-638 and Hapan JC-Star.', id: length}
+          - {desc: 'Passwords must be at least 12 characters long and include one uppercase letter, one lowercase letter, one numeric digit, and one special character. This policy follows South Korea NIS, German BSI, France ANSSI and Singapore CLS among others.', id: complex}
+      source: https://developer.axis.com/vapix/device-configuration/user-management-v2-api/#get-available-passphrase-complexity-policies
+  get_passphrase_complexity_policy:
+    summary: Get the passphrase-complexity policy in use.
+    effect: read
+    access: viewer
+    binding: {method: GET, path: /settings/passphraseComplexity/policy}
+    result: {type: string}
+    examples:
+    - title: Get the current passphrase-complexity policy
+      request: {path: /settings/passphraseComplexity/policy}
+      response:
+        status: 200
+        body: {status: success, data: length}
+      source: https://developer.axis.com/vapix/device-configuration/user-management-v2-api/#manage-the-current-passphrase-complexity-policy
+  set_passphrase_complexity_policy:
+    summary: Set the passphrase-complexity policy in use.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /settings/passphraseComplexity/policy
+      body_field: policy
+      body: value
+    params:
+      type: object
+      required: [policy]
+      properties:
+        policy: {type: string, description: Id of the selected passphrase-complexity policy}
+    positional: [policy]
+    examples:
+    - title: Set the passphrase-complexity policy
+      request:
+        path: /settings/passphraseComplexity/policy
+        body: {data: complex}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/user-management-v2-api/#manage-the-current-passphrase-complexity-policy
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/user-management-v2-api/
+  sha256_md: 2eed31de6cd14c6c8a05d7948a59467423ee7407d40942cfbb2b626174a4a299
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The docs examples spell the entity passPhraseComplexity (capital P) in URLs; the API definition says passphraseComplexity, which the spec uses.
+  - The docs example responses contain trailing commas (invalid JSON); corrected here.
+  - 'The docs list policy as GET for admin, operator and viewer, and SET for admin only; the PATCH example body is {"data": "complex"}.'
+  migrated_from: v1
+  curated: true

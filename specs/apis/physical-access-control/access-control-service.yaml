@@ -1,0 +1,2145 @@
+format: 2
+id: access-control-service
+name: Access control service
+summary: Manage access points, areas, access controllers, credentials, access and authentication profiles and anti-passback
+  data, and request or verify access.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: access_control_service
+  class: AccessControlService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/access-control-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+- https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+access: admin
+
+discovery:
+- service: {namespace: 'http://www.onvif.org/ver10/accesscontrol/wsdl'}
+- service: {namespace: 'http://www.axis.com/vapix/ws/pacs'}
+
+binding: {path: /vapix/pacs}
+
+types:
+  ReferenceToken: {type: string, description: Reference token of an entity.}
+  ServiceCapabilities:
+    type: object
+    description: Optional functionality of the service. Static; does not change during device operation.
+    properties:
+      MaxLimit:
+        type: integer
+        description: The maximum number of entries returned by a single GetList request. The device never returns
+          more entities in a single response.
+      DisableCredential: {type: boolean, description: True if EnableCredential and DisableCredential are supported.}
+      GetAccessPoint: {type: boolean, description: True if GetAccessPointList and GetAccessPoint are supported.}
+      SetAccessPoint: {type: boolean, description: True if SetAccessPoint is supported.}
+      RemoveAccessPoint: {type: boolean, description: True if RemoveAccessPoint is supported.}
+      GetArea: {type: boolean, description: True if GetAreaList and GetArea are supported.}
+      SetArea: {type: boolean, description: True if SetArea is supported.}
+      RemoveArea: {type: boolean, description: True if RemoveArea is supported.}
+      GetCredential: {type: boolean, description: True if GetCredentialList and GetCredential are supported.}
+      SetCredential: {type: boolean, description: True if SetCredential is supported.}
+      RemoveCredential: {type: boolean, description: True if RemoveCredential is supported.}
+      StandardAttributesSupported: {type: boolean, description: True if GetStandardAttributeList is supported.}
+      VendorAttributesSupported: {type: boolean, description: True if GetVendorAttributeList is supported.}
+  AccessPointCapabilities:
+    type: object
+    description: Optional functionality of one access point. Different access points may differ, and the capabilities
+      may change if hardware settings change.
+    properties:
+      DisableAccessPoint:
+        type: boolean
+        description: The access point supports EnableAccessPoint and DisableAccessPoint.
+      Duress: {type: boolean, description: The access point supports generation of duress events.}
+      AnonymousAccess:
+        type: boolean
+        description: The access point has a REX switch or other input that allows anonymous access.
+      AccessTaken:
+        type: boolean
+        description: The access point generates AccessTaken and AccessNotTaken events (anonymous versions too when
+          AnonymousAccess is also true).
+      ExternalAuthorization:
+        type: boolean
+        description: The access point supports ExternalAuthorization and generation of Request events (anonymous
+          version too when AnonymousAccess is also true).
+  AccessPointInfo:
+    type: object
+    description: 'Basic information about an AccessPoint: how access is controlled in one direction for a door (from
+      which area to which area).'
+    required: [token, Name, Entity, Capabilities]
+    properties:
+      token: {$ref: '#/types/ReferenceToken', description: A service-unique identifier of the AccessPoint.}
+      Name:
+        type: string
+        description: A user readable name. It shall be up to 64 characters.
+        maxLength: 64
+      Description:
+        type: string
+        description: Optional user readable description. It shall be up to 1024 characters.
+        maxLength: 1024
+      AreaFrom:
+        $ref: '#/types/ReferenceToken'
+        description: Optional reference to the Area from which access is requested.
+      AreaTo:
+        $ref: '#/types/ReferenceToken'
+        description: Optional reference to the Area to which access is requested.
+      Entity:
+        $ref: '#/types/ReferenceToken'
+        description: Reference to the entity used to control access; typically a Door.
+      EntityType: {type: string, description: 'Optional entity type; a Door (tdc:Door) is assumed if missing.'}
+      Capabilities: {$ref: '#/types/AccessPointCapabilities', description: The capabilities for the AccessPoint.}
+  AreaInfo:
+    type: object
+    description: Basic information about an Area.
+    required: [token, Name]
+    properties:
+      token: {$ref: '#/types/ReferenceToken', description: A service-unique identifier of the Area.}
+      Name:
+        type: string
+        description: User readable name. It shall be up to 64 characters.
+        maxLength: 64
+      Description:
+        type: string
+        description: User readable description. It shall be up to 1024 characters.
+        maxLength: 1024
+  AccessPointState:
+    type: object
+    description: State information for an AccessPoint.
+    required: [Enabled]
+    properties:
+      Enabled:
+        type: boolean
+        description: Whether the AccessPoint is enabled. True by default if the DisableAccessPoint capability is
+          not supported.
+  Decision:
+    type: string
+    description: A choice of two options for an access request.
+    enum: [Granted, Denied]
+  Attribute:
+    type: object
+    description: A generic name and optional value and type that can be added to various data structures.
+    required: [Name]
+    properties:
+      Name: {type: string, description: Name of the attribute.}
+      type: {type: string, description: 'Type of the attribute: int, bool or string.'}
+      Value: {type: string, description: Value of the attribute.}
+  NameValue:
+    type: object
+    description: A generic name and value pair.
+    required: [Name, Value]
+    properties:
+      Name: {type: string, description: Name.}
+      Value: {type: string, description: Value.}
+  IdPointDevice:
+    type: object
+    description: An IdPoint and the device it is on.
+    required: [IdPoint]
+    properties:
+      IdPoint: {$ref: '#/types/ReferenceToken', description: Reference to an IdPoint.}
+      DeviceUUID:
+        type: string
+        description: DeviceUUID of the device where the IdPoint is located. If empty or omitted, the IdPoint token
+          refers to this device.
+  ActionArgument:
+    type: object
+    description: An argument to be used with the Action of an AccessPoint.
+    required: [Name, Value]
+    properties:
+      Name: {type: string, description: Name of the argument.}
+      Value: {type: string, description: Value of the argument.}
+      type: {type: string, description: Type of the argument.}
+  AccessPoint:
+    type: object
+    description: The full configuration of an AccessPoint, the mapping between one or more IdPoints and an entity
+      (typically a Door) used to control access.
+    required: [Name, Entity]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier. May be omitted or empty when adding; the service then allocates
+          a token.
+      Name:
+        type: string
+        description: A user readable name. It shall be up to 64 characters.
+        maxLength: 64
+      Description:
+        type: string
+        description: Optional user readable description. It shall be up to 1024 characters.
+        maxLength: 1024
+      AreaFrom:
+        $ref: '#/types/ReferenceToken'
+        description: Optional reference to the Area from which access is requested.
+      AreaTo:
+        $ref: '#/types/ReferenceToken'
+        description: Optional reference to the Area to which access is requested.
+      Entity:
+        $ref: '#/types/ReferenceToken'
+        description: Reference to the entity used to control access; typically a Door.
+      EntityType:
+        type: string
+        description: Optional entity type, for example axtdc:Door or tdc:Door. A Door is assumed if empty.
+      DoorDeviceUUID:
+        type: string
+        description: DeviceUUID of the device the Door is on. If empty or omitted, the Door token refers to this
+          device.
+      Enabled: {type: boolean, description: Whether this AccessPoint is enabled.}
+      IdPointDevice:
+        type: array
+        items: {$ref: '#/types/IdPointDevice'}
+        description: The IdPoints, and their devices, that can request access here. May contain several, for example
+          a fingerprint reader and a card reader.
+      AuthenticationProfile:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the AuthenticationProfile items that apply for this AccessPoint.
+      Attribute:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Optional attributes associated with the AccessPoint.
+      ActionArgument:
+        type: array
+        items: {$ref: '#/types/ActionArgument'}
+        description: Optional arguments to the Action.
+      Action:
+        type: string
+        description: 'Action associated with the AccessPoint: typically Access, AccessDoor or AccessDoorWithoutUnlock.
+          Access is used if empty.'
+  Area:
+    type: object
+    description: An area and its settings.
+    required: [Name]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier. May be omitted or empty when adding; the service then allocates
+          a token.
+      Name:
+        type: string
+        description: User readable name. It shall be up to 64 characters.
+        maxLength: 64
+      Description:
+        type: string
+        description: User readable description. It shall be up to 1024 characters.
+        maxLength: 1024
+      Attribute:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Attribute list for the Area.
+  AccessControllerInfo:
+    type: object
+    description: Information for an AccessController, listing the AccessPoints it controls.
+    required: [token, Name]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier of the AccessController.
+      Name: {type: string, description: Short name of the AccessController.}
+      Description: {type: string, description: Description of the AccessController.}
+      AccessPoint:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the AccessPoint items the AccessController manages.
+  AccessController:
+    type: object
+    description: The full configuration of an AccessController, which receives access requests from IdPoints and
+      controls doors and other resources.
+    required: [Name]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier. May be omitted or empty when adding; the service then allocates
+          a token.
+      Name: {type: string, description: Short name of the AccessController.}
+      Description: {type: string, description: Description of the AccessController.}
+      AccessPoint:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the AccessPoint items the AccessController manages.
+  CredentialStatusEnum:
+    type: string
+    description: The status of a credential, for example the reason for being disabled. Also used as the Reason
+      field in certain events. Enabled is the only state in which access can be granted.
+    enum:
+    - NotActivated
+    - Enabled
+    - Disabled
+    - LockedOut
+    - Lost
+    - Stolen
+    - Damaged
+    - Destroyed
+    - Inactive
+    - MaxDays
+    - MaxUses
+    - Expired
+  CredentialInfo:
+    type: object
+    description: Information about a Credential.
+    required: [token, Enabled, Status]
+    x-nullable: [ValidFrom, ValidTo]
+    properties:
+      token: {$ref: '#/types/ReferenceToken', description: A service-unique identifier of the Credential.}
+      Enabled: {type: boolean, description: Whether the Credential is enabled.}
+      Status:
+        $ref: '#/types/CredentialStatusEnum'
+        description: Status of the Credential, for example the reason for being disabled. Should normally be one
+          of the CredentialStatusEnum values.
+      UserToken:
+        $ref: '#/types/ReferenceToken'
+        description: Identifies the User of the Credential. Optional for security and privacy reasons.
+      Description: {type: string, description: Description of the Credential.}
+      ValidFrom:
+        type: string
+        description: When the Credential starts to be valid. If null, there is no restriction (valid from whenever).
+      ValidTo:
+        type: string
+        description: When the Credential stops being valid. If null, there is no restriction (valid forever).
+  IdData:
+    type: object
+    description: A single identification or authentication name and value, such as a card number or PIN.
+    required: [Name, Value]
+    properties:
+      Name: {type: string, description: Name of the field.}
+      Value: {type: string, description: The value to match against.}
+  CredentialAccessProfile:
+    type: object
+    description: A reference from a Credential to an AccessProfile, optionally restricting the period further than
+      the AccessProfile does.
+    required: [AccessProfile]
+    x-nullable: [ValidFrom, ValidTo]
+    properties:
+      AccessProfile: {$ref: '#/types/ReferenceToken', description: Reference to the AccessProfile.}
+      ValidFrom:
+        type: string
+        description: Optional start of the period for the AccessProfile. If null, there is no additional restriction.
+      ValidTo:
+        type: string
+        description: Optional end of the period for the AccessProfile. If null, there is no additional restriction.
+  Credential:
+    type: object
+    description: 'A Credential: the information needed to authenticate a user and the AccessProfiles it is authorized
+      through.'
+    x-nullable: [ValidFrom, ValidTo]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier. May be omitted or empty when adding; the service then allocates
+          a token.
+      Enabled: {type: boolean, description: Whether the Credential is enabled.}
+      Status:
+        $ref: '#/types/CredentialStatusEnum'
+        description: Status of the Credential, for example the reason for being disabled.
+      IdData:
+        type: array
+        items: {$ref: '#/types/IdData'}
+        description: The identification data for the credential.
+      Attribute:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Attributes associated with the credential. ExtendedTime is a standard attribute.
+      AuthenticationProfile:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of AuthenticationProfile items that override the ones in an AccessProfile or AccessPolicy
+          when set.
+      CredentialAccessProfile:
+        type: array
+        items: {$ref: '#/types/CredentialAccessProfile'}
+        description: AccessProfile items associated with the credential.
+      UserToken:
+        $ref: '#/types/ReferenceToken'
+        description: Identifies the User of the Credential. Optional for security and privacy reasons.
+      Description: {type: string, description: Description of the Credential.}
+      ValidFrom:
+        type: string
+        description: When the Credential starts to be valid. If null, there is no restriction (valid from whenever).
+      ValidTo:
+        type: string
+        description: When the Credential stops being valid. If null, there is no restriction (valid forever).
+  AuthenticationProfileInfo:
+    type: object
+    description: Information about an AuthenticationProfile.
+    required: [token, Name]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier of the AuthenticationProfile.
+      Name: {type: string, description: Name of the AuthenticationProfile.}
+      Description: {type: string, description: Description of the AuthenticationProfile.}
+  IdFactor:
+    type: object
+    description: An IdData name and the IdMatchOperator used to check it.
+    required: [IdDataName, IdMatchOperatorName]
+    properties:
+      IdDataName: {type: string, description: The Name of an IdData field to check.}
+      IdMatchOperatorName: {type: string, description: A Name of an existing IdMatchOperator.}
+      OperatorValue: {type: string, description: Information for certain operators; typically empty.}
+  AuthenticationProfile:
+    type: object
+    description: 'The authentication requirements: which IdFactor items are required at which schedules. Referenced
+      by an AccessPoint and can be overridden in an AccessProfile and a Credential.'
+    required: [Name]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier. May be omitted or empty when adding; the service then allocates
+          a token.
+      Name: {type: string, description: Name of the AuthenticationProfile.}
+      Description: {type: string, description: Description of the AuthenticationProfile.}
+      Schedule:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the Schedule items that determine when the AuthenticationProfile is applicable.
+      IdFactor:
+        type: array
+        items: {$ref: '#/types/IdFactor'}
+        description: The IdFactor items needed to authenticate. All must be provided, in this order.
+  IdMatchOperator:
+    type: object
+    description: Determines how the IdData value in a request is evaluated. ONVIF defines mandatory operators; vendors
+      may add more.
+    required: [Name]
+    properties:
+      Name: {type: string, description: Name of the IdMatchOperator.}
+      Description: {type: string, description: Description of the operator.}
+  RuleOperator:
+    type: object
+    description: Determines how the IdData value in a request and other conditions are evaluated. ONVIF defines
+      mandatory operators; vendors may add more.
+    required: [Name]
+    properties:
+      Name: {type: string, description: Name of the RuleOperator.}
+      Description: {type: string, description: Description of the operator.}
+  AccessProfileInfo:
+    type: object
+    description: Information about an AccessProfile.
+    required: [token, Name]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier of the AccessProfile.
+      Name: {type: string, description: Name of the AccessProfile.}
+      Description: {type: string, description: Description of the AccessProfile.}
+  AccessPolicy:
+    type: object
+    description: Authentication and authorization requirements for one AccessPoint, used by an AccessProfile.
+    properties:
+      AccessPoint:
+        $ref: '#/types/ReferenceToken'
+        description: Reference to the AccessPoint this AccessPolicy applies to.
+      AuthorizationProfile:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the AuthorizationProfile items that apply to this policy (a placeholder for future
+          extensions).
+      Attribute:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Optional attributes that apply to the AccessPolicy.
+      Schedule:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the Schedule items when authorized by this AccessPolicy if the other conditions are
+          met.
+  AccessProfile:
+    type: object
+    description: Determines which resources can be accessed and when, through AccessPolicy items, and which authentication
+      profiles apply.
+    required: [Name]
+    x-nullable: [ValidFrom, ValidTo]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier. May be omitted or empty when adding; the service then allocates
+          a token.
+      Name: {type: string, description: Name of the AccessProfile.}
+      Description: {type: string, description: Description of the AccessProfile.}
+      Schedule:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the Schedule items that determine when the AccessProfile is applicable.
+      AuthenticationProfile:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Tokens of the authentication profiles for this AccessProfile. Overrides the list in the AccessPoint,
+          so it is typically empty.
+      Attribute:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Attributes associated with the AccessProfile.
+      AccessPolicy:
+        type: array
+        items: {$ref: '#/types/AccessPolicy'}
+        description: The AccessPolicy items that are allowed.
+      Enabled: {type: boolean, description: Whether the AccessProfile is enabled.}
+      ValidFrom:
+        type: string
+        description: When the AccessProfile starts to be valid. If null, there is no restriction on the start time.
+      ValidTo:
+        type: string
+        description: When the AccessProfile stops being valid. If null, there is no restriction on the stop time.
+  AccessControllerConfiguration:
+    type: object
+    description: The device and hardware configuration for an AccessController.
+    required: [token]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: AccessController Id to use for set, remove and usage.
+      DeviceUUID: {type: string, description: The device the AccessController is on.}
+      Configuration:
+        type: array
+        items: {$ref: '#/types/NameValue'}
+        description: Configuration settings for the AccessController as name and value pairs.
+  CredentialStatistics:
+    type: object
+    description: Statistics related to Credential items.
+    properties:
+      NumberOfCredentials: {type: integer, description: Number of Credential items in the system.}
+      NumberOfDisabledCredentials: {type: integer, description: Number of disabled Credential items in the system.}
+  AntipassbackData:
+    type: object
+    description: One anti-passback monitoring entry.
+    required: [CredentialToken]
+    properties:
+      CredentialToken: {$ref: '#/types/ReferenceToken', description: The Credential.}
+      PassOkThreshold:
+        type: integer
+        description: Anti-passback timer value. The unit is documented as seconds in the API section and microseconds
+          in the guide.
+      CurrentArea: {$ref: '#/types/ReferenceToken', description: The current area token.}
+      ByTime:
+        type: boolean
+        description: 'The anti-passback mode: false means Logical, true means TimedLogical.'
+      Violation:
+        type: string
+        description: Whether monitoring has resulted in one or more violations (shown as an empty string in the
+          example).
+
+operations:
+  get_service_capabilities:
+    summary: This operation returns the capabilities of the Access Control service.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+    effect: read
+    access: anonymous
+    binding: {operation: 'tac:GetServiceCapabilities', auth: if_challenged}
+    result:
+      type: object
+      required: [Capabilities]
+      properties:
+        Capabilities:
+          $ref: '#/types/ServiceCapabilities'
+          description: The capability response message contains the requested Access Control service capabilities
+            using a hierarchical XML capability structure.
+  get_access_point_info_list:
+    summary: This operation requests a list of all `AccessPointInfo` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'tac:GetAccessPointInfoList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AccessPointInfo:
+          type: array
+          items: {$ref: '#/types/AccessPointInfo'}
+          description: List of AccessPointInfo items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_access_point_info:
+    summary: This operation requests a list of `AccessPointInfo` items matching the given tokens.
+    description: An ONVIF compliant device which provides Access Control service shall implement this method. The
+      device shall ignore tokens it cannot resolve and shall return an empty list if there are no items matching
+      specified tokens. The device shall not return a fault in this case. If the number of requested items is greater
+      than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'tac:GetAccessPointInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessPointInfo items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AccessPointInfo:
+          type: array
+          items: {$ref: '#/types/AccessPointInfo'}
+          description: List of AccessPointInfo items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  get_area_info_list:
+    summary: This operation requests a list of all `AreaInfo` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'tac:GetAreaInfoList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AreaInfo:
+          type: array
+          items: {$ref: '#/types/AreaInfo'}
+          description: List of AreaInfo items. xs:string NextStartReference [0][1] tac:AreaInfo AreaInfo [0][unbounded]
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_area_info:
+    summary: This operation requests a list of `AreaInfo` items matching the given tokens.
+    description: An ONVIF compliant device which provides Access Control service shall implement this method. The
+      device shall ignore tokens it cannot resolve and shall return an empty list if there are no items matching
+      specified tokens. The device shall not return a fault in this case. If the number of requested items is greater
+      than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'tac:GetAreaInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AreaInfo items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AreaInfo:
+          type: array
+          items: {$ref: '#/types/AreaInfo'}
+          description: List of AreaInfo items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  get_access_point_state:
+    summary: This operation requests the `AccessPointState` for the `AccessPoint` instance specified by token.
+    description: An ONVIF compliant device that provides Access Control service shall implement this method.
+    effect: read
+    binding: {operation: 'tac:GetAccessPointState'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          $ref: '#/types/ReferenceToken'
+          description: Token of AccessPoint instance to get AccessPointState for.
+    result:
+      type: object
+      required: [AccessPointState]
+      properties:
+        AccessPointState: {$ref: '#/types/AccessPointState', description: AccessPointState item.}
+    errors:
+      ter:NotFound: {description: AccessPoint is not found., kind: not_found}
+  enable_access_point:
+    summary: This operation allows enabling an access point.
+    description: A device that signals support for `DisableAccessPoint` capability for a particular `AccessPoint`
+      instance shall implement this command.
+    effect: write
+    write: patch
+    binding: {operation: 'tac:EnableAccessPoint'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the AccessPoint instance to enable.}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:NotSupported: {description: The operation is not supported., kind: unsupported}
+  disable_access_point:
+    summary: This operation allows disabling an access point.
+    description: A device that signals support for `DisableAccessPoint` capability for a particular `AccessPoint`
+      instance shall implement this command.
+    effect: write
+    write: patch
+    binding: {operation: 'tac:DisableAccessPoint'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the AccessPoint instance to disable.}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:NotSupported: {description: The operation is not supported., kind: unsupported}
+  external_authorization:
+    summary: This operation allows to deny or grant decision at an `AccessPoint` instance.
+    description: A device that signals support for `ExternalAuthorization` capability for a particular `AccessPoint`
+      instance shall implement this method.
+    effect: action
+    binding: {operation: 'tac:ExternalAuthorization'}
+    params:
+      type: object
+      required: [AccessPointToken, Decision]
+      properties:
+        AccessPointToken: {$ref: '#/types/ReferenceToken', description: Token of the AccessPoint instance.}
+        CredentialToken: {$ref: '#/types/ReferenceToken', description: Optional. Token of the Credential involved.}
+        Reason: {type: string, description: Optional. Reason for decision.}
+        Decision: {$ref: '#/types/Decision', description: Decision. Granted or Denied.}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:NotSupported:
+        description: 'The operation is not supported (documented as: AccessPoint is not found).'
+        kind: unsupported
+  get_access_point_list:
+    summary: This operation requests a list of all of `AccessPoint` items provided by the device.
+    description: This function shall be implemented if the `GetAccessPoint` service capability is true. A call to
+      this method shall return a `StartReference` when not all data is returned and more data is available. The
+      reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessPointList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AccessPoint:
+          type: array
+          items: {$ref: '#/types/AccessPoint'}
+          description: List of AccessPoint items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_access_point:
+    summary: This operation requests a list of `AccessPoint` items matching the given tokens.
+    description: This method shall be supported if the `GetAccessPoint` service capability is true. At least one
+      token shall be specified. The device shall ignore tokens it cannot resolve and may return an empty list if
+      there are no items matching specified tokens. If the number of requested items is greater than `MaxLimit`,
+      a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessPoint'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessPoint items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AccessPoint:
+          type: array
+          items: {$ref: '#/types/AccessPoint'}
+          description: List of AccessPoint items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  set_access_point:
+    summary: Add/update a list of `AccessPoint` items.
+    description: If `AccessPoint` items with the specified tokens already exist, they shall be updated. If not,
+      they shall be added. If the token field of any `AccessPoint` is empty, the service shall allocate a token
+      for the `AccessPoint`. All tokens shall be returned in the response. This function must be available if the
+      `SetAccessPoint` service capability is true.
+    effect: write
+    write: replace
+    binding: {operation: 'pacsaxis:SetAccessPoint'}
+    params:
+      type: object
+      required: [AccessPoint]
+      properties:
+        AccessPoint:
+          type: array
+          items: {$ref: '#/types/AccessPoint'}
+          description: The AccessPoint items to add/update.
+          minItems: 1
+    result:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: The Tokens of the added/updated AccessPoint items.
+    errors:
+      ter:InvalidArgs: {description: Invalid arguments., kind: invalid_argument}
+      ter:NotAllowed: {description: The operation is not allowed., kind: access_denied}
+    examples:
+    - title: Set an access point
+      request:
+        params:
+          AccessPoint:
+          - token: Axis-00408c184bdb:1351589192.102223000
+            Name: Entry 1
+            Description: Entry 1 main door
+            AreaFrom: ''
+            AreaTo: ''
+            EntityType: axtdc:Door
+            Entity: Door0
+            DoorDeviceUUID: ''
+            Enabled: true
+            IdPointDevice:
+            - {IdPoint: idpoint_token, DeviceUUID: ''}
+            AuthenticationProfile: [CardOnly]
+            Attribute: []
+            ActionArgument: []
+            Action: Access
+      source: https://developer.axis.com/vapix/physical-access-control/access-control-service/#setting-the-access-point
+  remove_access_point:
+    summary: Remove the specified `AccessPoint` items.
+    description: This function must be available if the `RemoveAccessPoint` service capability is true.
+    effect: write
+    write: delete
+    binding: {operation: 'pacsaxis:RemoveAccessPoint'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessPoint items to remove.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: AccessPoint is not found., kind: not_found}
+  get_area_list:
+    summary: This operation requests a list of all of `Area` items provided by the device.
+    description: This function shall be implemented if the `GetArea` service capability is true. A call to this
+      method shall return a `StartReference` when not all data is returned and more data is available. The reference
+      shall be valid for retrieving the next set of data. See section Retrieving system configuration. The number
+      of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAreaList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        Area:
+          type: array
+          items: {$ref: '#/types/Area'}
+          description: List of Area items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_area:
+    summary: This operation requests a list of `Area` items matching the given tokens.
+    description: This method shall be supported if the `GetArea` service capability is true. At least one token
+      shall be specified. The device shall ignore tokens it cannot resolve and may return an empty list if there
+      are no items matching specified tokens. If the number of requested items is greater than `MaxLimit`, a `TooManyItems`
+      fault shall be returned.
+    effect: read
+    binding: {operation: 'pacsaxis:GetArea'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of Area items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Area:
+          type: array
+          items: {$ref: '#/types/Area'}
+          description: List of Area items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  set_area:
+    summary: Add/update a list of `Area` items.
+    description: If `Area` with the specified tokens already exist, they shall be updated. If not, they shall be
+      added. If the token field of any `Area` is empty, the service shall allocate a token for the `Area`. All tokens
+      shall be returned in the response. This function must be available if the `SetArea` service capability is
+      true.
+    effect: write
+    write: replace
+    binding: {operation: 'pacsaxis:SetArea'}
+    params:
+      type: object
+      required: [Area]
+      properties:
+        Area:
+          type: array
+          items: {$ref: '#/types/Area'}
+          description: The Area items to add/update.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: The tokens of the added/updated Area items.
+    errors:
+      ter:InvalidArgs: {description: Invalid arguments., kind: invalid_argument}
+      ter:NotAllowed: {description: The operation is not allowed., kind: access_denied}
+  remove_area:
+    summary: Remove the specified `Area` items.
+    description: This function must be available if the `RemoveArea` service capability is true.
+    effect: write
+    write: delete
+    binding: {operation: 'pacsaxis:RemoveArea'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of Area items to remove.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: Area is not found., kind: not_found}
+  get_access_controller_info_list:
+    summary: This operation requests a list of all `AccessControllerInfo` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessControllerInfoList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AccessControllerInfo:
+          type: array
+          items: {$ref: '#/types/AccessControllerInfo'}
+          description: List of AccessControllerInfo items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_access_controller_info:
+    summary: This operation requests a list of `AccessControllerInfo` items matching the given tokens.
+    description: An ONVIF compliant device which provides Access Control service shall implement this method. The
+      device shall ignore tokens it cannot resolve and shall return an empty list if there are no items matching
+      specified tokens. The device shall not return a fault in this case. If the number of requested items is greater
+      than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessControllerInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessControllerInfo items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AccessControllerInfo:
+          type: array
+          items: {$ref: '#/types/AccessControllerInfo'}
+          description: List of AccessControllerInfo items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  get_access_controller_list:
+    summary: This operation requests a list of all `AccessController` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessControllerList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AccessController:
+          type: array
+          items: {$ref: '#/types/AccessController'}
+          description: List of AccessController items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+    examples:
+    - title: pacsaxis:GetAccessControllerList request
+      request:
+        params: {}
+      response:
+        data:
+          AccessController:
+          - token: Axis-00408c184bdb AccessController
+            Name: Axis-00408c184bdb AccessController
+            Description: ''
+            AccessPoint: []
+      source: https://developer.axis.com/vapix/physical-access-control/#json-examples
+  get_access_controller:
+    summary: This operation requests a list of `AccessController` items matching the given tokens.
+    description: An ONVIF compliant device which provides Access Control service shall implement this method. The
+      device shall ignore tokens it cannot resolve and shall return an empty list if there are no items matching
+      specified tokens. The device shall not return a fault in this case. If the number of requested items is greater
+      than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessController'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessController items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AccessController:
+          type: array
+          items: {$ref: '#/types/AccessController'}
+          description: List of AccessController items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  set_access_controller:
+    summary: Add/update a list of `AccessController` items.
+    description: If `AccessController` items with the specified tokens already exist, they shall be updated. If
+      not, they shall be added. If the `Token` field of any `AccessController` is empty, the service shall allocate
+      a token for the `AccessController`. All tokens shall be returned in the response.
+    effect: write
+    write: replace
+    binding: {operation: 'pacsaxis:SetAccessController'}
+    params:
+      type: object
+      required: [AccessController]
+      properties:
+        AccessController:
+          type: array
+          items: {$ref: '#/types/AccessController'}
+          description: The AccessController items to add/update.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: The Tokens of the added/updated AccessController items.
+    errors:
+      ter:InvalidArgs: {description: Invalid arguments., kind: invalid_argument}
+      ter:NotAllowed: {description: The operation is not allowed., kind: access_denied}
+    examples:
+    - title: Refer to the access point from the access controller
+      request:
+        params:
+          AccessController:
+          - token: Axis-00408c184bdb AccessController
+            Name: Axis-00408c184bdb AccessController
+            Description: ''
+            AccessPoint: ['Axis-00408c184bdb:1351589192.102223000']
+      source: https://developer.axis.com/vapix/physical-access-control/access-control-service/#setting-the-access-point
+  remove_access_controller:
+    summary: Remove the specified `AccessController` items.
+    effect: write
+    write: delete
+    binding: {operation: 'pacsaxis:RemoveAccessController'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessController items to remove.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: AccessController is not found., kind: not_found}
+  get_standard_attribute_list:
+    summary: Returns a list of attributes and their value type supported by the service.
+    effect: read
+    binding: {operation: 'pacsaxis:GetStandardAttributeList'}
+    result:
+      type: object
+      properties:
+        Attribute:
+          type: array
+          items: {$ref: '#/types/Attribute'}
+          description: List of supported standardized Attribute items
+  get_vendor_attribute_list:
+    summary: This function shall return the vendor specific attributes supported.
+    effect: read
+    binding: {operation: 'pacsaxis:GetVendorAttributeList'}
+    result:
+      type: object
+      properties:
+        Attribute:
+          type: array
+          items: {$ref: '#/types/Attribute'}
+          description: List of supported vendor specific attributes.
+  verify_request:
+    summary: Perform a validation of the request, and return the result, but does not perform any action.
+    effect: read
+    binding: {operation: 'pacsaxis:VerifyRequest'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: The AccessController to send request to.}
+        IdData:
+          type: array
+          items: {$ref: '#/types/IdData'}
+          description: The id data, typically including entries for card and PIN.
+        SourceToken: {$ref: '#/types/ReferenceToken', description: Where the request comes from.}
+        TargetToken:
+          $ref: '#/types/ReferenceToken'
+          description: The Resource the subject identified by IdField items and/or PIN want access to.
+        Action:
+          type: string
+          description: The desired action on the resource. If missing "Access" should be assumed.
+        Environment:
+          type: array
+          items: {$ref: '#/types/NameValue'}
+          description: Additional information.
+    result:
+      type: object
+      required: [AccessGranted, Reason]
+      properties:
+        AccessGranted: {type: boolean, description: 'True if access is granted, false if denied.'}
+        Reason: {type: string, description: Reason for denial.}
+    errors:
+      ter:NotFound: {description: AccessController is not found., kind: not_found}
+  request_access:
+    summary: Request access to the specified `Resource` with the given `IdField` items.
+    effect: action
+    binding: {operation: 'pacsaxis:RequestAccess'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: The AccessController to send request to.}
+        IdData:
+          type: array
+          items: {$ref: '#/types/IdData'}
+          description: The id data, typically including entries for card and PIN.
+        SourceToken: {$ref: '#/types/ReferenceToken', description: Where the request comes from.}
+        TargetToken:
+          $ref: '#/types/ReferenceToken'
+          description: The Resource the subject identified by IdField items and/or PIN want access to.
+        Action:
+          type: string
+          description: The desired action on the resource. If missing "Access" should be assumed.
+        Environment:
+          type: array
+          items: {$ref: '#/types/NameValue'}
+          description: Additional information.
+    result:
+      type: object
+      required: [AccessGranted, Reason]
+      properties:
+        AccessGranted: {type: boolean, description: 'True if access is granted, false if denied.'}
+        Reason: {type: string, description: Reason for denial.}
+    errors:
+      ter:NotFound: {description: AccessController is not found., kind: not_found}
+    examples:
+    - title: pacsaxis:RequestAccess request
+      request:
+        params:
+          Action: Access
+          IdData:
+          - {Name: Card, Value: '12345678'}
+          SourceToken: idp_token
+          TargetToken: door_token
+          Token: Axis-00408c184bdb AccessController
+      response:
+        data: {AccessGranted: true, Reason: Granted}
+      source: https://developer.axis.com/vapix/physical-access-control/access-control-service/#send-access-request
+  get_credential_info_list:
+    summary: This operation requests a list of all `CredentialInfo` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter. This function must be available
+      if the `GetCredentialListSupported` service capability is true.
+    effect: read
+    binding: {operation: 'pacsaxis:GetCredentialInfoList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        CredentialInfo:
+          type: array
+          items: {$ref: '#/types/CredentialInfo'}
+          description: List of CredentialInfo items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_credential_info:
+    summary: This operation requests a list of `CredentialInfo` items matching the given tokens.
+    description: This method shall be supported if the `GetCredential` service capability is true. At least one
+      token shall be specified. The device shall ignore tokens it cannot resolve and may return an empty list if
+      there are no items matching specified tokens. If the number of requested items is greater than `MaxLimit`,
+      a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'pacsaxis:GetCredentialInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of CredentialInfo items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        CredentialInfo:
+          type: array
+          items: {$ref: '#/types/CredentialInfo'}
+          description: List of CredentialInfo items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  enable_credential:
+    summary: This operation shall enable a credential.
+    description: This function must be available if the `DisableCredential` service capability is true.
+    effect: write
+    write: patch
+    binding: {operation: 'pacsaxis:EnableCredential'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: The Credential to enable.}
+    errors:
+      ter:NotFound: {description: Not found., kind: not_found}
+  disable_credential:
+    summary: This operation shall disable a credential.
+    description: This function must be available if the `DisableCredential` service capability is true.
+    effect: write
+    write: patch
+    binding: {operation: 'pacsaxis:DisableCredential'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: The Credential to disable.}
+        Status:
+          $ref: '#/types/CredentialStatusEnum'
+          description: Optional status to set about the reason to disable the credential. If missing "Disabled"
+            should be assumed.
+    errors:
+      ter:NotFound: {description: Not found., kind: not_found}
+  get_credential_list:
+    summary: This operation requests a list of all `Credential` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter. This function must be available
+      if the `GetCredential` service capability is true. > INFO > > This could be a security risk.
+    effect: read
+    binding: {operation: 'pacsaxis:GetCredentialList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        CredentialInfo:
+          type: array
+          items: {$ref: '#/types/CredentialInfo'}
+          description: List of CredentialInfo items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_credential:
+    summary: This operation requests a list of `Credential` items matching the given tokens.
+    description: This method shall be supported if the `GetCredential` service capability is true. At least one
+      token shall be specified. The device shall ignore tokens it cannot resolve and may return an empty list if
+      there are no items matching specified tokens. If the number of requested items is greater than `MaxLimit`,
+      a `TooManyItems` fault shall be returned. > INFO > > This could be a security risk.
+    effect: read
+    binding: {operation: 'pacsaxis:GetCredential'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of Credential items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Credential:
+          type: array
+          items: {$ref: '#/types/Credential'}
+          description: List of Credential items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  set_credential:
+    summary: Add/update a list of `Credential` items.
+    description: If `Credential` items with the specified tokens already exist, they shall be updated. If not, they
+      shall be added. If the `Token` field of any Credential item is empty, the service shall allocate a token for
+      the `Credential`. All tokens shall be returned in the response.
+    effect: write
+    write: replace
+    binding: {operation: 'pacsaxis:SetCredential'}
+    params:
+      type: object
+      required: [Credential]
+      properties:
+        Credential:
+          type: array
+          items: {$ref: '#/types/Credential'}
+          description: The Credential items to add/update.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Credential:
+          type: array
+          items: {$ref: '#/types/Credential'}
+          description: List of Credential items (as documented in the message table).
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the added or updated Credential items (as shown in the examples).
+    errors:
+      ter:InvalidCredentialFault: {description: Invalid credential., kind: invalid_argument}
+    examples:
+    - title: Set a credential
+      request:
+        params:
+          Credential:
+          - token: Axis-00408c184bdb:1351593020.016190000
+            UserToken: user_token1
+            Description: Credential description
+            ValidFrom: '1997-01-01T00:00:00Z'
+            ValidTo: '2038-01-01T00:00:00Z'
+            Enabled: true
+            Status: Enabled
+            IdData:
+            - {Name: Card, Value: '12345678'}
+            - {Name: PIN, Value: '1234'}
+            Attribute: []
+            AuthenticationProfile: []
+            CredentialAccessProfile:
+            - ValidFrom: '1997-01-01T00:00:00Z'
+              ValidTo: '2038-01-01T00:00:00Z'
+              AccessProfile: Axis-00408c184bdb:1351591416.539133000
+      source: https://developer.axis.com/vapix/physical-access-control/access-control-service/#setting-the-credential
+    - title: Add a credential without a token
+      request:
+        params:
+          Credential:
+          - Enabled: true
+            Status: Enabled
+            IdData:
+            - {Name: PIN, Value: '1234'}
+            - {Name: CardNr, Value: '12345678'}
+            CredentialAccessProfile: []
+            UserToken: Axis-00408c184bd9:1350638010.566278000
+      response:
+        data: {Token: ['Axis-00408c184bd9:1350638011.004953000']}
+      source: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+  remove_credential:
+    summary: Remove the specified `Credential` items.
+    effect: write
+    write: delete
+    binding: {operation: 'pacsaxis:RemoveCredential'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the Credential items to remove.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: Credential is not found., kind: not_found}
+  get_access_profile_info_list:
+    summary: This operation requests a list of all `AccessProfileInfo` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter. This function is mandatory.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessProfileInfoList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AccessProfileInfo:
+          type: array
+          items: {$ref: '#/types/AccessProfileInfo'}
+          description: List of AccessProfileInfo items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_access_profile_info:
+    summary: This operation requests a list of `AccessProfileInfo` items matching the given tokens.
+    description: This method shall be supported if the `GetAccessProfile` service capability is true. At least one
+      token shall be specified. The device shall ignore tokens it cannot resolve and may return an empty list if
+      there are no items matching specified tokens. If the number of requested items is greater than `MaxLimit`,
+      a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessProfileInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessProfileInfo items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AccessProfileInfo:
+          type: array
+          items: {$ref: '#/types/AccessProfileInfo'}
+          description: List of AccessProfileInfo items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  get_access_profile_list:
+    summary: This operation requests a list of all of `AccessProfile` items provided by the device.
+    description: This function shall be implemented if the `GetAccessProfile` service capability is true. A call
+      to this method shall return a `StartReference` when not all data is returned and more data is available. The
+      reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessProfileList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AccessProfile:
+          type: array
+          items: {$ref: '#/types/AccessProfile'}
+          description: List of AccessProfile items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_access_profile:
+    summary: This operation requests a list of `AccessProfile` items matching the given tokens.
+    description: This method shall be supported if the `GetAccessProfile` service capability is true. At least one
+      token shall be specified. The device shall ignore tokens it cannot resolve and may return an empty list if
+      there are no items matching specified tokens. If the number of requested items is greater than `MaxLimit`,
+      a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessProfile'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessProfile items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AccessProfile:
+          type: array
+          items: {$ref: '#/types/AccessProfile'}
+          description: List of AccessProfile items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  set_access_profile:
+    summary: Add/update a list of `AccessProfile` items.
+    description: If `AccessProfile` items with the specified tokens already exist, they will be updated. If not,
+      they shall be added. If the `Token` field of any `AccessProfile` is empty, the service shall allocate a token
+      for the `AccessProfile`. All tokens shall be returned in the response.
+    effect: write
+    write: replace
+    binding: {operation: 'pacsaxis:SetAccessProfile'}
+    params:
+      type: object
+      required: [AccessProfile]
+      properties:
+        AccessProfile:
+          type: array
+          items: {$ref: '#/types/AccessProfile'}
+          description: The AccessProfile items to add/update.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the added/updated AccessProfile items.
+    errors:
+      ter:InvalidAccessProfileFault: {description: Invalid access profile., kind: invalid_argument}
+    examples:
+    - title: Set an access profile
+      request:
+        params:
+          AccessProfile:
+          - token: Axis-00408c184bdb:1351591416.539133000
+            Name: AccessProfile1
+            Description: AccessProfile description
+            Enabled: true
+            Schedule: [standard_always]
+            ValidFrom: '1997-01-01T00:00:00Z'
+            ValidTo: '2038-01-01T00:00:00Z'
+            AuthenticationProfile: []
+            AccessPolicy:
+            - AccessPoint: Axis-00408c184bdb:1351589192.102223000
+              AuthorizationProfile: []
+              Attribute: []
+              Schedule: [standard_always]
+      source: https://developer.axis.com/vapix/physical-access-control/access-control-service/#setting-the-access-profile
+  remove_access_profile:
+    summary: Remove the specified `AccessProfile` items.
+    effect: write
+    write: delete
+    binding: {operation: 'pacsaxis:RemoveAccessProfile'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the AccessProfile items to remove.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: AccessProfile is not found., kind: not_found}
+  get_authentication_profile_info_list:
+    summary: This operation requests a list of all `AuthenticationProfileInfo` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'tac:GetAuthenticationProfileInfoList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AuthenticationProfileInfo:
+          type: array
+          items: {$ref: '#/types/AuthenticationProfileInfo'}
+          description: List of AuthenticationProfileInfo items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_authentication_profile_info:
+    summary: This operation requests a list of `AuthenticationProfileInfo` items matching the given tokens.
+    description: An ONVIF compliant device which provides Access Control service shall implement this method. The
+      device shall ignore tokens it cannot resolve and shall return an empty list if there are no items matching
+      specified tokens. The device shall not return a fault in this case. If the number of requested items is greater
+      than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'tac:GetAuthenticationProfileInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AuthenticationProfileInfo items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AuthenticationProfileInfo:
+          type: array
+          items: {$ref: '#/types/AuthenticationProfileInfo'}
+          description: List of AuthenticationProfileInfo items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  get_authentication_profile_list:
+    summary: This operation requests a list of all `AuthenticationProfile` items provided by the device.
+    description: An ONVIF compliant device which provides the Access Control service shall implement this method.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. See section Retrieving system configuration.
+      The number of items returned shall not be greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'tac:GetAuthenticationProfileList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, less than one or higher than what
+            the device supports, the number of items is determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AuthenticationProfile:
+          type: array
+          items: {$ref: '#/types/AuthenticationProfile'}
+          description: List of AuthenticationProfile items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+    examples:
+    - title: List the default authentication profiles
+      request:
+        params: {}
+      response:
+        data:
+          AuthenticationProfile:
+          - token: CardOnly
+            Name: CardOnly
+            Description: Card only
+            IdFactor:
+            - {IdDataName: Card, IdMatchOperatorName: IdDataEqual, OperatorValue: ''}
+            Schedule: [standard_always]
+          - token: PINOnly
+            Name: PINOnly
+            Description: PIN only
+            IdFactor:
+            - {IdDataName: PIN, IdMatchOperatorName: IdDataEqual, OperatorValue: ''}
+            Schedule: [standard_always]
+          - token: CardPlusPin
+            Name: CardPlusPin
+            Description: Card + PIN
+            IdFactor:
+            - {IdDataName: Card, IdMatchOperatorName: IdDataEqual, OperatorValue: ''}
+            - {IdDataName: PIN, IdMatchOperatorName: IdDataEqual, OperatorValue: ''}
+            Schedule: [standard_always]
+          - token: REXOnly
+            Name: REXOnly
+            Description: REX only
+            IdFactor:
+            - {IdDataName: REX, IdMatchOperatorName: OperatorValueEqual, OperatorValue: Active}
+            Schedule: [standard_always]
+      source: https://developer.axis.com/vapix/physical-access-control/access-control-service/#retrieve-default-configuration
+  get_authentication_profile:
+    summary: This operation requests a list of `AuthenticationProfile` items matching the given tokens.
+    description: An ONVIF compliant device which provides Access Control service shall implement this method. The
+      device shall ignore tokens it cannot resolve and shall return an empty list if there are no items matching
+      specified tokens. The device shall not return a fault in this case. If the number of requested items is greater
+      than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'tac:GetAuthenticationProfile'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AuthenticationProfile items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AuthenticationProfile:
+          type: array
+          items: {$ref: '#/types/AuthenticationProfile'}
+          description: List of AuthenticationProfile items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  set_authentication_profile:
+    summary: Set (adds or modifies) the supplied list of `AuthenticationProfile` items to the internal storage/database.
+    description: If the token attribute is empty, a new unique token will be generated by the service. All supplied
+      and generated tokens are returned.
+    effect: write
+    write: replace
+    binding: {operation: 'tac:SetAuthenticationProfile'}
+    params:
+      type: object
+      required: [AuthenticationProfile]
+      properties:
+        AuthenticationProfile:
+          type: array
+          items: {$ref: '#/types/AuthenticationProfile'}
+          description: List of AuthenticationProfile items to set.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: List of supplied and generated tokens
+  remove_authentication_profile:
+    summary: Remove the specified `AuthenticationProfile` items.
+    effect: write
+    write: delete
+    binding: {operation: 'tac:RemoveAuthenticationProfile'}
+    params:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: List of tokens for the AuthenticationProfile items to remove If list is empty, no profiles
+            will be removed.
+    errors:
+      ter:NotFound: {description: AuthenticationProfile is not found., kind: not_found}
+  get_id_match_operators:
+    summary: Returns the `IdMatchOperator` items supported by the service.
+    effect: read
+    binding: {operation: 'pacsaxis:GetIdMatchOperators'}
+    result:
+      type: object
+      properties:
+        IdMatchOperator:
+          type: array
+          items: {$ref: '#/types/IdMatchOperator'}
+          description: List of supported IdMatchOperator items.
+  get_rule_operators:
+    summary: Returns the `RuleOperator` items supported by the service.
+    effect: read
+    binding: {operation: 'pacsaxis:GetRuleOperators'}
+    result:
+      type: object
+      properties:
+        RuleOperator:
+          type: array
+          items: {$ref: '#/types/RuleOperator'}
+          description: List of supported RuleOperator items.
+  get_access_controller_configuration_list:
+    summary: This operation requests a list of all of `AccessControllerConfiguration` items provided by the device.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessControllerConfigurationList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, or higher than what the device supports,
+            the number of items shall be determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AccessControllerConfiguration:
+          type: array
+          items: {$ref: '#/types/AccessControllerConfiguration'}
+          description: List of AccessControllerConfiguration items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client need to start fetching from the beginning.
+        kind: invalid_argument
+    examples:
+    - title: Get the default access controller configuration
+      request:
+        params: {}
+      response:
+        data:
+          AccessControllerConfiguration:
+          - token: Axis-00408c184bdb AccessController
+            DeviceUUID: 5581ad80-95b0-11e0-b883-00408c184bdb
+            Configuration: []
+      source: https://developer.axis.com/vapix/physical-access-control/access-control-service/#retrieve-default-configuration
+  get_access_controller_configuration:
+    summary: This operation request a list of `AccessControllerConfiguration` items matching the given tokens.
+    description: The device shall ignore tokens it cannot resolve and may return an empty list if there are no items
+      matching specified tokens. If the number of requested items is greater than the max limit supported, a `TooManyItems`
+      fault shall be returned
+    effect: read
+    binding: {operation: 'pacsaxis:GetAccessControllerConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessControllerConfiguration items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        AccessControllerConfiguration:
+          type: array
+          items: {$ref: '#/types/AccessControllerConfiguration'}
+          description: List of AccessControllerConfiguration items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see MaxLimit capability.
+        kind: invalid_argument
+  set_access_controller_configuration:
+    summary: Add/update a list of `AccessControllerConfiguration` items.
+    description: If `AccessController` items with the specified tokens already exist, they will be updated. If not,
+      they will be added. If the `Token` field of any `AccessController` is empty, the service will allocate a token
+      for the `AccessController`. All tokens are returned in the response.
+    effect: write
+    write: replace
+    binding: {operation: 'pacsaxis:SetAccessControllerConfiguration'}
+    params:
+      type: object
+      required: [AccessControllerConfiguration]
+      properties:
+        AccessControllerConfiguration:
+          type: array
+          items: {$ref: '#/types/AccessControllerConfiguration'}
+          description: The AccessControllerConfiguration items to add/update.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: The tokens of the added/updated AccessController items.
+    errors:
+      ter:InvalidArgs: {description: Invalid arguments., kind: invalid_argument}
+      ter:NotAllowed: {description: The operation is not allowed., kind: access_denied}
+  remove_access_controller_configuration:
+    summary: Remove the specified `AccessControllerConfiguration` items.
+    effect: write
+    write: delete
+    binding: {operation: 'pacsaxis:RemoveAccessControllerConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of AccessControllerConfiguration items to get.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: AccessController not found., kind: not_found}
+  get_credential_statistics:
+    summary: Get statistics related to the `Credential` items in the system.
+    effect: read
+    binding: {operation: 'pacsaxis:GetCredentialStatistics'}
+    result:
+      type: object
+      required: [CredentialStatistics]
+      properties:
+        CredentialStatistics: {$ref: '#/types/CredentialStatistics'}
+  get_master_db_state:
+    summary: Returns the current state of the `MasterDB`.
+    effect: read
+    binding: {operation: 'pacsaxis:GetMasterDBState'}
+    result:
+      type: object
+      required: [NbrTotalPages, NbrFreePages, SizeOnDisk]
+      properties:
+        NbrTotalPages: {type: integer, description: Number of total pages in the database.}
+        NbrFreePages: {type: integer, description: Number of free pages in the database.}
+        SizeOnDisk: {type: integer, description: Number of bytes the database occupies on disk.}
+  re_open_master_db:
+    summary: 'Reopens the `MasterDB`, optionally: \* deleting the current database \* opening the new one in a specified
+      path and \* enabling encryption with a specific key.'
+    effect: action
+    binding: {operation: 'pacsaxis:ReOpenMasterDB'}
+    result:
+      type: object
+      required: [NbrTotalPages, NbrFreePages, SizeOnDisk]
+      properties:
+        NbrTotalPages: {type: integer, description: Number of total pages in the database.}
+        NbrFreePages: {type: integer, description: Number of free pages in the database.}
+        SizeOnDisk: {type: integer, description: Number of bytes the database occupies on disk.}
+  reset_antipassback_violation:
+    summary: Reset anti-passback for the specified credential(s).
+    description: If the credential is currently not in anti-passback violation, nothing happens.
+    effect: action
+    binding: {operation: 'pacsaxis:ResetAntipassbackViolation'}
+    params:
+      type: object
+      required: [CredentialToken]
+      properties:
+        CredentialToken: {$ref: '#/types/ReferenceToken', description: Token of Credential}
+    errors:
+      ter:NotFound: {description: Credential token, kind: not_found}
+  reset_all_antipassback_violations:
+    summary: Reset anti-passback for all credentials.
+    effect: action
+    binding: {operation: 'pacsaxis:ResetAllAntipassbackViolations'}
+  get_antipassback_data_list:
+    summary: This operation requests a list of all of `AntipassbackData` items provided by the device.
+    effect: read
+    binding: {operation: 'pacsaxis:GetAntipassbackDataList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, or greater than the device supports,
+            the number of items shall be determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        AntipassbackData:
+          type: array
+          items: {$ref: '#/types/AntipassbackData'}
+          description: List of AntipassbackData items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. Client needs to start fetching from the beginning.
+        kind: invalid_argument
+  set_antipassback_data:
+    summary: set_antipassback_data
+    effect: write
+    write: replace
+    binding: {operation: 'pacsaxis:SetAntipassbackData'}
+    params:
+      type: object
+      required: [AntipassbackData]
+      properties:
+        AntipassbackData:
+          type: array
+          items: {$ref: '#/types/AntipassbackData'}
+          description: List of AntipassbackData to set
+          minItems: 1
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/access-control-service/
+  sha256_md: bad333ab43a4be1d0d81e7842a7712664fe94b17d47936c9e3887df9a322642f
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+  sha256_md: df3688f4c13448b099bd1126f31cc26e1eaaae943bf21565bea22dc0dad6d998
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+  sha256_md: e2e79ca5367f918095d6ca5dcd68e85139497cd21469b2eaf7e2569999617080
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The access classes (PRE_AUTH, READ_SYSTEM, READ_SYSTEM_SENSITIVE, READ_SYSTEM_SECRET, ACTUATE, WRITE_SYSTEM)
+    are not mapped to VAPIX roles; GetServiceCapabilities (PRE_AUTH) is anonymous and the API default admin is kept
+    for the rest.
+  - 'Tokens are optional on the entity types: the JSON examples add entities without a token and the device returns
+    the allocated one, while the XML shows token="".'
+  - The 'following fields are available' lists are not clear about which fields are always present, so only identifiers
+    and names are required; examples show empty lists and empty strings for the rest.
+  - SetCredentialResponse is documented as Credential items, while the system-integration examples return a Token
+    list; both fields are optional in the result.
+  - GetCredentialListResponse is documented as CredentialInfo items.
+  - SetAccessPointResponse Token multiplicity is [1][unbounded] while the other Set responses use [0][unbounded].
+  - Guide examples call pacsaxis:SetAuthenticationProfile while the API section documents the operation in namespace
+    tac; the tac name is bound.
+  - AntipassbackData.PassOkThreshold is 'in microseconds' (xs:long) in the guide and 'in seconds' in the API section;
+    the unit is unresolved. Violation has no documented type (the example shows an empty string); AntiPassbackTimeout
+    has a '0..tdb' range in the docs.
+  - The API section names the predefined profile CardPlusPIN, while the default configuration shows CardPlusPin
+    and REXOnly.
+  - The Configuration entries of AccessControllerConfiguration are not documented; they are modelled as name and
+    value pairs by analogy with DoorConfiguration.
+  - ValidFrom and ValidTo are dateTime values shown as ISO 8601 strings (for example 1997-01-01T00:00:00Z) and may
+    be null.
+  - Types MatchOperator, MatchRule (a Field/Operator pair with no field table), Rule, AuthorizationProfile and AuthorizationProfileInfo
+    are documented but no operation uses them; Extension members and the Area and AuthenticationProfile Extension
+    are not modelled.
+  - Message tables reference types in another namespace prefix than the section the structure is documented in;
+    mapped by local name.
+  migrated_from: v1
+  curated: true
