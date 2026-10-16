@@ -312,31 +312,25 @@ def _redact_leaves(value: Any) -> Any:
     return _REDACTED
 
 
-def _body(body: Any) -> Any:
-    if body is None:
-        return None
-    if isinstance(body, JsonBody):
-        if body.sensitive:
-            return _redact_leaves(body.value)
-        return serialize(body.value)
-    if isinstance(body, FormBody):
-        return _pairs(body.fields)
-    if isinstance(body, MultipartBody):
-        return {
-            "fields": _pairs(body.fields),
-            "files": [
-                {"name": _scrub_text(f.name), "filename": _scrub_text(f.filename or ""), "size": f.length}
-                for f in body.files
-            ],
-        }
-    if isinstance(body, RawBody):
-        if isinstance(body.content, bytes):
-            return f"<{len(body.content)} bytes {_scrub_text(body.content_type)}>"
-        return f"<stream {_scrub_text(body.content_type)}>"
-    return _REDACTED
+def _redacted_file(f: FilePart) -> FilePart:
+    """A multipart file part as it may be shown: names and content type scrubbed, contents dropped."""
+    return FilePart(
+        _scrub_text(f.name), None if f.filename is None else _scrub_text(f.filename), (), _scrub_text(f.content_type), size=f.length
+    )
+
+
+def _redacted_raw(body: RawBody) -> RawBody:
+    if isinstance(body.content, bytes):
+        # An already redacted copy has no bytes but remembers their count in ``size``: scrubbing twice changes nothing.
+        size = body.size if not body.content and body.size is not None else len(body.content)
+        return RawBody(b"", _scrub_text(body.content_type), size=size)
+    return RawBody((), _scrub_text(body.content_type), size=body.size)  # an empty iterable keeps "this was a stream"
 
 
 def _redacted_body(body: Any) -> Any:
+    """THE scrub of a request body, for every place that shows one: the ``on_request`` record is a description of this and
+    the public request copy is this. Pair keys and values, file names, part names, content types and the boundary all
+    go through the same redaction; upload contents are dropped."""
     if body is None:
         return None
     if isinstance(body, JsonBody):
@@ -344,11 +338,32 @@ def _redacted_body(body: Any) -> Any:
     if isinstance(body, FormBody):
         return FormBody(tuple(_shown_pair(k, v) for k, v in body.fields))
     if isinstance(body, MultipartBody):
-        files = tuple(FilePart(f.name, f.filename, b"", f.content_type, size=f.length) for f in body.files)
-        return MultipartBody(tuple(_shown_pair(k, v) for k, v in body.fields), files, body.boundary)
+        boundary = None if body.boundary is None else _scrub_text(body.boundary)
+        return MultipartBody(tuple(_shown_pair(k, v) for k, v in body.fields), tuple(_redacted_file(f) for f in body.files), boundary)
     if isinstance(body, RawBody):
-        return RawBody(b"", body.content_type, size=body.size if body.size is not None else (len(body.content) if isinstance(body.content, bytes) else None))
+        return _redacted_raw(body)
     return None
+
+
+def _body(body: Any) -> Any:
+    """The ``on_request`` description of a body: a view of ``_redacted_body``, so the record and the public copy agree."""
+    if body is None:
+        return None
+    shown = _redacted_body(body)
+    if shown is None:
+        return _REDACTED
+    if isinstance(shown, JsonBody):
+        return shown.value
+    if isinstance(shown, FormBody):
+        return [list(pair) for pair in shown.fields]
+    if isinstance(shown, MultipartBody):
+        return {
+            "fields": [list(pair) for pair in shown.fields],
+            "files": [{"name": f.name, "filename": f.filename or "", "size": f.length} for f in shown.files],
+        }
+    assert isinstance(body, RawBody) and isinstance(shown, RawBody)
+    kind = f"{shown.size} bytes" if isinstance(body.content, bytes) else "stream"
+    return f"<{kind} {shown.content_type}>"
 
 
 def redact_request(request: Request) -> Request:
