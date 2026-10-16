@@ -62,7 +62,7 @@ def text(name: str, value: Any, *, allow_empty: bool = False) -> str:
     return value
 
 
-def header_safe_secret(name: str, value: str, *, inner_space: bool = False) -> str:
+def header_safe_secret(name: str, value: str, *, inner_space: bool = False, ascii_only: bool = False) -> str:
     """``value`` unchanged if it has no control character or stray whitespace, else a ``ConfigurationError``.
 
     Leading and trailing whitespace is always refused (a secret read from a file keeps its newline or a space); so is
@@ -78,6 +78,8 @@ def header_safe_secret(name: str, value: str, *, inner_space: bool = False) -> s
         raise ConfigurationError(f"{name} has leading or trailing whitespace (strip it when reading it from a file)")
     if not inner_space and any(c.isspace() for c in value):
         raise ConfigurationError(f"{name} contains whitespace")
+    if ascii_only and not value.isascii():
+        raise ConfigurationError(f"{name} must contain only ASCII characters")
     return value
 
 

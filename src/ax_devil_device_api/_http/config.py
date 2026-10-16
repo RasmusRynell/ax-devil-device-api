@@ -36,7 +36,9 @@ class Credentials:
 
     def __post_init__(self) -> None:
         # A password read from an unset environment variable is None: refuse it instead of sending "None".
-        header_safe_secret("username", text("username", self.username))
+        # Axis user names are ASCII, and a header cannot carry anything else (httpx would fail inside the send).
+        # Passwords may be any text: Digest and Basic encode them as UTF-8.
+        header_safe_secret("username", text("username", self.username), ascii_only=True)
         header_safe_secret("password", text("password", self.password, allow_empty=True), inner_space=True)
 
     @classmethod
@@ -62,11 +64,11 @@ class BearerToken:
 
     def __post_init__(self) -> None:
         if not callable(self.token):
-            header_safe_secret("bearer token", text("token", self.token))
+            header_safe_secret("bearer token", text("token", self.token), ascii_only=True)
 
     def current(self) -> str:
         token = self.token() if callable(self.token) else self.token
-        token = header_safe_secret("bearer token", text("token", token))  # checked at every use, callable providers included
+        token = header_safe_secret("bearer token", text("token", token), ascii_only=True)  # checked at every use, callable providers included
         object.__setattr__(self, "_last", token)  # remembered only so error text can be scrubbed of it
         return token
 

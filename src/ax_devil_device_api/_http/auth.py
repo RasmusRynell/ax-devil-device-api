@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from ..errors import AuthError
+from ..errors import AuthError, ConfigurationError
 from .config import BearerToken, Credentials
 from .types import AuthPolicy
 
@@ -342,7 +342,12 @@ class _Flow(httpx.Auth):
         if not isinstance(credentials, Credentials):  # not an assert: those vanish under -O
             raise AuthError("authentication failed: a username and password are needed for this challenge")
         uri = request.url.raw_path.decode("ascii")
-        request.headers["Authorization"] = state.header(credentials, request.method, uri)
+        try:
+            request.headers["Authorization"] = state.header(credentials, request.method, uri)
+        except UnicodeEncodeError:
+            # Safety net: user names and tokens are checked as ASCII when built, so this is a challenge parameter (realm,
+            # nonce, opaque) that cannot go into a header. Never echoes the value.
+            raise ConfigurationError("an Authorization header cannot be built: non-ASCII characters in the credentials or the challenge") from None
 
     def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         owner = self._owner
