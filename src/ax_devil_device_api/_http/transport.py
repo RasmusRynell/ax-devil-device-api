@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import inspect
+import logging
 import secrets
 import ssl
+import sys
 import threading
 import time
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable, Iterator
@@ -119,6 +121,40 @@ def _scrub(text: str, secrets: Iterable[str]) -> str:
     for secret in sorted({s for s in secrets if len(s) >= 3}, key=len, reverse=True):
         text = text.replace(secret, "<redacted>")
     return text
+
+
+_logger = logging.getLogger("ax_devil_device_api")
+
+
+def _suppressed_close(error: httpx.TransportError) -> None:
+    _logger.debug("closing the response failed while another error was being handled: %s", errors.display_text(f"{type(error).__name__}: {error}"))
+
+
+def _close_failure(close: Callable[[], None], config: ConnectionConfig, request: Request, *, active: bool) -> errors.TransportError | None:
+    """Close a response. A failure of the close itself must never replace the error that caused the teardown (``active``):
+    then it is only logged. When closing is the primary operation it becomes a library error, built outside the
+    ``except`` block so nothing chains to the httpx exception."""
+    try:
+        close()
+    except httpx.TransportError as error:
+        if active:
+            _suppressed_close(error)
+            return None
+        return map_error(error, _request_secrets(config, request))
+    return None
+
+
+async def _aclose_failure(
+    close: Callable[[], Awaitable[None]], config: ConnectionConfig, request: Request, *, active: bool
+) -> errors.TransportError | None:
+    try:
+        await close()
+    except httpx.TransportError as error:
+        if active:
+            _suppressed_close(error)
+            return None
+        return map_error(error, _request_secrets(config, request))
+    return None
 
 
 def _request_secrets(config: ConnectionConfig, request: Request) -> tuple[str, ...]:
@@ -601,7 +637,9 @@ class SyncTransport:
                 else:
                     yield _response(raw, request, b""), self._chunks(raw, request)
             finally:
-                raw.close()
+                closing = _close_failure(raw.close, self.config, request, active=sys.exc_info()[1] is not None)
+                if closing is not None:
+                    raise closing
 
     @contextmanager
     def open_ws(
@@ -772,7 +810,9 @@ class AsyncTransport:
                 else:
                     yield _response(raw, request, b""), self._chunks(raw, request)
             finally:
-                await raw.aclose()
+                closing = await _aclose_failure(raw.aclose, self.config, request, active=sys.exc_info()[1] is not None)
+                if closing is not None:
+                    raise closing
 
     @asynccontextmanager
     async def open_ws(

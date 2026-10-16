@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import AsyncExitStack, ExitStack
@@ -20,7 +21,7 @@ from .._http.debug import public_response, redact_path
 from .._http.options import RetryPolicy
 from .._http.types import Request, Response, has_deferred, release_deferred, resolve_deferred
 from .._protocols.base import CallFlow, Operation, StreamDecoder
-from ..errors import ConnectionFailed, ReadTimeout, TransportError
+from ..errors import ConnectionFailed, ReadTimeout, TransportError, display_text
 
 logger = logging.getLogger("ax_devil_device_api")
 
@@ -89,7 +90,14 @@ class StreamResult(Generic[T]):
     def close(self) -> None:
         if not self._closed:
             self._closed = True
-            self._stack.close()
+            active = sys.exc_info()[1] is not None
+            try:
+                self._stack.close()
+            except Exception as failure:
+                if not active:
+                    raise
+                # Closing failed while another error was being handled: that error is the one to report.
+                logger.debug("closing the stream failed while another error was being handled: %s", display_text(f"{type(failure).__name__}: {failure}"))
 
 
 class AsyncStreamResult(Generic[T]):
@@ -135,6 +143,8 @@ class AsyncStreamResult(Generic[T]):
     async def aclose(self) -> None:
         if self._closed:
             return
+        # Read here, in the caller's context: the teardown below runs in a task of its own, which cannot see it.
+        active = sys.exc_info()[1] is not None
         # The teardown is a task of its own: cancelling the caller (even with a direct ``Task.cancel()``, which an
         # AnyIO shield does not stop) cannot interrupt it half way. A second aclose() awaits the same task. The
         # result is marked closed only after the teardown finished; the cancellation is re-raised after that.
@@ -148,9 +158,16 @@ class AsyncStreamResult(Generic[T]):
             except asyncio.CancelledError as error:
                 if not task.cancelled():
                     cancelled = error  # the caller was cancelled (again): keep waiting for the teardown
+            except Exception:
+                pass  # the teardown itself failed: its error is handled below, once it is known whether another is active
         self._closed = True
         if not task.cancelled():
-            task.result()
+            failure = task.exception()
+            if failure is not None:
+                if not active:
+                    raise failure
+                # Closing failed while another error was being handled: that error is the one to report.
+                logger.debug("closing the stream failed while another error was being handled: %s", display_text(f"{type(failure).__name__}: {failure}"))
         if cancelled is not None:
             raise cancelled
 
