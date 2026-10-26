@@ -10,7 +10,24 @@ The API modules (208 of them, about 1,900 operations) are generated from YAML sp
 
 See also [ax-devil-mqtt](https://github.com/rasmusrynell/ax-devil-mqtt) and [ax-devil-rtsp](https://github.com/rasmusrynell/ax-devil-rtsp).
 
-> **Status: pre-release rewrite (1.0.0.dev0).** This is a complete rewrite of the 0.x library, with no backwards compatibility: the old `Client`, `DeviceConfig` and CLI are gone. The generated APIs follow the VAPIX documentation and have not yet been validated against real devices (every operation is marked `docs-only`). Expect breaking changes.
+> **Status: pre-release rewrite (1.0.0.dev0).** This is a complete rewrite of the 0.x library, with no backwards compatibility: the old `Client`, `DeviceConfig` and CLI are gone. API modules are automatically generated from documentation-derived specs, not from verified device behavior. Only a small subset has been checked on real hardware; every operation is still marked `docs-only`. Expect errors and breaking changes.
+
+## Hardware Verification and Reporting Problems
+
+Automated tests check the runtime and documented request/response examples against fake devices. They do not prove that every generated operation works on real devices. Limited read-only checks have run on an AXIS Q1656 with AXIS OS 13.1 snapshot firmware; [the hardware report](https://github.com/RasmusRynell/ax-devil-device-api/pull/2#issuecomment-6218886657) distinguishes checks at the PR head from earlier results. Discovery saying an API is supported does not mean its operations have been tested.
+
+Not yet established on real hardware:
+
+- All generated APIs and operations, or compatibility across device models and firmware versions.
+- Digest authentication, successful TLS with certificate verification enabled, plain HTTP, rejected credentials, and bearer tokens.
+- Actual event WebSocket notifications, filters, heartbeat failure detection, reconnect gaps, session-token authentication, and Device Data Hub sessions.
+- Plain REST API families, line/multipart-line/SSE streams, sustained streaming, and more than two concurrent streams. Async cancellation and reopening were checked only on an earlier commit.
+- Writes and actions, including read-modify-write preservation of masked secrets, uploads and their authentication preflight, PTZ, audio, firmware operations, and MQTT configuration.
+- Device-specific details such as ACAP discovery names, radar pairing paths, bare query keys, empty DCA bodies and arrays, CGI error replies, PTZ number encoding and locator properties, the two network-settings APIs, and beta DCA discovery versions.
+
+Use a bench device and explicitly approve state-changing operations before testing them. Some writes replace an entire configuration.
+
+Found a problem? [Open an issue](https://github.com/RasmusRynell/ax-devil-device-api/issues/new) or [submit a pull request](https://github.com/RasmusRynell/ax-devil-device-api/compare). Include the library version or commit, device model and firmware, API and operation, a minimal reproduction, and expected versus actual behavior. Attach sanitized errors or request/response details when possible; never include credentials, tokens, private keys, or sensitive device data. For a generated API mismatch, change the source spec rather than the generated module; see [the spec and patch workflow](docs/design.md#8-specs-patches-and-the-generator). Reports without a proposed fix are welcome.
 
 ## Install
 
