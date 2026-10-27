@@ -1,0 +1,220 @@
+format: 2
+id: connection-service
+name: Connection service
+summary: Door controllers can be interconnected to create door controller networks.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: connection_service
+  class: ConnectionService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/connection-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+access: admin
+
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/connection'}
+
+binding: {path: /vapix/aconn}
+
+types:
+  PeerTrustState:
+    type: string
+    description: The trust state of a peer.
+    enum: [NotInPeerNetwork, AddingToPeerNetwork, InitialSyncWithPeerNetwork, InPeerNetwork, RemovingFromPeerNetwork]
+  PeerConnectionState:
+    type: string
+    description: The connection state of a peer.
+    enum: [Disconnected, PairingFailed, Connected]
+  Peer:
+    type: object
+    description: The configuration of a peer. When adding peers only ID and ExpectedAddress are given.
+    x-read-only: [LastKnownAddress, DeviceUUID, TrustState, ConnectionState]
+    properties:
+      ID: {type: string, description: 'MAC address in the form 000000000000 or 00:00:00:00:00:00. May be empty for pending peers.'}
+      ExpectedAddress:
+        type: string
+        description: IPv4 address the peer was added with. May be empty for pending peers.
+      LastKnownAddress:
+        type: string
+        description: IPv4 address the peer was last discovered at. Empty if not found during discovery.
+      DeviceUUID: {type: string, description: Device UUID of the peer. May be empty for pending peers.}
+      TrustState: {$ref: '#/types/PeerTrustState', description: Whether the peer is part of the trusted network.}
+      ConnectionState: {$ref: '#/types/PeerConnectionState', description: Whether a network link is established to the peer.}
+  PeerInfo:
+    type: object
+    description: A subset of the configuration of a peer, used to identify it.
+    properties:
+      ID: {type: string, description: 'MAC address in the form 000000000000 or 00:00:00:00:00:00.'}
+      ExpectedAddress: {type: string, description: IPv4 address.}
+
+operations:
+  get_peer_list:
+    summary: List the known peers of this door controller.
+    description: Returns the peers connected in the same door controller network as well as discovered but not connected
+      door controllers.
+    effect: read
+    binding: {operation: 'aconn:GetPeerList'}
+    result:
+      type: object
+      required: [Self]
+      properties:
+        Self: {$ref: '#/types/Peer', description: The door controller the call was made on.}
+        Peer:
+          type: array
+          items: {$ref: '#/types/Peer'}
+          description: All connected peers and discovered but disconnected peers.
+    examples:
+    - title: aconn:GetPeerList request
+      request:
+        params: {}
+      response:
+        data:
+          Self:
+            ID: 00408C184BDB
+            ExpectedAddress: ''
+            LastKnownAddress: ''
+            DeviceUUID: 5581ad80-95b0-11e0-b883-00408c184bdb
+            TrustState: InPeerNetwork
+            ConnectionState: Connected
+          Peer:
+          - ID: 00408C184C1F
+            ExpectedAddress: 192.168.0.91
+            LastKnownAddress: 192.168.0.91
+            DeviceUUID: 5581ad80-95b0-11e0-b883-00408c184c1f
+            TrustState: InPeerNetwork
+            ConnectionState: Connected
+      source: https://developer.axis.com/vapix/physical-access-control/connection-service/#list-peers
+  add_peers:
+    summary: Invite door controllers to join this door controller's network.
+    description: Starts an asynchronous process of inviting and adding the peers; success of the call does not mean the
+      peers are added yet. An event is emitted when a connection is established. Specify ExpectedAddress or ID; if both
+      are given, both must match. The majority rule applies. Joining a network replaces the access management configuration
+      of the added door controller.
+    effect: write
+    write: create
+    binding: {operation: 'aconn:AddPeers'}
+    params:
+      type: object
+      properties:
+        Peer:
+          type: array
+          items: {$ref: '#/types/Peer'}
+          description: Peers to add.
+    examples:
+    - title: Add door controller B to the network of door controller A
+      request:
+        params:
+          Peer:
+          - {ID: 00408C184C1F, ExpectedAddress: 192.168.0.91}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/connection-service/#connect-door-controllers
+  remove_peers:
+    summary: Remove peers from the door controller network.
+    description: Starts the removal process; success of the call does not mean the peers are removed yet. A peer whose
+      ExpectedAddress or ID matches is removed (ExpectedAddress is not matched against LastKnownAddress). The majority
+      rule applies, and the removed door controller ends up in stand-alone mode with its non-hardware configuration deleted.
+    effect: write
+    write: delete
+    binding: {operation: 'aconn:RemovePeers'}
+    params:
+      type: object
+      required: [Peer]
+      properties:
+        Peer:
+          type: array
+          items: {$ref: '#/types/PeerInfo'}
+          minItems: 1
+          description: Peers to remove.
+    examples:
+    - title: Remove door controller B from the network
+      request:
+        params:
+          Peer:
+          - {ID: 00408C184C1F, ExpectedAddress: 192.168.0.91}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/connection-service/#remove-peers
+  set_stand_alone_mode:
+    summary: Set whether the door controller accepts invitations to join a network.
+    description: true means the door controller does not accept requests from peers to become part of their network;
+      false means it accepts them. Already established peers are not affected.
+    effect: write
+    write: patch
+    binding: {operation: 'aconn:SetStandAloneMode'}
+    params:
+      type: object
+      required: [StandAlone]
+      properties:
+        StandAlone: {type: boolean, description: true to refuse invitations to join a network.}
+    examples:
+    - title: aconn:SetStandAloneMode request
+      request:
+        params: {StandAlone: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/connection-service/#prevent-door-controller-from-joining-door-controller-network
+  get_stand_alone_mode:
+    summary: Return the stand-alone mode state.
+    description: If the device is paired with any other device, this call always returns true.
+    effect: read
+    binding: {operation: 'aconn:GetStandAloneMode'}
+    result:
+      type: object
+      required: [StandAlone]
+      properties:
+        StandAlone: {type: boolean, description: The stand-alone mode state.}
+    examples:
+    - title: aconn:GetStandAloneMode request
+      request:
+        params: {}
+      response:
+        data: {StandAlone: true}
+      source: https://developer.axis.com/vapix/physical-access-control/connection-service/#prevent-door-controller-from-joining-door-controller-network
+  leave_network:
+    summary: Leave the door controller network without contacting the other peers.
+    description: Last-exit option for when remove_peers is not possible (for example because of the majority rule). Send
+      it to the door controller that should leave. All hardware and access management configuration is kept; only the list
+      of known remote door controllers is forgotten.
+    effect: write
+    write: delete
+    binding: {operation: 'aconn:LeaveNetwork'}
+    examples:
+    - title: aconn:LeaveNetwork request
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/connection-service/#leave-network
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/connection-service/
+  sha256_md: 0e931640ce3b419644221a8b2200ac55cc9fcd46645744b8c530f5b4cc3a1c3e
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+  sha256_md: df3688f4c13448b099bd1126f31cc26e1eaaae943bf21565bea22dc0dad6d998
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The API is only supported by AXIS A1001.
+  - The peer field table is garbled in the source (ID rendered as I`D`, TrustState and ConnectionState merged into the
+    DeviceUUID bullet); the types come from the PeerTrustState and PeerConnectionState sections and the GetPeerList example.
+  - AddPeers takes aconn:Peer, but only ID and ExpectedAddress are meaningful in the request; the other Peer fields are
+    marked read-only.
+  - Access classes are READ_SYSTEM_SENSITIVE, ACTUATE and WRITE_SYSTEM and are not mapped to VAPIX roles; the API default
+    admin is kept. No faults are documented.
+  - The sample events for peer connection changes are logged by the event logger service and are not modelled here.
+  migrated_from: v1
+  curated: true

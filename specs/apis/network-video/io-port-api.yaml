@@ -1,0 +1,238 @@
+format: 2
+id: io-port-api
+name: I/O port API
+summary: Query and activate the digital input and output ports with ``port.cgi`` and configure them with the ``IOPort.I#`` parameters.
+section: network-video
+family: cgi
+status: released
+python:
+  module: io_port
+  class: IoPort
+docs:
+  - https://developer.axis.com/vapix/network-video/input-and-outputs/
+access: viewer
+discovery:
+  - param: {name: Properties.API.HTTP.Version, value: "3"}
+requires:
+  firmware: "5.00"
+binding:
+  path: /axis-cgi/io/port.cgi
+
+types:
+  PortIds:
+    type: array
+    items: {type: integer, minimum: 1}
+    minItems: 1
+    description: Port IDs. Port numbering in ``port.cgi`` requests and replies starts from 1; the ``IOPort.I#`` groups start from 0, so port n is ``IOPort.I(n-1)``.
+
+operations:
+  check_ports:
+    summary: 'Circuit state of ports as ``{"port1": "0"}``: 1 closed circuit, 0 open circuit.'
+    effect: read
+    binding:
+      method: GET
+      accept: text/plain
+      reply: text_kv
+    params:
+      type: object
+      required: [check]
+      properties:
+        check:
+          $ref: "#/types/PortIds"
+          x-style: csv
+    positional: [check]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+      - title: Check status of port 1 and 2
+        request: {query: {check: "1,2"}}
+        response: {status: 200, text: "port1=0\nport2=0"}
+        source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+
+  monitor_ports:
+    summary: Monitor ports and receive their state changes as a stream of lines.
+    description: >-
+      Returns a ``multipart/x-mixed-replace`` stream; each line is ``<port id><I|O>:<action>``, where the action
+      character is ``/`` or ``H`` for active and a backslash or ``L`` for inactive. Empty parts are sent every 15
+      seconds. Input and output ports must be monitored separately. Use the result as a context manager.
+    effect: read
+    binding:
+      method: GET
+      reply: {stream: {decoder: lines, encoding: utf-8}}
+    params:
+      type: object
+      required: [monitor]
+      properties:
+        monitor:
+          $ref: "#/types/PortIds"
+          x-style: csv
+    positional: [monitor]
+    examples:
+    - title: Monitor input port 3
+      request: {query: {monitor: '3'}}
+      response:
+        status: 200
+        content_type: multipart/x-mixed-replace; boundary=ioboundary
+        text: "--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:/\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:H\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:\\\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n3I:L\r\n\r\n--ioboundary\r\nContent-Type: text/plain\r\n\r\n\r\n--ioboundary--\r\n"
+        items: ["3I:/", "3I:H", "3I:\\", "3I:L"]
+      source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+
+  check_ports_active:
+    summary: 'Whether ports are active as ``{"port3": "inactive"}``.'
+    description: >-
+      Depends on ``Output.Active`` for an output and ``Input.Trig`` for an input: an output with ``Output.Active``
+      closed is active when its circuit is closed, and likewise for an input with ``Input.Trig`` closed.
+    effect: read
+    binding:
+      method: GET
+      accept: text/plain
+      reply: text_kv
+    params:
+      type: object
+      required: [checkactive]
+      properties:
+        checkactive:
+          $ref: "#/types/PortIds"
+          x-style: csv
+    positional: [checkactive]
+    result: {type: object, additionalProperties: {type: string, enum: [active, inactive]}}
+    examples:
+      - title: Check if port 3 is active
+        request: {query: {checkactive: "3"}}
+        response: {status: 200, text: port3=inactive}
+        source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+
+  check_ports_direction:
+    summary: 'Direction of ports as ``{"port1": "input"}``.'
+    effect: read
+    binding:
+      method: GET
+      accept: text/plain
+      reply: text_kv
+    params:
+      type: object
+      required: [checkdirection]
+      properties:
+        checkdirection:
+          $ref: "#/types/PortIds"
+          x-style: csv
+    positional: [checkdirection]
+    result: {type: object, additionalProperties: {type: string, enum: [input, output]}}
+
+  run_output_action:
+    summary: Activate or deactivate an output port, optionally as timed pulses.
+    description: >-
+      ``action`` is ``[<port>]:<a>[<wait><a>...]``: ``<port>`` is the port number (output 1 when omitted), ``<a>`` is
+      ``/`` for active or ``\`` for inactive, and ``<wait>`` is a delay in milliseconds before the next action.
+      For example ``2:/300\`` sets port 2 active, waits 300 ms and sets it inactive; ``2:/300\500/300\`` makes two
+      300 ms pulses 500 ms apart. Valid for output ports only. The reply body is empty.
+    effect: action
+    binding:
+      method: GET
+      reply: text
+    params:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          pattern: ^[0-9]*:[/\\]([0-9]+[/\\])*$
+          description: The action string.
+    positional: [action]
+    examples:
+      - title: Set port 2 active for 300 ms
+        request: {query: {action: '2:/300\'}}
+        response: {status: 200, text: ""}
+        source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+
+  list_port_parameters:
+    summary: 'Port parameters as ``{"IOPort.I0.Direction": "output"}`` (``root.`` removed).'
+    description: >-
+      Groups: ``IOPort.I#`` (``Configurable``, ``Direction``, ``Usage``, ``Input.Name``, ``Input.Trig``,
+      ``Output.Name``, ``Output.Active``, ``Output.Button``, ``Output.PulseTime``, ``Output.DelayTime``,
+      ``Output.Mode``), ``Input.NbrOfInputs`` and ``Output.NbrOfOutputs`` (readable by viewers). ``#`` starts from 0.
+    access: operator
+    effect: read
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: list}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: array
+          items: {type: string}
+          minItems: 1
+          x-style: csv
+          description: Parameter groups to list, e.g. ``IOPort.I0`` or ``Input.NbrOfInputs``.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+      - title: Retrieve information about port 1
+        request: {query: {group: IOPort.I0}}
+        response:
+          status: 200
+          text: |-
+            root.IOPort.I0.Configurable=yes
+            root.IOPort.I0.Direction=output
+            root.IOPort.I0.Input.Name=Input 1
+            root.IOPort.I0.Input.Trig=closed
+            root.IOPort.I0.Output.Name=Output 1
+            root.IOPort.I0.Output.Active=open
+            root.IOPort.I0.Output.Button=actinact
+            root.IOPort.I0.Output.PulseTime=0
+        source: https://developer.axis.com/vapix/network-video/input-and-outputs/#http-api
+      - title: Check number of configured inputs
+        request: {query: {group: Input.NbrOfInputs}}
+        response: {status: 200, text: Input.NbrOfInputs=3}
+        source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+      - title: Check number of configured outputs
+        request: {query: {group: Output.NbrOfOutputs}}
+        response: {status: 200, text: Output.NbrOfOutputs=1}
+        source: https://developer.axis.com/vapix/network-video/input-and-outputs/#common-examples
+
+  update_port_parameters:
+    summary: 'Set port parameters, e.g. ``{"IOPort.I2.Direction": "output"}``.'
+    description: >-
+      Only the given parameters change. Writing needs administrator access. ``Direction`` and the names and
+      ``Usage`` can only be written for configurable ports.
+    access: admin
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/param.cgi
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+    examples:
+      - title: Configure port 2 to act as output
+        request: {query: {IOPort.I2.Direction: output}}
+        response: {status: 200, text: OK}
+        source: https://developer.axis.com/vapix/network-video/input-and-outputs/#http-api
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/input-and-outputs/
+    sha256_md: f2d3a405216420a7ca76179dacbfc2693bd78edc1c5cde37ff851c32da4c12ab
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: partial
+  open_questions:
+    - The page also covers the General purpose I/O service (SOAP) and the Virtual input API; those belong to other specs and are not modelled here.
+    - The identification says IOPort.In.Configurable=yes, which is probably IOPort.I#.Configurable.
+    - The "Properties parameters" table (ManualTriggerNbr) does not give the full parameter group path.
+    - The check, checkactive, checkdirection and monitor valid-value cells have unbalanced brackets (doc typos).
+    - Digital input events use zero-based source numbers while port.cgi counts from 1.
+    - Security levels of the IOPort.I# parameters are listed as admin read/write and operator read.
+    - The IOPort.I# parameter names carry the port index, so values are passed and returned as maps instead of typed models.
+    - Output Port action (event action ids com.axis.action.fixed.io.toggle and com.axis.action.unlimited.io.toggle) is an event-system action and not a CGI call.
+  migrated_from: v1
+  curated: true

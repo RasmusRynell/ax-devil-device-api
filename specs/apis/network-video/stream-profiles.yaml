@@ -1,0 +1,193 @@
+format: 2
+id: stream-profiles
+name: Stream profiles
+summary: Create and manage stream profiles (named sets of video stream request parameters) via /axis-cgi/streamprofile.cgi.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: stream_profiles
+  class: StreamProfiles
+docs:
+- https://developer.axis.com/vapix/network-video/stream-profiles/
+access: operator
+discovery:
+- {api_discovery: stream-profiles}
+
+binding:
+  path: /axis-cgi/streamprofile.cgi
+  major: 1
+  versions: ['1.0', '1.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Application error. The application failed to return or set the configuration., kind: internal}
+  2000: {description: Unsupported version. The major version number is not supported., kind: unsupported}
+  2001: {description: Invalid format. The request does not follow the JSON schema., kind: invalid_argument}
+  2002: {description: "Incoherent configuration. Parts of the configuration contradict each other, for example several profiles with the same name.", kind: invalid_argument}
+  2003: {description: Missing parameter. A mandatory parameter is missing., kind: invalid_argument}
+  2004: {description: Invalid parameter. A parameter has an invalid value., kind: invalid_argument}
+  2005: {description: Unsupported method., kind: unsupported}
+  2006: {description: Profile does not exist., kind: not_found}
+
+types:
+  StreamProfile:
+    type: object
+    description: A stream profile. The structure is the same in list responses and create/update requests.
+    required: [name]
+    properties:
+      name: {type: string, description: ASCII string that represents the name of the profile.}
+      description: {type: string, description: ASCII string that describes the stream profile.}
+      parameters:
+        type: string
+        description: List of parameters, separated by a &, which defines the stream profile (e.g. resolution=640x360&fps=25&rotation=180).
+  ProfileName:
+    type: object
+    description: Reference to a stream profile by name.
+    required: [name]
+    properties:
+      name: {type: string, description: ASCII string that represents the name of the profile.}
+
+operations:
+  list:
+    summary: List one, several or all stream profiles.
+    description: It is possible to list either one or multiple profiles and if the parameter streamProfileName is
+      the empty list [] all available stream profiles will be listed.
+    access: viewer
+    effect: read
+    binding: {method: list}
+    params:
+      type: object
+      required: [streamProfileName]
+      properties:
+        streamProfileName:
+          type: array
+          items: {$ref: '#/types/ProfileName'}
+          description: List of profile names whose profile needs to be listed. Empty list [] lists all profiles.
+    result:
+      type: object
+      required: [streamProfile]
+      properties:
+        streamProfile:
+          type: array
+          items: {$ref: '#/types/StreamProfile'}
+        maxProfiles: {type: integer, description: Maximum number of supported stream profiles.}
+    examples:
+    - title: Backup - request all stream profiles
+      request:
+        params:
+          streamProfileName: []
+      response:
+        data:
+          streamProfile:
+          - name: My full HD profile
+            description: HD profile:1920x1080
+            parameters: resolution=1920x1080
+          - name: My inverted image profile
+            description: The image is inverted
+            parameters: resolution=640x360&fps=25&rotation=180
+          - name: My high compression profile
+            description: 'Compression is max: low quality'
+            parameters: resolution=1920x1080&compression=100
+          maxProfiles: 26
+      source: https://developer.axis.com/vapix/network-video/stream-profiles/#backup-and-restore-stream-profiles
+    - title: Request a single stream profile
+      request:
+        params:
+          streamProfileName:
+          - {name: My full HD profile}
+      response:
+        data:
+          streamProfile:
+          - name: My full HD profile
+            description: HD profile:1920x1080
+            parameters: resolution=1920x1080
+          maxProfiles: 26
+      source: https://developer.axis.com/vapix/network-video/stream-profiles/#configure-an-existing-stream-profile
+  create:
+    summary: Add one or more new stream profiles.
+    description: The name of each stream profile needs to be unique, otherwise, an error will be returned.
+    effect: write
+    write: create
+    binding: {method: create}
+    params:
+      type: object
+      required: [streamProfile]
+      properties:
+        streamProfile:
+          type: array
+          items: {$ref: '#/types/StreamProfile'}
+          description: Stream profiles to create.
+    examples:
+    - title: create (syntax example)
+      request:
+        params:
+          streamProfile:
+          - name: My low resolution profile
+            description: Low resolution:640x360 and FPS:25
+            parameters: resolution=640x360&FPS=25
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stream-profiles/#create
+  update:
+    summary: Update existing stream profiles.
+    description: You can not rename a profile unless you first delete it and create a new one with the required
+      name.
+    effect: write
+    write: patch
+    binding: {method: update}
+    params:
+      type: object
+      required: [streamProfile]
+      properties:
+        streamProfile:
+          type: array
+          items: {$ref: '#/types/StreamProfile'}
+          description: Stream profiles to update (matched by name).
+    examples:
+    - title: Set FPS of "My full HD profile" to 30
+      request:
+        params:
+          streamProfile:
+          - name: My full HD profile
+            description: HD profile:1920x1080 with FPS:30
+            parameters: resolution=1920x1080&fps=30
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/stream-profiles/#configure-an-existing-stream-profile
+  remove:
+    summary: Remove one or several stream profiles by name.
+    effect: write
+    write: delete
+    binding: {method: remove}
+    params:
+      type: object
+      required: [streamProfileName]
+      properties:
+        streamProfileName:
+          type: array
+          items: {$ref: '#/types/ProfileName'}
+          description: List of profile names to remove.
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/stream-profiles/
+  sha256_md: 9ae5b319f75f82324282091b49ea5f25c91faa20d1bd10e49f67fb027c50e466
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - AXIS OS minimum version not stated on the page.
+  - 'Request syntax blocks for list/create are not valid JSON (missing commas after "method": "list" and after description);
+    examples treated as illustrative.'
+  - Doc does not say whether params.streamProfileName may be omitted for list (only that [] lists all).
+  - Create example uses parameter key 'FPS=25' (uppercase) while other examples use 'fps='; case sensitivity of
+    stream parameters not stated.
+  - getSupportedVersions response example shows apiVersion 1.1 while all other examples use 1.0.
+  - 'update: the docs do not say whether omitted description/parameters keep their values (patch) or are cleared (replace); treated as patch, name is the key.'
+  - 'Only name is treated as required in a profile and only streamProfile as always present in list results; the docs state no guarantees for the rest.'
+  - 'Per-method security levels: list and getSupportedVersions allow Viewer; create, update and remove require Operator.'
+  migrated_from: v1
+  curated: true

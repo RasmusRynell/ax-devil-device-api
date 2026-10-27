@@ -1,0 +1,276 @@
+format: 2
+id: virtualhost-config
+name: Virtual Host
+summary: Create, list, modify and remove virtual hosts, each with its own authentication scheme (basic, digest or OpenID Connect).
+section: device-configuration
+family: dca
+status: released
+python:
+  module: virtualhost
+  class: Virtualhost
+docs:
+- https://developer.axis.com/vapix/device-configuration/virtual-host/
+access: admin
+discovery:
+- dca: {api: virtualhost, version: v1}
+
+binding: {root: /config/rest/virtualhost/v1}
+
+types:
+  AuthType:
+    type: string
+    minLength: 1
+    maxLength: 32
+    pattern: ^(basic|digest|oidc)$
+    description: Authentication type. OpenID Connect (oidc) must also be set up through its dedicated API.
+  PortType: {type: integer, minimum: 1, maximum: 65535, description: Port number.}
+  ServerNameType:
+    type: string
+    minLength: 1
+    maxLength: 64
+    pattern: ^[A-Za-z0-9-.]+$
+    description: Server name the virtual host is based on; the key of the virtual host.
+  VirtualhostEntry:
+    type: object
+    description: A configured virtual host.
+    required: [server_name]
+    properties:
+      active: {type: boolean, description: Whether the virtual host is active.}
+      auth_type: {$ref: '#/types/AuthType', description: The authentication scheme of the virtual host.}
+      port: {$ref: '#/types/PortType', description: The port the virtual host uses.}
+      server_name: {$ref: '#/types/ServerNameType', description: Server name of the virtual host.}
+  Virtualhost:
+    type: object
+    description: The whole API tree.
+    properties:
+      virtualhosts:
+        type: array
+        items: {$ref: '#/types/VirtualhostEntry'}
+  CreateVirtualHostRequest:
+    type: object
+    description: Arguments of ``create_virtual_host``.
+    required: [server_name]
+    properties:
+      active: {type: boolean, description: 'Virtual host state, active or not.'}
+      auth_type: {$ref: '#/types/AuthType', description: Authentication type.}
+      port: {$ref: '#/types/PortType', description: Port number.}
+      server_name: {$ref: '#/types/ServerNameType', description: Server name that the virtual host is based on.}
+  UpdateVirtualhostRequest:
+    type: object
+    description: Arguments of ``update_virtualhost``.
+    required: [server_name]
+    properties:
+      server_name: {$ref: '#/types/ServerNameType'}
+      active: {type: boolean, description: Whether the virtual host is active.}
+      auth_type: {$ref: '#/types/AuthType', description: The authentication scheme of the virtual host.}
+      port: {$ref: '#/types/PortType', description: The port the virtual host uses.}
+
+operations:
+  get_all:
+    summary: All configured virtual hosts.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/Virtualhost'}
+    examples:
+    - title: List virtual hosts
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            virtualhosts:
+            - {active: true, auth_type: oidc, port: 8080, server_name: example-1}
+            - {active: true, auth_type: basic, port: 8081, server_name: example-2}
+      source: https://developer.axis.com/vapix/device-configuration/virtual-host/
+    - title: List virtual hosts after reconfiguring one
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            virtualhosts:
+            - {active: true, auth_type: oidc, port: 8080, server_name: example-1}
+            - {active: true, auth_type: basic, port: 8082, server_name: example-2}
+      source: https://developer.axis.com/vapix/device-configuration/virtual-host/
+    - title: List virtual hosts after removing one
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+            virtualhosts:
+            - {active: true, auth_type: oidc, port: 8080, server_name: example-1}
+      source: https://developer.axis.com/vapix/device-configuration/virtual-host/
+  create_virtual_host:
+    summary: Create a virtual host.
+    effect: write
+    write: create
+    binding: {method: POST, path: /create_virtualHost, body: object}
+    params: {$ref: '#/types/CreateVirtualHostRequest'}
+    round_trip:
+      from: VirtualhostEntry
+    examples:
+    - title: Create a virtual host with basic authentication
+      request:
+        path: /create_virtualHost
+        body:
+          data: {active: true, auth_type: basic, port: 8081, server_name: example-2}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/virtual-host/
+    - title: Create a virtual host with OpenID Connect
+      request:
+        path: /create_virtualHost
+        body:
+          data: {active: true, auth_type: oidc, port: 8080, server_name: example-1}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/virtual-host/
+  list_virtualhosts:
+    summary: List the virtual hosts.
+    effect: read
+    binding: {method: GET, path: /virtualhosts}
+    result:
+      type: array
+      items: {$ref: '#/types/VirtualhostEntry'}
+  get_virtualhost:
+    summary: Get one virtual host.
+    effect: read
+    binding: {method: GET, path: '/virtualhosts/{server_name}'}
+    params:
+      type: object
+      x-name: ServerNameRequest
+      required: [server_name]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+    result: {$ref: '#/types/VirtualhostEntry'}
+  update_virtualhost:
+    summary: Change the active state, authentication type or port of a virtual host.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/virtualhosts/{server_name}', body: object}
+    params: {$ref: '#/types/UpdateVirtualhostRequest'}
+  remove_virtualhost:
+    summary: Remove a virtual host. Connections that used it become unreachable.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: '/virtualhosts/{server_name}'}
+    params:
+      type: object
+      x-name: ServerNameRequest
+      required: [server_name]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+    examples:
+    - title: Remove a configured virtual host
+      request: {path: /virtualhosts/example-2}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/virtual-host/
+  get_virtualhost_active:
+    summary: Whether a virtual host is active.
+    effect: read
+    binding: {method: GET, path: '/virtualhosts/{server_name}/active'}
+    params:
+      type: object
+      x-name: ServerNameRequest
+      required: [server_name]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+    result: {type: boolean}
+  set_virtualhost_active:
+    summary: Activate or deactivate a virtual host.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /virtualhosts/{server_name}/active
+      body_field: active
+      body: value
+    params:
+      type: object
+      required: [server_name, active]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+        active: {type: boolean, description: Whether the virtual host is active.}
+  get_virtualhost_auth_type:
+    summary: The authentication type of a virtual host.
+    effect: read
+    binding: {method: GET, path: '/virtualhosts/{server_name}/auth_type'}
+    params:
+      type: object
+      x-name: ServerNameRequest
+      required: [server_name]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+    result: {$ref: '#/types/AuthType'}
+  set_virtualhost_auth_type:
+    summary: Set the authentication type of a virtual host.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /virtualhosts/{server_name}/auth_type
+      body_field: auth_type
+      body: value
+    params:
+      type: object
+      required: [server_name, auth_type]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+        auth_type: {$ref: '#/types/AuthType', description: The authentication scheme of the virtual host.}
+  get_virtualhost_port:
+    summary: The port of a virtual host.
+    effect: read
+    binding: {method: GET, path: '/virtualhosts/{server_name}/port'}
+    params:
+      type: object
+      x-name: ServerNameRequest
+      required: [server_name]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+    result: {$ref: '#/types/PortType'}
+  set_virtualhost_port:
+    summary: Set the port of a virtual host.
+    effect: write
+    write: patch
+    binding:
+      method: PATCH
+      path: /virtualhosts/{server_name}/port
+      body_field: port
+      body: value
+    params:
+      type: object
+      required: [server_name, port]
+      properties:
+        server_name: {$ref: '#/types/ServerNameType'}
+        port: {$ref: '#/types/PortType', description: The port the virtual host uses.}
+    examples:
+    - title: Reconfigure a virtual host
+      request:
+        path: /virtualhosts/example-2/port
+        body: {data: 8082}
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/virtual-host/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/virtual-host/
+  sha256_md: 3d880489f37ccad2ab44daa445da3b9301aece5d32d343ac099124134b1daf5b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The docs say that altering the server_name of a virtual host changes its key, but a path key and a body field share the name server_name, so renaming is not exposed as an operation.
+  - The docs do not say which fields are required when creating a virtual host; only server_name (the key) is required here.
+  - Per-property GET and SET for server_name are not exposed (the property is the collection key).
+  migrated_from: v1
+  curated: true

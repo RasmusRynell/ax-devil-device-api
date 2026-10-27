@@ -1,0 +1,165 @@
+format: 2
+id: raid
+name: RAID Management
+summary: Set up and monitor a RAID (status, component devices, sync progress, capabilities, recreate with another
+  level); emits tnsaxis:Storage/RAID events.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: raid
+  class: Raid
+docs:
+- https://developer.axis.com/vapix/network-video/raid-management/
+access: operator
+discovery:
+- {api_discovery: raid}
+
+binding:
+  path: /axis-cgi/disks/raid.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1200: {description: Generic RAID error., kind: internal}
+  1201: {description: RAID level not supported., kind: unsupported}
+  1202: {description: Component device error., kind: internal}
+  1100: {description: Internal error., kind: internal}
+  2101: {description: Invalid JSON, kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed., kind: access_denied}
+  2107: {description: Transport level error., kind: internal}
+
+types:
+  RaidLevel: {type: string, enum: [raid0, raid1, raid5, raid6, raid10]}
+  RaidStatus:
+    type: string
+    enum: [active, degraded, syncing, failure]
+    description: active = optimal performance; degraded = missing data redundancy; syncing = synchronizing data
+      between components; failure = the RAID has failed.
+  ComponentStatus:
+    type: string
+    enum: [connected, missing, spare]
+    description: connected = available in the active RAID; missing = not detected; spare = marked as a hot-spare.
+  Component:
+    type: object
+    required: [componentId, componentStatus]
+    properties:
+      componentId: {type: string, description: The component device ID. Maps to a hard drive slot.}
+      componentStatus: {$ref: '#/types/ComponentStatus'}
+      serialNumber: {type: string}
+      capacity: {type: integer, description: Capacity in gigabytes.}
+  Raid:
+    type: object
+    required: [status]
+    properties:
+      status: {$ref: '#/types/RaidStatus'}
+      syncProgress:
+        type: integer
+        minimum: 0
+        maximum: 100
+        description: Percentage of completion during an active sync. 100 when active and not syncing; 0 when degraded
+          or failed.
+      syncTimeRemaining:
+        type: integer
+        description: Estimated seconds until an active sync finishes; 0 when not syncing.
+      raidLevel: {$ref: '#/types/RaidLevel', description: Configured RAID level.}
+      components:
+        type: array
+        items: {$ref: '#/types/Component'}
+
+  RaidStatusResult:
+    type: object
+    required: [raids]
+    properties:
+      raids:
+        type: array
+        items: {$ref: '#/types/Raid'}
+  Capabilities:
+    type: object
+    required: [raidLevels]
+    properties:
+      raidLevels:
+        type: array
+        items: {$ref: '#/types/RaidLevel'}
+  RecreateRaidOnAllComponentsRequest:
+    type: object
+    required: [raidLevel]
+    properties:
+      raidLevel: {$ref: '#/types/RaidLevel', description: The RAID level. Use ``get_capabilities`` for the supported levels.}
+
+operations:
+  get_status:
+    summary: Check the RAID state and its component devices.
+    effect: read
+    binding: {method: getStatus}
+    result: {$ref: '#/types/RaidStatusResult'}
+    examples:
+    - title: Check the RAID status
+      request:
+        params: {}
+      response:
+        data:
+          raids:
+          - status: degraded
+            syncProgress: 0
+            syncTimeRemaining: 0
+            raidLevel: raid5
+            components:
+            - {componentStatus: connected, componentId: '0', serialNumber: ABC123, capacity: 1234}
+            - {componentStatus: missing, componentId: '1', serialNumber: unknown, capacity: 0}
+            - {componentStatus: connected, componentId: '2', serialNumber: CAB312, capacity: 1234}
+      source: https://developer.axis.com/vapix/network-video/raid-management/#check-raid-status
+  get_capabilities:
+    summary: Retrieve the RAID levels the product supports.
+    effect: read
+    binding: {method: getCapabilities}
+    result: {$ref: '#/types/Capabilities'}
+    examples:
+    - title: Retrieve the supported RAID levels
+      request:
+        params: {}
+      response:
+        data: {raidLevels: [raid0, raid1, raid5, raid6, raid10]}
+      source: https://developer.axis.com/vapix/network-video/raid-management/#retrieve-capabilities
+  recreate_raid_on_all_components:
+    summary: Set up a RAID on all available components (destroys the active RAID and its data).
+    description: Stops, destroys and replaces the active RAID with a new one. Unmount the RAID first with the action ``unmount`` of ``/axis-cgi/disks/mount.cgi`` (Edge storage API).
+      Creates a logical device in a syncing state usable immediately; it must be formatted and mounted. Can create
+      a RAID on fewer components as long as the level is supported for that number.
+    access: admin
+    effect: write
+    write: replace
+    binding: {method: recreateRaidOnAllComponents}
+    params: {$ref: '#/types/RecreateRaidOnAllComponentsRequest'}
+    positional: [raidLevel]
+    examples:
+    - title: Recreate the RAID as raid10
+      request:
+        params: {raidLevel: raid10}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/raid-management/#change-raid-level
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/raid-management/
+  sha256_md: 3994b3a749756c35464b2713f612058c2166f36b9de2d0368029aa60ab870283
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - recreateRaidOnAllComponents request syntax is missing a comma after the method field.
+  - Errors 2105/2106/2107 (Authorization/Authentication/Transport) are listed in a JSON code table; HTTP status
+    for these not stated (assumed 200).
+  - RAID state event 'state' declared Type xsd:bool, but the example filter tests @Value="0".
+  - Exact number of componentXstatus items in the status event varies with hardware.
+  - AXIS OS minimum version and product applicability not stated.
+  migrated_from: v1
+  curated: true

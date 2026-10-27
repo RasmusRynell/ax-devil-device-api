@@ -1,0 +1,109 @@
+format: 2
+id: trigger-data
+name: Trigger data
+summary: (Deprecated) Configure the Axis trigger data embedded in JPEG comment headers, MPEG-4 GOV headers and H.264 SEI messages, with param.cgi.
+section: network-video
+family: cgi
+status: deprecated
+python:
+  module: trigger_data
+  class: TriggerData
+docs:
+- https://developer.axis.com/vapix/network-video/trigger-data/
+access: operator
+discovery:
+- param: {name: Properties.API.HTTP.Version, value: '3'}
+requires:
+  firmware: '5.00'
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  get_trigger_data_settings:
+    summary: 'Read trigger data parameters of a group as ``{"Image.I0.TriggerData.IOEnabled": "yes"}``.'
+    description: >-
+      ``group`` is ``Image`` (``TriggerDataEnabled``), ``Image.I#.MPEG`` (``UserDataEnabled``, ``ConfigHeaderInterval``,
+      ``UserDataInterval``) or ``Image.I#.TriggerData`` (``AudioEnabled``, ``IOEnabled``, ``MotionDetectionEnabled``,
+      ``MotionLevelEnabled``, ``TamperingEnabled``, ``VideoLossEnabled``, ``UserTriggers``), where ``#`` is the image
+      configuration, from 0 up to ``Image.NbrOfConfigs`` minus 1.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: 'The group to list, for example ``Image.I0.TriggerData``.'}
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+    - title: List the default trigger data configuration
+      request: {query: {group: Image.I0.TriggerData}}
+      response:
+        status: 200
+        text: |-
+          root.Image.I0.TriggerData.IOEnabled=yes
+          root.Image.I0.TriggerData.AudioEnabled=yes
+          root.Image.I0.TriggerData.TamperingEnabled=yes
+          root.Image.I0.TriggerData.MotionDetectionEnabled=yes
+          root.Image.I0.TriggerData.MotionLevelEnabled=no
+          root.Image.I0.TriggerData.UserTriggers=
+      source: https://developer.axis.com/vapix/network-video/trigger-data/#common-examples
+  set_trigger_data:
+    summary: 'Enable trigger data and select the triggers, e.g. ``{"Image.TriggerDataEnabled": "yes"}``.'
+    description: >-
+      ``parameters`` holds the parameters by full name: ``Image.TriggerDataEnabled`` (include trigger data in the video
+      stream, default ``no``), ``Image.I#.MPEG.UserDataEnabled`` (needed to get trigger data in H.264 and MPEG-4),
+      ``Image.I#.MPEG.ConfigHeaderInterval``, ``Image.I#.MPEG.UserDataInterval`` and the ``Image.I#.TriggerData`` parameters
+      ``AudioEnabled``, ``IOEnabled``, ``MotionDetectionEnabled``, ``MotionLevelEnabled``, ``TamperingEnabled``,
+      ``VideoLossEnabled`` and ``UserTriggers``. Values are ``yes`` or ``no``, an integer for the intervals, and
+      ``<trigger1>;<trigger2>;...`` for ``UserTriggers``. Only the given parameters change, and the product must be
+      restarted for them to take effect.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+    examples:
+    - title: Enable user data and include trigger data
+      request: {query: {Image.I0.MPEG.UserDataEnabled: 'yes', Image.TriggerDataEnabled: 'yes'}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/trigger-data/#common-examples
+    - title: Select user triggers
+      request:
+        query:
+          Image.I0.TriggerData.IOEnabled: 'yes'
+          Image.I0.TriggerData.AudioEnabled: 'yes'
+          Image.I0.TriggerData.MotionDetectionEnabled: 'no'
+          Image.I0.TriggerData.MotionLevelEnabled: 'yes'
+          Image.I0.TriggerData.TamperingEnabled: 'yes'
+          Image.I0.TriggerData.UserTriggers: M0
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/trigger-data/#common-examples
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/trigger-data/
+  sha256_md: 1862d2126a4fb1959ec020c6fe6a8989eb9d640f90ddfa6d2a5515273f59ec52
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The trigger data blocks themselves (``A0:0;IO0:1;...``) and the framing in MJPEG comments, MPEG-4 GOV headers and H.264 SEI messages arrive in the video streams, not in a CGI reply, and are out of scope for this spec.
+  - The image configuration number sits inside the parameter name (Image.I#...), which the cgi binding cannot template; set_trigger_data takes full parameter names in ``parameters``.
+  - The second param.cgi example in the docs contains ``&&`` (an empty argument); it is dropped here.
+  - The AXIS OS version field of the product information is shown as ``0x##.0x##`` (dot); its encoding is not specified.
+  - The docs show only the ``OK`` reply for update; the usual param.cgi reply is assumed for failures.
+  migrated_from: v1
+  curated: true

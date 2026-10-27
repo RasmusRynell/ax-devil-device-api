@@ -1,0 +1,91 @@
+format: 2
+id: basic-device-info-v2-config
+name: Basic device info
+summary: The VAPIX® Basic device info API makes it possible to turn on/off anonymous access to a set of Basic Device
+  Info properties on the device.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: basic_device_info_config
+  class: BasicDeviceInfoConfig
+docs:
+- https://developer.axis.com/vapix/device-configuration/basic-device-info-api/
+access: admin
+discovery:
+- dca: {api: basic-device-info, version: v2}
+
+binding: {root: /config/rest/basic-device-info/v2}
+
+types:
+  BasicDeviceInfo:
+    type: object
+    description: The whole API tree.
+    properties:
+      allowAnonymous: {type: boolean, description: Allow anonymous users to access the get properties functions}
+
+operations:
+  get_all:
+    summary: All data of the Basic device info API.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/BasicDeviceInfo'}
+    examples:
+    - title: Get root entity
+      request: {path: ''}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {allowAnonymous: false}
+      source: https://developer.axis.com/vapix/device-configuration/basic-device-info-api/
+  get_allow_anonymous:
+    summary: Whether anonymous access to the basic device info properties is allowed.
+    access: viewer
+    effect: read
+    binding: {method: GET, path: /allowAnonymous}
+    result: {type: boolean}
+    examples:
+    - title: Get the state of anonymous user access
+      request: {path: /allowAnonymous}
+      response:
+        status: 200
+        body: {status: success, data: true}
+      source: https://developer.axis.com/vapix/device-configuration/basic-device-info-api/
+  set_allow_anonymous:
+    summary: Allow or deny anonymous access to the basic device info properties.
+    description: Anonymous access goes through ``/axis-cgi/basicdeviceinfo.cgi``.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: /allowAnonymous, body_field: allowAnonymous, body: value}
+    params:
+      type: object
+      required: [allowAnonymous]
+      properties:
+        allowAnonymous: {type: boolean, description: Allow anonymous users to access the get properties functions}
+    examples:
+    - title: Enable anonymous users to access Basic Device Info
+      request:
+        path: /allowAnonymous
+        body:
+          data: true
+      response:
+        status: 200
+        body: {status: success}
+      source: https://developer.axis.com/vapix/device-configuration/basic-device-info-api/
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/basic-device-info-api/
+  sha256_md: 73fa11c8051e623a7e0afc82e08681d149745b6df660728058509f610e8af800
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'Page states the setting is enabled by default, but the GET root example shows allowAnonymous: false. Source:
+    https://developer.axis.com/vapix/device-configuration/basic-device-info-api/'
+  - 'The PATCH example on the property path sends {"data": {"allowAnonymous": true}}, but the property is a boolean and
+    the framework form is {"data": <value>}. The spec uses {"data": true}. Source:
+    https://developer.axis.com/vapix/device-configuration/basic-device-info-api/'
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,2317 @@
+format: 2
+id: zwave
+name: Z-Wave API
+summary: "Set up and use the Z-Wave network of the device: network and node management (asynchronous operations polled with getOperation), S2 and SmartStart security, and command class operations on end nodes."
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: zwave
+  class: ZWave
+docs:
+- https://developer.axis.com/vapix/network-video/z-wave-api/
+access: admin
+discovery:
+- {api_discovery: zwave}
+
+binding:
+  path: /axis-cgi/zwave.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: "Internal error (also out of memory).", kind: internal}
+  1200: {description: Z-Wave is disabled., kind: unavailable}
+  1201: {description: Open file error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed., kind: access_denied}
+  2107: {description: "Transport-level error (HTTP 4XX or 5XX)."}
+  2200: {description: Bad interface descriptor., kind: invalid_argument}
+  2201: {description: Command Class version not supported., kind: unsupported}
+  2202: {description: Bad endpoint descriptor., kind: invalid_argument}
+  2203: {description: Timeout., kind: unavailable}
+  2204: {description: Operation already in progress., kind: unavailable}
+  2205: {description: Maximum nodes reached.}
+
+types:
+  # -- shared scalars -------------------------------------------------------------
+
+  LastUpdated:
+    type: string
+    description: "Last update time in ISO 8601 basic format (YYYYMMDDThhmmss). 19700101T000000 means that no Z-Wave report was received since the server started, and the other values of the response are undefined."
+
+  DeviceSpecificKey:
+    type: string
+    pattern: "^[0-9]{5}(-[0-9]{5}){7}$"
+    description: "Device specific key (DSK): eight groups of five digits 0-9 separated by dashes (xxxxx-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx)."
+
+  SecurityKey:
+    type: string
+    enum: [S2Key0, S2Key1, S2Key2, S0LegacyKey]
+    description: "Security key of a joining device. ``S2Key0``: S2 class key 0 (unauthenticated devices). ``S2Key1``: S2 class key 1 (authenticated devices). ``S2Key2``: S2 class key 2 (access control devices). ``S0LegacyKey``: S0 legacy network key."
+
+  NodeAliveState:
+    type: string
+    enum: [alive, down, sleeping, unavailable]
+    description: "Node alive state. ``unavailable`` may show up during startup."
+
+  CommandClassName:
+    type: string
+    enum: [antiTheftUnlock, association, basic, battery, binarySwitch, centralScene, configuration, firmwareUpdate, indicator, meter, multilevelSensor, notification, wakeUp]
+    description: Short name of a controlled Z-Wave Command Class.
+
+  SensorType:
+    type: string
+    description: Multilevel sensor type short name (see the Sensor types table of the docs).
+    enum:
+    - tempSensor
+    - gpSensor
+    - luminSensor
+    - powerSensor
+    - humidSensor
+    - veloSensor
+    - directionSensor
+    - atmSensor
+    - baroSensor
+    - solarSensor
+    - dewSensor
+    - rainSensor
+    - tideSensor
+    - weightSensor
+    - voltageSensor
+    - currentSensor
+    - co2Sensor
+    - airSensor
+    - tankSensor
+    - distSensor
+    - angleSensor
+    - rotationSensor
+    - waterTempSensor
+    - soilTempSensor
+    - seismicIntSensor
+    - seismicMagSensor
+    - uvSensor
+    - elecResistivitySensor
+    - elecCondSensor
+    - loudnessSensor
+    - moistSensor
+    - frequencySensor
+    - timeSensor
+    - targetTempSensor
+    - pm2_5Sensor
+    - ch2oSensor
+    - radonSensor
+    - ch4Sensor
+    - vocSensor
+    - coLvlSensor
+    - soilHumidSensor
+    - soilReactivitySensor
+    - soilSalinitySensor
+    - heartRateSensor
+    - bloodPressureSensor
+    - muscleMassSensor
+    - fatMassSensor
+    - boneMassSensor
+    - tbwSensor
+    - bmrSensor
+    - bmiSensor
+    - xAccSensor
+    - yAccSensor
+    - zAccSensor
+    - smokeDensitySensor
+    - waterFlowSensor
+    - waterPressureSensor
+    - rfSignalSensor
+    - pm10Sensor
+    - respiratoryRateSensor
+    - relativeModSensor
+    - boilerTempSensor
+    - dhwTempSensor
+    - outsideTempSensor
+    - exhaustTempSensor
+    - chlorineLvlSensor
+    - waterAcidSensor
+    - waterOxiRedSensor
+    - lfhfRatioSensor
+    - motionSensor
+    - appliedForceSensor
+    - returnAirTempSensor
+    - supplyAirTempSensor
+    - condenserCoilTempSensor
+    - evaporatorCoilTempSensor
+    - liquidLineTemp
+    - dischargeLineTempSensor
+    - suctionPressureSensor
+    - dischargePressureSensor
+    - defrostTempSensor
+    - ozoneSensor
+    - so2Sensor
+    - no2Sensor
+    - nh3Sensor
+    - pbSensor
+    - pm1Sensor
+    - personEnteringCounter
+    - personExitingCounter
+    - unknown
+
+  MeterType:
+    type: string
+    enum: [electric, gas, water, heating, cooling]
+    description: Meter type.
+
+  MeterUnit:
+    type: string
+    enum: [eleckWh, eleckVAh, elecW, elecPulse, elecV, elecA, elecPF, elecKVar, elecKVarh, gasCM, gasCF, gasPulse, waterCM, waterCF, waterGal, waterPulse, heatkWh, coolkWh]
+    description: "Meter unit, prefixed by the meter type (for example ``eleckWh`` is electric kWh and ``waterGal`` is US gallons)."
+
+  MeterRateType:
+    type: string
+    enum: [import, export, importExport, notSupported]
+    description: "``import``: consumed measurement. ``export``: produced measurement. ``importExport``: both. ``notSupported`` is reported by devices without rate type support."
+
+  IndicatorName:
+    type: string
+    description: Indicator name (Indicator Command Class version 2 and above). See the Available indicators table of the docs.
+    enum: [armed, disarmed, ready, faulty, busy, enterID, enterPIN, codeOK, codeNotOK, armedStay, armedAway, alarm, alarmBurglar, alarmFire, alarmCO, bypassChallenge, entryDelay, exitDelay, zone1, zone2, zone3, zone4, zone5, zone6, lcdBacklight, readyForLetter, readyForDigit, readyForCommand, button1, button2, button3, button4, button5, button6, button7, button8, button9, button10, button11, button12, identify, buzzer]
+
+  IndicatorPropertyName:
+    type: string
+    enum: [level, binary, togglePeriod, toggleCycle, toggleOnTime, timeoutMinutes, timeoutSeconds, timeout100thSeconds, soundLevel, lowPower]
+    description: "Indicator property name. ``togglePeriod`` and ``toggleCycle`` must be given together. ``lowPower`` is advertised only and cannot be set."
+
+  CentralSceneKeyAttribute:
+    type: string
+    enum: [singleKeyPress, keyReleased, keyHeldDown, keyPress2Times, keyPress3Times, keyPress4Times, keyPress5Times, unknown]
+    description: Central scene key attribute.
+
+  # -- shared request shapes ------------------------------------------------------
+
+  InterfaceRequest:
+    type: object
+    required: [interfaceDescriptor]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+
+  InterfaceRefreshRequest:
+    type: object
+    required: [interfaceDescriptor]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+
+  NodeRequest:
+    type: object
+    required: [nodeDescriptor]
+    properties:
+      nodeDescriptor: {type: integer, description: The node descriptor.}
+
+  EndpointRequest:
+    type: object
+    required: [endpointDescriptor]
+    properties:
+      endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+
+  DeviceSpecificKeyRequest:
+    type: object
+    required: [deviceSpecificKey]
+    properties:
+      deviceSpecificKey: {$ref: "#/types/DeviceSpecificKey"}
+
+  AssociationMember:
+    type: object
+    required: [nodeID, endpointID]
+    properties:
+      nodeID: {type: integer, description: The node ID.}
+      endpointID: {type: integer, description: "The endpoint ID. 255 denotes a node association, anything else an endpoint association."}
+
+  AssociationRequest:
+    type: object
+    required: [interfaceDescriptor, groupID, memberCount, members]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      groupID: {type: integer, description: The group ID.}
+      memberCount: {type: integer, minimum: 0, maximum: 5, description: "The number of node/endpoint pairs in ``members`` (at most five)."}
+      members:
+        type: array
+        items: {$ref: "#/types/AssociationMember"}
+        description: The node/endpoint pairs.
+
+  IndicatorProperty:
+    type: object
+    required: [name, value]
+    properties:
+      name: {$ref: "#/types/IndicatorPropertyName"}
+      value: {type: integer, description: The property value. Valid ranges per property are listed in the docs.}
+
+  # -- network operations ---------------------------------------------------------
+
+  OperationName:
+    type: string
+    enum: [operationNone, operationInitialize, operationAddNode, operationRemoveNode, operationReplaceFailedNode, operationRemoveFailedNode, operationRefreshNetwork, operationResetNetwork, operationRefreshNode]
+    description: Network operation name.
+
+  OperationStatusName:
+    type: string
+    description: "Progress status name. Status codes are reused per operation group (generic, add node, remove node, replace failed node, network refresh)."
+    enum:
+    - operationStatusNone
+    - operationStatusError
+    - operationStatusNoNet
+    - operationStatusAborted
+    - addNodeStatusProtocolDone
+    - addNodeStatusGetNodeInfo
+    - addNodeStatusProtocolStart
+    - addNodeStatusRequestedKeyReady
+    - addNodeStatusDSKReady
+    - addNodeStatusOnBehalfRequestedKeyReady
+    - addNodeStatusOnBehalfDSKReady
+    - removeNodeStatusLearnReady
+    - removeNodeStatusFound
+    - removeNodeStatusRemoving
+    - replaceNodeStatusReady
+    - replaceNodeStatusProtocolDone
+    - replaceNodeStatusSecureInclusion
+    - replaceNodeStatusGetNodeInfo
+    - networkRefreshStatusTopology
+    - networkRefreshStatusNeighbor
+    - networkRefreshStatusGetNodeInfo
+
+  OperationInfo:
+    type: object
+    required: [code, name]
+    properties:
+      code: {type: integer, description: "Operation code (0 none, 1 initialize, 2 add node, 3 remove node, 4 replace failed node, 5 remove failed node, 7 refresh network, 8 reset network, 13 refresh node)."}
+      name: {$ref: "#/types/OperationName"}
+
+  OperationStatus:
+    type: object
+    required: [status, name]
+    properties:
+      status: {type: integer, description: "Status code. Generic codes: 0 none, -1 error, -4 network not initialized, -5 aborted; other codes depend on the operation."}
+      name: {$ref: "#/types/OperationStatusName"}
+
+  NetworkOperation:
+    type: object
+    required: [operation, operationStatus, prevOperation]
+    properties:
+      operation: {$ref: "#/types/OperationInfo", description: The current network operation.}
+      operationStatus: {$ref: "#/types/OperationStatus", description: The progress status of the current operation.}
+      prevOperation: {$ref: "#/types/OperationInfo", description: The previous network operation.}
+
+  # -- nodes, endpoints and interfaces --------------------------------------------
+
+  NamedCode:
+    type: object
+    required: [name, code]
+    properties:
+      name: {type: string, description: The name.}
+      code: {type: integer, description: The code.}
+
+  DeviceCategory:
+    type: object
+    description: "Device category, for example ``onOffSwitch`` (code 2). The docs list the categories in the Device categories table."
+    properties:
+      name: {type: string, description: The name of the device category.}
+      code: {type: integer, description: The device category code.}
+      id: {type: integer, description: "The device category ID, as named by the parameter table (the response syntax and examples use ``code``)."}
+
+  NodeProperty:
+    type: object
+    properties:
+      securityCapabilities:
+        type: array
+        items: {type: string, enum: [S0, S2]}
+        description: Security capabilities of the node.
+      includedSecurely: {type: boolean, description: True if the node was included securely.}
+      supportIdentification: {type: boolean, description: "True if the node can identify itself, for example with a blinking LED."}
+
+  Node:
+    type: object
+    required: [nodeDescriptor, nodeID]
+    properties:
+      nodeDescriptor: {type: integer, description: The node descriptor.}
+      nodeID: {type: integer, description: The node ID (below 232). Node IDs can be reused.}
+      nodeProperty: {$ref: "#/types/NodeProperty"}
+      vendorID: {type: integer, description: The manufacturer specific vendor ID of the device.}
+      vendorProductID: {type: integer, description: The manufacturer specific product ID.}
+      vendorProductType: {type: integer, description: The manufacturer specific product type.}
+      deviceCategory: {$ref: "#/types/DeviceCategory"}
+      nodeAliveState: {$ref: "#/types/NodeAliveState"}
+      isSecure: {type: boolean, description: True if the node has secure interfaces.}
+      secureInclusionFailed: {type: boolean, description: True if the secure inclusion of the node failed.}
+      isFLiRSCapable: {type: boolean, description: "True if the node is a Frequency Listening Routing End Node (FLiRS): a battery powered device that wakes up with low latency when called."}
+      isSleepCapable: {type: boolean, description: "True if the node can sleep (non-listening, supports the Wake Up command class)."}
+      s2GrantKeys:
+        type: array
+        items: {$ref: "#/types/SecurityKey"}
+        description: The keys used for secure inclusion. Empty if the node was included non-securely.
+
+  NodeListNet:
+    type: object
+    required: [node]
+    properties:
+      node:
+        type: array
+        items: {$ref: "#/types/Node"}
+        description: The nodes on the Z-Wave network.
+
+  Endpoint:
+    type: object
+    required: [endpointDescriptor]
+    properties:
+      endpointDescriptor: {type: integer, description: The endpoint descriptor that gives access to the endpoint.}
+      endpointID: {type: integer, description: The endpoint ID.}
+      genericDeviceClass: {$ref: "#/types/NamedCode", description: "The Generic Device Class, for example ``switchBinary`` (16)."}
+      specificDeviceClass: {$ref: "#/types/NamedCode", description: "The Specific Device Class. Codes are scoped by the Generic Device Class."}
+      endpointName: {type: string, description: The UTF-8 encoded endpoint name.}
+      endpointLocation: {type: string, description: The UTF-8 encoded endpoint location.}
+      zwavePlusVersion: {type: integer, description: "Z-Wave+ version from the Z-Wave+ Info Report. 0 if the node does not support Z-Wave+."}
+      roleType: {$ref: "#/types/NamedCode", description: "Z-Wave+ role type, for example ``alwaysOnEndNode`` (5). Only applicable when ``zwavePlusVersion`` is above 0."}
+      nodeType: {$ref: "#/types/NamedCode", description: "Z-Wave+ node type: ``zwavePlusNode`` (0) or ``zwavePlusForIPRouter`` (1). Only applicable when ``zwavePlusVersion`` is above 0."}
+      installerIcon: {type: integer, description: The Z-Wave+ installer icon type.}
+      userIcon: {type: integer, description: The Z-Wave+ user icon type.}
+      aggregatedEndpointList:
+        type: array
+        items: {type: integer}
+        description: IDs of the aggregated members of a Multi Channel endpoint. Empty if the endpoint is not aggregated.
+
+  NodeEndpoints:
+    type: object
+    required: [nodeDescriptor, endpoint]
+    properties:
+      nodeDescriptor: {type: integer, description: The node descriptor.}
+      endpoint:
+        type: array
+        items: {$ref: "#/types/Endpoint"}
+        description: The endpoints of the node.
+
+  AccessSupport:
+    type: object
+    properties:
+      secure: {type: boolean, description: True if the interface can be accessed securely.}
+      unsecure: {type: boolean, description: True if the interface can be accessed insecurely.}
+
+  Interface:
+    type: object
+    required: [interfaceDescriptor, name]
+    properties:
+      interfaceDescriptor: {type: integer, description: The descriptor used to access the interface.}
+      name: {$ref: "#/types/CommandClassName", description: The interface name (the Command Class short name).}
+      simulatedVersion: {type: integer, description: "The Command Class version, upgradable by the device database. Equals ``realVersion`` unless upgraded."}
+      realVersion: {type: integer, description: The Command Class version supported by the device. 0 for a simulated interface.}
+      accessSupport: {$ref: "#/types/AccessSupport"}
+
+  EndpointInterfaces:
+    type: object
+    required: [endpointDescriptor, interface]
+    properties:
+      endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+      interface:
+        type: array
+        items: {$ref: "#/types/Interface"}
+        description: The interfaces of the endpoint.
+
+  SummaryInterface:
+    type: object
+    properties:
+      descriptor: {type: integer, description: The interface descriptor.}
+      name: {$ref: "#/types/CommandClassName", description: The interface name (the Command Class short name).}
+
+  SummaryEndpoint:
+    type: object
+    properties:
+      descriptor: {type: integer, description: The endpoint descriptor.}
+      name: {type: string, description: The UTF-8 encoded endpoint name.}
+      genericDeviceClassName: {type: string, description: The name of the Generic Device Class.}
+      specificDeviceClassName: {type: string, description: The name of the Specific Device Class.}
+      portNumber: {type: integer, description: The assigned I/O port number. Not applicable if no number was chosen.}
+      interface:
+        type: array
+        items: {$ref: "#/types/SummaryInterface"}
+        description: Some of the endpoint interfaces.
+
+  SummaryNode:
+    type: object
+    properties:
+      descriptor: {type: integer, description: The node descriptor.}
+      id: {type: integer, description: The node ID (below 232).}
+      deviceCategory: {type: string, description: "The device category name, for example ``onOffSwitch``."}
+      aliveState: {$ref: "#/types/NodeAliveState"}
+      securityWarning:
+        type: string
+        enum: [failedToIncludeSecurely, failedToIncludeWithHighestSecurity]
+        description: "``failedToIncludeSecurely``: the node was bootstrapped with S0 in an S2 capable network. ``failedToIncludeWithHighestSecurity``: an S2 node was not granted the highest requested S2 key."
+      endpoint:
+        type: array
+        items: {$ref: "#/types/SummaryEndpoint"}
+        description: The node endpoints.
+
+  SummaryNet:
+    type: object
+    required: [node]
+    properties:
+      node:
+        type: array
+        items: {$ref: "#/types/SummaryNode"}
+        description: The nodes on the Z-Wave network.
+
+  # -- S2 security and SmartStart -------------------------------------------------
+
+  RequestedKeys:
+    type: object
+    properties:
+      requestedKeys:
+        type: array
+        items: {$ref: "#/types/SecurityKey"}
+        description: The keys requested by the joining device.
+
+  RequestedKeysNet:
+    type: object
+    required: [security]
+    properties:
+      security: {$ref: "#/types/RequestedKeys"}
+
+  DeviceSpecificKeyInfo:
+    type: object
+    properties:
+      pinRequired: {type: boolean, description: True if the user must enter a PIN to include the node with S2.}
+      deviceSpecificKey: {type: string, description: "The DSK. When ``pinRequired`` is true it is partial and lacks the first group of five digits (-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx); otherwise it is complete."}
+
+  DeviceSpecificKeyNet:
+    type: object
+    required: [security]
+    properties:
+      security: {$ref: "#/types/DeviceSpecificKeyInfo"}
+
+  ProvisioningEntry:
+    type: object
+    properties:
+      deviceSpecificKey: {type: string, description: The device specific key.}
+      name: {type: string, description: The nice name. Empty if not set.}
+      location: {type: string, description: The location. Empty if not set.}
+      networkStatus:
+        type: string
+        enum: [included, notIncluded, failing, unknownStatus]
+        description: "``included``: on the network. ``notIncluded``: pending inclusion. ``failing``: included but now reported as failing. ``unknownStatus``: unknown."
+
+  ProvisioningList:
+    type: object
+    properties:
+      complete: {type: boolean, description: True if the list is complete.}
+      deviceInfo:
+        type: array
+        items: {$ref: "#/types/ProvisioningEntry"}
+        description: One entry per device in the provisioning list.
+
+  # -- command class states -------------------------------------------------------
+
+  BatteryState:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      level: {type: integer, description: Battery level in percent (0-100). 255 means that the battery level is low.}
+
+  BatteryInterface:
+    type: object
+    required: [interfaceDescriptor, battery]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      battery: {$ref: "#/types/BatteryState"}
+
+  SensorReading:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      type: {$ref: "#/types/SensorType"}
+      value: {type: number, description: The sensor value (32-bit float).}
+      precision: {type: integer, description: The number of decimal places of the value.}
+      unit: {type: string, description: "The sensor unit, for example ``celsius`` or ``lux``."}
+
+  MultilevelSensorInterface:
+    type: object
+    required: [interfaceDescriptor, multilevelSensor]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      multilevelSensor:
+        type: array
+        items: {$ref: "#/types/SensorReading"}
+        description: The sensor states. A single entry when the request gives both a sensor type and a unit.
+
+  SensorTypeSupport:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      sensorTypeList:
+        type: array
+        items: {$ref: "#/types/SensorType"}
+        description: The supported sensor types.
+
+  MultilevelSensorSupportInterface:
+    type: object
+    required: [interfaceDescriptor, multilevelSensor]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      multilevelSensor: {$ref: "#/types/SensorTypeSupport"}
+
+  SensorUnitSupport:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      sensorType: {$ref: "#/types/SensorType", description: The sensor type given in the request.}
+      sensorUnitList:
+        type: array
+        items: {type: string}
+        description: The supported sensor units.
+
+  MultilevelSensorUnitSupportInterface:
+    type: object
+    required: [interfaceDescriptor, multilevelSensor]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      multilevelSensor: {$ref: "#/types/SensorUnitSupport"}
+
+  ConfigurationParameter:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      paramNum: {type: integer, description: The parameter number.}
+      paramValue: {type: number, description: The parameter value (signed or unsigned).}
+
+  ConfigurationInterface:
+    type: object
+    required: [interfaceDescriptor, configuration]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      configuration: {$ref: "#/types/ConfigurationParameter"}
+
+  BinarySwitchState:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      currentState: {type: boolean, description: The current ON (true) or OFF (false) value.}
+      targetState: {type: boolean, description: The target value of the latest or ongoing transition.}
+      duration: {type: integer, description: "Time to reach the target value: 0 already there, 1-127 seconds, 128-253 are 1-126 minutes, 254 unknown, 255 reserved."}
+      stateNum: {type: integer, description: Number of state changes. Wraps to 0 after 0xFFFF.}
+
+  BinarySwitchInterface:
+    type: object
+    required: [interfaceDescriptor, binarySwitch]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      binarySwitch: {$ref: "#/types/BinarySwitchState"}
+
+  BasicState:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      currentState: {type: integer, description: "The current value: 0 OFF, 1-99 percent, 254 unknown, 255 ON."}
+      targetState: {type: integer, description: "The target value of the latest or ongoing transition: 0 OFF, 1-99 percent, 254 unknown, 255 ON."}
+      duration: {type: integer, description: "Time to reach the target value: 0 already there, 1-127 seconds, 128-253 are 1-126 minutes, 254 unknown, 255 reserved."}
+      stateNum: {type: integer, description: Number of state changes. Wraps to 0 after 0xFFFF.}
+
+  BasicInterface:
+    type: object
+    required: [interfaceDescriptor, basic]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      basic: {$ref: "#/types/BasicState"}
+
+  AssociationGroup:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      groupID: {type: integer, description: The group ID.}
+      maxCount: {type: integer, description: The maximum number of members the group supports.}
+      members:
+        type: array
+        items: {$ref: "#/types/AssociationMember"}
+        description: The group members. They may include nodes or endpoints that do not exist on the network.
+
+  AssociationGroupInterface:
+    type: object
+    required: [interfaceDescriptor, association]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      association: {$ref: "#/types/AssociationGroup"}
+
+  SupportedGroupings:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      groupIDs:
+        type: array
+        items: {type: integer}
+        description: The supported group IDs.
+
+  SupportedGroupingsInterface:
+    type: object
+    required: [interfaceDescriptor, association]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      association: {$ref: "#/types/SupportedGroupings"}
+
+  WakeUpInfo:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      currentInterval: {type: integer, description: The current wake-up interval in seconds.}
+      nodeID: {type: integer, description: "The ID of the node notified on wake-up, 255 for broadcast."}
+      minInterval: {type: integer, description: The minimum wake-up interval in seconds (Wake Up Command Class version 2 and above).}
+      maxInterval: {type: integer, description: The maximum wake-up interval in seconds (Wake Up Command Class version 2 and above).}
+      defaultInterval: {type: integer, description: The default wake-up interval in seconds (Wake Up Command Class version 2 and above).}
+      intervalStep: {type: integer, description: The step between settable wake-up intervals in seconds (Wake Up Command Class version 2 and above).}
+
+  WakeUpInterface:
+    type: object
+    required: [interfaceDescriptor, wakeUp]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      wakeUp: {$ref: "#/types/WakeUpInfo"}
+
+  MeterReading:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      type: {$ref: "#/types/MeterType"}
+      value: {type: number, description: The meter value.}
+      precision: {type: integer, description: The number of decimal places of the value.}
+      unit: {$ref: "#/types/MeterUnit"}
+      rateType: {$ref: "#/types/MeterRateType", description: The meter rate type (Meter Command Class version 2).}
+      delta: {type: integer, description: Seconds since the previous meter data. 0 if there is no previous value (Meter Command Class version 2).}
+      prevValue: {type: number, description: "The previous meter value. Only valid when ``delta`` is above 0; equals the current value when ``delta`` is 0 (Meter Command Class version 2)."}
+
+  MeterReadingInterface:
+    type: object
+    required: [interfaceDescriptor, meter]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      meter:
+        type: array
+        items: {$ref: "#/types/MeterReading"}
+        description: "The readings: one value for the preferred unit, or all available units."
+
+  MeterCapability:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      type: {$ref: "#/types/MeterType"}
+      units:
+        type: array
+        items: {$ref: "#/types/MeterUnit"}
+        description: The supported units.
+      reset: {type: boolean, description: True if the device can reset all accumulated values.}
+      rateType: {$ref: "#/types/MeterRateType", description: "The supported rate type, or ``notSupported``."}
+
+  MeterCapabilitiesInterface:
+    type: object
+    required: [interfaceDescriptor, meter]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      meter:
+        type: array
+        items: {$ref: "#/types/MeterCapability"}
+        description: The meter capabilities.
+
+  IndicatorValue:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      value: {type: integer, description: "Indicator Command Class version 1 value: 0 off, 1-99, 255 on. Can be ignored when ``properties`` are present."}
+      indicatorName: {$ref: "#/types/IndicatorName"}
+      stateNum: {type: integer, description: Number of state changes. Wraps to 0 after 0xFFFF.}
+      properties:
+        type: array
+        items: {$ref: "#/types/IndicatorProperty"}
+        description: The indicator properties (Indicator Command Class version 2 and above).
+
+  IndicatorValueInterface:
+    type: object
+    required: [interfaceDescriptor, indicator]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      indicator: {$ref: "#/types/IndicatorValue"}
+
+  IndicatorSupport:
+    type: object
+    properties:
+      indicatorName: {$ref: "#/types/IndicatorName"}
+      propertyNameList:
+        type: array
+        items: {$ref: "#/types/IndicatorPropertyName"}
+        description: The supported property names (Indicator Command Class version 2 and above).
+
+  IndicatorCapabilities:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      indicatorSupport:
+        type: array
+        items: {$ref: "#/types/IndicatorSupport"}
+        description: The supported indicators.
+
+  IndicatorCapabilitiesInterface:
+    type: object
+    required: [interfaceDescriptor, indicator]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      indicator: {$ref: "#/types/IndicatorCapabilities"}
+
+  # -- firmware update meta data --------------------------------------------------
+
+  FirmwareTarget:
+    type: object
+    properties:
+      firmwareTarget: {type: integer, description: The firmware target number (from 1).}
+      firmwareID: {type: integer, description: The firmware ID of the target.}
+
+  FirmwareInfo:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      vendorID: {type: integer, description: The manufacturer specific vendor ID of the device.}
+      zwaveFirmwareID: {type: integer, description: The Z-Wave firmware ID.}
+      checksum: {type: integer, description: The CRC-CCITT checksum.}
+      maxFragmentSize: {type: integer, description: The maximum meta data fragment size for a firmware update.}
+      fixedFragmentSize: {type: boolean, description: "True if ``maxFragmentSize`` is a fixed size that must be used in firmware update requests, false for a variable size."}
+      upgradable: {type: boolean, description: True if the firmware is upgradable.}
+      hardwareVersionValid: {type: boolean, description: True if the hardware version is valid. Firmware update requests with an invalid hardware version fail.}
+      hardwareVersion: {type: integer, description: The hardware version.}
+      upgradeFunctionality:
+        type: string
+        enum: [normal, limited, unknown]
+        description: Whether other command classes work normally during a firmware upgrade.
+      activation:
+        type: string
+        enum: [supported, unsupported, unknown]
+        description: Whether activation after download is supported.
+      firmwareTargets:
+        type: array
+        items: {$ref: "#/types/FirmwareTarget"}
+        description: The firmware targets.
+
+  FirmwareInfoInterface:
+    type: object
+    required: [interfaceDescriptor, firmwareUpdate]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      firmwareUpdate: {$ref: "#/types/FirmwareInfo"}
+
+  FirmwareUpdateStatus:
+    type: object
+    properties:
+      latestRequestTime: {type: string, description: Time of the latest firmware update request in ISO 8601 basic format (YYYYMMDDThhmmss).}
+      requestStatus:
+        type: string
+        enum: [invalidCombo, authenticationNeeded, fragmentSizeError, upgradeError, hardwareVersionError, transferInProgress, lowBattery, validCombo, unknownStatus]
+        description: "The request status. ``validCombo`` means the vendor and firmware ID combination is valid and the upgrade starts."
+      completionStatus:
+        type: string
+        enum: [checksumError, downloadError, vendorIDError, firmwareIDError, firmwareTargetError, fileHeaderError, headerFormatError, memoryError, hardwareVersionError, lowBattery, unknownBatteryLevel, okWait, okNoRestart, okRestart, unknownStatus]
+        description: "The completion status. ``okWait``: downloaded and waiting for activation. ``okNoRestart``: stored, no restart. ``okRestart``: stored, the device restarts."
+
+  FirmwareUpdateInterface:
+    type: object
+    required: [interfaceDescriptor, firmwareUpdate]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      firmwareUpdate: {$ref: "#/types/FirmwareUpdateStatus"}
+
+  FirmwareBackupStatus:
+    type: object
+    properties:
+      latestRequestTime: {type: string, description: Time of the latest firmware backup request in ISO 8601 basic format (YYYYMMDDThhmmss).}
+      requestStatus:
+        type: string
+        enum: [invalidCombo, authenticationNeeded, fragmentSizeError, downloadError, hardwareVersionError, requestOK, unknownStatus]
+        description: "The backup request status. ``requestOK`` means the node can start the backup."
+      completionStatus:
+        type: string
+        enum: [checksumError, downloadError, memoryError, requestStatusError, requestTimeoutError, writeError, exceedSizeLimit, errorOther, statusOK, unknownStatus]
+        description: "The backup completion status. ``statusOK`` means the firmware was downloaded and saved to file."
+      backupPath: {type: string, description: The path to the backup file.}
+
+  FirmwareBackupInterface:
+    type: object
+    required: [interfaceDescriptor, firmwareUpdate]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      firmwareUpdate: {$ref: "#/types/FirmwareBackupStatus"}
+
+  FirmwareActivationStatus:
+    type: object
+    properties:
+      vendorID: {type: integer, description: The manufacturer specific vendor ID of the device.}
+      firmwareTarget: {type: integer, description: "The firmware target number: 0 is the Z-Wave firmware, 1-255 a target returned by getFirmwareInfo."}
+      firmwareID: {type: integer, description: The firmware ID.}
+      hardwareVersion: {type: integer, description: The hardware version.}
+      checksum: {type: integer, description: The CRC-CCITT checksum.}
+      latestRequestTime: {type: string, description: Time of the latest request in ISO 8601 basic format (YYYYMMDDThhmmss).}
+      requestStatus:
+        type: string
+        enum: [invalidCombo, activationError, requestOK, unknownStatus]
+        description: "The activation status. ``activationError`` restores the original firmware. ``requestOK`` means the activation completed."
+
+  FirmwareActivationInterface:
+    type: object
+    required: [interfaceDescriptor, firmwareUpdate]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      firmwareUpdate: {$ref: "#/types/FirmwareActivationStatus"}
+
+  # -- alarm / notification -------------------------------------------------------
+
+  AlarmType:
+    type: object
+    properties:
+      type: {type: string, description: "The alarm/notification type, for example ``smoke`` (1) or ``burglar`` (7). Vendor specific types are reported as ``vendorSpecific``."}
+      code: {type: integer, description: The alarm/notification type code.}
+
+  NotificationCapabilities:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      hasVendorSpecificType: {type: boolean, description: True if the vendor specific alarm/notification type is supported.}
+      zwaveAlarmTypeList:
+        type: array
+        items: {$ref: "#/types/AlarmType"}
+        description: The supported alarm/notification types (Alarm/Notification Command Class version 2 and above).
+
+  NotificationCapabilitiesInterface:
+    type: object
+    required: [interfaceDescriptor, notification]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      notification: {$ref: "#/types/NotificationCapabilities"}
+
+  NotificationEventSupport:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      zwaveAlarmType: {type: string, description: The alarm/notification type given in the request.}
+      zwaveEventList:
+        type: array
+        items: {type: integer}
+        description: The codes of the events supported by the alarm/notification type.
+
+  NotificationEventSupportInterface:
+    type: object
+    required: [interfaceDescriptor, notification]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      notification: {$ref: "#/types/NotificationEventSupport"}
+
+  NotificationReport:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      vendorAlarmType: {type: integer, description: The vendor specific alarm type.}
+      vendorAlarmLevel: {type: integer, description: The vendor specific alarm level.}
+      extendedInfoValid: {type: boolean, description: "True if the extendedInfo* fields are valid (Alarm/Notification Command Class version 2 and above)."}
+      extendedInfoAlarmStatus:
+        type: string
+        enum: [deactivated, activated, noPendingNotice]
+        description: "The alarm/notification status. ``deactivated``: unsolicited reports off (push mode), or the report carries valid information (pull mode). ``activated``: unsolicited reports on (push mode). ``noPendingNotice``: the queue is empty."
+      extendedInfoAlarmType: {type: string, description: The Z-Wave alarm/notification type.}
+      extendedInfoAlarmEvent: {type: integer, description: The Z-Wave event.}
+      extendedInfoParameterLength: {type: integer, description: The event parameter length in bytes. 0 means no parameters.}
+      extendedInfoParameterType:
+        type: string
+        enum: [location, userID, oemError, proprietary, eventID, unknown]
+        description: The event parameter type.
+      extendedInfoParameter: {type: integer, description: "The event parameter, when ``extendedInfoParameterType`` is not ``location``."}
+      extendedInfoLocation: {type: string, description: "The UTF-8 encoded event location, when ``extendedInfoParameterType`` is ``location``."}
+
+  NotificationState:
+    type: object
+    properties:
+      report: {$ref: "#/types/NotificationReport", description: An alarm/notification report.}
+
+  NotificationStateInterface:
+    type: object
+    required: [interfaceDescriptor, notification]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      notification: {$ref: "#/types/NotificationState"}
+
+  NotificationEvent:
+    type: object
+    properties:
+      type: {type: string, description: The event name.}
+      code: {type: integer, description: The event code.}
+
+  AlarmTypeEvents:
+    type: object
+    properties:
+      type: {type: string, description: The alarm/notification type.}
+      code: {type: integer, description: The alarm/notification type code.}
+      zwaveEventList:
+        type: array
+        items: {$ref: "#/types/NotificationEvent"}
+        description: The events supported by the alarm/notification type.
+
+  AllNotificationEventSupport:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      zwaveAlarmTypeList:
+        type: array
+        items: {$ref: "#/types/AlarmTypeEvents"}
+        description: The supported alarm/notification types with their events.
+
+  AllNotificationEventSupportInterface:
+    type: object
+    required: [interfaceDescriptor, notification]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      notification: {$ref: "#/types/AllNotificationEventSupport"}
+
+  # -- central scene --------------------------------------------------------------
+
+  SceneKeyAttributes:
+    type: object
+    properties:
+      sceneNumber: {type: integer, description: The scene number.}
+      support:
+        type: array
+        items: {$ref: "#/types/CentralSceneKeyAttribute"}
+        description: The supported key attributes.
+
+  CentralSceneCapabilities:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      maxSceneCount: {type: integer, description: The maximum number of scenes.}
+      slowRefresh: {type: boolean, description: True if slow refresh is supported.}
+      keyAttributes:
+        type: array
+        items: {$ref: "#/types/SceneKeyAttributes"}
+        description: Supported key attributes per scene (Central Scene Command Class version 2 and above).
+
+  CentralSceneCapabilitiesInterface:
+    type: object
+    required: [interfaceDescriptor, centralScene]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      centralScene: {$ref: "#/types/CentralSceneCapabilities"}
+
+  CentralSceneConfiguration:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      slowRefresh: {type: boolean, description: "True if slow refresh of the ``keyHeldDown`` notification is enabled."}
+
+  CentralSceneConfigurationInterface:
+    type: object
+    required: [interfaceDescriptor, centralScene]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      centralScene: {$ref: "#/types/CentralSceneConfiguration"}
+
+  CentralSceneState:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      sequenceNumber: {type: integer, description: Sequence number incremented for every new report.}
+      keyAttribute: {$ref: "#/types/CentralSceneKeyAttribute"}
+      sceneNumber: {type: integer, description: The scene identifier.}
+      slowRefresh: {type: boolean, description: "True if slow refresh of the ``keyHeldDown`` notification is enabled."}
+
+  CentralSceneStateInterface:
+    type: object
+    required: [interfaceDescriptor, centralScene]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      centralScene: {$ref: "#/types/CentralSceneState"}
+
+  # -- anti-theft unlock ----------------------------------------------------------
+
+  AntiTheftUnlockState:
+    type: object
+    properties:
+      lastUpdated: {$ref: "#/types/LastUpdated"}
+      stateNum: {type: integer, description: Number of state changes. Wraps to 0 after 0xFFFF.}
+      state: {type: boolean, description: True if the node is locked.}
+      restricted: {type: boolean, description: True if the node runs in restricted mode.}
+      hint: {type: string, description: "Hex string of 0-10 bytes with hints for retrieving the Magic Code that unlocks the node."}
+      manufacturerID: {type: integer, description: The manufacturer ID of the company whose product locked the node.}
+      entityID: {type: integer, description: Unique identifier of the entity that locked the node.}
+
+  AntiTheftUnlockInterface:
+    type: object
+    required: [interfaceDescriptor, antiTheftUnlock]
+    properties:
+      interfaceDescriptor: {type: integer, description: The interface descriptor.}
+      antiTheftUnlock: {$ref: "#/types/AntiTheftUnlockState"}
+
+  # -- I/O functions --------------------------------------------------------------
+
+  IoConfiguration:
+    type: object
+    properties:
+      ioFunction:
+        type: string
+        enum: [Set/Reset, Toggle, One-shot, Binary-switch]
+        description: The I/O function of the end node configuration.
+      enabled: {type: boolean, description: True if the configuration is in use.}
+      ioPortNumber: {type: integer, description: The I/O port number.}
+      alarmType: {type: integer, description: The alarm/notification type of the set event. 0 means unused.}
+      event: {type: integer, description: The event used by the I/O function. 0 means unused.}
+      resetAlarmType: {type: integer, description: "The alarm/notification type of the reset event (``Set/Reset`` only). 0 means unused."}
+      resetEvent: {type: integer, description: "The reset event (``Set/Reset`` only). 0 means unused."}
+      invert: {type: boolean, description: "True if the I/O action is inverted (``Set/Reset``, ``One-shot`` and ``Binary-switch``)."}
+      duration: {type: integer, description: "Seconds the I/O port is kept high or low (``One-shot`` only)."}
+
+operations:
+  # -- enable and network operations ----------------------------------------------
+
+  set_enabled:
+    summary: Enable or disable Z-Wave on the device.
+    description: The change shows up in the system log even if Z-Wave fails to start.
+    effect: write
+    write: patch
+    binding: {method: setEnabled}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: "True to enable Z-Wave, false to disable it."}
+    positional: [enabled]
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {enabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  get_enabled:
+    summary: Check whether Z-Wave is enabled (running) on the device.
+    effect: read
+    binding: {method: getEnabled}
+    result:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: True if Z-Wave is enabled.}
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {}
+      response:
+        data: {enabled: true}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  add_node:
+    summary: Start adding (including) a Z-Wave device to the network.
+    description: "Asynchronous: poll get_operation until the operation completes. The operation times out after one minute if no device is found."
+    effect: action
+    binding: {method: addNode}
+    params:
+      type: object
+      properties:
+        deviceSpecificKey: {$ref: "#/types/DeviceSpecificKey"}
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  remove_node:
+    summary: Start removing (excluding) a Z-Wave device from the network.
+    description: "Asynchronous: poll get_operation until the operation completes. The operation times out after one minute if no device is found."
+    effect: action
+    binding: {method: removeNode}
+    examples:
+    - title: Remove a node
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#remove-a-node
+    - title: Remove a node (error)
+      request:
+        params: {}
+      response:
+        error: {code: 2101, message: Invalid JSON}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#remove-a-node
+
+  get_operation:
+    summary: Get the current and previous network operation and the progress status.
+    effect: read
+    binding: {method: getOperation}
+    result:
+      type: object
+      required: [net]
+      properties:
+        net: {$ref: "#/types/NetworkOperation"}
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {}
+      response:
+        data:
+          net:
+            operation: {code: 0, name: operationNone}
+            operationStatus: {status: 0, name: operationStatusNone}
+            prevOperation: {code: 2, name: operationAddNode}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  abort_operation:
+    summary: Abort the ongoing network operation.
+    description: "Asynchronous: poll get_operation until the operation completes. Aborting after addNodeStatusProtocolDone or replaceNodeStatusProtocolDone leaves the node added or removed; undo it with remove_node or add_node."
+    effect: action
+    binding: {method: abortOperation}
+    examples:
+    - title: Abort operation
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#abort-operation
+
+  reset_network:
+    summary: Reset the Z-Wave network to factory default settings.
+    description: "Asynchronous: poll get_operation until the operation completes. Devices of the old network must be removed (for example with remove_node) before they can be added again."
+    effect: action
+    binding: {method: resetNetwork}
+    examples:
+    - title: Reset network
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#reset-network
+    - title: Reset network (error)
+      request:
+        params: {}
+      response:
+        error: {code: 2101, message: Invalid JSON}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#reset-network
+
+  refresh_network:
+    summary: Refresh the network topology, routing table and internal network data.
+    description: "Asynchronous: poll get_operation until the operation completes."
+    effect: action
+    binding: {method: refreshNetwork}
+    examples:
+    - title: Replace a failing node
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#replace-a-failing-node
+
+  # -- nodes, endpoints and interfaces --------------------------------------------
+
+  get_node_list:
+    summary: List all nodes of the network, or the nodes with the given node IDs.
+    effect: read
+    binding: {method: getNodeList}
+    params:
+      type: object
+      properties:
+        nodeIDs:
+          type: array
+          items: {type: integer}
+          description: Only list these node IDs. Unknown IDs are ignored, so the result may be empty.
+    positional: [nodeIDs]
+    result:
+      type: object
+      required: [net]
+      properties:
+        net: {$ref: "#/types/NodeListNet"}
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {}
+      response:
+        data:
+          net:
+            node:
+            - nodeDescriptor: 1
+              nodeID: 6
+              nodeProperty: {securityCapabilities: [S0, S2], includedSecurely: true, supportIdentification: false}
+              vendorID: 868
+              vendorProductID: 1
+              vendorProductType: 3
+              deviceCategory: {name: onOffSwitch, code: 2}
+              nodeAliveState: sleeping
+              isSecure: true
+              secureInclusionFailed: false
+              isFLiRSCapable: false
+              isSleepCapable: true
+              s2GrantKeys: [S2Key0, S2Key1, S0LegacyKey]
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  get_endpoint_list:
+    summary: List the endpoints of a node.
+    effect: read
+    binding: {method: getEndpointList}
+    params: {$ref: "#/types/NodeRequest"}
+    positional: [nodeDescriptor]
+    result:
+      type: object
+      required: [node]
+      properties:
+        node: {$ref: "#/types/NodeEndpoints"}
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {nodeDescriptor: 1}
+      response:
+        data:
+          node:
+            nodeDescriptor: 1
+            endpoint:
+            - endpointDescriptor: 1
+              endpointID: 2
+              genericDeviceClass: {name: switchBinary, code: 16}
+              specificDeviceClass: {name: powerSwitch, code: 1}
+              endpointName: Mini plug
+              endpointLocation: Office
+              zwavePlusVersion: 1
+              roleType: {name: alwaysOnSlave, code: 5}
+              nodeType: {name: zwavePlusNode, code: 0}
+              installerIcon: 1792
+              userIcon: 1792
+              aggregatedEndpointList: []
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  get_endpoint_interface_list:
+    summary: List and describe the interfaces of an endpoint.
+    effect: read
+    binding: {method: getEndpointInterfaceList}
+    params: {$ref: "#/types/EndpointRequest"}
+    positional: [endpointDescriptor]
+    result:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint: {$ref: "#/types/EndpointInterfaces"}
+    examples:
+    - title: Retrieve device information
+      request:
+        params: {endpointDescriptor: 1}
+      response:
+        data:
+          endpoint:
+            endpointDescriptor: 1
+            interface:
+            - interfaceDescriptor: 8388870
+              name: battery
+              simulatedVersion: 1
+              realVersion: 1
+              accessSupport: {secure: false, unsecure: true}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#retrieve-device-information
+
+  get_summary_list:
+    summary: Get a summary of all nodes, endpoints and interfaces of the network.
+    description: A subset of what get_node_list, get_endpoint_list and get_endpoint_interface_list return, for all nodes and endpoints.
+    effect: read
+    binding: {method: getSummaryList}
+    result:
+      type: object
+      required: [net]
+      properties:
+        net: {$ref: "#/types/SummaryNet"}
+
+  replace_failed_node:
+    summary: Start replacing a failed node with a new device.
+    description: "Asynchronous: poll get_operation until the operation completes. The operation times out after one minute if no new node is found."
+    effect: action
+    binding: {method: replaceFailedNode}
+    params:
+      type: object
+      required: [nodeDescriptor]
+      properties:
+        nodeDescriptor: {type: integer, description: The descriptor of the node to replace.}
+        deviceSpecificKey: {$ref: "#/types/DeviceSpecificKey"}
+    positional: [nodeDescriptor]
+    examples:
+    - title: Replace a failing node
+      request:
+        params: {nodeDescriptor: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#replace-a-failing-node
+
+  remove_failed_node:
+    summary: Start removing a failed (unresponsive) node from the network.
+    description: "Asynchronous: poll get_operation until the operation completes. Unlike remove_node, this only works on an unresponsive node."
+    effect: action
+    binding: {method: removeFailedNode}
+    params: {$ref: "#/types/NodeRequest"}
+    positional: [nodeDescriptor]
+    examples:
+    - title: Remove a failed node
+      request:
+        params: {nodeDescriptor: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#remove-a-failed-node
+    - title: Remove a failed node (error)
+      request:
+        params: {nodeDescriptor: 1}
+      response:
+        error: {code: 1100, message: Internal error}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#remove-a-failed-node
+
+  set_endpoint_info:
+    summary: Set the nice name and/or location of an endpoint.
+    effect: write
+    write: patch
+    binding: {method: setEndpointInfo}
+    params:
+      type: object
+      required: [endpointDescriptor]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+        name: {type: string, maxLength: 32, description: The nice name. At most 32 bytes of UTF-8.}
+        location: {type: string, maxLength: 32, description: The location. At most 32 bytes of UTF-8.}
+    positional: [endpointDescriptor]
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {endpointDescriptor: 1, name: Freezer 1, location: Kitchen}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  # -- S2 security ----------------------------------------------------------------
+
+  get_s2_requested_keys:
+    summary: Get the S2 keys requested by the joining node.
+    description: Call during add_node when get_operation reports addNodeStatusRequestedKeyReady.
+    effect: read
+    binding: {method: getS2RequestedKeys}
+    result:
+      type: object
+      required: [net]
+      properties:
+        net: {$ref: "#/types/RequestedKeysNet"}
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {}
+      response:
+        data:
+          net:
+            security:
+              requestedKeys: [S2Key0, S2Key1, S0LegacyKey]
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  set_s2_grant_keys:
+    summary: Grant S2 keys to the joining node, or interrupt S2 bootstrapping.
+    effect: action
+    binding: {method: setS2GrantKeys}
+    params:
+      type: object
+      required: [grantKeys]
+      properties:
+        grantKeys:
+          type: array
+          items: {$ref: "#/types/SecurityKey"}
+          description: All or a subset of the keys returned by get_s2_requested_keys.
+        accept: {type: boolean, description: "True (default) to accept, false to interrupt S2 bootstrapping."}
+    positional: [grantKeys]
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {grantKeys: [S2Key0, S2Key1, S0LegacyKey]}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  get_s2_device_specific_key:
+    summary: Get the device specific key (DSK) of the joining node.
+    description: Call during add_node when get_operation reports addNodeStatusDSKReady.
+    effect: read
+    binding: {method: getS2DeviceSpecificKey}
+    result:
+      type: object
+      required: [net]
+      properties:
+        net: {$ref: "#/types/DeviceSpecificKeyNet"}
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {}
+      response:
+        data:
+          net:
+            security: {pinRequired: true, deviceSpecificKey: "-21937-31611-47722-25563-33846-11886-19448"}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  accept_s2:
+    summary: Accept or reject the joining node in S2 mode.
+    effect: action
+    binding: {method: acceptS2}
+    params:
+      type: object
+      required: [accept]
+      properties:
+        accept: {type: boolean, description: "True to accept the node, false to reject it."}
+        deviceSpecificKey:
+          $ref: "#/types/DeviceSpecificKey"
+          description: "The complete DSK. If get_s2_device_specific_key returned a partial DSK, the PIN (the first five digits) completes it. Required when ``accept`` is true."
+    positional: [accept]
+    examples:
+    - title: Set up a Z-Wave network
+      request:
+        params: {accept: true, deviceSpecificKey: 09407-21937-31611-47722-25563-33846-11886-19448}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#set-up-a-z-wave-network
+
+  refresh_node:
+    summary: Refresh the information of a single node.
+    description: "Asynchronous: poll get_operation until the operation completes."
+    effect: action
+    binding: {method: refreshNode}
+    params: {$ref: "#/types/NodeRequest"}
+    positional: [nodeDescriptor]
+    examples:
+    - title: Refresh node
+      request:
+        params: {nodeDescriptor: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#refresh-node
+    - title: Refresh node (error)
+      request:
+        params: {nodeDescriptor: 1}
+      response:
+        error: {code: 1100, message: Internal Error}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#refresh-node
+
+  # -- SmartStart provisioning list -----------------------------------------------
+
+  add_to_provisioning_list:
+    summary: Add an end node to the SmartStart provisioning list.
+    effect: write
+    write: create
+    binding: {method: addToProvisioningList}
+    params:
+      type: object
+      required: [deviceSpecificKey]
+      properties:
+        deviceSpecificKey: {$ref: "#/types/DeviceSpecificKey"}
+        name:
+          type: string
+          maxLength: 62
+          pattern: "^([^_]*[^_-])?$"
+          description: "The nice name. ``name`` and ``location`` together must not exceed 62 bytes. No underscore, no trailing dash, and ``.`` must be encoded as ``\\.``. Casing may not be kept."
+        location:
+          type: string
+          maxLength: 62
+          pattern: "^([^_]*[^_-])?$"
+          description: "The location. Same rules as ``name``."
+    positional: [deviceSpecificKey]
+    examples:
+    - title: SmartStart
+      request:
+        params: {deviceSpecificKey: 09407-21937-31611-47722-25563-33846-11886-19448}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#smartstart
+
+  remove_from_provisioning_list:
+    summary: Remove an end node from the SmartStart provisioning list.
+    effect: write
+    write: delete
+    binding: {method: removeFromProvisioningList}
+    params: {$ref: "#/types/DeviceSpecificKeyRequest"}
+    positional: [deviceSpecificKey]
+    examples:
+    - title: Remove device from the provisioning list
+      request:
+        params: {deviceSpecificKey: 09407-21937-31611-47722-25563-33846-11886-19448}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#remove-device-from-the-provisioning-list
+
+  get_provisioning_list:
+    summary: List the entries of the SmartStart provisioning list.
+    effect: read
+    binding: {method: getProvisioningList}
+    result:
+      type: object
+      required: [net]
+      properties:
+        net: {$ref: "#/types/ProvisioningList"}
+    examples:
+    - title: SmartStart
+      request:
+        params: {}
+      response:
+        data:
+          net:
+            complete: true
+            deviceInfo:
+            - {deviceSpecificKey: 09407-21937-31611-47722-25563-33846-11886-19448, name: '', location: '', networkStatus: included}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#smartstart
+
+  # -- battery and multilevel sensor ----------------------------------------------
+
+  get_battery_state:
+    summary: Get the battery state of an end node, or the last known state from the cache.
+    effect: read
+    binding: {method: getBatteryState}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/BatteryInterface"}
+    examples:
+    - title: Retrieve device information
+      request:
+        params: {interfaceDescriptor: 8388870, refresh: true}
+      response:
+        data:
+          interface:
+            interfaceDescriptor: 8388870
+            battery: {lastUpdated: 202101126T092334, level: 50}
+      source: https://developer.axis.com/vapix/network-video/z-wave-api/#retrieve-device-information
+
+  get_multilevel_sensor_state:
+    summary: Get the multilevel sensor state(s) of an end node, or the last known states from the cache.
+    effect: read
+    binding: {method: getMultilevelSensorState}
+    params:
+      type: object
+      required: [interfaceDescriptor]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        type:
+          $ref: "#/types/SensorType"
+          description: "Preferred sensor type; the factory default type is reported when omitted. Not guaranteed to be reported. Only applies when ``refresh`` is true."
+        unit: {type: string, description: "Preferred sensor unit. Ignored unless ``type`` is given; not guaranteed to be reported. Only applies when ``refresh`` is true."}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/MultilevelSensorInterface"}
+
+  get_multilevel_sensor_support:
+    summary: Get the sensor types supported by a multilevel sensor.
+    description: Requires Multilevel Sensor Command Class version 5 or above; all devices respond to get_multilevel_sensor_state.
+    effect: read
+    binding: {method: getMultilevelSensorSupport}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/MultilevelSensorSupportInterface"}
+
+  get_multilevel_sensor_unit_support:
+    summary: Get the units supported by a multilevel sensor for one sensor type.
+    description: Requires Multilevel Sensor Command Class version 5 or above.
+    effect: read
+    binding: {method: getMultilevelSensorUnitSupport}
+    params:
+      type: object
+      required: [interfaceDescriptor, sensorType]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        sensorType: {$ref: "#/types/SensorType", description: The sensor type to list units for (short name).}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/MultilevelSensorUnitSupportInterface"}
+
+  # -- configuration --------------------------------------------------------------
+
+  get_configuration:
+    summary: Get the value of a configuration parameter of an end node, or the last known value from the cache.
+    effect: read
+    binding: {method: getConfiguration}
+    params:
+      type: object
+      required: [interfaceDescriptor, paramNum]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        paramNum: {type: integer, description: "The parameter number, usually found in the manufacturer's user manual."}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/ConfigurationInterface"}
+
+  set_configuration:
+    summary: Set a configuration parameter of an end node.
+    effect: write
+    write: patch
+    binding: {method: setConfiguration}
+    params:
+      type: object
+      required: [interfaceDescriptor, paramNum, useDefault]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        paramNum: {type: integer, description: "The parameter number, usually found in the manufacturer's user manual."}
+        useDefault: {type: boolean, description: True to restore the factory default value.}
+        paramValue: {type: number, description: "The parameter value (signed or unsigned). Required unless ``useDefault`` is true."}
+        paramSize: {type: integer, description: "The fixed parameter size given in the manufacturer's user manual. Required unless ``useDefault`` is true."}
+
+  # -- binary switch and basic ----------------------------------------------------
+
+  get_binary_switch_state:
+    summary: Get the binary switch state of an end node, or the last known state from the cache.
+    effect: read
+    binding: {method: getBinarySwitchState}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/BinarySwitchInterface"}
+
+  set_binary_switch_state:
+    summary: Turn a binary switch ON or OFF.
+    effect: action
+    binding: {method: setBinarySwitchState}
+    params:
+      type: object
+      required: [interfaceDescriptor, value]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        value: {type: boolean, description: "True for ON, false for OFF."}
+        duration: {type: integer, minimum: 0, maximum: 255, description: "Time to reach the target value (Binary Switch Command Class version 2 and above): 0 instantly, 1-127 seconds, 128-253 are 1-126 minutes."}
+    positional: [interfaceDescriptor]
+
+  get_basic_state:
+    summary: Get the value mapped to the basic interface of an end node, or the last known value from the cache.
+    effect: read
+    binding: {method: getBasicState}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/BasicInterface"}
+
+  set_basic_state:
+    summary: Set the value mapped to the basic interface of an end node.
+    effect: action
+    binding: {method: setBasicState}
+    params:
+      type: object
+      required: [interfaceDescriptor, value]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        value: {type: integer, description: The value to set. The range is device specific.}
+    positional: [interfaceDescriptor]
+
+  # -- association ----------------------------------------------------------------
+
+  add_association:
+    summary: Add devices to an association group (devices that communicate directly with each other).
+    effect: write
+    write: create
+    binding: {method: addAssociation}
+    params: {$ref: "#/types/AssociationRequest"}
+
+  remove_association:
+    summary: Remove devices from an association group.
+    effect: write
+    write: delete
+    binding: {method: removeAssociation}
+    params: {$ref: "#/types/AssociationRequest"}
+
+  get_association_data:
+    summary: Get the members of an association group from the end node or the cache.
+    effect: read
+    binding: {method: getAssociationData}
+    params:
+      type: object
+      required: [interfaceDescriptor, groupID]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        groupID: {type: integer, description: The group ID.}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/AssociationGroupInterface"}
+
+  get_supported_groupings:
+    summary: Get the association group IDs supported by an end node.
+    effect: read
+    binding: {method: getSupportedGroupings}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/SupportedGroupingsInterface"}
+
+  # -- wake up --------------------------------------------------------------------
+
+  get_wake_up_info:
+    summary: Get the wake-up interval settings of an end node, or the last known settings from the cache.
+    effect: read
+    binding: {method: getWakeUpInfo}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/WakeUpInterface"}
+
+  set_wake_up_info:
+    summary: Set the wake-up interval of an end node and the node to notify on wake-up.
+    effect: write
+    write: patch
+    binding: {method: setWakeUpInfo}
+    params:
+      type: object
+      required: [interfaceDescriptor, wakeUpInterval, nodeID]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        wakeUpInterval: {type: integer, description: The wake-up interval in seconds.}
+        nodeID: {type: integer, description: "The ID of the node to notify on wake-up, 255 for broadcast."}
+    positional: [interfaceDescriptor]
+
+  # -- meter ----------------------------------------------------------------------
+
+  get_meter_reading:
+    summary: Get the meter readings of an end node, or the last known readings from the cache.
+    effect: read
+    binding: {method: getMeterReading}
+    params:
+      type: object
+      required: [interfaceDescriptor]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        unit:
+          type: string
+          enum: [noPreference, eleckWh, eleckVAh, elecW, elecPulse, elecV, elecA, elecPF, elecKVar, elecKVarh, gasCM, gasCF, gasPulse, waterCM, waterCF, waterGal, waterPulse, heatkWh, coolkWh]
+          description: "Preferred unit. Ignored if the end node does not support it. Defaults to ``noPreference`` when supported."
+        rateType:
+          type: string
+          enum: [noPreference, import, export]
+          description: "Preferred rate type. Ignored if the end node does not support it. Defaults to ``noPreference`` when supported."
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/MeterReadingInterface"}
+
+  get_meter_capabilities:
+    summary: Get the meter capabilities of an end node, or the last known capabilities from the cache.
+    description: Requires Meter Command Class version 2 or above; the result is otherwise undefined.
+    effect: read
+    binding: {method: getMeterCapabilities}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/MeterCapabilitiesInterface"}
+
+  reset_meter:
+    summary: Reset all accumulated values of a meter device.
+    description: Requires Meter Command Class version 2 or above; the behavior is otherwise undefined.
+    effect: action
+    binding: {method: resetMeter}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+
+  # -- indicator ------------------------------------------------------------------
+
+  get_indicator_value:
+    summary: Get the indicator values of an end node, or the last known values from the cache.
+    effect: read
+    binding: {method: getIndicatorValue}
+    params:
+      type: object
+      required: [interfaceDescriptor]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        indicatorName: {$ref: "#/types/IndicatorName", description: The indicator (Indicator Command Class version 2 and above).}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/IndicatorValueInterface"}
+
+  set_indicator_value:
+    summary: Set an indicator value of an end node.
+    description: "Give ``value`` for Indicator Command Class version 1 nodes, and ``indicatorName`` with ``properties`` for version 2 and above."
+    effect: action
+    binding: {method: setIndicatorValue}
+    params:
+      type: object
+      required: [interfaceDescriptor]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        value: {type: integer, minimum: 0, maximum: 255, description: "Indicator Command Class version 1 value: 0 off, 1-99, 255 on."}
+        indicatorName: {$ref: "#/types/IndicatorName", description: The indicator (Indicator Command Class version 2 and above).}
+        properties:
+          type: array
+          items: {$ref: "#/types/IndicatorProperty"}
+          description: The indicator properties to set (Indicator Command Class version 2 and above).
+
+  get_indicator_capabilities:
+    summary: Get the supported indicators and their properties from the cache.
+    effect: read
+    binding: {method: getIndicatorCapabilities}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/IndicatorCapabilitiesInterface"}
+
+  # -- firmware update meta data --------------------------------------------------
+
+  get_firmware_info:
+    summary: Get the firmware information of an end node, or the last known information from the cache.
+    effect: read
+    binding: {method: getFirmwareInfo}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/FirmwareInfoInterface"}
+
+  request_firmware_update:
+    summary: Start a firmware update of an end node.
+    description: Call get_firmware_info first. Poll get_firmware_update_status for progress.
+    effect: action
+    binding: {method: requestFirmwareUpdate}
+    params:
+      type: object
+      required: [interfaceDescriptor, vendorID, firmwareTarget, firmwareID, fileName, hardwareVersion]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        vendorID: {type: integer, description: The manufacturer specific vendor ID of the device.}
+        firmwareTarget: {type: integer, minimum: 0, maximum: 255, description: "The firmware target: 0 for the Z-Wave firmware, 1-255 for a target returned by get_firmware_info."}
+        firmwareID: {type: integer, description: The firmware ID of the new firmware.}
+        fileName: {type: string, description: The firmware file path.}
+        hardwareVersion: {type: integer, description: The hardware version.}
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/FirmwareUpdateInterface"}
+
+  get_firmware_update_status:
+    summary: Get the status of the firmware update request of an end node.
+    effect: read
+    binding: {method: getFirmwareUpdateStatus}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/FirmwareUpdateInterface"}
+
+  request_firmware_backup:
+    summary: Start a firmware backup of an end node.
+    description: Call get_firmware_info first. Requires Firmware Update Meta Data Command Class version 5 or above.
+    effect: action
+    binding: {method: requestFirmwareBackup}
+    params:
+      type: object
+      required: [interfaceDescriptor, vendorID, firmwareTarget, firmwareID, hardwareVersion]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        vendorID: {type: integer, description: The manufacturer specific vendor ID of the device.}
+        firmwareTarget: {type: integer, minimum: 0, maximum: 255, description: "The firmware target: 0 for the Z-Wave firmware, 1-255 for a target returned by get_firmware_info."}
+        firmwareID: {type: integer, description: The firmware ID.}
+        hardwareVersion: {type: integer, description: The hardware version.}
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/FirmwareBackupInterface"}
+
+  get_firmware_backup_status:
+    summary: Get the status of the firmware backup request of an end node.
+    description: Requires Firmware Update Meta Data Command Class version 5 or above.
+    effect: read
+    binding: {method: getFirmwareBackupStatus}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/FirmwareBackupInterface"}
+
+  request_firmware_activation:
+    summary: Start activating downloaded firmware on an end node.
+    description: Requires Firmware Update Meta Data Command Class version 4 or above.
+    effect: action
+    binding: {method: requestFirmwareActivation}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/FirmwareActivationInterface"}
+
+  get_firmware_activation_status:
+    summary: Get the status of the firmware activation request of an end node.
+    description: Requires Firmware Update Meta Data Command Class version 4 or above.
+    effect: read
+    binding: {method: getFirmwareActivationStatus}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/FirmwareActivationInterface"}
+
+  # -- alarm / notification -------------------------------------------------------
+
+  get_notification_capabilities:
+    summary: Get the alarm/notification types supported by an end node.
+    description: Requires Alarm/Notification Command Class version 2 or above.
+    effect: read
+    binding: {method: getNotificationCapabilities}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/NotificationCapabilitiesInterface"}
+
+  get_notification_event_support:
+    summary: Get the events supported by one alarm/notification type of an end node.
+    description: Requires Alarm/Notification Command Class version 3 or above.
+    effect: read
+    binding: {method: getNotificationEventSupport}
+    params:
+      type: object
+      required: [interfaceDescriptor, zwaveAlarmType]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        zwaveAlarmType: {type: string, description: "The alarm/notification type, for example ``smoke`` or ``burglar``."}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/NotificationEventSupportInterface"}
+
+  get_notification_state:
+    summary: Get the alarm/notification state (push mode) or a pending notification (pull mode) from the end node or the cache.
+    description: The report list is not a history log; newer reports may overwrite older ones.
+    effect: read
+    binding: {method: getNotificationState}
+    params:
+      type: object
+      required: [interfaceDescriptor]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        refresh: {type: boolean, description: "True to fetch the value from the end node, false (default) to read the cache."}
+        vendorAlarmType: {type: integer, description: "The vendor specific alarm type. Defaults to 0 when not used; -1 means no favorites when reading the cache."}
+        zwaveAlarmType: {type: string, description: "The alarm/notification type. Defaults to ``latest``, which returns only the latest report (Alarm/Notification Command Class version 2 and above)."}
+        zwaveEvent: {type: integer, description: "The event (push mode only). Defaults to 0, the latest event (Alarm/Notification Command Class version 3 and above)."}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/NotificationStateInterface"}
+
+  set_notification_state:
+    summary: Enable or disable unsolicited reports of an alarm type (push mode), or clear a persistent notification (pull mode).
+    description: Requires Alarm/Notification Command Class version 2 or above.
+    effect: action
+    binding: {method: setNotificationState}
+    params:
+      type: object
+      required: [interfaceDescriptor, zwaveAlarmType, status]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        zwaveAlarmType: {type: string, description: "The alarm/notification type, for example ``smoke`` or ``burglar``."}
+        status: {type: integer, enum: [0, 255], description: "Push mode: 0 disables and 255 enables unsolicited reports. Pull mode: 0 clears a persistent notification."}
+    positional: [interfaceDescriptor]
+
+  get_all_notification_event_support:
+    summary: Get all alarm/notification types and events supported by an end node.
+    effect: read
+    binding: {method: getAllNotificationEventSupport}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/AllNotificationEventSupportInterface"}
+
+  # -- central scene --------------------------------------------------------------
+
+  get_central_scene_capabilities:
+    summary: Get the number of scenes and the supported key attributes of an end node.
+    effect: read
+    binding: {method: getCentralSceneCapabilities}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/CentralSceneCapabilitiesInterface"}
+
+  get_central_scene_configuration:
+    summary: Get the scene notification configuration of an end node.
+    description: Requires Central Scene Command Class version 3 or above.
+    effect: read
+    binding: {method: getCentralSceneConfiguration}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/CentralSceneConfigurationInterface"}
+
+  set_central_scene_configuration:
+    summary: Configure scene notifications (slow refresh) of an end node.
+    description: Requires Central Scene Command Class version 3 or above.
+    effect: write
+    write: patch
+    binding: {method: setCentralSceneConfiguration}
+    params:
+      type: object
+      required: [interfaceDescriptor, slowRefresh]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        slowRefresh: {type: boolean, description: True to use slow refresh.}
+    positional: [interfaceDescriptor]
+
+  get_central_scene_state:
+    summary: Get the cached central scene data.
+    effect: read
+    binding: {method: getCentralSceneState}
+    params: {$ref: "#/types/InterfaceRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/CentralSceneStateInterface"}
+
+  # -- anti-theft unlock ----------------------------------------------------------
+
+  get_anti_theft_unlock_state:
+    summary: Get the anti-theft unlock state of an end node, or the last known state from the cache.
+    effect: read
+    binding: {method: getAntiTheftUnlockState}
+    params: {$ref: "#/types/InterfaceRefreshRequest"}
+    positional: [interfaceDescriptor]
+    result:
+      type: object
+      required: [interface]
+      properties:
+        interface: {$ref: "#/types/AntiTheftUnlockInterface"}
+
+  set_anti_theft_unlock_state:
+    summary: Unlock an anti-theft locked node with its Magic Code.
+    effect: action
+    binding: {method: setAntiTheftUnlockState}
+    params:
+      type: object
+      required: [interfaceDescriptor, code]
+      x-masked: [code]
+      properties:
+        interfaceDescriptor: {type: integer, description: The interface descriptor.}
+        code:
+          type: string
+          pattern: "^([0-9A-Fa-f]{2}){1,10}$"
+          description: "The Magic Code as a hex string of 1-10 bytes, two characters per byte (0x01 0x02 0xFF is ``0102FF``)."
+    positional: [interfaceDescriptor]
+
+  # -- temperature threshold ------------------------------------------------------
+
+  set_temperature_threshold:
+    summary: Configure the temperature threshold event of an endpoint.
+    description: Omitted optional parameters keep their current values. Requires the Multilevel Sensor Command Class.
+    effect: write
+    write: patch
+    binding: {method: setTemperatureThreshold}
+    params:
+      type: object
+      required: [endpointDescriptor, active]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+        active: {type: boolean, description: True to activate the temperature threshold.}
+        warningRule: {type: string, enum: [above, below], description: Trigger the event when the temperature goes above or below the threshold.}
+        threshold: {type: integer, description: The threshold value. Hysteresis is not included.}
+        unit: {type: string, description: The temperature unit (Celsius or Fahrenheit).}
+    positional: [endpointDescriptor]
+
+  get_temperature_threshold:
+    summary: Get the temperature threshold settings of an endpoint.
+    description: Requires the Multilevel Sensor Command Class.
+    effect: read
+    binding: {method: getTemperatureThreshold}
+    params:
+      type: object
+      required: [endpointDescriptor]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+        unit: {type: string, description: "The temperature unit, Celsius (default) or Fahrenheit."}
+    positional: [endpointDescriptor]
+    result:
+      type: object
+      properties:
+        active: {type: boolean, description: True if the temperature threshold is active.}
+        warningRule: {type: string, enum: [above, below, unknown], description: "When the event triggers. ``unknown`` if no value has been set."}
+        threshold: {type: integer, description: The threshold value. 0 if no value has been set.}
+
+  # -- I/O functions --------------------------------------------------------------
+
+  set_io_function_binary_switch:
+    summary: Set the Binary-switch I/O function of an endpoint.
+    effect: write
+    write: patch
+    binding: {method: setIoFunctionBinarySwitch}
+    params:
+      type: object
+      required: [endpointDescriptor, ioPortNumber, invert]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+        ioPortNumber: {type: integer, description: The I/O port number.}
+        invert: {type: boolean, description: "True turns the switch on when the I/O port is low, false when it is high."}
+    positional: [endpointDescriptor]
+
+  set_io_function_one_shot:
+    summary: Set the One-shot I/O function of an endpoint.
+    effect: write
+    write: patch
+    binding: {method: setIoFunctionOneShot}
+    params:
+      type: object
+      required: [endpointDescriptor, ioPortNumber, alarmType, event, invert, duration]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+        ioPortNumber: {type: integer, description: The I/O port number.}
+        alarmType: {type: integer, description: The alarm/notification type.}
+        event: {type: integer, description: The event that sets the I/O port for the duration.}
+        invert: {type: boolean, description: "True drives the I/O port low on the event, false drives it high."}
+        duration: {type: integer, description: Seconds the I/O port is kept high or low before returning to its default value.}
+
+  set_io_function_set_reset:
+    summary: Set the Set/Reset I/O function of an endpoint.
+    effect: write
+    write: patch
+    binding: {method: setIoFunctionSetReset}
+    params:
+      type: object
+      required: [endpointDescriptor, ioPortNumber, setAlarmType, setEvent, resetAlarmType, resetEvent, invert]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+        ioPortNumber: {type: integer, description: The I/O port number.}
+        setAlarmType: {type: integer, description: The alarm/notification type of the set event.}
+        setEvent: {type: integer, description: The event that sets the I/O port high.}
+        resetAlarmType: {type: integer, description: The alarm/notification type of the reset event.}
+        resetEvent: {type: integer, description: The event that resets the I/O port low.}
+        invert: {type: boolean, description: "True inverts the action: the set event drives the port low and the reset event drives it high."}
+
+  set_io_function_toggle:
+    summary: Set the Toggle I/O function of an endpoint.
+    effect: write
+    write: patch
+    binding: {method: setIoFunctionToggle}
+    params:
+      type: object
+      required: [endpointDescriptor, ioPortNumber, alarmType, event]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor.}
+        ioPortNumber: {type: integer, description: The I/O port number.}
+        alarmType: {type: integer, description: The alarm/notification type.}
+        event: {type: integer, description: The event that toggles the I/O port.}
+    positional: [endpointDescriptor]
+
+  remove_io_function:
+    summary: Remove the I/O function of an endpoint.
+    effect: write
+    write: delete
+    binding: {method: removeIoFunction}
+    params: {$ref: "#/types/EndpointRequest"}
+    positional: [endpointDescriptor]
+
+  get_io_configuration:
+    summary: Get the I/O function configuration of an endpoint.
+    effect: read
+    binding: {method: getIoConfiguration}
+    params: {$ref: "#/types/EndpointRequest"}
+    positional: [endpointDescriptor]
+    result:
+      type: object
+      required: [endpointDescriptor, ioConfiguration]
+      properties:
+        endpointDescriptor: {type: integer, description: The endpoint descriptor given in the request.}
+        ioConfiguration: {$ref: "#/types/IoConfiguration"}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/z-wave-api/
+  sha256_md: 4d50c84295ac288dbd759fbc3216515a2b6a7d1147d68467767301101514c201
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - "Results are nested as documented (data.net.*, data.node.*, data.interface.<commandClass>.*); the generator cannot unwrap them, so users reach the payload through result.interface.<commandClass> and similar."
+  - "getNodeList: deviceCategory is ``code`` in the response syntax and examples but ``id`` in the parameter table; both are modeled as optional. secureInclusionFailed is <integer> in the table but boolean in the description and examples; modeled as boolean. vendorProductType is in the syntax and examples but missing from the table."
+  - "getBinarySwitchState: the table names data.interface.binaryswitch.lastUpdated/targetState (lower case s); the response syntax uses binarySwitch, which is modeled."
+  - "getWakeUpInfo: the table lists nodeId and association.lastUpdated; the response syntax uses wakeUp.nodeID and wakeUp.lastUpdated, which are modeled."
+  - "getFirmwareInfo: the table names maxFramerateSize and types fixedFragmentSize as boolean; the syntax has maxFragmentSize and fixedFragmentSize <integer>. Modeled as maxFragmentSize and boolean."
+  - "requestFirmwareBackup: the table names backPath; the syntax uses backupPath, which is modeled."
+  - "getNotificationState: the table puts lastUpdated at notification.lastUpdated; the syntax puts it in notification.report, which is modeled. vendorAlarmType has no Optional marker but 'defaults to 0 when not in use'; modeled as optional."
+  - "getAllNotificationEventSupport: zwaveAlarmTypeList.type is <integer> in the table and <string> in the syntax; modeled as string like getNotificationCapabilities."
+  - "getAntiTheftUnlockState: the table names centralScene.lastUpdated; modeled as antiTheftUnlock.lastUpdated per the syntax."
+  - "setConfiguration: useDefault has no Optional marker and is modeled as required; paramValue and paramSize are 'not required if useDefault is true' and are modeled as optional."
+  - "getMeterReading: unit and rateType 'default to noPreference'; noPreference is accepted in requests although the unit and rate type tables do not list it. importExport must not be used in requests."
+  - "setTemperatureThreshold/getTemperatureThreshold: the wire values of unit (Celsius/Fahrenheit) are not given; the sensor unit table suggests celsius and fahrenheit. Kept as a free string."
+  - "setIoFunction* do not say whether they replace an existing I/O function of the endpoint; modeled as write/patch."
+  - "The examples report roleType alwaysOnSlave (code 5) while the role type table names code 5 alwaysOnEndNode; name fields of device class objects are free strings."
+  - "The multilevel sensor event example uses sensorType lumSensor while the sensor type table names luminSensor."
+  - "The general error table ends with '...' (list incomplete). 2107 is a transport-level error with HTTP 4XX/5XX."
+  - "Common examples use the URL 'http://<servername>http://<servername>/axis-cgi/zwave.cgi' (doc typo)."
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,190 @@
+format: 2
+id: pencil-privacy-filter
+name: Pencil privacy filter
+summary: Add a black and white "pencil image" privacy effect to the video stream; select filter, configure flags,
+  query capabilities.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: pencil_privacy_filter
+  class: PencilPrivacyFilter
+docs:
+- https://developer.axis.com/vapix/network-video/pencil-privacy-filter/
+access: admin
+discovery:
+- {api_discovery: pencil-privacy-filter}
+
+binding:
+  path: /axis-cgi/pencil.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error, kind: internal}
+  2101: {description: Bad request. Invalid JSON, kind: invalid_argument}
+  2105: {description: Authorization failed, kind: access_denied}
+  2106: {description: Authentication failed, kind: access_denied}
+  2107: {description: Transport level error, kind: internal}
+
+types:
+  FilterType:
+    type: object
+    description: Selects a filter by type.
+    required: [type]
+    properties:
+      type: {type: string, description: "The filter type, for example ``pencil``."}
+
+  FilterSetting:
+    type: object
+    required: [type]
+    properties:
+      type: {type: string, description: "The filter type, for example ``pencil``."}
+      flags:
+        type: object
+        additionalProperties: true
+        description: "Flags of the filter. They differ by filter type, for example ``inverted`` (boolean) and ``threshold`` (integer). Use ``get_filter_capabilities`` to discover them."
+
+  SelectedFilter:
+    type: object
+    required: [type]
+    properties:
+      type: {type: string, description: "The current filter type; ``none`` if no filter is active."}
+
+  FlagCapability:
+    type: object
+    properties:
+      type: {type: string, description: "Flag type, for example ``bool`` or ``integer``."}
+      min: {type: number}
+      max: {type: number}
+      description: {type: string}
+
+  FilterCapability:
+    type: object
+    properties:
+      type: {type: string, description: The filter type.}
+      description: {type: string, description: Describes the filter type.}
+      flags:
+        type: array
+        description: Flags available for the filter. Each item is a single-key object from flag name to capability.
+        items:
+          type: object
+          additionalProperties: {$ref: "#/types/FlagCapability"}
+
+  FilterCapabilities:
+    type: object
+    properties:
+      filters:
+        type: array
+        items: {$ref: "#/types/FilterCapability"}
+
+operations:
+  set_filter_settings:
+    summary: Set the flag values of one or more filter types.
+    effect: write
+    write: patch
+    binding: {method: setFilterSettings}
+    params:
+      type: array
+      x-arg-name: settings
+      x-name: SetFilterSettingsRequest
+      description: One entry per filter type that receives new or updated flags.
+      items: {$ref: "#/types/FilterSetting"}
+    examples:
+      - title: Invert the pencil filter and set its threshold
+        request:
+          params:
+            - {type: pencil, flags: {inverted: true, threshold: 45}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#apply-filter-settings
+
+  get_filter_settings:
+    summary: Get the current flag values of one or more filter types.
+    effect: read
+    binding: {method: getFilterSettings}
+    params:
+      type: array
+      x-arg-name: filters
+      x-name: GetFilterSettingsRequest
+      description: The filter types to check.
+      items: {$ref: "#/types/FilterType"}
+    result:
+      type: array
+      items: {$ref: "#/types/FilterSetting"}
+    examples:
+      - title: Check the pencil filter settings
+        request:
+          params:
+            - {type: pencil}
+        response:
+          data:
+            - {type: pencil, flags: {inverted: true, threshold: 23}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#check-filter-settings
+
+  set_selected_filter:
+    summary: Select which filter is active; ``none`` deactivates the filter.
+    effect: write
+    write: patch
+    binding: {method: setSelectedFilter}
+    params:
+      type: array
+      x-arg-name: filters
+      x-name: SetSelectedFilterRequest
+      description: The filter type that should be active.
+      items: {$ref: "#/types/FilterType"}
+    examples:
+      - title: Deactivate the filter
+        request:
+          params:
+            - {type: none}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#select-filter
+
+  get_selected_filter:
+    summary: Get the currently active filter.
+    effect: read
+    binding: {method: getSelectedFilter}
+    result: {$ref: "#/types/SelectedFilter"}
+    examples:
+      - title: Get the active filter
+        request: {params: {}}
+        response: {data: {type: pencil}}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-filter-information
+
+  get_filter_capabilities:
+    summary: List all available filters with their supported flags.
+    effect: read
+    binding: {method: getFilterCapabilities}
+    result: {$ref: "#/types/FilterCapabilities"}
+    examples:
+      - title: Request all filter capabilities
+        request: {params: {}}
+        response:
+          data:
+            filters:
+              - type: pencil
+                description: string
+                flags:
+                  - "<flag_name>": {type: bool, description: string}
+                  - "<flag_name>": {type: integer, min: 0, max: 255, description: string}
+        source: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/#request-all-filter-capabilities
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pencil-privacy-filter/
+  sha256_md: c899966c74c811a03311ff04091088ac7545387fc1553619a75c004bb449ebde
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Security level/access level not stated for any method.
+  - Concrete flag names (inverted, threshold) appear only in examples; the full flag set is only discoverable via
+    getFilterCapabilities.
+  - Filter capability flag type strings ('bool', 'integer') are shown with placeholder values; full list of possible
+    types unknown.
+  - AXIS OS minimum version not stated.
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,133 @@
+format: 2
+id: streamstatus
+name: Stream status API
+summary: List running (RTSP) streams on a device via /axis-cgi/streamstatus.cgi.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: stream_status
+  class: StreamStatus
+docs:
+- https://developer.axis.com/vapix/network-video/stream-status-api/
+access: admin
+discovery:
+- {api_discovery: streamstatus}
+
+binding:
+  path: /axis-cgi/streamstatus.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error, kind: internal}
+  2100: {description: API version not supported, kind: unsupported}
+  2101: {description: Invalid JSON format, kind: invalid_argument}
+  2102: {description: Method not supported, kind: unsupported}
+  2103: {description: Required parameter missing, kind: invalid_argument}
+  2104: {description: Invalid parameter value specified, kind: invalid_argument}
+  2105: {description: Authorization failure, kind: access_denied}
+  2106: {description: Authentication failure, kind: access_denied}
+  2107: {description: Transport level error, kind: unavailable}
+
+types:
+  Stream:
+    type: object
+    description: One running RTSP stream. Streams with inconsistent information are omitted by the device.
+    required: [id]
+    properties:
+      destination_address: {type: string, description: The IPv4 or IPv6 address of the client.}
+      destination_port: {type: integer, description: The port of the client.}
+      direction: {type: string, enum: [incoming, outgoing], description: Direction of the stream.}
+      encrypted: {type: boolean, description: Indicates whether the stream is encrypted or not.}
+      id:
+        type: integer
+        minimum: 1
+        description: The ID of the stream. It should be one or greater than one.
+      media: {type: string, enum: [audio, metadata, video], description: The media type.}
+      mime:
+        type: string
+        enum:
+        - audio/mpeg
+        - application/x-onvif-metadata+xml
+        - video/x-h264
+        - audio/x-opus
+        - audio/x-adpcm
+        - audio/x-mulaw
+        - audio/x-raw
+        - image/jpeg
+        - video/x-h265
+        description: The MIME type.
+      multicast: {type: boolean, description: Optional. Indicates whether the stream uses multicast or not.}
+      options:
+        type: object
+        additionalProperties: {type: string}
+        description: Container for URL options in a stream request. See Video streaming public parameter description
+          / RTSP URL parameter specification.
+      path: {type: string, description: The server path.}
+      source_address: {type: string, description: The IPv4 or IPv6 address of the server.}
+      source_port: {type: integer, description: The port of the server.}
+      state:
+        type: string
+        enum: [paused, playing]
+        description: The current state of the streaming pipeline.
+      stream_protocol: {type: string, description: The stream protocol that is used.}
+      transport_protocol: {type: string, enum: [TCP, UDP], description: The transport protocol that is used.}
+      user_agent: {type: string, description: Information about the client.}
+
+operations:
+  get_all_streams:
+    summary: List all running streams on a device.
+    effect: read
+    binding: {method: getAllStreams}
+    result:
+      type: object
+      required: [streams]
+      properties:
+        streams:
+          type: array
+          items: {$ref: '#/types/Stream'}
+    examples:
+    - title: List all running streams
+      request:
+        params: {}
+      response:
+        data:
+          streams:
+          - destination_address: 192.168.0.1
+            destination_port: 32986
+            direction: outgoing
+            encrypted: false
+            id: 11
+            media: video
+            mime: video/x-h264
+            multicast: false
+            options: {audio: '0', video: '1'}
+            path: /axis-media/media.amp
+            source_address: 192.168.0.141
+            source_port: 50000
+            state: playing
+            stream_protocol: RTP
+            transport_protocol: UDP
+            user_agent: GStreamer/1.22.0
+      source: https://developer.axis.com/vapix/network-video/stream-status-api/#getallstreams
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/stream-status-api/
+  sha256_md: 6dcf53061f0bee8316ff1c53352892fbbaf9ef68fb13d61e771dec4be1e0af86
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - AXIS OS minimum version not stated.
+  - Mapping of error codes to the listed HTTP status codes (400/401/403/405/411/413/500) is not documented.
+  - options values are shown as strings ("0","1"); full value types not documented.
+  - 'stream_protocol has no enum (example: RTP).'
+  - Only the id field is treated as always present; the docs do not say which other fields are guaranteed.
+  - The API only handles RTSP streams.
+  migrated_from: v1
+  curated: true

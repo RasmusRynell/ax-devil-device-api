@@ -1,0 +1,322 @@
+format: 2
+id: data-transformation-config
+name: Data transformation API
+summary: Transform JSON data of Device Data Hub topics with jq expressions, and read the runtime statistics of each transform.
+section: device-configuration
+family: dca
+status: released
+python:
+  module: data_transformation
+  class: DataTransformation
+docs:
+  - https://developer.axis.com/vapix/device-configuration/data-transformation/
+access: admin
+discovery:
+  - dca: {api: data-transformation, version: v1}
+binding:
+  root: /config/rest/data-transformation/v1
+
+types:
+  Topic:
+    type: string
+    minLength: 1
+    maxLength: 128
+    pattern: "^([a-zA-Z0-9_-]+)(\\.[a-zA-Z0-9_-]+)*$"
+    description: A Device Data Hub topic name. Output topics of transforms must start with ``com.axis.dt.``.
+  Version:
+    type: string
+    minLength: 1
+    maxLength: 32
+    pattern: "^\\d+\\.\\d+(\\.\\d+)?(\\-(alpha|beta)\\.\\d+)?$"
+    description: Device Data Hub topic version.
+  JqExpression:
+    type: string
+    minLength: 1
+    maxLength: 20480
+    description: The jq program used to transform the input to the output format.
+
+  Statistics:
+    type: object
+    description: Runtime statistics for a transform. Reset when the transform is modified or the device restarts.
+    properties:
+      avgMsgProcessingTimeNs: {type: integer, description: "Average processing time over the last 30 messages, in nanoseconds."}
+      maxMsgProcessingTimeNs: {type: integer, description: "Maximum processing time over the last 30 messages, in nanoseconds."}
+      avgMsgsPerSec: {type: number, description: Average number of input messages per second over the last 30 messages.}
+      msgInCount: {type: integer, description: Total number of input messages.}
+      msgOutCount: {type: integer, description: Total number of output messages (errors do not count).}
+      msgDroppedCount: {type: integer, description: Number of dropped messages.}
+      byteInCount: {type: integer, description: Total number of bytes received.}
+      byteOutCount: {type: integer, description: Total number of bytes sent after jq processing.}
+      jqTransformationErrCount: {type: integer, description: Number of jq transformation errors.}
+      publishErrCount: {type: integer, description: Number of failed Device Data Hub publications (for example a missing key field).}
+      lastErrMsg: {type: string, description: Last error message when failing to transform or send a message.}
+
+  TopicInfo:
+    type: object
+    description: A Device Data Hub topic.
+    required: [topicName]
+    properties:
+      topicName: {$ref: "#/types/Topic"}
+      description: {type: string, description: Topic description.}
+      version: {type: string, description: Topic version.}
+      keys: {type: array, items: {type: string}, description: Topic key paths.}
+
+  AvailableTopics:
+    type: object
+    description: Topics that can be used as an input.
+    required: [topics]
+    properties:
+      topics: {type: array, items: {$ref: "#/types/TopicInfo"}}
+
+  Transform:
+    type: object
+    description: A configured transform from an input topic to an output topic.
+    required: [inputTopic, jqExpression, outputTopic]
+    x-read-only: [statistics]
+    properties:
+      inputTopic: {$ref: "#/types/Topic"}
+      jqExpression: {$ref: "#/types/JqExpression"}
+      outputTopic: {$ref: "#/types/Topic"}
+      outputTopicDescription: {type: string, description: "Output topic description. Defaults to a text naming the input topic and its version."}
+      outputTopicVersion: {$ref: "#/types/Version"}
+      statistics: {$ref: "#/types/Statistics"}
+
+  DataTransformation:
+    type: object
+    description: The whole API tree.
+    properties:
+      availableTopics: {$ref: "#/types/AvailableTopics"}
+      transforms: {type: array, items: {$ref: "#/types/Transform"}}
+
+  AddTransformRequest:
+    type: object
+    description: Arguments of ``add_transform``.
+    required: [inputTopic, jqExpression, outputTopic]
+    properties:
+      inputTopic: {$ref: "#/types/Topic"}
+      jqExpression: {$ref: "#/types/JqExpression"}
+      outputTopic: {$ref: "#/types/Topic"}
+      outputTopicDescription: {type: string, description: "Output topic description. Defaults to a text naming the input topic and its version."}
+      outputTopicVersion: {$ref: "#/types/Version"}
+
+  UpdateTransformRequest:
+    type: object
+    description: Arguments of ``update_transform``. The output topic identifies the transform and cannot be changed.
+    required: [outputTopic]
+    properties:
+      outputTopic: {$ref: "#/types/Topic"}
+      inputTopic: {$ref: "#/types/Topic"}
+      jqExpression: {$ref: "#/types/JqExpression"}
+      outputTopicDescription: {type: string}
+      outputTopicVersion: {$ref: "#/types/Version"}
+
+operations:
+  get_all:
+    summary: The whole API tree.
+    effect: read
+    binding: {method: GET, path: ""}
+    result: {$ref: "#/types/DataTransformation"}
+
+  get_available_topics:
+    summary: Topics that can be used as transform inputs.
+    description: >-
+      Other topics can appear at any time, so a transform can also be set up for an input
+      topic that does not exist yet.
+    effect: read
+    binding: {method: GET, path: /availableTopics}
+    result: {$ref: "#/types/AvailableTopics"}
+    examples:
+      - title: Get available input topics
+        request: {path: /availableTopics}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              topics:
+                - {topicName: com.axis.some.topic, description: Topic description, version: 1.0.0, keys: [channel_id]}
+        source: https://developer.axis.com/vapix/device-configuration/data-transformation/#get-available-input-topics
+
+  list_transforms:
+    summary: List the configured transforms.
+    effect: read
+    binding: {method: GET, path: /transforms}
+    result: {type: array, items: {$ref: "#/types/Transform"}}
+    examples:
+      - title: Get existing transforms
+        request: {path: /transforms}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              - inputTopic: com.axis.input.topic
+                outputTopic: com.axis.dt.output.topic
+                jqExpression: .track_events
+                outputTopicDescription: Only the object track events
+                outputTopicVersion: 1.0.0
+        source: https://developer.axis.com/vapix/device-configuration/data-transformation/#get-existing-transforms
+
+  get_transform:
+    summary: Get one transform.
+    effect: read
+    binding: {method: GET, path: "/transforms/{outputTopic}", key_styles: {outputTopic: dots_to_slashes}}
+    params:
+      type: object
+      x-name: TransformOutputTopicRequest
+      required: [outputTopic]
+      properties:
+        outputTopic: {$ref: "#/types/Topic"}
+    result: {$ref: "#/types/Transform"}
+
+  get_transform_statistics:
+    summary: Runtime statistics of one transform.
+    access: operator
+    effect: read
+    binding: {method: GET, path: "/transforms/{outputTopic}/statistics", key_styles: {outputTopic: dots_to_slashes}}
+    params:
+      type: object
+      x-name: TransformOutputTopicRequest
+      required: [outputTopic]
+      properties:
+        outputTopic: {$ref: "#/types/Topic"}
+    result: {$ref: "#/types/Statistics"}
+    examples:
+      - title: Get transform statistics
+        request: {path: /transforms/com/axis/dt/output/topic/statistics}
+        response:
+          status: 200
+          body:
+            status: success
+            data:
+              msgInCount: 1200
+              msgOutCount: 1195
+              byteInCount: 845000
+              byteOutCount: 812000
+              avgMsgProcessingTimeNs: 4000
+              maxMsgProcessingTimeNs: 6000
+              avgMsgsPerSec: 25.5
+              msgDroppedCount: 3
+              jqTransformationErrCount: 2
+              publishErrCount: 0
+              lastErrMsg: "2026-02-09T09:15:33.123456Z Transform: error message"
+        source: https://developer.axis.com/vapix/device-configuration/data-transformation/#get-transform-statistics
+
+  add_transform:
+    summary: Add a transform.
+    description: The output topic must start with ``com.axis.dt.``.
+    effect: write
+    write: create
+    binding: {method: POST, path: /transforms, body: object}
+    params: {$ref: "#/types/AddTransformRequest"}
+    round_trip:
+      from: Transform
+    examples:
+      - title: Add a new transform
+        request:
+          path: /transforms
+          body:
+            data: {inputTopic: com.axis.scene.frame.v1, jqExpression: .track_events, outputTopic: com.axis.dt.output.topic}
+        response: {status: 201, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/data-transformation/#add-a-new-transform
+
+  update_transform:
+    summary: Update the settings of a transform.
+    description: Only the given settings change.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/transforms/{outputTopic}", key_styles: {outputTopic: dots_to_slashes}, body: object}
+    params: {$ref: "#/types/UpdateTransformRequest"}
+    examples:
+      - title: Update an existing transform
+        x-contract: {skip: "The documented request sends outputTopic in the body, but outputTopic is the key and not a settable property in the entity definition."}
+        request:
+          path: /transforms/com/axis/dt/output/topic
+          body:
+            data: {outputTopic: com.axis.dt.output.topic.v2}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/data-transformation/#update-an-existing-transform
+
+  remove_transform:
+    summary: Remove a transform.
+    effect: write
+    write: delete
+    binding: {method: DELETE, path: "/transforms/{outputTopic}", key_styles: {outputTopic: dots_to_slashes}}
+    params:
+      type: object
+      x-name: TransformOutputTopicRequest
+      required: [outputTopic]
+      properties:
+        outputTopic: {$ref: "#/types/Topic"}
+    examples:
+      - title: Remove a transform
+        request: {path: /transforms/com/axis/dt/output/topic}
+        response: {status: 200, body: {status: success}}
+        source: https://developer.axis.com/vapix/device-configuration/data-transformation/#remove-a-transform
+
+  set_transform_input_topic:
+    summary: Set the input topic of a transform.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/inputTopic", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: inputTopic}
+    params:
+      type: object
+      required: [outputTopic, inputTopic]
+      properties:
+        outputTopic: {$ref: "#/types/Topic"}
+        inputTopic: {$ref: "#/types/Topic"}
+
+  set_transform_jq_expression:
+    summary: Set the jq expression of a transform.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/jqExpression", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: jqExpression}
+    params:
+      type: object
+      required: [outputTopic, jqExpression]
+      properties:
+        outputTopic: {$ref: "#/types/Topic"}
+        jqExpression: {$ref: "#/types/JqExpression"}
+
+  set_transform_output_topic_description:
+    summary: Set the output topic description of a transform.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/outputTopicDescription", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: outputTopicDescription}
+    params:
+      type: object
+      required: [outputTopic, outputTopicDescription]
+      properties:
+        outputTopic: {$ref: "#/types/Topic"}
+        outputTopicDescription: {type: string}
+
+  set_transform_output_topic_version:
+    summary: Set the output topic version of a transform.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: "/transforms/{outputTopic}/outputTopicVersion", key_styles: {outputTopic: dots_to_slashes}, body: value, body_field: outputTopicVersion}
+    params:
+      type: object
+      required: [outputTopic, outputTopicVersion]
+      properties:
+        outputTopic: {$ref: "#/types/Topic"}
+        outputTopicVersion: {$ref: "#/types/Version"}
+
+sources:
+- url: https://developer.axis.com/vapix/device-configuration/data-transformation/
+  sha256_md: 7c39c56a8e3a6428a37de294a3a49dd0520fcfd6d6c6746d1e99cdda6ffed196
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+    - >-
+      The documented "Get available input topics" example requests /availableTopics/topics but
+      returns the object {topics: [...]}, which is the shape of /availableTopics. The example is
+      kept with the path /availableTopics.
+    - >-
+      The documented "Update an existing transform" example sends outputTopic in the body; the entity
+      definition does not make it settable. Skipped in the contract tests.
+    - The Topic pattern is shown as ``...)\*$`` in the docs; it is read as ``)*$`` (markdown escaping).
+  migrated_from: v1
+  curated: true

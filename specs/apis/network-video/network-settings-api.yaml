@@ -1,0 +1,2280 @@
+format: 2
+id: network-settings-api
+name: Network settings API
+summary: Read the network configuration and configure hostname, IPv4 and IPv6, DNS resolver, global proxy, VLANs,
+  wired 802.1X and MACsec, and WLAN station and access point settings.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: network_settings_api
+  class: NetworkSettings
+docs:
+- https://developer.axis.com/vapix/network-video/network-settings-api/
+access: admin
+discovery:
+- api_discovery: network-settings
+requires:
+  firmware: '8.50'
+binding:
+  path: /axis-cgi/network_settings.cgi
+  major: 1
+  versions:
+  - '1.0'
+  - '1.6'
+  - '1.9'
+  - '1.12'
+  - '1.14'
+  - '1.15'
+  - '1.16'
+  - '1.17'
+  - '1.21'
+  - '1.27'
+  - '1.29'
+  negotiation:
+    get_supported_versions:
+      key: supportedVersions
+  params_placement: params
+errors:
+  1000:
+    description: Internal error.
+    kind: internal
+  2000:
+    description: Invalid request.
+    kind: invalid_argument
+  2001:
+    description: Request body too large.
+    kind: invalid_argument
+  3000:
+    description: Invalid JSON data.
+    kind: invalid_argument
+  4000:
+    description: Method does not exist.
+    kind: not_found
+  4001:
+    description: The specified version is not supported.
+    kind: unsupported
+  4002:
+    description: Authorization failed.
+    kind: access_denied
+  4003:
+    description: Missing parameter(s).
+    kind: invalid_argument
+  4004:
+    description: Invalid parameter(s).
+    kind: invalid_argument
+types:
+  TcpEcnMode:
+    enum:
+    - disabled
+    - acceptAndInitiate
+    - acceptOnly
+    description: 'disabled: neither accept nor initiate ECN. acceptAndInitiate: both. acceptOnly: accept incoming
+      ECN but do not initiate.'
+  DeviceSwitchingMode:
+    enum:
+    - auto
+    - manual
+    - none
+    description: 'auto: the highest priority available device is active. manual: only manualActiveDevices are active.
+      none: no device is active.'
+  DeviceType:
+    enum:
+    - wired
+    - wlan
+    - wwan
+    - bridged
+    - switchPort
+  ConfigurationMode:
+    enum:
+    - static
+    - dhcp
+  LinkLocalMode:
+    enum:
+    - 'off'
+    - 'on'
+    - fallback
+    description: 'off: never assign a link-local IPv4 address. on: always assign one. fallback: only if the primary
+      configuration mode fails.'
+  AddressOrigin:
+    enum:
+    - unknown
+    - static
+    - dhcp
+    - linkLocal
+    - RA
+    description: RA (router advertisement) only applies to IPv6 addresses.
+  AddressScope:
+    enum:
+    - nowhere
+    - host
+    - link
+    - site
+    - global
+  WiredLinkMode:
+    enum:
+    - auto
+    - 10BaseT-HD
+    - 10BaseT-FD
+    - 100BaseTX-HD
+    - 100BaseTX-FD
+    - 1000BaseTX-HD
+    - 1000BaseTX-FD
+  Wired8021xMode:
+    enum:
+    - WPA-Enterprise-PEAP-MSCHAPv2
+    - WPA-Enterprise-EAPTLS
+    - MACsec-PSK
+  PeapVersion:
+    enum:
+    - PEAPv0
+    - PEAPv1
+  PeapLabel:
+    enum:
+    - 1
+    - 2
+    description: '1: use client EAP encryption. 2: use client PEAP encryption.'
+  WlanAuthenticationMode:
+    enum:
+    - none
+    - WPA-Personal-PSK
+    - WPA-Personal-HEX
+    - WPA-Enterprise-PEAP-MSCHAPv2
+    - WPA-Enterprise-EAPTLS
+  Ieee8021xStatus:
+    enum:
+    - Unknown
+    - Stopped
+    - Unauthorized
+    - Authorized
+    - Connecting
+  EapolVersion:
+    enum:
+    - EAPoLv1
+    - EAPoLv2
+    - EAPoLv3
+  DeviceStaticState:
+    enum:
+    - up
+    - down
+  DeviceState:
+    enum:
+    - up
+    - down
+  WlanBand:
+    enum:
+    - 2.4GHz
+    - 5GHz
+  WlanSecurityType:
+    enum:
+    - None
+    - PSK
+    - IEEE 802.1X
+  WlanSecurityVersion:
+    enum:
+    - WPA1
+    - WPA2
+  NetworkInfo:
+    type: object
+    required:
+    - system
+    - devices
+    properties:
+      system:
+        $ref: '#/types/SystemInfo'
+      devices:
+        type: array
+        items:
+          $ref: '#/types/NetworkDevice'
+        description: The network interface devices.
+  SystemInfo:
+    type: object
+    description: Network parameters that are not tied to one network interface device.
+    properties:
+      tcpEcnMode:
+        $ref: '#/types/TcpEcnMode'
+        description: The TCP ECN mode.
+      wlan:
+        type: object
+        description: WLAN settings that are not tied to one device.
+        properties:
+          countryCode:
+            type: string
+            description: The country code of the WLAN regulatory domain; XX means not configured. Only present when
+              a WLAN device exists.
+          countryCodeLock:
+            type: boolean
+            description: Whether setting the country code is disallowed, based on regulatory requirements.
+      deviceSwitching:
+        type: object
+        description: Selection of active network interface devices.
+        properties:
+          mode:
+            $ref: '#/types/DeviceSwitchingMode'
+          devices:
+            type: array
+            items:
+              type: string
+            description: Available devices, highest priority first.
+          manualActiveDevices:
+            type: array
+            items:
+              type: string
+            description: Devices brought up when the mode is manual.
+          activeDevices:
+            type: array
+            items:
+              type: string
+            description: Devices that are currently active.
+      hostname:
+        type: object
+        description: Hostname settings.
+        properties:
+          useDhcpHostname:
+            type: boolean
+            description: Prefer a DHCP provided hostname over the static hostname.
+          hostname:
+            type: string
+            description: The hostname in use.
+          staticHostname:
+            type: string
+            description: The static hostname.
+      resolver:
+        type: object
+        description: DNS resolver settings.
+        properties:
+          useDhcpResolverInfo:
+            type: boolean
+            description: Prefer the DHCP provided resolver configuration over the static one.
+          nameServers:
+            type: array
+            items:
+              type: string
+            description: Name servers in use.
+          staticNameServers:
+            type: array
+            items:
+              type: string
+            description: The static name servers.
+          maxSupportedStaticNameServers:
+            type: integer
+            description: Maximum number of static name servers.
+          searchDomains:
+            type: array
+            items:
+              type: string
+            description: Search domains in use.
+          staticSearchDomains:
+            type: array
+            items:
+              type: string
+            description: The static search domains.
+          maxSupportedStaticSearchDomains:
+            type: integer
+            description: Maximum number of static search domains.
+          domainName:
+            type: string
+            description: The domain name in use.
+          staticDomainName:
+            type: string
+            description: The static domain name.
+      globalProxies:
+        type: object
+        description: Global proxy settings.
+        properties:
+          httpProxy:
+            type: string
+            description: The global HTTP proxy. Sensitive information such as passwords is obscured.
+          httpsProxy:
+            type: string
+            description: The global HTTPS proxy. Sensitive information such as passwords is obscured.
+          noProxy:
+            type: string
+            description: The global no_proxy list.
+      maxSupportedVlans:
+        type: integer
+        description: The maximum number of VLANs.
+  IPv4Address:
+    type: object
+    description: An IPv4 address in use.
+    required:
+    - address
+    properties:
+      address:
+        type: string
+      prefixLength:
+        type: integer
+        description: The subnet prefix length.
+      broadcast:
+        type: string
+        description: The broadcast address; not always available.
+      origin:
+        $ref: '#/types/AddressOrigin'
+      scope:
+        $ref: '#/types/AddressScope'
+  StaticIPv4Address:
+    type: object
+    description: A static IPv4 address configuration.
+    required:
+    - address
+    properties:
+      address:
+        type: string
+      prefixLength:
+        type: integer
+        description: The subnet prefix length.
+      broadcast:
+        type: string
+        description: The broadcast address; not always available.
+  IPv4Settings:
+    type: object
+    description: IPv4 configuration of a device.
+    properties:
+      enabled:
+        type: boolean
+        description: Whether IPv4 is enabled.
+      configurationMode:
+        $ref: '#/types/ConfigurationMode'
+      linkLocalMode:
+        $ref: '#/types/LinkLocalMode'
+      useStaticDHCPFallback:
+        type: boolean
+        description: Use the static default router as fallback when a DHCP leased default router is unavailable.
+      useDHCPStaticRoutes:
+        type: boolean
+        description: Use DHCP classless static routes; the DHCP leased default router is then ignored.
+      addresses:
+        type: array
+        items:
+          $ref: '#/types/IPv4Address'
+        description: All addresses in use.
+      maxSupportedStaticAddressConfigurations:
+        type: integer
+        description: Maximum number of static address configurations.
+      staticAddressConfigurations:
+        type: array
+        items:
+          $ref: '#/types/StaticIPv4Address'
+        description: The static address configurations.
+      defaultRouter:
+        type: string
+        description: The default router in use.
+      staticDefaultRouter:
+        type: string
+        description: The static default router.
+  IPv6Address:
+    type: object
+    description: An IPv6 address in use.
+    required:
+    - address
+    properties:
+      address:
+        type: string
+      prefixLength:
+        type: integer
+        description: The subnet prefix length.
+      origin:
+        $ref: '#/types/AddressOrigin'
+      scope:
+        $ref: '#/types/AddressScope'
+  StaticIPv6Address:
+    type: object
+    description: A static IPv6 address configuration.
+    required:
+    - address
+    properties:
+      address:
+        type: string
+      prefixLength:
+        type: integer
+        description: The subnet prefix length.
+  IPv6Settings:
+    type: object
+    description: IPv6 configuration of a device.
+    properties:
+      enabled:
+        type: boolean
+        description: Whether IPv6 is enabled.
+      configurationMode:
+        $ref: '#/types/ConfigurationMode'
+      addresses:
+        type: array
+        items:
+          $ref: '#/types/IPv6Address'
+        description: All addresses in use.
+      maxSupportedStaticAddressConfigurations:
+        type: integer
+        description: Maximum number of static address configurations.
+      staticAddressConfigurations:
+        type: array
+        items:
+          $ref: '#/types/StaticIPv6Address'
+        description: The static address configurations.
+      defaultRouter:
+        type: string
+        description: The default router in use.
+      staticDefaultRouter:
+        type: string
+        description: The static default router.
+  Wired8021xParams:
+    type: object
+    description: Parameters of one wired 802.1X mode.
+    properties:
+      identity:
+        type: string
+        description: The EAP identity.
+      is_password_set:
+        type: boolean
+        description: Whether a password is set.
+      eapolVersion:
+        $ref: '#/types/EapolVersion'
+      peapVersion:
+        $ref: '#/types/PeapVersion'
+      label:
+        $ref: '#/types/PeapLabel'
+      is_mka_cak_set:
+        type: boolean
+        description: Whether the MACsec Key Agreement CAK is set.
+      mkaCkn:
+        type: string
+        description: The MACsec Key Agreement CAK name.
+      certClient:
+        type: string
+        description: The client certificate ID used for EAP-TLS.
+      certsCA:
+        type: array
+        items:
+          type: string
+        description: The CA certificate IDs used for EAP-TLS and MSCHAPv2.
+  Wired8021xConfiguration:
+    type: object
+    description: One configured wired 802.1X mode.
+    properties:
+      mode:
+        $ref: '#/types/Wired8021xMode'
+      params:
+        $ref: '#/types/Wired8021xParams'
+  Wired8021x:
+    type: object
+    description: Wired 802.1X state; its presence indicates support.
+    properties:
+      enabled:
+        type: boolean
+        description: Whether 802.1X is enabled on the interface.
+      status:
+        $ref: '#/types/Ieee8021xStatus'
+      mode:
+        $ref: '#/types/Wired8021xMode'
+        description: The active mode.
+      configurations:
+        type: array
+        items:
+          $ref: '#/types/Wired8021xConfiguration'
+        description: The configured modes.
+      supportedModes:
+        type: array
+        items:
+          $ref: '#/types/Wired8021xMode'
+        description: The supported modes.
+      MACsecSecured:
+        type: boolean
+        description: Whether the connection is secured by MACsec; applies to MACsec-PSK, or WPA-Enterprise-EAPTLS
+          with EAPoL version 3.
+  WiredSettings:
+    type: object
+    description: Parameters exclusive to wired devices.
+    properties:
+      linkMode:
+        $ref: '#/types/WiredLinkMode'
+      isDownlink:
+        type: boolean
+        description: Whether the device is a downlink (towards leaf devices) rather than an uplink.
+      supportedLinkModes:
+        type: array
+        items:
+          $ref: '#/types/WiredLinkMode'
+        description: The supported link modes.
+      8021X:
+        $ref: '#/types/Wired8021x'
+        x-python-name: ieee_8021x
+  WlanStationParams:
+    type: object
+    description: Parameters of one WLAN station 802.1X mode.
+    properties:
+      is_psk_set:
+        type: boolean
+        description: Whether the pre-shared key is set.
+      is_hex_set:
+        type: boolean
+        description: Whether the hex key is set.
+      is_password_set:
+        type: boolean
+        description: Whether the password is set.
+      identity:
+        type: string
+        description: The EAP identity.
+      eapolVersion:
+        $ref: '#/types/EapolVersion'
+      peapVersion:
+        $ref: '#/types/PeapVersion'
+      label:
+        $ref: '#/types/PeapLabel'
+      certClient:
+        type: string
+        description: The client certificate ID.
+      certsCA:
+        type: array
+        items:
+          type: string
+        description: The CA certificate IDs.
+  WlanStationConfiguration:
+    type: object
+    description: One configured WLAN station mode.
+    properties:
+      mode:
+        $ref: '#/types/WlanAuthenticationMode'
+      params:
+        $ref: '#/types/WlanStationParams'
+  WlanStation8021x:
+    type: object
+    description: WLAN station authentication state.
+    properties:
+      enabled:
+        type: boolean
+        description: Whether the WLAN station is enabled on the interface.
+      status:
+        $ref: '#/types/Ieee8021xStatus'
+      mode:
+        $ref: '#/types/WlanAuthenticationMode'
+        description: The active mode.
+      configurations:
+        type: array
+        items:
+          $ref: '#/types/WlanStationConfiguration'
+        description: The configured modes.
+      supportedModes:
+        type: array
+        items:
+          $ref: '#/types/WlanAuthenticationMode'
+        description: The supported modes.
+  WlanStation:
+    type: object
+    description: WLAN station feature; its presence indicates support.
+    properties:
+      activeSsid:
+        type: string
+        description: The SSID of the configured station.
+      8021X:
+        $ref: '#/types/WlanStation8021x'
+        x-python-name: ieee_8021x
+  WlanAccessPoint:
+    type: object
+    description: WLAN access point feature; its presence indicates support.
+    properties:
+      ssid:
+        type: string
+        description: The access point SSID.
+      enabled:
+        type: boolean
+        description: Whether the access point is enabled on the interface.
+      authenticationMode:
+        $ref: '#/types/WlanAuthenticationMode'
+        description: The active authentication mode.
+      installationModeSupported:
+        type: boolean
+        description: Present when the access point supports the installation mode.
+  WlanSettings:
+    type: object
+    description: Parameters exclusive to WLAN devices.
+    properties:
+      station:
+        $ref: '#/types/WlanStation'
+      accessPoint:
+        $ref: '#/types/WlanAccessPoint'
+  SwitchPortSettings:
+    type: object
+    description: Parameters exclusive to switchPort devices.
+    properties:
+      portNumber:
+        type: integer
+        description: The switch port number.
+      remoteAddresses:
+        type: array
+        items:
+          type: string
+        description: Remote MAC addresses seen on the port.
+  NetworkDevice:
+    type: object
+    description: A network interface device.
+    required:
+    - name
+    - type
+    properties:
+      name:
+        type: string
+        description: Name of the network interface device.
+      type:
+        $ref: '#/types/DeviceType'
+      macAddress:
+        type: string
+        description: The MAC address.
+      partOfBridge:
+        type: string
+        description: Name of the bridge device this device is part of, or an empty string.
+      link:
+        type: boolean
+        description: Whether a link is detected.
+      staticState:
+        $ref: '#/types/DeviceStaticState'
+        description: Whether the interface should be up or down.
+      state:
+        $ref: '#/types/DeviceState'
+        description: Whether the interface is up or down.
+      IPv4:
+        $ref: '#/types/IPv4Settings'
+        x-python-name: ipv4
+      IPv6:
+        $ref: '#/types/IPv6Settings'
+        x-python-name: ipv6
+      wired:
+        $ref: '#/types/WiredSettings'
+      wlan:
+        $ref: '#/types/WlanSettings'
+      switchPort:
+        $ref: '#/types/SwitchPortSettings'
+  WlanNetwork:
+    type: object
+    description: A WLAN network found by a scan.
+    required:
+    - ssid
+    properties:
+      ssid:
+        type: string
+        description: The SSID.
+      band:
+        $ref: '#/types/WlanBand'
+      channel:
+        type: integer
+        description: The network channel.
+      signalStrengthDBm:
+        type: integer
+        description: The signal strength in dBm.
+      security:
+        type: array
+        items:
+          $ref: '#/types/WlanSecurity'
+        description: The security parameters available on the network.
+  WlanSecurity:
+    type: object
+    description: One security option of a network.
+    properties:
+      authentication:
+        $ref: '#/types/WlanSecurityType'
+      version:
+        $ref: '#/types/WlanSecurityVersion'
+        description: Only applicable when authentication is PSK or IEEE 802.1X.
+  WlanScanResult:
+    type: object
+    required:
+    - networks
+    properties:
+      networks:
+        type: array
+        items:
+          $ref: '#/types/WlanNetwork'
+  WlanTestResult:
+    type: object
+    description: Outcome of a WLAN station test.
+    required:
+    - code
+    - message
+    properties:
+      code:
+        type: integer
+        description: 'Result of the test: 0 authentication successful, 1 authentication failed, 2 timeout connecting
+          to the access point, 3 WLAN station configuration changed, 4 interrupted by interface change, 5 WLAN configuration
+          is incomplete.'
+      message:
+        type: string
+        description: A message describing the result code.
+  WlanSwitchResult:
+    type: object
+    description: Outcome of the switch from access point to station.
+    required:
+    - code
+    - message
+    properties:
+      code:
+        type: integer
+        description: '0: the connection process started.'
+      message:
+        type: string
+        description: A message describing the result code.
+  WlanStationAuthParams:
+    type: object
+    description: WLAN station 802.1X authentication parameters.
+    x-masked: [password]
+    properties:
+      identity:
+        type: string
+        description: The EAP identity. Unchanged if omitted.
+      password:
+        type: string
+        description: The password. Unchanged if omitted.
+      eapolVersion:
+        $ref: '#/types/EapolVersion'
+      peapVersion:
+        $ref: '#/types/PeapVersion'
+      label:
+        $ref: '#/types/PeapLabel'
+      certClient:
+        type: string
+        description: The client certificate ID for EAP-TLS. Unchanged if omitted.
+      certsCA:
+        type: array
+        items:
+          type: string
+        description: The CA certificate IDs for EAP-TLS and MSCHAPv2. Unchanged if omitted.
+  WlanStationAuthentication:
+    type: object
+    description: WLAN station authentication settings.
+    properties:
+      mode:
+        $ref: '#/types/WlanAuthenticationMode'
+        description: The authentication mode to use.
+      params:
+        $ref: '#/types/WlanStationAuthParams'
+operations:
+  add_vlan:
+    summary: Adds a new VLAN.
+    description: This method adds a new VLAN attached to an existing network interface. The maximum number of VLANs
+      is limited, see [getNetworkInfo](#get-network-info-api-specification) to determine the allowed number. Adds
+      a new VLAN. The call verifies that the master device that should be used as the main interface for the VLAN
+      exists. It will also ensure that no duplicates are added if the VLAN already exists.
+    effect: write
+    write: create
+    binding:
+      method: addVlan
+    params:
+      type: object
+      required:
+      - masterDeviceName
+      - VlanId
+      properties:
+        masterDeviceName:
+          type: string
+          description: The network device the VLAN is attached to, for example eth0.
+        VlanId:
+          type: integer
+          description: The numerical VLAN identifier. The VLAN is named after its master device and ID, for example
+            eth0.4.
+    examples:
+    - title: Add a new VLAN
+      request:
+        params:
+          masterDeviceName: eth0
+          VlanId: 4
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#add-a-new-vlan
+    - title: Add a new VLAN (error response)
+      request:
+        params:
+          masterDeviceName: eth0
+          VlanId: 4
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#add-a-new-vlan
+    errors:
+      4004/subCode 100:
+        description: Parameter masterDeviceName error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter VlanId error.
+        kind: invalid_argument
+      4004/subCode 201:
+        description: VLAN already exists.
+        kind: invalid_argument
+      4004/subCode 202:
+        description: Maximum number of VLANs in use.
+        kind: unavailable
+  get_network_info:
+    summary: Retrieves the current network configuration and network-related parameters for the device.
+    description: This method retrieves the network configuration and additional relevant information from the device.
+    effect: read
+    binding:
+      method: getNetworkInfo
+    result:
+      $ref: '#/types/NetworkInfo'
+    examples:
+    - title: Read network configuration
+      request:
+        params: {}
+      response:
+        data:
+          system:
+            tcpEcnMode: acceptAndInitiate
+            wlan:
+              countryCode: DE
+              countryCodeLock: false
+            deviceSwitching:
+              mode: auto
+              devices:
+              - eth0
+              - eth1
+              manualActiveDevices:
+              - eth0
+              activeDevices:
+              - eth0
+            hostname:
+              useDhcpHostname: true
+              hostname: somehostname
+              staticHostname: somestatichostname
+            resolver:
+              useDhcpResolverInfo: true
+              nameServers:
+              - 192.168.0.1
+              - fd::1
+              staticNameServers:
+              - 192.168.0.8
+              - 192.168.0.4
+              maxSupportedStaticNameServers: 3
+              searchDomains:
+              - example.com
+              staticSearchDomains:
+              - something.net
+              - something-else.org
+              maxSupportedStaticSearchDomains: 6
+              domainName: axis.com
+              staticDomainName: abczxcqwe.se
+            globalProxies:
+              httpProxy: http://user:pass@192.168.1.1:8080
+              httpsProxy: https://user:pass@192.168.1.1:8080
+              noProxy: 172.25.73.21,::1,.axis.com,localhost,169.254.0.0/16
+          devices:
+          - name: eth0
+            type: wired
+            macAddress: ac:cc:8e:68:8e:c4
+            partOfBridge: ''
+            link: true
+            state: up
+            staticState: up
+            IPv4:
+              enabled: true
+              configurationMode: dhcp
+              linkLocalMode: 'off'
+              addresses:
+              - address: 192.168.0.165
+                prefixLength: 24
+                origin: dhcp
+                scope: global
+                broadcast: 192.168.0.225
+              - address: 169.254.211.16
+                prefixLength: 16
+                origin: linkLocal
+                scope: link
+              maxSupportedStaticAddressConfigurations: 1
+              staticAddressConfigurations:
+              - address: 192.168.0.90
+                prefixLength: 24
+                broadcast: 192.168.0.225
+              defaultRouter: 192.168.0.1
+              staticDefaultRouter: 192.168.0.1
+              useDHCPStaticRoutes: true
+            IPv6:
+              enabled: true
+              configurationMode: dhcp
+              addresses:
+              - address: fe80::249:8cff:fe1b:eef5
+                prefixLength: 64
+                origin: linkLocal
+                scope: link
+              - address: fd1c:360:4e4d:a5b2::e42
+                prefixLength: 128
+                origin: dhcp
+                scope: site
+              maxSupportedStaticAddressConfigurations: 1
+              staticAddressConfigurations:
+              - address: fe80::249:8cff:fe1b:eef5
+                prefixLength: 64
+              defaultRouter: ''
+              staticDefaultRouter: ''
+            wired:
+              linkMode: auto
+              supportedLinkModes:
+              - auto
+              - 10BaseT-HD
+              - 10BaseT-FD
+              - 100BaseTX-HD
+              - 100BaseTX-FD
+              - 1000BaseTX-HD
+              - 1000BaseTX-FD
+              isDownlink: false
+              8021X:
+                enabled: false
+                status: Authorized
+                mode: WPA-Enterprise-EAPTLS
+                configurations:
+                - mode: WPA-Enterprise-EAPTLS
+                  params:
+                    identity: Lobby
+                    eapolVersion: EAPoLv2
+                    certClient: Axis device ID RSA-2048 (802.1AR)
+                    certsCA:
+                    - Axis device ID Root CA ECC
+                    - Axis device ID Intermediate CA RSA 2
+                supportedModes:
+                - WPA-Enterprise-EAPTLS
+                MACsecSecured: false
+          - name: eth1
+            type: wlan
+            macAddress: ac:cc:8e:68:8e:c4
+            partOfBridge: ''
+            link: false
+            state: up
+            staticState: up
+            wlan:
+              station:
+                activeSsid: lobby
+                8021X:
+                  enabled: true
+                  status: Stopped
+                  mode: none
+                  configurations:
+                  - mode: WPA-Personal-PSK
+                    params:
+                      is_psk_set: false
+                  - mode: WPA-Personal-HEX
+                    params:
+                      is_hex_set: false
+                  - mode: WPA-Enterprise-PEAP-MSCHAPv2
+                    params:
+                      identity: ''
+                      is_password_set: false
+                      eapolVersion: EAPoLv1
+                      peapVersion: PEAPv1
+                      label: 1
+                      certClient: ''
+                      certsCA: []
+                  - mode: WPA-Enterprise-EAPTLS
+                    params:
+                      identity: ''
+                      eapolVersion: EAPoLv1
+                      certClient: Axis device ID RSA-2048 (802.1AR)
+                      certsCA:
+                      - Axis device ID Root CA ECC
+                      - Axis device ID Intermediate CA RSA 2
+                  supportedModes:
+                  - none
+                  - WPA-Personal-PSK
+                  - WPA-Personal-HEX
+                  - WPA-Enterprise-PEAP-MSCHAPv2
+                  - WPA-Enterprise-EAPTLS
+              accessPoint:
+                ssid: hazelnut
+                enabled: false
+                authenticationMode: WPA-Personal-PSK
+                installationModeSupported: true
+            IPv4:
+              enabled: true
+              configurationMode: dhcp
+              linkLocalMode: 'off'
+              addresses: []
+              maxSupportedStaticAddressConfigurations: 1
+              staticAddressConfigurations:
+              - address: 192.168.0.90
+                prefixLength: 24
+                broadcast: 192.168.0.225
+              defaultRouter: ''
+              staticDefaultRouter: dhcp
+              useDHCPStaticRoutes: false
+          - name: wwan0
+            type: wwan
+            macAddress: 00:00:00:00:00:00
+            partOfBridge: ''
+            link: true
+            state: up
+            staticState: up
+            IPv4:
+              enabled: true
+              configurationMode: dhcp
+              linkLocalMode: 'off'
+              addresses:
+              - address: 172.26.248.78
+                prefixLength: 30
+                origin: dhcp
+                scope: global
+                broadcast: 172.26.248.79
+              maxSupportedStaticAddressConfigurations: 1
+              staticAddressConfigurations:
+              - address: 192.168.0.90
+                prefixLength: 24
+                broadcast: 192.168.0.255
+              defaultRouter: 172.26.248.77
+              staticDefaultRouter: 192.168.0.1
+              useStaticDHCPFallback: false
+              useDHCPStaticRoutes: false
+            IPv6:
+              enabled: true
+              addresses:
+              - address: fe80::78d5:ed1b:4c0d:ff40
+                prefixLength: 64
+                origin: linkLocal
+                scope: link
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#read-network-configuration
+    - title: Read network configuration (error response)
+      request:
+        params: {}
+      response:
+        error:
+          code: 1000
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#read-network-configuration
+    - title: Retrieve switch port information
+      request:
+        params: {}
+      response:
+        data:
+          system:
+            tcpEcnMode: acceptAndInitiate
+            deviceSwitching:
+              mode: manual
+              devices:
+              - br0
+              - eth0
+              - eth1
+              - eth1.1
+              - eth1.2
+              - eth1.3
+              - eth1.4
+              manualActiveDevices:
+              - br0
+              - eth0
+              activeDevices:
+              - br0
+              - eth0
+            hostname:
+              useDhcpHostname: true
+              hostname: ax-00408c1886d6
+              staticHostname: ax-00408c1886d6
+            resolver:
+              useDhcpResolverInfo: true
+              nameServers: []
+              staticNameServers: []
+              maxSupportedStaticNameServers: 3
+              searchDomains: []
+              staticSearchDomains: []
+              maxSupportedStaticSearchDomains: 6
+              domainName: ''
+              staticDomainName: ''
+          devices:
+          - name: eth0
+            type: wired
+            macAddress: 00:40:8c:18:86:d6
+            partOfBridge: br0
+            link: true
+            state: up
+            staticState: up
+            wired:
+              linkMode: auto
+              8021X:
+                enabled: false
+                status: Stopped
+                mode: WPA-Enterprise-EAPTLS
+                configurations:
+                - mode: WPA-Enterprise-EAPTLS
+                  params:
+                    identity: ''
+                    eapolVersion: EAPoLv1
+                supportedModes:
+                - WPA-Enterprise-EAPTLS
+          - name: eth1
+            type: wired
+            macAddress: 00:40:8c:18:86:d6
+            partOfBridge: ''
+            link: true
+            state: up
+            staticState: up
+            wired:
+              linkMode: auto
+              8021X:
+                enabled: false
+                status: Stopped
+                mode: WPA-Enterprise-EAPTLS
+                params:
+                  identity: ''
+                  eapolVersion: EAPoLv1
+            supportedModes:
+            - WPA-Enterprise-EAPTLS
+          - name: eth1.1
+            type: switchPort
+            macAddress: 00:40:8c:18:86:d6
+            partOfBridge: br0
+            link: true
+            switchPort:
+              portNumber: 1
+              remoteAddresses:
+              - AC:CC:8E:00:00:01
+          - name: eth1.2
+            type: switchPort
+            macAddress: 00:40:8c:18:86:d6
+            partOfBridge: br0
+            link: true
+            switchPort:
+              portNumber: 2
+              remoteAddress:
+              - AC:CC:8E:00:00:02
+          - name: eth1.3
+            type: switchPort
+            macAddress: 00:40:8c:18:86:d6
+            partOfBridge: br0
+            link: true
+            switchPort:
+              portNumber: 3
+              remoteAddress:
+              - AC:CC:8E:00:00:03
+          - name: eth1.4
+            type: switchPort
+            macAddress: 00:40:8c:18:86:d6
+            partOfBridge: br0
+            link: false
+            switchPort:
+              portNumber: 4
+              remoteAddress: []
+          - name: br0
+            type: bridge
+            macAddress: 00:40:8c:18:86:d6
+            partOfBridge: ''
+            link: true
+            IPv4:
+              enabled: true
+              configurationMode: dhcp
+              addresses:
+              - address: 192.168.0.19
+                prefixLength: 24
+                origin: dhcp
+                scope: global
+                broadcast: 192.168.0.255
+              maxSupportedStaticAddressConfigurations: 1
+              staticAddressConfigurations:
+              - address: 192.168.0.90
+                prefixLength: 24
+                broadcast: 192.168.0.255
+              defaultRouter: 192.168.0.1
+              staticDefaultRouter: 192.168.0.1
+            Ipv6:
+              enabled: true
+              addresses:
+              - address: fe80::240:8cff:fe18:86d6
+                prefixLength: 64
+                origin: linkLocal
+                scope: link
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#retrieve-switch-port-information
+    - title: Retrieve switch port information (error response)
+      request:
+        params: {}
+      response:
+        error:
+          code: 1000
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#retrieve-switch-port-information
+  remove_vlan:
+    summary: Removes an existing VLAN.
+    description: This method removes the requested VLAN from the device.
+    effect: write
+    write: delete
+    binding:
+      method: removeVlan
+    params:
+      type: object
+      required:
+      - masterDeviceName
+      - VlanName
+      properties:
+        masterDeviceName:
+          type: string
+          description: The network device the VLAN is attached to, for example eth0.
+        VlanName:
+          type: string
+          description: The full name of the VLAN to remove, for example eth0.4.
+    examples:
+    - title: Remove a VLAN
+      request:
+        params:
+          VlanName: eth0.4
+          masterDeviceName: eth0
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#remove-a-vlan
+    - title: Remove a VLAN (error response)
+      request:
+        params:
+          VlanName: eth0.4
+          masterDeviceName: eth0
+      response:
+        error:
+          code: 1000
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#remove-a-vlan
+    errors:
+      4004/subCode 100:
+        description: Parameter VlanName error.
+        kind: invalid_argument
+      4004/subCode 200:
+        description: VLAN still present in manual active devices list.
+        kind: invalid_argument
+      4004/subCode 201:
+        description: VLAN does not exist.
+        kind: not_found
+      4004/subCode 202:
+        description: VLAN exists, but is not created by user.
+        kind: invalid_argument
+  scan_wlan_networks:
+    summary: Scans for available WLAN networks.
+    description: This method is used to scan for available WLAN networks for a specified WLAN network interface.
+      Please note that this functionality is only available on interface devices of the WLAN type with indicated
+      support for station in `getNetworkInfo`. See [Read network configuration](#read-network-configuration) for
+      information on how to determine if your device has WLAN station support.
+    effect: read
+    binding:
+      method: scanWLANNetworks
+    params:
+      type: object
+      required:
+      - deviceName
+      properties:
+        deviceName:
+          type: string
+          description: The name of the network interface device; see get_network_info.
+        refresh:
+          type: boolean
+          description: Make a new scan (true) or fetch the previous scan. A new scan is made if none exists or if
+            this is not set.
+    result:
+      $ref: '#/types/WlanScanResult'
+    examples:
+    - title: WLAN station configuration
+      request:
+        params:
+          deviceName: wlan0
+          refresh: true
+      response:
+        data:
+          networks:
+          - ssid: lobby
+            band: 2.4GHz
+            channel: 2
+            signalStrengthDBm: -57
+            security:
+            - authentication: PSK
+              version: WPA1
+          - ssid: Conference
+            band: 5GHz
+            channel: 36
+            signalStrengthDBm: -62
+            security:
+            - authentication: PSK
+              version: WPA2
+            - authentication: IEEE 802.1X
+              version: WPA2
+          - ssid: free
+            band: 2.4GHz
+            channel: 0
+            signalStrengthDBm: -55
+            security:
+            - authentication: None
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#wlan-station-configuration
+    - title: WLAN station configuration (error response)
+      request:
+        params:
+          deviceName: wlan0
+          refresh: true
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#wlan-station-configuration
+    - title: WLAN station configuration (error response)
+      request:
+        params:
+          deviceName: wlan0
+          refresh: true
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#wlan-station-configuration
+    since: '1.14'
+    errors:
+      5000:
+        description: No device found for the given device name.
+        kind: not_found
+      4004/subCode 100:
+        description: Parameter deviceName error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter refresh error.
+        kind: invalid_argument
+  set_device_configuration:
+    summary: Set the network interface device configuration.
+    description: This method is used to configure network interface devices on an Axis device. It can, for example,
+      be used to persistently disable network interface devices.
+    effect: write
+    write: patch
+    binding:
+      method: setDeviceConfiguration
+    params:
+      type: object
+      required:
+      - deviceName
+      properties:
+        deviceName:
+          type: string
+          description: The name of the network interface device; see get_network_info.
+        staticState:
+          $ref: '#/types/DeviceStaticState'
+          description: Whether the interface should be up or down. When down, link is false and state is down, which
+            persistently disables network traffic.
+    examples:
+    - title: Disable a network interface device
+      request:
+        params:
+          deviceName: deviceName
+          staticState: down
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#disable-a-network-interface-device
+    - title: Disable a network interface device (error response)
+      request:
+        params:
+          deviceName: deviceName
+          staticState: down
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#disable-a-network-interface-device
+    - title: Disable a network interface device (error response)
+      request:
+        params:
+          deviceName: deviceName
+          staticState: down
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#disable-a-network-interface-device
+    since: '1.17'
+    errors:
+      5000:
+        description: No device found for the given device name.
+        kind: not_found
+      4004/subCode 100:
+        description: Parameter deviceName error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter staticState error.
+        kind: invalid_argument
+  set_hostname_configuration:
+    summary: Configure how the device selects a hostname, with the possibility to set a static hostname and/or enable
+      auto-configuration by DHCP.
+    description: This method is used to configure a static hostname on the device or configure the device to automatically
+      switch to a host name assigned to it by a DHCP server on the network. The latter only applies if a host name
+      has been received.
+    effect: write
+    write: patch
+    binding:
+      method: setHostnameConfiguration
+    params:
+      type: object
+      properties:
+        useDhcpHostname:
+          type: boolean
+          description: Prefer a DHCP provided hostname over the static hostname. Unchanged if omitted.
+        staticHostname:
+          type: string
+          description: The static hostname, used unless a DHCP server provides one while useDhcpHostname is set.
+            Unchanged if omitted.
+    examples:
+    - title: Assign a static hostname
+      request:
+        params:
+          useDhcpHostname: false
+          staticHostname: mystatichostname
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-hostname
+    - title: Assign a static hostname (error response)
+      request:
+        params:
+          useDhcpHostname: false
+          staticHostname: mystatichostname
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-hostname
+    - title: Assign a static hostname (error response)
+      request:
+        params:
+          useDhcpHostname: false
+          staticHostname: mystatichostname
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-hostname
+    errors:
+      4004/subCode 100:
+        description: Parameter staticHostname error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter useDhcpHostname error.
+        kind: invalid_argument
+  set_global_proxy_configuration:
+    summary: Configure how the Axis device connects to the network.
+    description: This method configures the global proxy configuration on the Axis device. It can be used by all
+      services supporting global proxy configuration. Please note that the Axis device must be rebooted for the
+      global proxy settings to take effect.
+    effect: write
+    write: patch
+    binding:
+      method: setGlobalProxyConfiguration
+    params:
+      type: object
+      properties:
+        httpProxy:
+          type: string
+          description: The global HTTP proxy.
+        httpsProxy:
+          type: string
+          description: The global HTTPS proxy.
+        noProxy:
+          type: string
+          description: The global no_proxy list. Wildcards are not allowed; use a dot prefix (.axis.com) for subdomains
+            and CIDR notation (192.168.0.0/24) for networks.
+    examples:
+    - title: Assign a global proxy configuration
+      request:
+        params:
+          httpProxy: http://208.67.222.1:8080
+          httpsProxy: https://208.67.222.2:8080
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-global-proxy-configuration
+    - title: Assign a global proxy configuration (error response)
+      request:
+        params:
+          httpProxy: http://208.67.222.1:8080
+          httpsProxy: https://208.67.222.2:8080
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-global-proxy-configuration
+    - title: Assign a global proxy configuration (error response)
+      request:
+        params:
+          httpProxy: http://208.67.222.1:8080
+          httpsProxy: https://208.67.222.2:8080
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-global-proxy-configuration
+    errors:
+      4004/subCode 100:
+        description: Parameter httpProxy error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter httpsProxy error.
+        kind: invalid_argument
+      4004/subCode 102:
+        description: Parameter noProxy error.
+        kind: invalid_argument
+  set_resolver_configuration:
+    summary: Configure how the device selects a DNS resolver configuration by either setting up a static configuration
+      and/or enabling an auto-configuration by DHCP.
+    description: This method is used to set a static domain name server (DNS) configuration on the device, but also
+      to configure the device to use DNS servers supplied by a DHCP server.
+    effect: write
+    write: patch
+    binding:
+      method: setResolverConfiguration
+    params:
+      type: object
+      properties:
+        useDhcpResolverInfo:
+          type: boolean
+          description: Prefer the DHCP provided resolver configuration over the static one. Unchanged if omitted.
+        staticNameServers:
+          type: array
+          items:
+            type: string
+          description: Static name servers; the maximum count is maxSupportedStaticNameServers. Unchanged if omitted.
+        staticSearchDomains:
+          type: array
+          items:
+            type: string
+          description: Static search domains; the maximum count is maxSupportedStaticSearchDomains. Unchanged if
+            omitted.
+        staticDomainName:
+          type: string
+          description: The static domain name. Unchanged if omitted.
+    examples:
+    - title: Assign a static DNS resolver configuration
+      request:
+        params:
+          useDhcpResolverInfo: false
+          staticNameServers:
+          - 208.67.222.222
+          - 208.67.220.220
+          staticSearchDomains:
+          - axis.com
+          - axis.se
+          staticDomainName: mylocaldoma.in
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-dns-resolver-configuration
+    - title: Assign a static DNS resolver configuration (error response)
+      request:
+        params:
+          useDhcpResolverInfo: false
+          staticNameServers:
+          - 208.67.222.222
+          - 208.67.220.220
+          staticSearchDomains:
+          - axis.com
+          - axis.se
+          staticDomainName: mylocaldoma.in
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-dns-resolver-configuration
+    - title: Assign a static DNS resolver configuration (error response)
+      request:
+        params:
+          useDhcpResolverInfo: false
+          staticNameServers:
+          - 208.67.222.222
+          - 208.67.220.220
+          staticSearchDomains:
+          - axis.com
+          - axis.se
+          staticDomainName: mylocaldoma.in
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-dns-resolver-configuration
+    - title: Enable global proxy configuration
+      request:
+        params:
+          useDhcpResolverInfo: false
+          staticNameServers:
+          - 208.67.222.222
+          - 208.67.220.220
+          staticSearchDomains:
+          - axis.com
+          - axis.se
+          staticDomainName: mylocaldoma.in
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#enable-global-proxy-configuration
+    - title: Enable global proxy configuration (error response)
+      request:
+        params:
+          useDhcpResolverInfo: false
+          staticNameServers:
+          - 208.67.222.222
+          - 208.67.220.220
+          staticSearchDomains:
+          - axis.com
+          - axis.se
+          staticDomainName: mylocaldoma.in
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#enable-global-proxy-configuration
+    - title: Enable global proxy configuration (error response)
+      request:
+        params:
+          useDhcpResolverInfo: false
+          staticNameServers:
+          - 208.67.222.222
+          - 208.67.220.220
+          staticSearchDomains:
+          - axis.com
+          - axis.se
+          staticDomainName: mylocaldoma.in
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#enable-global-proxy-configuration
+    errors:
+      4004/subCode 100:
+        description: Parameter useDhcpResolverInfo error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter staticNameServers error.
+        kind: invalid_argument
+      4004/subCode 102:
+        description: Parameter staticSearchDomains error.
+        kind: invalid_argument
+      4004/subCode 103:
+        description: Parameter staticDomainName error.
+        kind: invalid_argument
+  set_wlan_configuration:
+    summary: Apply the WLAN configuration used by WLAN devices.
+    description: This method is used to configure device independent WLAN settings and provides the ability to set
+      the regular domain used by all WLAN devices in station mode. Apply the WLAN configuration used by WLAN devices.
+      Only regulatory domains can be set.
+    effect: write
+    write: patch
+    binding:
+      method: setWlanConfiguration
+    params:
+      type: object
+      required:
+      - countryCode
+      properties:
+        countryCode:
+          type: string
+          description: The country code of the WLAN regulatory domain. XX cannot be set, and the code cannot change
+            while countryCodeLock is true.
+    examples:
+    - title: Assign the WLAN country code
+      request:
+        params:
+          countryCode: DE
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-the-wlan-country-code
+    - title: Assign the WLAN country code (error response)
+      request:
+        params:
+          countryCode: DE
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-the-wlan-country-code
+    since: '1.27'
+    errors:
+      4004/subCode 100:
+        description: Parameter countryCode error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: No WLAN device present on the system.
+        kind: unsupported
+      4004/subCode 102:
+        description: The countryCode of the WLAN device is locked and not allowed to change.
+        kind: unavailable
+  set_wlan_station_configuration:
+    summary: Configure the connection to a WLAN access point.
+    description: This method is used when you want to configure the WLAN station access control for a specified
+      WLAN interface.
+    effect: write
+    write: patch
+    binding:
+      method: setWLANStationConfiguration
+    params:
+      type: object
+      required:
+      - deviceName
+      properties:
+        deviceName:
+          type: string
+          description: The name of the network interface device; see get_network_info.
+        ssid:
+          type: string
+          description: The SSID of the wireless access point.
+        authentication:
+          $ref: '#/types/WlanStationAuthentication'
+    examples:
+    - title: Test current WLAN station settings
+      request:
+        params:
+          deviceName: wlan0
+          ssid: lobby
+          authentication:
+            mode: WPA-Enterprise-PEAP-MSCHAPv2
+            params:
+              identity: user
+              password: guest
+              eapolVersion: EAPoLv2
+              peapVersion: PEAPv1
+              label: 1
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#test-current-wlan-station-settings
+    - title: Test current WLAN station settings (error response)
+      request:
+        params:
+          deviceName: wlan0
+          ssid: lobby
+          authentication:
+            mode: WPA-Enterprise-PEAP-MSCHAPv2
+            params:
+              identity: user
+              password: guest
+              eapolVersion: EAPoLv2
+              peapVersion: PEAPv1
+              label: 1
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#test-current-wlan-station-settings
+    - title: Test current WLAN station settings (error response)
+      request:
+        params:
+          deviceName: wlan0
+          ssid: lobby
+          authentication:
+            mode: WPA-Enterprise-PEAP-MSCHAPv2
+            params:
+              identity: user
+              password: guest
+              eapolVersion: EAPoLv2
+              peapVersion: PEAPv1
+              label: 1
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#test-current-wlan-station-settings
+    since: '1.12'
+    errors:
+      5000:
+        description: No device found for the given device name.
+        kind: not_found
+      4004/subCode 100:
+        description: Parameter deviceName error.
+        kind: invalid_argument
+      4004/subCode 102:
+        description: Parameter mode error.
+        kind: invalid_argument
+      4004/subCode 103:
+        description: Parameter identity error.
+        kind: invalid_argument
+      4004/subCode 104:
+        description: Parameter eapolVersion error.
+        kind: invalid_argument
+      4004/subCode 105:
+        description: Parameter ssid error.
+        kind: invalid_argument
+      4004/subCode 106:
+        description: Parameter authentication error.
+        kind: invalid_argument
+      4004/subCode 107:
+        description: Parameter password error.
+        kind: invalid_argument
+      4004/subCode 108:
+        description: Parameter peapVersion error.
+        kind: invalid_argument
+      4004/subCode 109:
+        description: Parameter label error.
+        kind: invalid_argument
+      4004/subCode 110:
+        description: Parameter mkaCak error.
+        kind: invalid_argument
+      4004/subCode 111:
+        description: Parameter mkaCkn error.
+        kind: invalid_argument
+      4004/subCode 112:
+        description: Parameter certClient error.
+        kind: invalid_argument
+      4004/subCode 113:
+        description: Parameter certsCA error.
+        kind: invalid_argument
+  test_wlan_station_settings:
+    summary: Perform a test on the WLAN interface by trying to connect and authenticate using the current settings.
+    description: This method triggers a test of the WLAN station settings on the network interface device to confirm
+      that they are correct and it can connect to the WLAN Access Point.
+    effect: action
+    binding:
+      method: testWLANStationSettings
+    params:
+      type: object
+      required:
+      - deviceName
+      properties:
+        deviceName:
+          type: string
+          description: The network interface device to test; see get_network_info.
+        timeout:
+          type: integer
+          default: 10
+          description: The timeout of the call in seconds. Defaults to 10.
+    result:
+      $ref: '#/types/WlanTestResult'
+    examples:
+    - title: Test current WLAN station settings
+      request:
+        params:
+          deviceName: eth1
+          timeout: 5
+      response:
+        data:
+          code: 0
+          message: Authentication successful
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#test-current-wlan-station-settings
+    - title: Test current WLAN station settings (response 2)
+      request:
+        params:
+          deviceName: eth1
+          timeout: 5
+      response:
+        data:
+          code: 1
+          message: Authentication failed
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#test-current-wlan-station-settings
+    - title: Test current WLAN station settings (error response)
+      request:
+        params:
+          deviceName: eth1
+          timeout: 5
+      response:
+        error:
+          code: 5001
+          message: Invalid device supplied
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#test-current-wlan-station-settings
+    errors:
+      5000:
+        description: No device found for the given device name.
+        kind: not_found
+      5001:
+        description: Invalid device supplied.
+        kind: invalid_argument
+  wlan_switch_ap_to_station:
+    summary: Connect to a configured access point when your device is in installation mode.
+    description: This method makes the Axis device in installation mode switch from AP to Station mode.
+    effect: action
+    binding:
+      method: wlanSwitchAPToStation
+    result:
+      $ref: '#/types/WlanSwitchResult'
+    examples:
+    - title: Connect to an access point in installation mode
+      request:
+        params: {}
+      response:
+        data:
+          code: 0
+          message: Connection process started
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#connect-to-an-access-point-in-installation-mode
+    - title: Connect to an access point in installation mode (error response)
+      request:
+        params: {}
+      response:
+        error:
+          code: 1000
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#connect-to-an-access-point-in-installation-mode
+    since: '1.16'
+    errors:
+      5000:
+        description: No device found for the given device name.
+        kind: not_found
+      5003:
+        description: Device is not in installation mode.
+        kind: unavailable
+      5004:
+        description: Incomplete WLAN configuration.
+        kind: unavailable
+  set_ipv4_address_configuration:
+    summary: Configure how the device selects an IPv4 address.
+    description: This method is used to set up a static IPv4 address configuration on a network interface device,
+      but also to configure the network interface device to automatically switch to an IPv4 address configuration
+      assigned by a DHCP server on the network.
+    effect: write
+    write: patch
+    binding:
+      method: setIPv4AddressConfiguration
+    params:
+      type: object
+      required:
+      - deviceName
+      properties:
+        deviceName:
+          type: string
+          description: The name of the network interface device; see get_network_info.
+        enabled:
+          type: boolean
+          description: Whether IPv4 is enabled. IPv4 cannot be disabled while IPv6 is disabled. Unchanged if omitted.
+        configurationMode:
+          $ref: '#/types/ConfigurationMode'
+          description: The IPv4 address configuration mode. Unchanged if omitted.
+        linkLocalMode:
+          $ref: '#/types/LinkLocalMode'
+          description: The link-local mode. Unchanged if omitted.
+        staticDefaultRouter:
+          type: string
+          description: The router address, used when the mode is static or dhcp but no router is advertised. Unchanged
+            if omitted.
+        useStaticDHCPFallback:
+          type: boolean
+          description: Use the static default router as fallback when a DHCP leased default router is unavailable.
+        useDHCPStaticRoutes:
+          type: boolean
+          description: Use DHCP classless static routes; the DHCP leased default router is then ignored.
+        staticAddressConfigurations:
+          type: array
+          items:
+            $ref: '#/types/StaticIPv4Address'
+          description: The static addresses. The maximum count is maxSupportedStaticAddressConfigurations. Unchanged
+            if omitted.
+    examples:
+    - title: Assign a static IPv4 address
+      request:
+        params:
+          deviceName: eth0
+          configurationMode: static
+          staticDefaultRouter: 192.168.0.1
+          staticAddressConfigurations:
+          - address: 192.168.0.90
+            prefixLength: 16
+            broadcast: 192.168.255.255
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-ipv4-address
+    - title: Assign a static IPv4 address (error response)
+      request:
+        params:
+          deviceName: eth0
+          configurationMode: static
+          staticDefaultRouter: 192.168.0.1
+          staticAddressConfigurations:
+          - address: 192.168.0.90
+            prefixLength: 16
+            broadcast: 192.168.255.255
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-static-ipv4-address
+    - title: Enable classless static routes via DHCP
+      request:
+        params:
+          deviceName: eth0
+          useDHCPStaticRoutes: true
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#enable-classless-static-routes-via-dhcp
+    - title: Enable classless static routes via DHCP (error response)
+      request:
+        params:
+          deviceName: eth0
+          useDHCPStaticRoutes: true
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#enable-classless-static-routes-via-dhcp
+    since_fields:
+      params.linkLocalMode: '1.21'
+      params.useStaticDHCPFallback: '1.21'
+      params.useDHCPStaticRoutes: '1.29'
+    errors:
+      5000:
+        description: No device found for the given device name.
+        kind: not_found
+      4004/subCode 100:
+        description: Parameter deviceName error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter configurationMode error.
+        kind: invalid_argument
+      4004/subCode 102:
+        description: Parameter staticDefaultRouter error.
+        kind: invalid_argument
+      4004/subCode 103:
+        description: Parameter staticAddressConfigurations error.
+        kind: invalid_argument
+      4004/subCode 104:
+        description: Parameter address error.
+        kind: invalid_argument
+      4004/subCode 105:
+        description: Parameter prefixLength error.
+        kind: invalid_argument
+      4004/subCode 106:
+        description: Parameter broadcast error.
+        kind: invalid_argument
+      4004/subCode 107:
+        description: Parameter address/prefixLength/broadcast combination error.
+        kind: invalid_argument
+      4004/subCode 108:
+        description: Parameter useStaticDHCPFallback error.
+        kind: invalid_argument
+      4004/subCode 109:
+        description: Parameter linkLocalMode error.
+        kind: invalid_argument
+      4004/subCode 110:
+        description: Parameter useDHCPStaticRoutes error.
+        kind: invalid_argument
+      4004/subCode 111:
+        description: Parameter enabled error.
+        kind: invalid_argument
+  set_ipv6_address_configuration:
+    summary: Configure IPv6 on your device.
+    description: This method is used to toggle IPv6 on a network interface device.
+    effect: write
+    write: patch
+    binding:
+      method: setIPv6AddressConfiguration
+    params:
+      type: object
+      required:
+      - deviceName
+      properties:
+        deviceName:
+          type: string
+          description: The name of the network interface device; see get_network_info.
+        enabled:
+          type: boolean
+          description: Whether IPv6 is enabled. Unchanged if omitted.
+    examples:
+    - title: Assign an IPv6 address configuration
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-an-ipv6-address-configuration
+    - title: Assign an IPv6 address configuration (error response)
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-an-ipv6-address-configuration
+    - title: Assign an IPv6 address configuration (error response)
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-an-ipv6-address-configuration
+    since: '1.6'
+    errors:
+      5000:
+        description: No device found for the given device name.
+        kind: not_found
+      4004/subCode 100:
+        description: Parameter deviceName error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter enabled error.
+        kind: invalid_argument
+  set_wired_8021x_configuration:
+    summary: Configure how and if the device uses 802.1X authentication on the wired network interface.
+    description: This method is used to configure 802.1X for a wired network interface device.
+    effect: write
+    write: patch
+    binding:
+      method: setWired8021XConfiguration
+    params:
+      type: object
+      required:
+      - deviceName
+      x-masked: [mkaCak, password]
+      properties:
+        deviceName:
+          type: string
+          description: The name of the network interface device; see get_network_info.
+        enabled:
+          type: boolean
+          description: Enable 802.1X authentication. Unchanged if omitted.
+        mode:
+          $ref: '#/types/Wired8021xMode'
+          description: The authentication mode. Unchanged if omitted.
+        identity:
+          type: string
+          description: The EAP identity. Unchanged if omitted.
+        password:
+          type: string
+          description: The EAP password; only used with WPA-Enterprise-PEAP-MSCHAPv2. Unchanged if omitted.
+        eapolVersion:
+          $ref: '#/types/EapolVersion'
+          description: The EAPoL version. Unchanged if omitted.
+        peapVersion:
+          $ref: '#/types/PeapVersion'
+          description: The PEAP version; only used with WPA-Enterprise-PEAP-MSCHAPv2. Unchanged if omitted.
+        label:
+          $ref: '#/types/PeapLabel'
+          description: The PEAP label; only used with WPA-Enterprise-PEAP-MSCHAPv2. Unchanged if omitted.
+        certClient:
+          type: string
+          description: The client certificate ID that identifies the client to the radius server; required to enable
+            WPA-Enterprise-EAPTLS. An empty string unsets it. Unchanged if omitted.
+        certsCA:
+          type: array
+          items:
+            type: string
+          description: The CA certificate IDs that identify the radius server certificate chain. An empty list unsets
+            them. Unchanged if omitted.
+        mkaCak:
+          type: string
+          description: 'The MACsec Key Agreement CAK for MACsec-PSK: 32 or 64 hexadecimal characters. Unchanged
+            if omitted.'
+        mkaCkn:
+          type: string
+          description: 'The MACsec Key Agreement CAK name for MACsec-PSK: 2 to 64 hexadecimal characters, an even
+            count. Unchanged if omitted.'
+    examples:
+    - title: Assign a wired 802.1X configuration
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+          mode: WPA-Enterprise-EAPTLS
+          identity: Lobby
+          eapolVersion: EAPoLv2
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-wired-8021x-configuration
+    - title: Assign a wired 802.1X configuration (error response)
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+          mode: WPA-Enterprise-EAPTLS
+          identity: Lobby
+          eapolVersion: EAPoLv2
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-wired-8021x-configuration
+    - title: Assign a wired 802.1X configuration (error response)
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+          mode: WPA-Enterprise-EAPTLS
+          identity: Lobby
+          eapolVersion: EAPoLv2
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-wired-8021x-configuration
+    - title: Assign a wired MACsec PSK configuration
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+          mode: MACsec-PSK
+          mkaCak: '00112233445566771111111111111111'
+          mkaCkn: caffee
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-wired-macsec-psk-configuration
+    - title: Assign a wired MACsec PSK configuration (error response)
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+          mode: MACsec-PSK
+          mkaCak: '00112233445566771111111111111111'
+          mkaCkn: caffee
+      response:
+        error:
+          code: 4001
+          message: The specified version is not supported
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-wired-macsec-psk-configuration
+    - title: Assign a wired MACsec PSK configuration (error response)
+      request:
+        params:
+          deviceName: eth0
+          enabled: true
+          mode: MACsec-PSK
+          mkaCak: '00112233445566771111111111111111'
+          mkaCkn: caffee
+      response:
+        error:
+          code: 4004
+          message: Invalid parameter(s)
+      source: https://developer.axis.com/vapix/network-video/network-settings-api/#assign-a-wired-macsec-psk-configuration
+    errors:
+      4004/subCode 100:
+        description: Parameter deviceName error.
+        kind: invalid_argument
+      4004/subCode 101:
+        description: Parameter enabled error.
+        kind: invalid_argument
+      4004/subCode 102:
+        description: Parameter mode error.
+        kind: invalid_argument
+      4004/subCode 103:
+        description: Parameter identity error.
+        kind: invalid_argument
+      4004/subCode 104:
+        description: Parameter eapolVersion error.
+        kind: invalid_argument
+      4004/subCode 112:
+        description: Parameter certClient error.
+        kind: invalid_argument
+      4004/subCode 113:
+        description: Parameter certCA error.
+        kind: invalid_argument
+sources:
+- url: https://developer.axis.com/vapix/network-video/network-settings-api/
+  sha256_md: ffb2ee6a97d95d0c7f1f337b50004391fdf4ec46a6b3892d35edb15513aff6a4
+  retrieved_at: '2026-10-11'
+provenance:
+  completeness: complete
+  open_questions:
+  - Wired 802.1X / WLAN enum tables quote some values ("WPA-Enterprise-EAPTLS") and not others; quotes stripped.
+  - Per-method API version requirements (which minor version introduced which field) are only partly stated; versions
+    listed are those used in examples.
+  - Terminology table lists TCP ECN twice.
+  - 'https://developer.axis.com/vapix/network-video/network-settings-api/#retrieve-supported-api-versions: example
+    response shows apiVersion 3.1 and supportedVersions ["1.0","2.4","3.1"] (illustrative); api_versions lists the
+    1.x versions used in request examples.'
+  - 'getSupportedVersions syntax has typo "apiVersions: <major>.<minor>" (missing quote).'
+  - Request parameters not marked *Optional* are treated as required only for the identifying fields (deviceName,
+    VlanId, masterDeviceName, VlanName, countryCode); setGlobalProxyConfiguration marks none optional, but its example
+    omits noProxy, so all three are optional.
+  - Method versions come from the first example version of each method (setIPv6AddressConfiguration 1.6, setWLANStationConfiguration
+    1.12, scanWLANNetworks 1.14, wlanSwitchAPToStation 1.16, setDeviceConfiguration 1.17, setWlanConfiguration 1.27);
+    field gates linkLocalMode and useStaticDHCPFallback 1.21 and useDHCPStaticRoutes 1.29 come from example versions
+    as well. The docs do not state them.
+  - getNetworkInfo examples use 1.9 (switch ports) and 1.15; which result fields were added in which minor version
+    is not stated, so result fields are not gated.
+  - removeVlan lists masterDeviceName and VlanName as parameters, but its example sends only VlanName; the spec
+    requires both and the example adds masterDeviceName.
+  - tcpEcnMode is typed integer in the table, but the syntax and example give strings (see the TCP ECN mode values);
+    modelled as an enum of strings.
+  - setIPv4AddressConfiguration staticAddressConfigurations.prefixLength is typed string in the table but the example
+    and the getNetworkInfo table use an integer; modelled as an integer.
+  - setGlobalProxyConfiguration types the parameters as [<string>] in the table, but the example and getNetworkInfo
+    use plain strings; modelled as strings.
+  - The wired 802.1X mode MACsec PSK is written "MACsec PSK" in the mode table but MACsec-PSK in the parameter descriptions
+    and the example; MACsec-PSK is used.
+  - The setWired8021XConfiguration MACsec example uses mkaCAK and mkaCKN; the table names are mkaCak and mkaCkn,
+    and the example is corrected.
+  - getNetworkInfo wired 8021X params.mkaCkn is typed boolean in the table but string in the syntax; modelled as
+    a string. The device table also has typos (IpV6, a blank key for wlan.station 8021X status) that were normalized.
+  - The scanWLANNetworks example writes the band as 2.4Ghz; the spec example uses 2.4GHz. The security field is
+    an object in the table but an array of objects in the syntax and example; modelled as an array.
+  - Sub-codes are modelled as errors keyed "4004/subCode N" and assumed to accompany error 4004; the docs list them
+    under each method without naming the main code.
+  - The getNetworkInfo example returns peapVersion as the integer 1; the spec example uses PEAPv1 as in the tables.
+  - Error code 5000 and the other 5xxx codes are method specific top-level codes; the test and switch result codes
+    (0 to 5) are success codes, not errors.
+  migrated_from: v1
+  curated: true

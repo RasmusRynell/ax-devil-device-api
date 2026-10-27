@@ -1,0 +1,141 @@
+format: 2
+id: dewarped-views
+name: Dewarped views
+summary: Read the dewarping parameters and set the camera orientation for the view modes of Axis 360/180 degree cameras.
+section: network-video
+family: cgi
+status: released
+python:
+  module: dewarped_views
+  class: DewarpedViews
+docs:
+- https://developer.axis.com/vapix/network-video/dewarped-views/
+access: viewer
+discovery:
+- param: {name: Properties.Image.Dewarp, value: 'yes'}
+
+binding: {path: /axis-cgi/param.cgi}
+
+operations:
+  list_parameters:
+    summary: 'List dewarping-related parameters as ``{"Group.Name": "value"}`` (``root.`` removed).'
+    description: >-
+      ``group`` may use ``*`` wildcards, for example ``Properties.Image.Dewarp``, ``Properties.Image.NbrOfViews``,
+      ``Properties.Image.I0`` (resolutions and rotations of view mode 0), ``Image.*.Name`` or ``Image.I1.Enabled``.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      reply:
+        text_kv: {strip_prefix: root.}
+    positional: [group]
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: 'Parameter group, wildcards allowed (e.g. Image.*.Name).'}
+    result:
+      type: object
+      additionalProperties: {type: string}
+    examples:
+    - title: Identification
+      request:
+        query: {group: Properties.Image.Dewarp}
+      response: {status: 200, text: Properties.Image.Dewarp=yes}
+      source: https://developer.axis.com/vapix/network-video/dewarped-views/#identification
+    - title: Number of views
+      request:
+        query: {group: Properties.Image.NbrOfViews}
+      response: {status: 200, text: <int>}
+      source: https://developer.axis.com/vapix/network-video/dewarped-views/#enable-and-configure-views
+      x-contract: {skip: 'The documented response is the placeholder <int>, not a key=value line.'}
+    - title: Supported resolutions/rotations for view mode Overview
+      request:
+        query: {group: Properties.Image.I0}
+      response:
+        status: 200
+        text: |-
+          root.Properties.Image.I0.Rotation=0,180
+          root.Properties.Image.I0.Resolution=2592x1944,2048x1536,1600x1200,1280x960,1024x768,800x600,640x480,480x360,320x240,240x180,160x120
+      source: https://developer.axis.com/vapix/network-video/dewarped-views/#check-valid-resolutions-and-rotations
+
+  get_camera_tilt_orientation:
+    summary: Read the camera orientation (mounting position) as a parameter map.
+    description: >-
+      The map holds ``ImageSource.I0.CameraTiltOrientation``: -90 (ceiling), 0 (wall) or 90 (desk or similar).
+      The orientation decides which view modes are available.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list, group: ImageSource.I0.CameraTiltOrientation}
+      reply:
+        text_kv: {strip_prefix: root.}
+    result:
+      type: object
+      additionalProperties: {type: string}
+
+  set_camera_tilt_orientation:
+    summary: Set the camera orientation (mounting position), which affects view modes and PTZ.
+    description: >-
+      -90 = mounted in the ceiling, 0 = on a wall, 90 = on a desk or similar. View modes 2, 3 and 8 to 11 are not
+      available on a wall mount.
+    access: admin
+    effect: write
+    write: patch
+    binding:
+      method: POST
+      encoding: form
+      query: {action: update}
+      reply: text_ok
+    positional: [camera_tilt_orientation]
+    params:
+      type: object
+      required: [ImageSource.I0.CameraTiltOrientation]
+      properties:
+        ImageSource.I0.CameraTiltOrientation: {type: integer, enum: [-90, 0, 90], x-python-name: camera_tilt_orientation}
+
+  get_mjpeg_stream:
+    summary: Open a Motion JPEG stream of one dewarped view mode.
+    description: >-
+      Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode (see
+      ``list_parameters`` with ``Properties.Image.I<n>``).
+    effect: read
+    binding: {path: /axis-cgi/mjpg/video.cgi, reply: {stream: {decoder: mjpeg}}}
+    params:
+      type: object
+      required: [camera, resolution]
+      properties:
+        camera: {type: integer, minimum: 1, description: 'View mode group number + 1.'}
+        resolution: {type: string, pattern: '^[0-9]+x[0-9]+$', description: 'A valid resolution of the view mode, e.g. 1600x600.'}
+    positional: [camera, resolution]
+
+  get_rtsp_stream:
+    summary: Build the RTSP URL of a stream from one dewarped view mode.
+    description: >-
+      Set ``camera`` to the view mode group number plus 1 and give a valid resolution for that view mode.
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      required: [camera, resolution]
+      properties:
+        videocodec: {type: string, description: "Video codec of the stream, for example h264."}
+        camera: {type: integer, minimum: 1, description: 'View mode group number + 1.'}
+        resolution: {type: string, pattern: '^[0-9]+x[0-9]+$', description: 'A valid resolution of the view mode, e.g. 800x600.'}
+    positional: [camera, resolution]
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/dewarped-views/
+  sha256_md: 54c7e361d6b1d0649b4091d135be31a04a63e1a15c5726b098559639074bd61b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The docs show action=list for the camera orientation request; set_camera_tilt_orientation uses param.cgi action=update (POST form, reply OK) as the general parameter API defines it, and get_camera_tilt_orientation uses the documented list request.
+  - Security levels are not documented; the access column lists read/write for every view mode and the footnote only refers to Image.I<#>.Name.
+  - AXIS OS requirement is not stated.
+  - The docs write Property.Image.Dewarp in the prose but Properties.Image.Dewarp in the table and requests; the latter is used.
+  - Properties.Image.Resolutions (plural) vs Properties.Image.I<#>.Resolution (singular) naming as documented.
+  migrated_from: v1
+  curated: true

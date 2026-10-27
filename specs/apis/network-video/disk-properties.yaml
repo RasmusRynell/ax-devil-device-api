@@ -1,0 +1,285 @@
+format: 2
+id: disk-properties
+name: Disk properties API (Edge storage)
+summary: 'Configure disk properties: required file system (autoformat), disk encryption and passphrase, cleanup
+  max age and policy, and disk alert levels.'
+section: network-video
+family: cgi
+status: released
+python: {module: disk_properties, class: DiskProperties}
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: admin
+discovery:
+- {param: {name: Properties.LocalStorage.RequiredFileSystem, value: 'yes'}}
+- {param: {name: Properties.LocalStorage.DiskEncryption, value: 'yes'}}
+binding: {path: /axis-cgi/disks/properties/setrequiredfs.cgi}
+operations:
+  set_required_file_system:
+    summary: Set the required file system, or disable it with none.
+    description: Each mounted SD card that uses another file system, or whose file system cannot be determined,
+      is formatted automatically and its data is lost. A locked card is not reformatted; an unlocked one is formatted
+      the next time it is mounted. Setting it while a card is mounted reformats the card when it is remounted. Called
+      autoformat in the web interface.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/properties/setrequiredfs.cgi, method: GET, query: {schemaversion: '1'}, reply: xml}
+    positional: [disk_id, file_system]
+    params:
+      type: object
+      required: [diskid, filesystem]
+      properties:
+        diskid: {type: string, x-python-name: disk_id, description: The Disk ID of the disk.}
+        filesystem:
+          type: string
+          enum: [none, ext4]
+          x-python-name: file_system
+          description: The required file system; none disables the function. Check what the disk supports with get_capabilities
+            in the disk-management API.
+    errors: {10: {description: Error while processing the request., kind: internal}, 20: {description: Invalid request.,
+        kind: invalid_argument}, 30: {description: Specified file system is not supported., kind: unsupported},
+      40: {description: Specified version is not supported., kind: unsupported}}
+    examples:
+    - title: Set required file system to ext4
+      request: {query: {diskid: SD_DISK, filesystem: ext4}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <DiskPropertiesResponse xmlns="http://www.axis.com/vapix/http_cgi/disks/properties1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </DiskPropertiesResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#set-required-file-system
+    - title: Disable required file system
+      request: {query: {diskid: SD_DISK, filesystem: none}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <DiskPropertiesResponse xmlns="http://www.axis.com/vapix/http_cgi/disks/properties1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </DiskPropertiesResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#set-required-file-system
+  enable_disk_encryption:
+    summary: Enable disk encryption.
+    description: The disk must be unmounted. Format and mount it afterwards to encrypt the content.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/properties/enablediskencryption.cgi, method: GET, query: {schemaversion: '1'},
+      reply: xml}
+    positional: [disk_id, passphrase]
+    params: {type: object, x-masked: [passphrase], required: [diskid, passphrase], properties: {diskid: {type: string, x-python-name: disk_id,
+          description: The Disk ID of the disk to encrypt.}, passphrase: {type: string, maxLength: 512, description: The
+            passphrase to encrypt with. At most 512 bytes.}}}
+    errors:
+      10: {description: Error while processing the request., kind: internal}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      50: {description: Invalid disk ID., kind: invalid_argument}
+      100: {description: The disk does not support disk encryption., kind: unsupported}
+      110: {description: Invalid passphrase., kind: invalid_argument}
+      140: {description: Encryption is already enabled.}
+      160:
+        description: The disk is mounted. Encryption can only be enabled/disabled when the disk is unmounted.
+    examples:
+    - title: Enable disk encryption with passphrase secret
+      request: {query: {diskid: SD_DISK, passphrase: secret}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <DiskPropertiesResponse xmlns="http://www.axis.com/vapix/http_cgi/disks/properties1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </DiskPropertiesResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#enable-disk-encryption
+  disable_disk_encryption:
+    summary: Disable disk encryption.
+    description: The disk must be unmounted. Format and mount it afterwards; formatting removes the recordings.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/properties/disablediskencryption.cgi, method: GET, query: {schemaversion: '1'},
+      reply: xml}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk.}}}
+    errors:
+      10: {description: Error while processing the request., kind: internal}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      50: {description: Invalid disk ID., kind: invalid_argument}
+      100: {description: The disk does not support disk encryption., kind: unsupported}
+      160:
+        description: The disk is mounted. Encryption can only be enabled/disabled when the disk is unmounted.
+    examples:
+    - title: Disable disk encryption
+      request: {query: {diskid: SD_DISK}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <DiskPropertiesResponse xmlns="http://www.axis.com/vapix/http_cgi/disks/properties1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </DiskPropertiesResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#disable-disk-encryption
+  change_disk_passphrase:
+    summary: Change the disk encryption passphrase.
+    description: The disk must be mounted. Ongoing recordings are not disrupted.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/properties/changediskpassphrase.cgi, method: GET, query: {schemaversion: '1'},
+      reply: xml}
+    positional: [disk_id]
+    params: {type: object, x-masked: [newpassphrase, oldpassphrase], required: [diskid, newpassphrase, oldpassphrase], properties: {diskid: {type: string,
+          x-python-name: disk_id, description: The Disk ID of the disk.}, newpassphrase: {type: string, maxLength: 512,
+          x-python-name: new_passphrase, description: The new passphrase. At most 512 bytes.}, oldpassphrase: {
+          type: string, x-python-name: old_passphrase, description: The current passphrase.}}}
+    errors:
+      10: {description: Error while processing the request., kind: internal}
+      20: {description: Invalid request., kind: invalid_argument}
+      40: {description: Specified version is not supported., kind: unsupported}
+      50: {description: Invalid disk ID., kind: invalid_argument}
+      100: {description: The disk does not support disk encryption., kind: unsupported}
+      120: {description: Invalid new passphrase., kind: invalid_argument}
+      130: {description: The oldpassphrase does not match the existing passphrase., kind: invalid_argument}
+      150:
+        description: The disk is unmounted. Passphrase can only be changed when the disk is mounted.
+    examples:
+    - title: Change the passphrase
+      request: {query: {diskid: SD_DISK, newpassphrase: verysecret, oldpassphrase: secret}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <DiskPropertiesResponse xmlns="http://www.axis.com/vapix/http_cgi/disks/properties1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0">
+            <Success>
+              <GeneralSuccess />
+            </Success>
+          </DiskPropertiesResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#change-disk-encryption-passphrase
+  set_cleanup_max_age:
+    summary: Set the cleanup max age of a disk.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/properties/setcleanupmaxage.cgi, method: GET, query: {schemaversion: '1'}, reply: xml}
+    positional: [disk_id, max_age]
+    params:
+      type: object
+      required: [diskid, maxage]
+      properties:
+        diskid: {type: string, x-python-name: disk_id, description: The Disk ID of the disk.}
+        maxage:
+          type: integer
+          minimum: 0
+          maximum: 7000
+          x-python-name: max_age
+          description: Days that unlocked recordings are kept on the disk. Only used when the cleanup policy is
+            fifo. Recordings are deleted earlier when free space is low.
+    errors: {10: {description: Error while processing the request., kind: internal}, 20: {description: Invalid request.,
+        kind: invalid_argument}, 40: {description: Specified version is not supported., kind: unsupported}, 50: {
+        description: Invalid disk ID., kind: invalid_argument}}
+  set_cleanup_policy:
+    summary: Set the cleanup policy of a disk.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/properties/setcleanuppolicy.cgi, method: GET, query: {schemaversion: '1'}, reply: xml}
+    positional: [disk_id, cleanup_policy]
+    params:
+      type: object
+      required: [diskid, cleanuppolicy]
+      properties:
+        diskid: {type: string, x-python-name: disk_id, description: The Disk ID of the disk.}
+        cleanuppolicy:
+          type: string
+          enum: [fifo, none]
+          x-python-name: cleanup_policy
+          description: fifo deletes recordings automatically according to the cleanup max age. none leaves deletion
+            to the user. Recordings are deleted anyway when free space is low.
+    errors: {10: {description: Error while processing the request., kind: internal}, 20: {description: Invalid request.,
+        kind: invalid_argument}, 40: {description: Specified version is not supported., kind: unsupported}, 50: {
+        description: Invalid disk ID., kind: invalid_argument}}
+  set_disk_alert_levels:
+    summary: Set the levels at which a disk raises the storage alert event.
+    description: The event is sent once with the alert property True when any property reaches its level, and again
+      with False once all are below their levels.
+    effect: write
+    write: patch
+    binding: {path: /axis-cgi/disks/properties/setdiskalertlevels.cgi, method: GET, query: {schemaversion: '1'},
+      reply: xml}
+    positional: [disk_id]
+    params:
+      type: object
+      required: [diskid]
+      properties:
+        diskid: {type: string, x-python-name: disk_id, description: The Disk ID of the disk.}
+        wear: {type: integer, minimum: 0, description: Wear level that triggers a storage alert event.}
+        temperature:
+          type: integer
+          minimum: 0
+          description: Disk temperature in Kelvin that triggers a storage alert event.
+    errors: {10: {description: Error while processing the request., kind: internal}, 20: {description: Invalid request.,
+        kind: invalid_argument}, 40: {description: Specified version is not supported., kind: unsupported}, 50: {
+        description: Invalid disk ID., kind: invalid_argument}}
+  get_disk_alert_levels:
+    summary: Get the alert levels of a disk.
+    access: operator
+    effect: read
+    binding: {path: /axis-cgi/disks/properties/getdiskalertlevels.cgi, method: GET, query: {schemaversion: '1'},
+      reply: xml}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk.}}}
+    errors: {10: {description: Error while processing the request., kind: internal}, 20: {description: Invalid request.,
+        kind: invalid_argument}, 40: {description: Specified version is not supported., kind: unsupported}, 50: {
+        description: Invalid disk ID., kind: invalid_argument}}
+    result: {$ref: '#/types/AlertLevels'}
+  get_schema_versions:
+    summary: List the supported XML schema versions of the Disk properties API and whether they are deprecated.
+    access: operator
+    effect: read
+    binding: {path: /axis-cgi/disks/properties/schemaversions.cgi, method: GET, reply: xml}
+    result: {$ref: '#/types/SchemaVersions'}
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+provenance:
+  completeness: complete
+  open_questions:
+  - The XML schema version (schemaversion, required by every CGI) is fixed to 1 in the binding; get_schema_versions
+    lists the others.
+  - The cleanup max age, cleanup policy and alert level tables call the first parameter 'schema version' (with a
+    space); schemaversion is assumed.
+  - The error code lists of setcleanupmaxage, setcleanuppolicy and set/getdiskalertlevels (10, 20, 40, 50, 100,
+    110, 140, 160) look copied from enablediskencryption, and their success text says 'the disk content is encrypted';
+    only 10, 20, 40 and 50 are modelled for them.
+  - The doc types setrequiredfs 'filesystem' as <integer>; the valid values none and ext4 are used.
+  - Whether wear and temperature of setdiskalertlevels are individually optional is not stated; both are optional
+    here.
+  - The example responses use the namespace http://www.axis.com/vapix/http_cgi/disks/properties1 while getdiskalertlevels
+    uses noNamespaceSchemaLocation; namespaces are ignored by the reader.
+  - No example request is given for getdiskalertlevels, set_cleanup_max_age, set_cleanup_policy or set_disk_alert_levels.
+  migrated_from: v1
+  curated: true
+types:
+  AlertLevels:
+    type: object
+    x-xml: {root: Success/GetAlertLevelsSuccess/AlertLevels}
+    properties:
+      Wear: {type: integer, minimum: 0, description: Wear level that triggers a storage alert event.}
+      Temperature:
+        type: integer
+        minimum: 0
+        description: Disk temperature in Kelvin that triggers a storage alert event.
+  SchemaVersion: {type: object, required: [VersionNumber], properties: {VersionNumber: {type: string, x-xml: {child: VersionNumber},
+        description: Schema version as major.minor.}, Deprecated: {type: boolean, x-xml: {child: Deprecated}, description: A
+          deprecated schema version should not be used.}}}
+  SchemaVersions: {type: object, x-xml: {root: Success/SchemaVersionsSuccess}, properties: {versions: {type: array,
+        items: {$ref: '#/types/SchemaVersion'}, x-xml: {path: SchemaVersion}}}}

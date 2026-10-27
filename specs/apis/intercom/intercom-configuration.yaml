@@ -1,0 +1,451 @@
+format: 2
+id: intercom-configuration
+name: Intercom configuration resource
+summary: Read, update (POST) or replace (PUT) the general intercom configuration, including the card reader, PIN and call button settings, through the Configuration REST resource.
+section: intercom
+family: rest
+status: released
+python:
+  module: intercom_configuration
+  class: IntercomConfiguration
+docs:
+- https://developer.axis.com/vapix/intercom/intercom-service/
+access: admin
+discovery:
+- param: {name: Properties.API.Intercom.Intercom, value: 'yes'}
+- param: {name: Properties.API.Intercom.Version, value: '1.1'}
+- {api_discovery: intercom-api}
+- {api_discovery: intercom-reader}
+
+binding: {root: /vapix/intercom/Configuration}
+
+errors:
+  400: {description: 'Invalid request (env:Sender ter:InvalidArgVal: invalid argument; ter:InvalidArgs: missing or invalid combination of inputs; ter:TagMismatch: unknown field).', kind: invalid_argument}
+
+types:
+  ParityType:
+    type: string
+    enum: [None, Even, Odd, Fix0, Fix1]
+    description: The parity bit type. Fix0 and Fix1 are always zero and always one.
+  CardOutputFormat:
+    type: string
+    enum: [Raw, Wiegand26, Wiegand34, Wiegand37, Wiegand37FacilityCode, Custom]
+    description: How card data is formatted when sent to the access control device. Raw sends it as is; Custom uses the CustomOutputFormatConfiguration.
+  FacilityCodeOverrideMode:
+    type: string
+    enum: [Auto, Optional, Override]
+    description: Auto never overrides the facility code; Optional overrides only when the input data has none; Override always overrides.
+  KeypressOutputFormat:
+    type: string
+    enum: [FourBit, EightBitZeroPadded, EightBitInvertPadded, Wiegand26, Wiegand34, Wiegand37, Wiegand37FacilityCode]
+    description: How the PIN is formatted when it is sent to the access control device.
+  IOPinName:
+    type: string
+    enum: [I1, I2, I3, I4]
+    description: The name of a general I/O pin.
+  AccesscontrolIntegrationProtocol:
+    type: string
+    enum: [None, IPAccess, OSDP, Wiegand]
+    description: How the device communicates with an access control system.
+  IPIntegrationProtocol:
+    type: string
+    enum: [None, RequestAccess, RemoteActivity]
+  IPAccessScheme:
+    type: string
+    enum: [https, http]
+  RegisteredReaderPolicy:
+    type: string
+    enum: [Fixed, Auto]
+    description: Fixed ignores masking requests so that only the defined ReaderIds may InjectTag; Auto (the default) accepts the masking request of the application readers.
+  CallButtonIdleBehavior:
+    type: string
+    enum: [Automatic, 'Off', 'On']
+    description: The idle behavior of the call button. The supported values are listed in the service capabilities.
+  Attribute:
+    type: object
+    properties:
+      Name: {type: string, description: The attribute name.}
+      Value: {type: string, description: The value of the attribute.}
+  CustomOutputFormatConfiguration:
+    type: object
+    description: Custom parameters used when cardFormat is Custom.
+    properties:
+      facilityCodeSize: {type: integer}
+      cardNumberSize: {type: integer}
+      startParity: {$ref: '#/types/ParityType', description: The start parity bit type. Default None.}
+      startParityBits: {type: integer, description: Number of data bits used for start parity}
+      stopParity: {$ref: '#/types/ParityType', description: The stop parity bit type. Default None.}
+      stopParityBits: {type: integer, description: Number of data bits used for stop parity}
+  OutputFormatConfiguration:
+    type: object
+    properties:
+      cardFormat:
+        $ref: '#/types/CardOutputFormat'
+        description: How the card data is formatted. The default is Raw, which means that all following fields are disregarded.
+      cardFacilityCodeOverrideMode: {$ref: '#/types/FacilityCodeOverrideMode', description: Default Auto.}
+      cardFacilityCode:
+        type: integer
+        description: Override facility code (Optional/Override modes); max 255 for Wiegand26, 65535 for Wiegand34
+          and Wiegand37FacilityCode.
+      Custom: {$ref: '#/types/CustomOutputFormatConfiguration'}
+  WiegandConfiguration:
+    type: object
+    description: All fields optional; existing values kept if not set.
+    properties:
+      nbrOfLEDPins:
+        type: integer
+        enum: [0, 1, 2]
+        description: Number of LED control pins connected to the access control system.
+      beeper: {type: boolean, description: True if a beeper control line is connected.}
+      beeperPin: {$ref: '#/types/IOPinName', description: The I/O input pin the beeper is connected to.}
+      LED1Pin: {$ref: '#/types/IOPinName', description: The I/O input pin LED1 is connected to (normally green or red/green).}
+      LED2Pin: {$ref: '#/types/IOPinName', description: The I/O input pin LED2 is connected to (normally red).}
+      pulseWidth:
+        type: integer
+        minimum: 20
+        maximum: 100
+        default: 40
+        description: Data pulse time in µs.
+      pulseInterval:
+        type: integer
+        minimum: 200
+        maximum: 20000
+        default: 2000
+        description: Time between data pulses in µs.
+      frameInterval:
+        type: integer
+        minimum: 20000
+        maximum: 1000000
+        default: 25000
+        description: Minimum time between data transfers in µs.
+      LEDColorDefault:
+        type: string
+        description: 'Color when no wires connected (nbrOfLEDPins=0). ColorName or #RRGGBB.'
+      LEDColor0: {type: string, description: 1 wire}
+      LEDColor1: {type: string, description: 1 wire}
+      LEDColor00: {type: string, description: 2 wires}
+      LEDColor01: {type: string, description: '2 wires, state 01 (LED1=1, LED2=0), typically red.'}
+      LEDColor10: {type: string, description: '2 wires, state 10 (LED1=0, LED2=1), typically green.'}
+      LEDColor11: {type: string, description: '2 wires, state 11, typically amber.'}
+      keypressFormat: {$ref: '#/types/KeypressOutputFormat', description: The PIN code format. Default FourBit.}
+      keypressFacilityCode:
+        type: integer
+        default: 0
+        description: Facility code for PIN; max 255 for Wiegand26, 65535 for Wiegand34/Wiegand37FacilityCode.
+  OSDPConfiguration:
+    type: object
+    properties:
+      OSDPAddress:
+        type: integer
+        minimum: 0
+        maximum: 126
+        default: 0
+        description: The OSDP PD address (client).
+  PinConfiguration:
+    type: object
+    description: Should match the Access Control Unit configuration.
+    properties:
+      pinLength:
+        type: integer
+        minimum: 0
+        maximum: 32
+        default: 4
+        description: Number of PIN digits; 0 disables PIN.
+      pinTimeout:
+        type: integer
+        minimum: 1
+        maximum: 60
+        default: 10
+        description: Seconds before returning to idle when no PIN is received.
+  RequestAccessConfiguration:
+    type: object
+    description: Axis Request Access protocol configuration; name derived from Target and Source unless present
+      in the AccessPoint.
+    properties:
+      Name: {type: string, description: Nice name of the Access point.}
+      Id: {type: string, description: Internal ID of the RequestAccess (Access point) configuration.}
+      Address: {type: string, description: Address used to access the correct controller.}
+      AccessControllerToken: {type: string}
+      SourceToken: {type: string, description: Source token (Reader / IdPoint).}
+      TargetToken: {type: string, description: Target token (Door).}
+      AccessPointToken: {type: string}
+  IPAccessConfiguration:
+    type: object
+    x-masked: [Password]
+    properties:
+      Scheme: {$ref: '#/types/IPAccessScheme', description: The scheme to use (optional).}
+      Address: {type: string, description: 'Controller address, typically hostname[:port].'}
+      Username: {type: string}
+      Password: {type: string}
+      VerifyCertificate: {type: boolean, default: true}
+      IPProtocol: {$ref: '#/types/IPIntegrationProtocol', description: The protocol to use (optional).}
+      RequestAccessConfiguration: {$ref: '#/types/RequestAccessConfiguration'}
+  CompatibilityConfiguration:
+    type: object
+    properties:
+      CompatibilityConfigs:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: Compatibility configuration values (see ServiceCapabilities / CompatibilityFlag).
+  CardReaderConfiguration:
+    type: object
+    description: All fields optional; current values kept unless specified in SetConfiguration/UpdateConfiguration.
+    properties:
+      Protocol: {$ref: '#/types/AccesscontrolIntegrationProtocol', description: The integration protocol.}
+      CardTypes:
+        type: array
+        items: {type: string}
+        description: Accepted card types (CardTypeNames).
+      WiegandConfiguration: {$ref: '#/types/WiegandConfiguration'}
+      OSDPConfiguration: {$ref: '#/types/OSDPConfiguration'}
+      PinConfiguration: {$ref: '#/types/PinConfiguration'}
+      IPAccessConfiguration: {$ref: '#/types/IPAccessConfiguration'}
+      CompatibilityConfiguration: {$ref: '#/types/CompatibilityConfiguration'}
+      CardDataConfigs:
+        type: array
+        items: {$ref: '#/types/CardDataConfig'}
+        description: Optional. Ways to extract CardData.
+      RegisteredReaderConfiguration: {$ref: '#/types/RegisteredReaderConfiguration'}
+      OutputFormat: {$ref: '#/types/OutputFormatConfiguration'}
+      SensitiveRFIDEventEnabled: {type: boolean, description: True if actual UID and card number are present in
+          events.}
+      SensitivePINEventEnabled: {type: boolean, description: True if the actual PIN is present in events.}
+  CardDataConfig:
+    type: object
+    description: How to extract a data chunk from an RFID card, including addressing and (sensitive) credentials.
+    properties:
+      name:
+        type: string
+        description: Unique identifier (e.g. face template, fingerprint, employee_id); the resulting CardData uses
+          this name.
+      cardType: {type: string, description: Card type this configuration is valid for (CardTypeNames).}
+      dataSource: {type: string, default: CSN, description: CardDataSources.}
+      enabled: {type: boolean, description: Disabled configs are kept but not used.}
+      required:
+        type: boolean
+        description: If true and extraction fails, the call fails and the swipe is ignored; if false the chunk is
+          omitted.
+      useAsUid:
+        type: boolean
+        description: Replace the original UID with extracted data; multiple are concatenated.
+      offsetByte: {type: integer, default: 0}
+      lengthInBytes: {type: integer, default: 0, description: 0 = all.}
+      offsetBits: {type: integer, default: 0}
+      lengthInBits: {type: integer, default: 0, description: 0 = all. Bytes and bits sum (bytes*8+bits).}
+      attributes:
+        type: array
+        items: {$ref: '#/types/Attribute'}
+        description: For future use.
+      DESFireEncryption: {$ref: '#/types/DESFireEncryption'}
+      MifareClassicEncryption: {$ref: '#/types/MifareClassicEncryption'}
+      MifareULEncryption: {$ref: '#/types/MifareULEncryption'}
+  KeyFormat: {type: string, enum: [Plaintext, Protected]}
+  DESFireKeyType: {type: string, enum: [Compatible_3DES, EV1_3DES, EV1_3K3DES, EV1_AES]}
+  DESFireCommMode: {type: string, enum: [Auto, Plain, Plain_MACed, Encrypted]}
+  DESFireEncryption:
+    type: object
+    description: Only used if cardType=MIFARE_DESFire.
+    x-masked: [key]
+    properties:
+      AID: {type: string, description: 'Application ID, 3 bytes little endian first. (format=hexBinary)'}
+      keyFormat: {$ref: '#/types/KeyFormat'}
+      key: {type: string, description: '16 bytes for 3DES and AES, 24 bytes for 3K3DES.'}
+      keyType: {$ref: '#/types/DESFireKeyType'}
+      commMode: {$ref: '#/types/DESFireCommMode'}
+      keyNbr: {type: integer, minimum: 0, maximum: 13, description: 0 is the main key.}
+      fileNbr: {type: integer, minimum: 0, maximum: 31}
+  MifareClassicEncryption:
+    type: object
+    description: Only used if cardType=MIFARE_Classic. Sectors 0-31 have 4 blocks, 32-39 have 16 (4K cards); 16-byte
+      blocks; total offset (+length) up to 4096 bytes.
+    x-masked: [keyA, keyB]
+    properties:
+      keyAFormat: {$ref: '#/types/KeyFormat'}
+      keyA: {type: string, description: Key A}
+      keyBFormat: {$ref: '#/types/KeyFormat'}
+      keyB: {type: string, description: Key B}
+      startSector: {type: integer, minimum: 0, maximum: 39, default: 0}
+      startBlock: {type: integer, minimum: 0, maximum: 15, default: 0}
+      skipLastBlockInSector: {type: boolean}
+  MifareULEncryption:
+    type: object
+    description: Ultralight C credentials only.
+    x-masked: [key]
+    properties:
+      keyFormat: {$ref: '#/types/KeyFormat'}
+      key: {type: string, description: Optional 16-byte key (Ultralight C only).}
+  RegisteredReaderConfiguration:
+    type: object
+    properties:
+      ReaderIds:
+        type: array
+        items: {type: string}
+        default: [Internal]
+        description: Readers allowed to InjectTag (only when Policy is Fixed).
+      Policy: {$ref: '#/types/RegisteredReaderPolicy', description: The policy to use.}
+  CallButtonConfiguration:
+    type: object
+    properties:
+      callButtonKeyTrigger: {type: string, description: 'The call button, represented by the letter ''C''.'}
+      suppressionTimeout: {type: integer, default: 1, description: Seconds the call button is suppressed.}
+      suppressionMode: {$ref: '#/types/SuppressionMode'}
+  SuppressionMode:
+    type: string
+    enum: [None, Timeout, NeverHangUp]
+    description: None = always available to end call; Timeout = only after suppressionTimeout; NeverHangUp = only
+      recipient can end.
+  DefaultContactSorting: {type: string, enum: [SortByFirstName, SortByLastName]}
+  DefaultNameFormat:
+    type: string
+    enum: [FirstNameFirst, LastNameFirst]
+    description: FirstNameFirst = FirstName + " " + LastName; LastNameFirst = LastName + ", " + FirstName.
+  Configuration:
+    type: object
+    description: General intercom configuration. Optional fields not set keep current value.
+    properties:
+      Version: {type: string}
+      CallTriggersEnabled: {type: boolean, description: Processing triggers in PhonebookEntries enabled.}
+      CallByNumbersEnabled: {type: boolean, description: Calls to dialed numbers not matching any CallRule enabled.}
+      DefaultContactSorting: {$ref: '#/types/DefaultContactSorting'}
+      DefaultNameFormat: {$ref: '#/types/DefaultNameFormat'}
+      DefaultCallByNumberSIPAccountId: {type: string, description: Optional. Default SIPAccount used by CallByNumber.}
+      AudioclipVolume:
+        type: integer
+        minimum: 0
+        maximum: 1000
+        default: 100
+        description: Volume for built-in audio files (button presses, calling, ringing).
+      BeeperVolume:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 80
+        description: Beeper (Wiegand and OSDP) feedback volume.
+      PresenceTimeout:
+        type: integer
+        minimum: 2
+        maximum: 86400
+        default: 12
+        description: Seconds before user presence times out.
+      CardReaderConfiguration: {$ref: '#/types/CardReaderConfiguration'}
+      CallButtonConfigurations:
+        type: array
+        items: {$ref: '#/types/CallButtonConfiguration'}
+      CallButtonIdleBehavior: {$ref: '#/types/CallButtonIdleBehavior'}
+
+operations:
+  get_configuration:
+    summary: Get the configuration (GET).
+    effect: read
+    binding: {method: GET, query: [includeImageFile]}
+    params:
+      type: object
+      properties:
+        includeImageFile: {type: boolean, description: Include imageFile fields in the response.}
+    result:
+      type: object
+      properties:
+        Configuration: {$ref: '#/types/Configuration'}
+    examples:
+      - title: Get the configuration
+        description: The docs show GetConfiguration over POST /vapix/intercom; the same Configuration is returned by this GET. The truncated card type list of the JSON example is completed from the simple format example.
+        request: {path: ''}
+        response:
+          status: 200
+          body:
+            Configuration:
+              Version: '1.0'
+              CallTriggersEnabled: true
+              CallByNumbersEnabled: true
+              DefaultCallByNumberSIPAccountId: ''
+              CardReaderConfiguration:
+                Protocol: None
+                CardTypes: [EM4X02, HITAG_1_S, HITAG_2, EM4X50, ISOFDX_B, HID_PROX, AWID, MIFARE_Classic, ISO15693, HID_ICLASS]
+                WiegandConfiguration: {nbrOfLEDPins: 0, beeper: false, beeperPin: I3, LED1Pin: I1, LED2Pin: I2, LEDColor0: red, LEDColor1: green, LEDColor00: 'off', LEDColor01: green, LEDColor10: red, LEDColor11: amber, keypressFormat: FourBit}
+                OSDPConfiguration: {OSDPAddress: 0}
+        source: https://developer.axis.com/vapix/intercom/intercom-service/#simple-curl-example
+  update_configuration:
+    summary: Update the configuration (POST, UpdateConfiguration).
+    description: Only the given fields change; omitted fields keep their values.
+    effect: write
+    write: patch
+    errors:
+      400: {description: Invalid argument or invalid combination of inputs., kind: invalid_argument}
+    binding: {method: POST, body: object}
+    params:
+      type: object
+      properties:
+        Configuration: {$ref: '#/types/Configuration', description: Configuration to set (POST/PUT).}
+        imageFile:
+          type: object
+          description: ImageFile used to update an image (ImageFile type not documented).
+    result:
+      type: object
+      properties:
+        Configuration: {$ref: '#/types/Configuration'}
+    examples:
+      - title: Configure the OSDP reader integration protocol
+        request:
+          path: ''
+          body: {Configuration: {CardReaderConfiguration: {Protocol: OSDP}}}
+        response: {status: 200, body: {}}
+        source: https://developer.axis.com/vapix/intercom/intercom-service/#configure-reader-integration-protocols
+      - title: Configure the card types
+        request:
+          path: ''
+          body: {Configuration: {CardReaderConfiguration: {CardTypes: [MIFARE_Classic]}}}
+        response: {status: 200, body: {}}
+        source: https://developer.axis.com/vapix/intercom/intercom-service/#configure-card-types
+      - title: Change the PIN length and timeout
+        request:
+          path: ''
+          body: {Configuration: {CardReaderConfiguration: {PinConfiguration: {pinLength: 6, pinTimeout: 20}}}}
+        response: {status: 200, body: {}}
+        source: https://developer.axis.com/vapix/intercom/intercom-service/#configure-pin-setting
+  set_configuration:
+    summary: Replace the configuration (PUT, SetConfiguration).
+    description: An optional field that is not set keeps its current value.
+    effect: write
+    write: replace
+    binding: {method: PUT, body: object}
+    params:
+      type: object
+      properties:
+        Configuration: {$ref: '#/types/Configuration', description: Configuration to set (POST/PUT).}
+        imageFile:
+          type: object
+          description: ImageFile used to update an image (ImageFile type not documented).
+    result:
+      type: object
+      properties:
+        Configuration: {$ref: '#/types/Configuration'}
+
+sources:
+- url: https://developer.axis.com/vapix/intercom/intercom-service/
+  sha256_md: 425e94dc29bf11eaf9699dae16a01894657cddccb624e9c1604ddba1cea5cc6b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - Required/optional status of most request fields is not documented (only "(optional)" markers in syntax blocks); all
+    fields are optional.
+  - The docs describe the Configuration resource as one REST endpoint (GET, POST, PUT /vapix/intercom/Configuration) and
+    show the equivalent commands (GetConfiguration, UpdateConfiguration, SetConfiguration) over POST /vapix/intercom;
+    the examples are the command examples, whose bodies are the same for the REST calls.
+  - The documented responses of SetConfiguration and UpdateConfiguration are {}; the REST description allows an optional
+    Configuration, which is modelled.
+  - ImageFile type (Configuration resource, includeImageFile, imageFile) is not defined.
+  - The GetConfiguration example lists CardTypes with "..", not valid JSON.
+  - 'The documented Configuration table types CallButtonConfigurations as "CallButtonConfigurations"; the syntax shows an
+    array of CallButtonConfiguration (used).'
+  - The docs do not say whether the device masks Password and the DESFire or MIFARE keys in GetConfiguration.
+  - The enumerations of the docs are partly product dependent (see ServiceCapabilities); a product may support fewer
+    values than the enums list. ColorName values (or #RRGGBB) are left as strings.
+  - Faults come as HTTP 400 with a body of Fault, FaultCode, FaultReason and FaultMsg; only the status is modelled.
+  - 'The other intercom functions (GetServiceCapabilities, GetServerReport, card reader and IP access functions, keypress
+    and feedback functions) are POST /vapix/intercom commands and are not part of this spec.'
+  - 'BLOCKED(Google JSON codec): the websocket function calls and the notification topics (RFID, MainState, KeyPin,
+    KeypadState) need the Google JSON codec of the intercom websocket and are not modelled here.'
+  migrated_from: v1
+  curated: true

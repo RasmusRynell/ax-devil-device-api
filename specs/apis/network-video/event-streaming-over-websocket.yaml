@@ -1,0 +1,86 @@
+format: 2
+id: event-streaming-over-websocket
+name: Event streaming over WebSocket
+summary: Receive Event System events over a WebSocket (ws(s)://<device>/vapix/ws-data-stream?sources=events) using
+  JSON-RPC style configure/notify messages.
+section: network-video
+family: ws
+status: released
+python:
+  module: event_streaming_ws
+  class: EventStreamingWebSocket
+docs:
+- https://developer.axis.com/vapix/network-video/event-streaming-over-websocket/
+access: admin
+discovery:
+- {api_discovery: event-streaming-over-websocket}
+
+binding: {}
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed., kind: access_denied}
+  2107: {description: Request too large., kind: invalid_argument}
+
+operations:
+  connect:
+    summary: Open the data-stream WebSocket for events (HTTP Upgrade handshake) and optionally select the events.
+    description: 'Each connection is a separate, stateless session. `event_filter_list` sends `events:configure` right after
+      the handshake (each filter is a separate subscription, so an event that matches several filters is delivered several
+      times; use one filter with a logical topic expression to avoid it); send `session.request("events:configure", ...)`
+      to replace the filter later, only the latest applies. Events arrive as `events:notify` notifications
+      (`session.notifications()` yields `EventNotification`). The handshake uses Digest authentication, or a session token
+      from `wssession.cgi` (`use_token=True`; valid for 15 seconds).'
+    effect: read
+    binding:
+      session:
+        path: /vapix/ws-data-stream
+        query: {sources: events}
+        codec: events
+    examples:
+    - title: Establish a WebSocket connection
+      request: {}
+      source: https://developer.axis.com/vapix/network-video/event-streaming-over-websocket/#establish-websocket-connection
+    - title: Select events to receive
+      request:
+        connect:
+          event_filter_list:
+          - {topicFilter: 'tns1:PTZController/tnsaxis:PTZReady'}
+          - {contentFilter: 'boolean(//SimpleItem[@Name="ready" and @Value="1"])'}
+          - topicFilter: tns1:Device/tnsaxis:IO/VirtualPort
+            contentFilter: boolean(//SimpleItem[@Name="port" and @Value="1"]) and boolean(//SimpleItem[@Name="state"
+              and @Value="0"])
+        messages:
+        - method: events:configure
+          params:
+            eventFilterList:
+            - {topicFilter: 'tns1:PTZController/tnsaxis:PTZReady'}
+            - {contentFilter: 'boolean(//SimpleItem[@Name="ready" and @Value="1"])'}
+            - topicFilter: tns1:Device/tnsaxis:IO/VirtualPort
+              contentFilter: boolean(//SimpleItem[@Name="port" and @Value="1"]) and boolean(//SimpleItem[@Name="state"
+                and @Value="0"])
+      source: https://developer.axis.com/vapix/network-video/event-streaming-over-websocket/#select-events-to-receive
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/event-streaming-over-websocket/
+  sha256_md: d014c57f51e420e76cfc4cf5ed8df2963d76978dd0fec301bcaa41607a6721d0
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - wssession.cgi response format and required access level are not documented.
+  - Topic filter list in the docs mentions 'tns1:Device/axis:IO/VirtualPort' (prefix axis vs tnsaxis) - possible doc typo;
+    the examples use tnsaxis.
+  - timestamp unit not stated (example 1639385866198 looks like epoch ms; the runtime reads it as epoch milliseconds).
+  - AXIS OS minimum version not stated; access level required for events not stated.
+  - The in-session messages (events:configure request and reply, events:notify) are not operations; they are covered by
+    connect(event_filter_list=...), session.request(...) and session.notifications() of the events codec.
+  migrated_from: v1
+  curated: true

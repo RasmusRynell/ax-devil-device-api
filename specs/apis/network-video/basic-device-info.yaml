@@ -1,0 +1,192 @@
+format: 2
+id: basic-device-info
+name: Basic device information
+summary: Retrieve simple identifying information about the product (brand, model, serial number, firmware version,
+  ...).
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: basic_device_info
+  class: BasicDeviceInfo
+docs:
+- https://developer.axis.com/vapix/network-video/basic-device-information/
+access: operator
+discovery:
+- {api_discovery: basic-device-info}
+- param: {name: BasicDeviceInfo.BasicDeviceInfo, value: "yes"}
+requires:
+  firmware: '8.40'
+
+binding:
+  path: /axis-cgi/basicdeviceinfo.cgi
+  major: 1
+  versions: ['1.0', '1.2']
+  negotiation:
+    get_supported_versions: {key: apiVersions, auth: if_challenged}
+  params_placement: params
+
+errors:
+  1000: {description: Invalid parameter with the value specified., kind: invalid_argument}
+  2001: {description: Access forbidden., kind: access_denied}
+  2002:
+    description: HTTP request types are not supported. Only POST is supported.
+    kind: unsupported
+  2003: {description: The requested API version is not supported., kind: unsupported}
+  2004: {description: The method is not supported., kind: unsupported}
+  4000: {description: Invalid JSON format., kind: invalid_argument}
+  4002: {description: Required parameter is either missing or invalid., kind: invalid_argument}
+  8000: {description: Internal error. Refer to the message field or logs., kind: internal}
+
+types:
+  PropertyList:
+    type: object
+    description: All properties of the device, by name. Which of them a device returns is product dependent, so all are optional.
+    properties:
+      Architecture: {type: string}
+      Brand: {type: string}
+      BuildDate: {type: string}
+      HardwareID: {type: string}
+      ProdFullName: {type: string}
+      ProdNbr: {type: string}
+      ProdShortName: {type: string}
+      ProdType: {type: string}
+      ProdVariant: {type: string}
+      SerialNumber: {type: string}
+      Soc: {type: string}
+      SocSerialNumber: {type: string}
+      Version: {type: string}
+      WebURL: {type: string}
+    additionalProperties: {type: string}
+
+  UnrestrictedPropertyList:
+    type: object
+    description: The properties anyone may read, also before a root user is defined.
+    properties:
+      Brand: {type: string}
+      BuildDate: {type: string}
+      HardwareID: {type: string}
+      ProdFullName: {type: string}
+      ProdNbr: {type: string}
+      ProdShortName: {type: string}
+      ProdType: {type: string}
+      ProdVariant: {type: string}
+      SerialNumber: {type: string}
+      Version: {type: string}
+      WebURL: {type: string}
+    additionalProperties: {type: string}
+  SelectedPropertyList:
+    type: object
+    description: The requested properties, by name.
+    additionalProperties: {type: string}
+
+operations:
+  get_all_properties:
+    summary: Retrieve all properties provided by the BDI service.
+    effect: read
+    binding: {method: getAllProperties}
+    result:
+      type: object
+      x-name: AllProperties
+      required: [propertyList]
+      properties:
+        propertyList: {$ref: '#/types/PropertyList'}
+    examples:
+    - title: Get all properties
+      request:
+        params: {}
+      response:
+        data:
+          propertyList:
+            Architecture: mips
+            Brand: AXIS
+            BuildDate: Feb 14 2018 13:08
+            HardwareID: '714.4'
+            ProdFullName: AXIS Q3505 Mk II Fixed Dome Network Camera
+            ProdNbr: Q3505 Mk II
+            ProdShortName: AXIS Q3505 Mk II
+            ProdType: Network Camera
+            ProdVariant: ''
+            SerialNumber: ACCC8E78B977
+            Soc: Axis Artpec-5
+            SocSerialNumber: 00000000-00000000-44123C08-C840037D
+            Version: 8.20.1
+            WebURL: http://www.axis.com
+      source: https://developer.axis.com/vapix/network-video/basic-device-information/#get-basic-device-information
+  get_properties:
+    summary: Retrieve a subset of the properties provided by the BDI service.
+    effect: read
+    binding: {method: getProperties}
+    params:
+      type: object
+      required: [propertyList]
+      properties:
+        propertyList:
+          type: array
+          items: {type: string}
+          description: Specifies which properties should be returned with the response. If this field is empty an
+            empty list will be returned.
+    result:
+      type: object
+      x-name: SelectedProperties
+      required: [propertyList]
+      properties:
+        propertyList: {$ref: '#/types/SelectedPropertyList'}
+    examples:
+    - title: Get some properties
+      request:
+        params: {propertyList: [Brand, ProdNbr, Version]}
+      response:
+        data:
+          propertyList: {Brand: AXIS, ProdNbr: Q3505 Mk II, Version: 8.20.1}
+      source: https://developer.axis.com/vapix/network-video/basic-device-information/#get-basic-device-information
+    - title: Handle errors (unsupported property)
+      request:
+        params: {propertyList: [Brand, ProdNbr, Version, invalid_property_name]}
+      response:
+        error: {code: 1000, message: 'Property not supported: invalid_property_name'}
+      source: https://developer.axis.com/vapix/network-video/basic-device-information/#get-basic-device-information
+  get_all_unrestricted_properties:
+    summary: Retrieve all unrestricted properties (usable before a root user is defined or without login).
+    access: anonymous
+    effect: read
+    binding: {method: getAllUnrestrictedProperties, auth: if_challenged}
+    result:
+      type: object
+      x-name: UnrestrictedProperties
+      required: [propertyList]
+      properties:
+        propertyList: {$ref: '#/types/UnrestrictedPropertyList'}
+    examples:
+    - title: Get all unrestricted properties
+      request:
+        params: {}
+      response:
+        data:
+          propertyList:
+            Brand: AXIS
+            BuildDate: Aug 04 2020 11:15
+            HardwareID: 75E.1
+            ProdFullName: AXIS Q1785-LE Network Camera
+            ProdNbr: Q1785-LE
+            ProdShortName: AXIS Q1785-LE
+            ProdType: Network Camera
+            ProdVariant: ''
+            SerialNumber: ACCC8EAF8C30
+            Version: 8.20.1
+            WebURL: http://www.axis.com
+      source: https://developer.axis.com/vapix/network-video/basic-device-information/#get-basic-device-information-as-an-anonymous-user
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/basic-device-information/
+  sha256_md: 162df58ff0c8305a1ec4fd2f283a576e7190584147af0696a0d55cd39571e16e
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Error response syntax block uses key 'apiVersions' but the field table says 'apiVersion'; likely a doc typo.
+  - getAllUnrestrictedProperties is only shown with apiVersion 1.2; the docs do not say whether it exists in 1.0.
+  - Response type for every property is documented only as <string>.
+  migrated_from: v1
+  curated: true

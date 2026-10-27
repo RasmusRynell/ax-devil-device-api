@@ -1,0 +1,188 @@
+format: 2
+id: analytics-metadata-config
+name: Analytics Metadata Producer Configuration
+summary: List RTSP analytics metadata producers, enable/disable them per video channel and fetch sample metadata
+  frames.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: analytics_metadata_config
+  class: AnalyticsMetadataConfig
+docs:
+- https://developer.axis.com/vapix/network-video/analytics-metadata-producer-configuration/
+access: viewer
+discovery:
+- {api_discovery: analytics-metadata-config}
+
+binding:
+  path: /axis-cgi/analyticsmetadataconfig.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: The application failed to handle the request., kind: internal}
+  2000: {description: The major version number isn't supported., kind: unsupported}
+  2001:
+    description: The request was not formatted correctly, i.e. does not follow json-schema.
+    kind: invalid_argument
+  2003: {description: The request has a missing mandatory parameter., kind: invalid_argument}
+  2004: {description: The request has parameter that has an invalid value., kind: invalid_argument}
+  2005: {description: The method in the request is not supported., kind: unsupported}
+
+types:
+  VideoChannel:
+    type: object
+    required: [channel, enabled]
+    properties:
+      channel: {type: integer, description: The video channel number. The docs call it the name of the video channel.}
+      enabled: {type: boolean, description: The status of the video channel.}
+  Producer:
+    type: object
+    required: [name, videochannels]
+    properties:
+      name: {type: string, description: The producer name.}
+      niceName: {type: string, description: Optional. The display friendly name.}
+      videochannels:
+        type: array
+        items: {$ref: '#/types/VideoChannel'}
+
+operations:
+  list_producers:
+    summary: Lists all or specific metadata producers with their supported video channels and status.
+    description: All producers are listed when params.producers is absent. If producers is set, the response is
+      successful even if some don't exist; those are not listed.
+    effect: read
+    binding: {method: listProducers}
+    params:
+      type: object
+      properties:
+        producers:
+          type: array
+          items: {type: string}
+          description: Container for the producers (producer names).
+    result:
+      type: object
+      x-name: ProducerList
+      required: [producers]
+      properties:
+        producers:
+          type: array
+          items: {$ref: '#/types/Producer'}
+    examples:
+    - title: List all producers
+      request:
+        params: {}
+      response:
+        data:
+          producers:
+          - name: producer
+            niceName: Producer Name
+            videochannels:
+            - {channel: 1, enabled: true}
+            - {channel: 2, enabled: false}
+      source: https://developer.axis.com/vapix/network-video/analytics-metadata-producer-configuration/#configure-metadata-producers
+    - title: List specific producers
+      request:
+        params: {producers: [producer]}
+      response:
+        data:
+          producers:
+          - name: producer
+            niceName: Producer Name
+            videochannels:
+            - {channel: 1, enabled: true}
+            - {channel: 2, enabled: false}
+      source: https://developer.axis.com/vapix/network-video/analytics-metadata-producer-configuration/#listproducers
+  set_enabled_producers:
+    summary: Enables/disables specific metadata producers on their supported video channels.
+    description: Error if a video channel the producer does not support is specified; error if a fault occurs on
+      any of the producer's channels, in which case no updates are applied.
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setEnabledProducers}
+    params:
+      type: object
+      required: [producers]
+      properties:
+        producers:
+          type: array
+          items:
+            type: object
+            x-name: ProducerChannels
+            required: [name, videochannels]
+            properties:
+              name: {type: string}
+              videochannels:
+                type: array
+                items: {$ref: '#/types/VideoChannel'}
+          description: Array of producers with the video channels to enable/disable.
+    examples:
+    - title: Enable channel 1, disable channel 2
+      request:
+        params:
+          producers:
+          - name: producer
+            videochannels:
+            - {channel: 1, enabled: true}
+            - {channel: 2, enabled: false}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/analytics-metadata-producer-configuration/#configure-metadata-producers
+  get_supported_metadata:
+    summary: Retrieves a sample frame (ONVIF XML metadata format) for all or specific metadata producers.
+    description: All producers are listed if params.producers is absent; missing producers are omitted from the
+      response.
+    effect: read
+    binding: {method: getSupportedMetadata}
+    params:
+      type: object
+      properties:
+        producers:
+          type: array
+          items: {type: string}
+          description: Producer names.
+    result:
+      type: object
+      x-name: SupportedMetadata
+      required: [producers]
+      properties:
+        producers:
+          type: array
+          items:
+            type: object
+            x-name: ProducerSampleFrame
+            required: [name]
+            properties:
+              name: {type: string}
+              sampleFrameXML:
+                type: string
+                description: The sample frame associated with the producer (ONVIF XML metadata).
+    examples:
+    - title: Retrieve supported metadata
+      request:
+        params: {producers: [producer]}
+      response:
+        data:
+          producers:
+          - {name: producer, sampleFrameXML: '<tt:Frame></tt:Frame>'}
+      source: https://developer.axis.com/vapix/network-video/analytics-metadata-producer-configuration/#retrieve-supported-metadata
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/analytics-metadata-producer-configuration/
+  sha256_md: f50fe91bada6b7699dd3760c6a06d692780b00aa691ffc780a1f57710930afe5
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - AXIS OS minimum version not stated (page added 2022-11-22 per section version history).
+  - Channel numbering (examples use 1 and 2) — whether 1-based is not stated.
+  - Which response fields are always present is inferred: only niceName is marked Optional in the docs, so name and videochannels are treated as always present. sampleFrameXML is left optional.
+  - Only version 1.0 is documented; the getSupportedVersions example lists 1.0 and 1.1 as a placeholder.
+  migrated_from: v1
+  curated: true

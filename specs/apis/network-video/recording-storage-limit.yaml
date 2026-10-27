@@ -1,0 +1,228 @@
+format: 2
+id: recording-storage-limit
+name: Recording storage limit API (Edge storage)
+summary: Get and set how much disk space the product may use for recordings on each disk.
+section: network-video
+family: cgi
+status: released
+python:
+  module: recording_storage_limit
+  class: RecordingStorageLimit
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: operator
+discovery:
+- param: {name: Properties.LocalStorage.StorageLimit, value: 'yes'}
+requires:
+  firmware: '5.70'
+
+binding:
+  path: /axis-cgi/record/storage/schemaversions.cgi
+
+errors:
+  10: {description: Error while processing the request., kind: internal}
+  20: {description: Invalid request., kind: invalid_argument}
+  40: {description: Specified version is not supported., kind: unsupported}
+  110: {description: Disk not found., kind: not_found}
+  120: {description: Invalid size value., kind: invalid_argument}
+  130: {description: Supplied size is less than the minimum allowed limit., kind: invalid_argument}
+
+types:
+  SchemaVersion:
+    type: integer
+    minimum: 1
+    description: The major version of the XML schema to use for the response.
+  SchemaVersionInfo:
+    type: object
+    required: [versionNumber]
+    properties:
+      versionNumber:
+        type: string
+        description: Schema version in the form [major].[minor].
+        x-xml: {child: VersionNumber}
+      deprecated:
+        type: boolean
+        description: When true the schema version is deprecated and should not be used.
+        x-xml: {child: Deprecated}
+  SchemaVersions:
+    type: object
+    x-xml: {root: SchemaVersionsSuccess}
+    properties:
+      versions:
+        type: array
+        items: {$ref: "#/types/SchemaVersionInfo"}
+        x-xml: {path: SchemaVersion}
+  StorageLimit:
+    type: object
+    required: [diskid, size]
+    properties:
+      diskid: {type: string, description: The disk ID.}
+      size:
+        type: integer
+        minimum: 0
+        description: The recording storage limit in kilobytes. 0 means the limit is disabled.
+      usedSpace:
+        type: integer
+        minimum: 0
+        description: Space already used by recording data, in kilobytes.
+        x-xml: {attribute: usedspace}
+  StorageLimits:
+    type: object
+    x-xml: {root: GetStorageLimitsResponse}
+    properties:
+      limits:
+        type: array
+        items: {$ref: "#/types/StorageLimit"}
+        x-xml: {path: StorageLimit}
+
+operations:
+  get_schema_versions:
+    summary: Retrieve the supported XML schema versions.
+    effect: read
+    binding: {method: GET, reply: xml}
+    result: {$ref: "#/types/SchemaVersions"}
+    examples:
+    - title: Get supported XML schema versions
+      request:
+        query: {}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <SchemaVersionsSuccess>
+              <SchemaVersion>
+                <VersionNumber>1.0</VersionNumber>
+                <Deprecated>false</Deprecated>
+              </SchemaVersion>
+            </SchemaVersionsSuccess>
+          </StorageLimitsResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-schema-versions
+  get_limit:
+    summary: Retrieve the recording storage limit and used space per disk.
+    effect: read
+    binding:
+      path: /axis-cgi/record/storage/getlimit.cgi
+      method: GET
+      reply: xml
+    params:
+      type: object
+      required: [schemaversion]
+      properties:
+        schemaversion: {$ref: "#/types/SchemaVersion"}
+        diskid:
+          type: string
+          description: The disk ID. If omitted, the limits of all disks are returned.
+    positional: [schemaversion]
+    result: {$ref: "#/types/StorageLimits"}
+    examples:
+    - title: Get limits for all disks
+      request:
+        query: {schemaversion: '1'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GetStorageLimitsResponse>
+              <StorageLimit diskid="NetworkShare" size="2796202667" usedspace="553324" />
+              <StorageLimit diskid="SD_DISK" size="0" usedspace="661324" />
+            </GetStorageLimitsResponse>
+          </StorageLimitsResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-recording-storage-limit
+    - title: Get limit for the network share
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GetStorageLimitsResponse>
+              <StorageLimit diskid="NetworkShare" size="2796202667" usedspace="553324" />
+            </GetStorageLimitsResponse>
+          </StorageLimitsResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-recording-storage-limit
+    - title: Non-existing disk
+      request:
+        query: {schemaversion: '1', diskid: DUMMY}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralError>
+              <ErrorCode>110</ErrorCode>
+              <ErrorDescription>Disk not found</ErrorDescription>
+            </GeneralError>
+          </StorageLimitsResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-recording-storage-limit
+  set_limit:
+    summary: Set the recording storage limit, the disk space this product may use, for a disk.
+    effect: write
+    write: patch
+    binding:
+      path: /axis-cgi/record/storage/setlimit.cgi
+      method: GET
+      reply: xml
+    params:
+      type: object
+      required: [schemaversion, diskid, size]
+      properties:
+        schemaversion: {$ref: "#/types/SchemaVersion"}
+        diskid: {type: string, description: The ID of the disk to limit.}
+        size:
+          type: integer
+          minimum: 0
+          description: The limit in kilobytes. 0 disables the limit; otherwise the minimum is 1048576 kB (1 GB).
+    examples:
+    - title: Limit the network share to about one third of its capacity
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare, size: '1398101333'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralSuccess />
+          </StorageLimitsResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#set-recording-storage-limit
+    - title: Disable limit
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare, size: '0'}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralSuccess />
+          </StorageLimitsResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#set-recording-storage-limit
+    - title: Incorrect limit
+      request:
+        query: {schemaversion: '1', diskid: NetworkShare, size: textstring}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="utf-8"?>
+          <StorageLimitsResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SchemaVersion="1.0" xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/recordingstoragelimit1.xsd">
+            <GeneralError>
+              <ErrorCode>120</ErrorCode>
+              <ErrorDescription>Invalid size value</ErrorDescription>
+            </GeneralError>
+          </StorageLimitsResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#set-recording-storage-limit
+      x-contract: {skip: "The documented request sends size=textstring on purpose to show the device error; size is an integer in the argument table."}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The attribute table names the used space attribute usedsize, while the syntax block and every example use usedspace; the spec follows the examples.
+  - The setlimit parameter table types size as <string> with valid values Integer.
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,84 @@
+format: 2
+id: ptz-control-queue
+name: PTZ control queue (Queuing API)
+summary: Request, drop and query PTZ control in the priority-based PTZ control queue.
+section: network-video
+family: cgi
+status: released
+python:
+  module: ptz_queue
+  class: PtzControlQueue
+docs:
+- https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+access: viewer
+discovery:
+- param: {name: Properties.PTZ.PTZ, value: 'yes'}
+- param: {name: Properties.PTZ.DigitalPTZ, value: 'yes'}
+requires:
+  firmware: '5.20'
+
+binding: {path: /axis-cgi/com/ptzqueue.cgi}
+
+types:
+  QueueStatusText:
+    type: string
+    description: >-
+      The device answers with three HTML anchors, ``<a name="<pos>"></a><a name="<seconds>"></a><a name="<period>"></a>``.
+      ``pos`` is the queue position (0 means not in the queue, 1 means control is possessed; the other values are
+      undefined for 0), ``seconds`` the estimated seconds until position 1 is reached (the remaining control time at
+      position 1, -1 when it cannot be estimated) and ``period`` the recommended seconds between ``get_queue_status``
+      requests.
+
+operations:
+  request_control:
+    summary: Request PTZ control.
+    description: >-
+      For a client that holds control and has no peers in the queue this resets the control timer. For all other
+      clients it has the same effect as ``get_queue_status``.
+    effect: action
+    binding: {method: GET, query: {control: request}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {type: integer, minimum: 1, description: Video channel. The default channel is used if omitted.}
+    result: {$ref: "#/types/QueueStatusText"}
+    examples:
+    - title: Request PTZ control for video channel 2
+      request: {query: {control: request, camera: '2'}}
+      response: {status: 200, text: '<a name="3"></a><a name="410"></a><a name="5"></a>'}
+      source: https://developer.axis.com/vapix/network-video/pantiltzoom-api/#ptz-control-queue
+  release_control:
+    summary: Drop PTZ control or leave the queue.
+    effect: action
+    binding: {method: GET, query: {control: drop}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {type: integer, minimum: 1, description: Video channel. The default channel is used if omitted.}
+  get_queue_status:
+    summary: Report the queue status for this client.
+    description: A client in the queue must call this regularly (see the recommended period in the reply) to stay active.
+    effect: read
+    binding: {method: GET, query: {control: query}, reply: text}
+    params:
+      type: object
+      properties:
+        camera: {type: integer, minimum: 1, description: Video channel. The default channel is used if omitted.}
+    result: {$ref: "#/types/QueueStatusText"}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pantiltzoom-api/
+  sha256_md: b1dc685e0bec7a017399a605bfd9687f3d7fa81ef8e929c4a119a65719e79416
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The queue reply is HTML anchors, not a structured format; the result is the raw text until a reply codec parses it.
+  - The success syntax ``<a name="<pos>"</a>`` is malformed in the docs (missing ">").
+  - The reply for control=drop is not documented.
+  - The parameter is spelled CtlQueueing in the table and CtlQueuing in the UserCtlQueue note.
+  - The queue capacity is said to be configurable in AXIS Device Manager (1-100, default 20) and also through the CtlQueueLimit parameter.
+  - The queue parameters (PTZ.Various.V#.CtlQueue*, PTZ.UserCtlQueue.U#.*) are read and written through param.cgi and are not modelled here.
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,455 @@
+format: 2
+id: disk-management
+name: Disk management API (Edge storage)
+summary: List, format, check, repair, mount, unmount and lock disks (SD cards and network shares), follow their
+  jobs, and read capabilities and health.
+section: network-video
+family: cgi
+status: released
+python: {module: disk_management, class: DiskManagement}
+docs:
+- https://developer.axis.com/vapix/network-video/edge-storage-api/
+access: admin
+discovery:
+- {param: {name: Properties.LocalStorage.LocalStorage, value: 'yes'}}
+- {param: {name: Properties.LocalStorage.Version, value: '1.00'}}
+requires: {firmware: '5.40'}
+binding: {path: /axis-cgi/disks/list.cgi}
+operations:
+  list_disks:
+    summary: List the available disks (formatted, mounted and ready) and their status.
+    access: operator
+    effect: read
+    binding: {method: GET, reply: xml}
+    positional: [disk_id]
+    params:
+      type: object
+      properties:
+        diskid:
+          type: string
+          x-python-name: disk_id
+          description: all lists every disk; otherwise comma-separated Disk IDs of the disks to list.
+    result: {$ref: '#/types/DiskList'}
+    examples:
+    - title: Get a list of all disks
+      request: {query: {diskid: all}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/disk/list1.xsd">
+            <disks numberofdisks="2">
+              <disk diskid="SD_DISK"
+                name="My SD Card"
+                totalsize="2097152"
+                freesize="2097152"
+                cleanuplevel="95"
+                cleanupmaxage="1"
+                cleanuppolicy="none"
+                locked="no"
+                full="no"
+                readonly="no"
+                filesystem="vfat"
+                status="OK"
+                group="S0"
+                requiredfilesystem="none"
+                diskencryptionenabled="false"
+                diskencrypted="false"/>
+              <disk diskid="NetworkShare"
+                name="My Share"
+                totalsize="4194304000"
+                freesize="3670016000"
+                cleanuplevel="95"
+                cleanupmaxage="1"
+                cleanuppolicy="none"
+                locked="no"
+                full="no"
+                readonly="no"
+                filesystem="cifs"
+                status="OK"
+                group="S1"
+                requiredfilesystem="none"
+                diskencryptionenabled="false"
+                diskencrypted="false"/>
+            </disks>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#list-disks
+    - title: List the network share disk
+      request: {query: {diskid: NetworkShare}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/disk/list1.xsd">
+            <disks numberofdisks="1">
+              <disk diskid="NetworkShare"
+                name="My Share"
+                totalsize="4194304000"
+                freesize="3355443200"
+                cleanuplevel="95"
+                cleanupmaxage="1"
+                cleanuppolicy="none"
+                locked="no"
+                full="no"
+                readonly="no"
+                filesystem="cifs"
+                status="OK"
+                group="S1"
+                requiredfilesystem="none"/>
+            </disks>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#list-disks
+  format_disk:
+    summary: Format a disk and start a job.
+    description: SD cards can be formatted with ext4 (recommended) or vfat. Formatting removes all data on the disk.
+      If a required file system is set, the disk is formatted automatically when mounted; if disk encryption is
+      enabled, the disk is encrypted when formatted.
+    access: admin
+    effect: action
+    binding: {path: /axis-cgi/disks/format.cgi, method: GET, reply: {xml: {status_error: {attribute: result, value: ERROR,
+            message: description}}}}
+    positional: [disk_id]
+    params:
+      type: object
+      required: [diskid]
+      properties:
+        diskid: {type: string, x-python-name: disk_id, description: The Disk ID of the disk to format.}
+        filesystem:
+          type: string
+          enum: [ext4, vfat, cifs]
+          description: 'File system to format with; the disk''s choices come from get_capabilities. Default: the
+            file system already on the disk. cifs formats a network share and removes all data this product recorded
+            to it.'
+    result: {$ref: '#/types/JobStarted'}
+    examples:
+    - title: Format the SD card with ext4
+      request: {query: {diskid: SD_DISK, filesystem: ext4}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/disk/startjob1.xsd">
+            <job action="format" diskid="SD_DISK" result="OK" jobid="4" />
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#format-disk
+  check_disk:
+    summary: Check the integrity of the file system and start a job.
+    description: Only SD cards formatted with ext4 can be checked. The request fails if the disk is mounted or if
+      encryption is enabled without a valid passphrase. If an error is found, try repair_disk.
+    access: operator
+    effect: action
+    binding: {path: /axis-cgi/disks/checkdisk.cgi, method: GET, reply: {xml: {status_error: {attribute: result,
+            value: ERROR, message: description}}}}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk to check.}}}
+    result: {$ref: '#/types/JobStarted'}
+  repair_disk:
+    summary: Repair the file system and start a job.
+    description: Repairing may lose data. Only SD cards formatted with ext4 can be repaired. The request fails if
+      the disk is mounted or if encryption is enabled without a valid passphrase.
+    access: admin
+    effect: action
+    binding: {path: /axis-cgi/disks/repair.cgi, method: GET, reply: {xml: {status_error: {attribute: result, value: ERROR,
+            message: description}}}}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk to repair.}}}
+    result: {$ref: '#/types/JobStarted'}
+  mount_disk:
+    summary: Mount a disk and start a job.
+    description: Mounting is automatic when an SD card is inserted, when a network share is bound and at boot. A
+      manual mount is only needed after an unmount that was not followed by an automatic remount.
+    access: admin
+    effect: action
+    binding: {path: /axis-cgi/disks/mount.cgi, method: GET, reply: {xml: {status_error: {attribute: result, value: ERROR,
+            message: description}}}, query: {action: mount}}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk to mount.}}}
+    result: {$ref: '#/types/JobStarted'}
+  unmount_disk:
+    summary: Unmount a disk and start a job.
+    description: Unmount SD cards before ejecting them, to prevent corrupted recordings. An unmounted disk is unavailable
+      to the system.
+    access: admin
+    effect: action
+    binding: {path: /axis-cgi/disks/mount.cgi, method: GET, reply: {xml: {status_error: {attribute: result, value: ERROR,
+            message: description}}}, query: {action: unmount}}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk to unmount.}}}
+    result: {$ref: '#/types/JobStarted'}
+    examples:
+    - title: Unmount a network share
+      request: {query: {diskid: NetworkShare}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/disk/startjob1.xsd">
+            <job action="unmount" diskid="NetworkShare" result="OK" jobid="3" />
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#mount-and-unmount-a-disk
+  get_job_progress:
+    summary: Check the progress of a format, check disk, repair, mount or unmount job.
+    description: Call it repeatedly until the job is done.
+    access: operator
+    effect: read
+    binding: {path: /axis-cgi/disks/job.cgi, method: GET, reply: {xml: {status_error: {attribute: result, value: ERROR,
+            message: description}}}}
+    params: {type: object, required: [jobid, diskid], properties: {jobid: {type: integer, x-python-name: job_id,
+          description: The ID of the job to check.}, diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk the job runs on.}}}
+    positional: [job_id, disk_id]
+    result: {$ref: '#/types/JobProgress'}
+    examples:
+    - title: Check the progress of format job 4
+      request: {query: {jobid: '4', diskid: SD_DISK}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" ?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/disk/checkjob1.xsd">
+            <job jobid="4"
+              diskid="SD_DISK"
+              action="format"
+              result="OK"
+              progress="15" />
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#job-progress
+  lock_disk:
+    summary: Lock a disk.
+    description: A locked disk cannot be formatted or written to. Active recordings stop and saved recordings cannot
+      be removed.
+    access: admin
+    effect: action
+    binding: {path: /axis-cgi/disks/lock.cgi, method: GET, query: {action: lock}, reply: {xml: {status_error: {
+            attribute: result, value: ERROR, message: description}}}}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk.}}}
+  unlock_disk:
+    summary: Unlock a disk.
+    access: admin
+    effect: action
+    binding: {path: /axis-cgi/disks/lock.cgi, method: GET, query: {action: unlock}, reply: {xml: {status_error: {
+            attribute: result, value: ERROR, message: description}}}}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID of the disk.}}}
+  get_capabilities:
+    summary: 'List what a disk supports: formattable file systems, required file system and encryption.'
+    access: operator
+    effect: read
+    binding: {path: /axis-cgi/disks/getcapabilities.cgi, method: GET, reply: xml}
+    positional: [disk_id]
+    params: {type: object, required: [diskid], properties: {diskid: {type: string, x-python-name: disk_id, description: The
+            Disk ID.}}}
+    result: {$ref: '#/types/DiskCapabilities'}
+    examples:
+    - title: List file systems supported by the SD card
+      request: {query: {diskid: SD_DISK}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8"?>
+          <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation=
+              "http://www.axis.com/vapix/http_cgi/disk/capabilities1.xsd">
+            <disk diskid="SD_DISK" requiredfssupported="true" encryptionsupported="true">
+              <filesystems>
+                <filesystem name="vfat" nicename=" " requiredfssupported="false"/>
+                <filesystem name="ext4" nicename=" " requiredfssupported="true"/>
+              </filesystems>
+            </disk>
+          </root>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-disk-capabilities
+  get_health:
+    summary: List the health status (wear level, temperature, overall health) of all disks.
+    description: Requires AXIS OS 7.20 or later.
+    access: operator
+    effect: read
+    binding: {path: /axis-cgi/disks/gethealth.cgi, method: GET, reply: {xml: {error_elements: [GeneralError]}}}
+    result: {$ref: '#/types/DiskHealthList'}
+    errors: {10: {description: An error occurred while processing the request., kind: internal}}
+    examples:
+    - title: Get the wear level for all disks
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <HealthStatusResponse
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/disk/gethealth1.xsd">
+              <HealthStatusSuccess>
+                  <HealthStatus diskid="SD_DISK" wear="25" />
+                  <HealthStatus diskid="NetworkShare" wear="-1" />
+                  <HealthStatus diskid="HDD_DISK" wear="13" temperature="315" overallhealth="1" />
+              </HealthStatusSuccess>
+          </HealthStatusResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-disk-health
+    - title: Check if an SD card is an Axis SD card
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <?xml version="1.0" encoding="UTF-8" ?>
+          <HealthStatusResponse
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:noNamespaceSchemaLocation="http://www.axis.com/vapix/http_cgi/disk/gethealth1.xsd">
+              <HealthStatusSuccess>
+                  <HealthStatus diskid="SD_DISK" wear="3" />
+                  <HealthStatus diskid="NetworkShare" wear="-3" />
+                  <HealthStatus diskid="EMMC" wear="0" overallhealth="1" />
+              </HealthStatusSuccess>
+          </HealthStatusResponse>
+      source: https://developer.axis.com/vapix/network-video/edge-storage-api/#get-disk-health
+sources:
+- url: https://developer.axis.com/vapix/network-video/edge-storage-api/
+  sha256_md: bd07b8ce2ca9aca21ff0d82195bc8dbef5dae2cb6ffa8b98fda8d58d3db3853f
+  retrieved_at: '2026-10-11'
+provenance:
+  completeness: complete
+  open_questions:
+  - Errors from the job-starting CGIs are <job result="ERROR" description=...> in a 200 reply; the docs give no
+    error code list for them.
+  - get_job_progress raises when the job result is ERROR, which the docs say also reports progress 100 for a failed
+    job.
+  - The docs write the friendly-name example as FriendlyName=My&20SD%20Card (typo for %20); setting it is a param.cgi
+    call outside this API.
+  - gethealth1.xsd is not mirrored; the HealthStatus structure comes from the page examples.
+  - list_disks omitting diskid is not documented; pass 'all' to list every disk.
+  - The list.cgi disk element has more attributes than list1.xsd (filesystem, requiredfilesystem, diskencryption*),
+    which the page documents; they are optional here.
+  migrated_from: v1
+  curated: true
+types:
+  DiskStatus:
+    enum:
+    - disconnected
+    - connected
+    - OK
+    - failed
+    - no passphrase
+    - wrong passphrase
+    - not encrypted
+    description: 'disconnected: the disk is disconnected. connected: connected but not mounted. OK: working correctly.
+      failed: a problem was found (use check_disk). no passphrase: encryption is disabled but the disk is encrypted;
+      format it before use. wrong passphrase: the disk is encrypted and the passphrase does not match. not encrypted:
+      encryption is enabled but the disk is not encrypted and not mounted; format and mount it.'
+  CleanupPolicy:
+    enum: [none, fifo]
+    description: fifo deletes recordings automatically after cleanupmaxage days. none leaves deletion to the user.
+  Disk:
+    type: object
+    required:
+    - diskid
+    - name
+    - totalsize
+    - freesize
+    - locked
+    - full
+    - readonly
+    - status
+    - group
+    properties:
+      diskid: {type: string, x-python-name: disk_id, description: The Disk ID.}
+      name: {type: string, description: User-friendly disk name (storage parameter FriendlyName).}
+      totalsize: {type: integer, x-python-name: total_size, description: Total disk size in kilobytes.}
+      freesize: {type: integer, x-python-name: free_size, description: Free disk size in kilobytes.}
+      cleanuplevel:
+        type: integer
+        minimum: 0
+        maximum: 99
+        x-python-name: cleanup_level
+        description: Cleanup level in percent of the total disk space. Obsolete from AXIS OS 5.50.
+      cleanupmaxage:
+        type: integer
+        minimum: 0
+        maximum: 7000
+        x-python-name: cleanup_max_age
+        description: Days that unlocked recordings are kept. Recordings are deleted earlier if the disk becomes
+          full.
+      cleanuppolicy: {$ref: '#/types/CleanupPolicy', x-python-name: cleanup_policy}
+      locked: {type: boolean, description: The disk is locked (reported as yes or no).}
+      full: {type: boolean, description: The disk is full (reported as yes or no).}
+      readonly: {type: boolean, description: The disk is read-only (reported as yes or no).}
+      filesystem: {type: string, x-python-name: file_system, description: 'File system of the disk, for example
+          ext4, vfat or cifs.'}
+      status: {$ref: '#/types/DiskStatus'}
+      group: {type: string, pattern: '^S[0-9]+$', description: The parameter group Storage.S# that defines the disk.}
+      requiredfilesystem:
+        type: string
+        x-python-name: required_file_system
+        description: The file system set as required file system; none if not set.
+      diskencryptionenabled: {type: boolean, x-python-name: disk_encryption_enabled, description: Disk encryption
+          is enabled (reported as true or false).}
+      diskencrypted:
+        type: boolean
+        x-python-name: disk_encrypted
+        description: The disk content is encrypted. Only true once encryption is enabled and the disk has been mounted
+          and formatted.
+  DiskList: {type: object, x-xml: {root: disks}, properties: {numberofdisks: {type: integer, x-python-name: number_of_disks,
+        description: Number of disks in the reply.}, disks: {type: array, items: {$ref: '#/types/Disk'}, x-xml: {
+          path: disk}}}}
+  JobStarted:
+    type: object
+    x-xml: {root: job}
+    required: [jobid]
+    properties:
+      jobid: {type: integer, x-python-name: job_id, description: ID of the started job. Pass it to get_job_progress.}
+      diskid: {type: string, x-python-name: disk_id}
+      action:
+        type: string
+        description: 'The requested action: format, checkdisk, repair, mount or unmount.'
+  JobProgress:
+    type: object
+    x-xml: {root: job}
+    required: [jobid, diskid, action, progress]
+    description: A job that failed raises an error; description then carries the device message.
+    properties:
+      jobid: {type: integer, x-python-name: job_id}
+      diskid: {type: string, x-python-name: disk_id}
+      action: {type: string, description: 'format, checkdisk, repair, mount, unmount or N/A.'}
+      progress: {type: integer, minimum: 0, maximum: 100, description: Percent done.}
+      description: {type: string, description: Description of the result.}
+  FileSystem: {type: object, required: [name], properties: {name: {type: string, description: 'File system name,
+          for example ext4 or vfat.'}, nicename: {type: string, description: Descriptive name of the file system.},
+      requiredfssupported: {type: boolean, x-python-name: required_fs_supported, description: The file system can
+          be used as required file system.}}}
+  DiskCapabilities: {type: object, x-xml: {root: disk}, required: [diskid], properties: {diskid: {type: string,
+        x-python-name: disk_id}, requiredfssupported: {type: boolean, x-python-name: required_fs_supported, description: The
+          disk supports required file system.}, encryptionsupported: {type: boolean, x-python-name: encryption_supported,
+        description: The disk supports disk encryption.}, filesystems: {type: array, items: {$ref: '#/types/FileSystem'},
+        x-xml: {path: filesystems/filesystem}, description: The file systems the disk can be formatted with.}}}
+  DiskHealth:
+    type: object
+    required: [diskid, wear]
+    properties:
+      diskid: {type: string, x-python-name: disk_id}
+      wear:
+        type: integer
+        description: 'Percent of the expected life span that has passed; it can exceed 100. A negative value means
+          the disk is not an Axis SD card or the value is unavailable: -1 not supported, -2 an error occurred, -3
+          the disk is not present.'
+      temperature:
+        type: integer
+        description: Disk temperature in Kelvin (315 K is 42 C). From AXIS OS 9.50.
+      overallhealth:
+        type: integer
+        minimum: 0
+        maximum: 1
+        x-python-name: overall_health
+        description: 'Overall health: 0 = FAIL, 1 = PASSED. From AXIS OS 9.50.'
+  DiskHealthList: {type: object, x-xml: {root: HealthStatusSuccess}, properties: {disks: {type: array, items: {
+          $ref: '#/types/DiskHealth'}, x-xml: {path: HealthStatus}}}}

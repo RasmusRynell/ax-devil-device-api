@@ -1,0 +1,137 @@
+format: 2
+id: on-screen-directional-indicator
+name: On-screen directional indicator
+summary: Name PTZ zones (pan/tilt/zoom ranges) through the ``PTZ.Locator`` parameters so the zone name can be shown in the text overlay.
+section: network-video
+family: cgi
+status: released
+python:
+  module: osdi
+  class: OnScreenDirectionalIndicator
+docs:
+  - https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/
+access: operator
+discovery:
+  - param: {name: PTZ.Locator.L0.MaxZones, value: "1", compare: ">="}
+binding:
+  path: /axis-cgi/param.cgi
+
+operations:
+  list_parameters:
+    summary: 'Parameter values as ``{"PTZ.Locator.L0.MaxZones": "..."}`` (``root.`` removed).'
+    description: >-
+      List ``PTZ.Locator.L<n>.MaxZones`` (read-only: the maximum number of ``Zone.Z<m>`` groups for image
+      source ``n``) or the zones with ``PTZ.Locator.L<n>.Zone``. If ``MaxZones`` is present and greater than 0,
+      the device supports OSDI.
+    access: viewer
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: array
+          items: {type: string}
+          minItems: 1
+          x-style: csv
+          description: Parameter groups to list, e.g. ``root.PTZ.Locator.L0.MaxZones`` or ``root.PTZ.Locator.L0.Zone``.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+      - title: Detect if OSDI is supported
+        request: {query: {group: root.PTZ.Locator.L0.MaxZones}}
+        response: {status: 200, text: "root.PTZ.Locator.L0.MaxZones=3\n"}
+        source: https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/#define-an-osdi-zone
+
+  add_zone:
+    summary: Create an OSDI zone parameter group.
+    description: >-
+      ``group`` is ``root.PTZ.Locator.L<n>.Zone``. Pass the new zone's values as full parameter names with
+      a bare ``Z`` for the new group, e.g. ``{"root.PTZ.Locator.L0.Zone.Z.Name": "NewZone",
+      "root.PTZ.Locator.L0.Zone.Z.Pan": "0.06:29.54", "root.PTZ.Locator.L0.Zone.Z.Tilt": "-44.99:-30.06",
+      "root.PTZ.Locator.L0.Zone.Z.Enabled": "yes"}``. Pan and tilt are ``<float>:<float>`` in degrees; zoom
+      is ``<unsigned integer>:<unsigned integer>`` and, when unset, the zoom level is not considered.
+      The device replies with the reply of the underlying ``param.cgi`` add action.
+    effect: write
+    write: create
+    binding:
+      method: GET
+      query: {action: add, template: ptzlocator}
+      reply: text
+    params:
+      type: object
+      required: [group, parameters]
+      properties:
+        group: {type: string, description: 'Zone group to add to, e.g. ``root.PTZ.Locator.L0.Zone``.'}
+        parameters:
+          type: object
+          additionalProperties: {type: string}
+          x-style: spread
+          description: Initial values as full parameter names mapped to values.
+    positional: [group, parameters]
+    result: {type: string}
+    examples:
+      - title: Create a zone
+        request:
+          query:
+            root.PTZ.Locator.L0.Zone.Z.Name: NewZone
+            root.PTZ.Locator.L0.Zone.Z.Pan: "0.06:29.54"
+            root.PTZ.Locator.L0.Zone.Z.Tilt: "-44.99:-30.06"
+            root.PTZ.Locator.L0.Zone.Z.Enabled: "yes"
+            group: root.PTZ.Locator.L0.Zone
+            template: ptzlocator
+        response: {status: 200, text: "Z0 OK"}
+        source: https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/#define-an-osdi-zone
+
+  update_zones:
+    summary: 'Update parameters of existing zones, e.g. ``{"PTZ.Locator.L0.Zone.Z0.Enabled": "no"}``.'
+    description: >-
+      Per zone: ``Enabled`` (``yes``/``no``), ``Name``, ``Pan`` and ``Tilt`` (``<float>:<float>`` degrees) and
+      ``Zoom`` (``<unsigned integer>:<unsigned integer>``). Only the given parameters change.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+
+  remove_zone:
+    summary: Delete a zone parameter group, which removes the zone.
+    effect: write
+    write: delete
+    binding:
+      method: GET
+      query: {action: remove}
+      reply: text_ok
+    params:
+      type: object
+      required: [group]
+      properties:
+        group: {type: string, description: 'Zone group, e.g. ``root.PTZ.Locator.L0.Zone.Z1``.'}
+    positional: [group]
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/on-screen-directional-indicator/
+    sha256_md: 20fad3e1a8e7a8f72286dc3cac36099f4625280dc4f819a045f042b1f4fa007c
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  open_questions:
+    - The Tilt row of the zone table reads "Tilt<float>:<float>" without "=" (doc typo); treated as Tilt=<float>:<float>.
+    - The overlay modifier used to display the zone name is not named on this page.
+    - AXIS OS minimum is not stated.
+    - Reply texts for the add and remove actions are not shown in the docs; add returns the device's text, remove is read as OK (as for parameter management).
+    - Update security level is stated as "Operator or N/A" without saying which parameters are N/A (MaxZones is read-only).
+  migrated_from: v1
+  curated: true

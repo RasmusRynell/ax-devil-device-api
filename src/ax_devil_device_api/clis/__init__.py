@@ -1,1 +1,0 @@
-"""CLI implementations for ax-devil-device-api package.""" 

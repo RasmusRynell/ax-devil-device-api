@@ -1,0 +1,58 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: open-casing-faulty-front-window
+name: Open Casing and Faulty Front Window
+summary: 'Two events: casing opened (tns1:Device/tnsaxis:Casing/Open) and faulty front window (tns1:Device/tnsaxis:Window/Faulty).'
+section: network-video
+family: rtsp
+status: released
+python:
+  module: open_casing_faulty_front_window
+  class: OpenCasingFaultyFrontWindow
+docs:
+- https://developer.axis.com/vapix/network-video/open-casing-faulty-front-window/
+access: admin
+
+binding: {}
+
+operations:
+  stream_casing_events_url:
+    summary: Build the RTSP URL of the event stream for the open casing topic.
+    description: Open it with an RTSP client to receive the casing events (declared as tns1:Device/tnsaxis:Casing/Open).
+    effect: read
+    binding:
+      rtsp:
+        query: {event: 'on', eventtopic: 'tns1:Device/Casing'}
+    examples:
+    - title: Casing event stream
+      request: {}
+      response: {url: 'rtsp://camera.test:554/axis-media/media.amp?event=on&eventtopic=tns1:Device/Casing'}
+      source: https://developer.axis.com/vapix/network-video/open-casing-faulty-front-window/#open-casing-event
+  stream_window_events_url:
+    summary: Build the RTSP URL of the event stream for the faulty front window topic.
+    description: Open it with an RTSP client to receive the window events (declared as tns1:Device/tnsaxis:Window/Faulty).
+    effect: read
+    binding:
+      rtsp:
+        query: {event: 'on', eventtopic: 'tns1:Device/Window'}
+    examples:
+    - title: Window event stream
+      request: {}
+      response: {url: 'rtsp://camera.test:554/axis-media/media.amp?event=on&eventtopic=tns1:Device/Window'}
+      source: https://developer.axis.com/vapix/network-video/open-casing-faulty-front-window/#faulty-front-window-event
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/open-casing-faulty-front-window/
+  sha256_md: 3d17f0e1dde4b44c8b5f53f98e8c96e3a4ce1da084be2aedf0f3b4b66af08470
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - RTSP URL uses /axismedia/media.amp (no hyphen) while other pages use /axis-media/media.amp — doc typo; /axis-media/media.amp is used.
+  - 'RTSP eventtopic uses tns1:Device/Casing as documented; the event stream API expects onvif:/axis: filter prefixes (Event data streaming), so the documented URL may not match events on a device. Kept as documented.'
+  - The docs give no API discovery id or parameter; the events are found through the event declarations (Event and action services).
+  - Namespace URIs for tns1/tnsaxis are not stated on this page (taken as the standard ONVIF/Axis topic namespaces;
+    verify).
+  migrated_from: v1
+  curated: true

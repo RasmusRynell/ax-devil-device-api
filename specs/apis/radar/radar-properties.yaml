@@ -1,0 +1,92 @@
+format: 2
+id: radar-properties
+name: Radar Properties
+summary: Inspect radar properties — detection range and angle limits, maximum number of radar objects, maximum object
+  speed and network pairing status.
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: radar_properties
+  class: RadarProperties
+docs:
+- https://developer.axis.com/vapix/radar/radar-properties/
+access: admin
+discovery:
+- {api_discovery: radar-properties}
+
+binding:
+  path: /properties.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation: {fixed: '1.0'}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+  2106: {description: Authentication failed., kind: access_denied}
+  2107: {description: Transport level error., kind: unavailable}
+
+types:
+  RadarProperties:
+    type: object
+    properties:
+      device: {type: string, description: The product number of the radar device (e.g. D2210-VE).}
+      minDetectionRange: {type: integer, description: The minimum detection range.}
+      maxDetectionRange: {type: integer, description: The maximum detection range.}
+      minHorizontalAngle: {type: integer, description: The minimum horizontal angle.}
+      maxHorizontalAngle: {type: integer, description: The maximum horizontal angle.}
+      minVerticalAngle: {type: integer, description: The minimum vertical angle.}
+      maxVerticalAngle: {type: integer, description: The maximum vertical angle.}
+      maxRadarObjects: {type: integer, description: The maximum number of radar objects.}
+      maxObjectSpeed: {type: number, description: The maximum object speed.}
+      networkPaired: {type: boolean, description: Whether the radar device is paired with another device.}
+
+operations:
+  get_radar_properties:
+    summary: Retrieve all radar properties.
+    effect: read
+    binding: {method: getRadarProperties}
+    result: {$ref: '#/types/RadarProperties'}
+    examples:
+    - title: Get the radar properties
+      request: {params: {}}
+      response:
+        data:
+          device: D2210-VE
+          minDetectionRange: 10
+          maxDetectionRange: 100
+          minHorizontalAngle: -30
+          maxHorizontalAngle: 30
+          minVerticalAngle: -20
+          maxVerticalAngle: 20
+          maxRadarObjects: 50
+          maxObjectSpeed: 120.5
+          networkPaired: true
+      source: https://developer.axis.com/vapix/radar/radar-properties/#getradarproperties
+    - title: Internal error
+      request: {params: {}}
+      response: {error: {code: 1100, message: Internal error.}}
+      source: https://developer.axis.com/vapix/radar/radar-properties/#getradarproperties
+
+sources:
+- url: https://developer.axis.com/vapix/radar/radar-properties/
+  sha256_md: f32f20068aee5b7588f91382d15783b16fd3f86b6f8b747b8df9ca0963ddb95a
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Endpoint documented as 'http://<servername>/properties.cgi#getRadarProperties'; the real CGI path (likely under
+    /axis-cgi/radar/) is not stated. https://developer.axis.com/vapix/radar/radar-properties/#getradarproperties
+  - Units of detection range (m?), angles (degrees?) and maxObjectSpeed (km/h? m/s?) are not given; the docs do not say which result fields are always present, so all are optional.
+  - The docs list HTTP 400 and 500 text/plain responses next to the JSON error body; the relationship is unclear, so only the JSON error codes are modelled. Access level not stated (admin assumed).
+  - Parameter discovery by Properties.Radar.Properties.Version is documented without a value, so only API Discovery is used.
+  migrated_from: v1
+  curated: true

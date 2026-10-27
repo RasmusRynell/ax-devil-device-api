@@ -1,0 +1,142 @@
+format: 2
+id: pir-sensor-configuration
+name: PIR sensor configuration
+summary: List PIR (passive infrared) sensors and get/set their sensitivity.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: pir_sensor_configuration
+  class: PirSensorConfiguration
+docs:
+- https://developer.axis.com/vapix/network-video/pir-sensor-configuration/
+access: operator
+discovery:
+- {api_discovery: pir-sensor-configuration}
+
+binding:
+  path: /axis-cgi/pirsensor.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error, kind: internal}
+  2100: {description: API version not supported, kind: unsupported}
+  2101: {description: Invalid JSON, kind: invalid_argument}
+  2102: {description: Method not supported, kind: unsupported}
+  2103: {description: Required parameter missing, kind: invalid_argument}
+  2104: {description: Invalid parameter value specified, kind: invalid_argument}
+
+types:
+  Sensitivity:
+    type: number
+    minimum: 0
+    maximum: 1
+    description: Sensitivity from 0 to 1. The device may round it to a supported value.
+
+  Sensor:
+    type: object
+    required: [id, sensitivityConfigurable]
+    properties:
+      id: {type: integer, description: The sensor identifier.}
+      sensitivityConfigurable: {type: boolean, description: Whether the sensor sensitivity can be configured.}
+      sensitivity: {$ref: "#/types/Sensitivity", description: Configured sensitivity. Only present when the sensitivity is configurable.}
+
+  SensorList:
+    type: object
+    required: [sensors]
+    properties:
+      sensors:
+        type: array
+        items: {$ref: "#/types/Sensor"}
+
+  SensorIdRequest:
+    type: object
+    required: [id]
+    properties:
+      id: {type: integer, description: The sensor identifier.}
+
+  SensitivityResult:
+    type: object
+    required: [sensitivity]
+    properties:
+      sensitivity: {$ref: "#/types/Sensitivity"}
+
+  SetSensitivityRequest:
+    type: object
+    required: [id, sensitivity]
+    properties:
+      id: {type: integer, description: The sensor to configure.}
+      sensitivity: {$ref: "#/types/Sensitivity", description: "The sensitivity to set, 0 to 1. The resulting value may be rounded; read it back with ``get_sensitivity`` or ``list_sensors``."}
+
+operations:
+  list_sensors:
+    summary: List all PIR sensors and whether their sensitivity is configurable.
+    effect: read
+    binding: {method: listSensors}
+    result: {$ref: "#/types/SensorList"}
+    examples:
+      - title: One configurable sensor
+        request: {params: {}}
+        response:
+          data:
+            sensors:
+              - {id: 0, sensitivityConfigurable: true, sensitivity: 0.05098038911819458}
+        source: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/#configure-the-pir-sensors-on-a-device
+      - title: Two sensors, one configurable
+        request: {params: {}}
+        response:
+          data:
+            sensors:
+              - {id: 12, sensitivityConfigurable: false}
+              - {id: 7, sensitivityConfigurable: true, sensitivity: 0.05098038911819458}
+        source: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/#configure-the-pir-sensors-on-a-device
+
+  get_sensitivity:
+    summary: Get the sensitivity configured for a sensor.
+    effect: read
+    binding: {method: getSensitivity}
+    params: {$ref: "#/types/SensorIdRequest"}
+    positional: [id]
+    result: {$ref: "#/types/SensitivityResult"}
+    errors:
+      2200: {description: Invalid sensor id., kind: invalid_argument}
+      2201: {description: Sensor does not have configurable sensitivity., kind: unsupported}
+    examples:
+      - title: Get the sensitivity of sensor 0
+        request: {params: {id: 0}}
+        response: {data: {sensitivity: 0.05098038911819458}}
+        source: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/#configure-the-pir-sensors-on-a-device
+
+  set_sensitivity:
+    summary: Set the sensitivity of a sensor.
+    effect: write
+    write: patch
+    binding: {method: setSensitivity}
+    params: {$ref: "#/types/SetSensitivityRequest"}
+    positional: [id, sensitivity]
+    errors:
+      2200: {description: Invalid sensor id., kind: invalid_argument}
+      2201: {description: Sensor does not have configurable sensitivity., kind: unsupported}
+    examples:
+      - title: Set the sensitivity of sensor 0
+        request: {params: {id: 0, sensitivity: 0.5}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/#configure-the-pir-sensors-on-a-device
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/pir-sensor-configuration/
+  sha256_md: 818829db74f2ee870f1cf8c079aea1af69619e01f9003745a32cf6d5e0736017
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - Request syntax blocks for getSensitivity/setSensitivity are missing a comma after the method field (invalid
+    JSON in docs).
+  - AXIS OS minimum version not stated.
+  migrated_from: v1
+  curated: true

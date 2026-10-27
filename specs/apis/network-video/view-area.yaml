@@ -1,0 +1,207 @@
+format: 2
+id: view-area
+name: View Area API
+summary: List view areas (virtual channels covering subsections of the full camera view) and set/reset their geometry.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: view_area
+  class: ViewArea
+docs:
+- https://developer.axis.com/vapix/network-video/view-area-api/
+access: viewer
+discovery:
+- {api_discovery: view-area}
+
+binding:
+  path: /axis-cgi/viewarea/configure.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  101: {description: The requested API version is not supported, kind: unsupported}
+  102: {description: Method unsupported, kind: unsupported}
+  103: {description: Internal error, kind: internal}
+
+types:
+  RectangularGeometry:
+    type: object
+    description: Rectangle related to the canvas. Only listed if the geometry can be configured.
+    properties:
+      horizontalOffset:
+        type: integer
+        minimum: 0
+        description: Offset of the rectangle's left edge relative to the left edge of the canvas.
+      horizontalSize: {type: integer, minimum: 0, description: Width of the rectangle.}
+      verticalOffset:
+        type: integer
+        minimum: 0
+        description: Offset of the top edge of the rectangle relative to the top edge of the canvas.
+      verticalSize: {type: integer, minimum: 0, description: Height of the rectangle.}
+  Size:
+    type: object
+    properties:
+      horizontal: {type: integer, minimum: 0}
+      vertical: {type: integer, minimum: 0}
+  Grid:
+    type: object
+    description: Grid that a geometry is applied to on the canvas due to device limitations.
+    properties:
+      horizontalOffset:
+        type: integer
+        minimum: 0
+        description: Offset of the first vertical grid line relative to the left edge of the canvas.
+      horizontalSize: {type: integer, minimum: 0, description: Distance between vertical grid lines.}
+      verticalOffset:
+        type: integer
+        minimum: 0
+        description: Offset of the first horizontal grid line relative to the top edge of the canvas.
+      verticalSize: {type: integer, minimum: 0, description: Distance between horizontal grid lines.}
+  ViewAreaInfo:
+    type: object
+    description: A view area (virtual channel). Geometry fields are only listed for configurable view areas.
+    required: [id, source, camera, configurable]
+    properties:
+      id: {type: integer, minimum: 0, description: Identifies the view area.}
+      source:
+        type: integer
+        minimum: 0
+        description: Identifies the image source that created the view areas.
+      camera:
+        type: integer
+        minimum: 0
+        description: Identifies the view area used by streaming, PTZ and other APIs.
+      configurable:
+        type: boolean
+        description: Defines if a view can be configured. Some view areas can not be configured.
+      rectangularGeometry: {$ref: '#/types/RectangularGeometry'}
+      canvasSize:
+        $ref: '#/types/Size'
+        description: Size of the overview image the geometry is defined on. Only listed if configurable.
+      minSize:
+        $ref: '#/types/Size'
+        description: Minimum size a view area can have. Only listed if configurable.
+      maxSize:
+        $ref: '#/types/Size'
+        description: Maximum size a view area can have. Only listed if configurable.
+      grid: {$ref: '#/types/Grid', description: Only listed if configurable.}
+  ViewAreaGeometry:
+    type: object
+    required: [id, rectangularGeometry]
+    properties:
+      id: {type: integer, minimum: 0, description: Identifies the area that should be configured.}
+      rectangularGeometry:
+        $ref: '#/types/RectangularGeometry'
+        description: Geometry for the view area as a rectangle related to the canvas.
+  ViewAreaRef:
+    type: object
+    required: [id]
+    properties:
+      id: {type: integer, minimum: 0, description: Identifies the area that should be configured.}
+  ViewAreaListData:
+    type: object
+    required: [viewAreas]
+    properties:
+      viewAreas:
+        type: array
+        items: {$ref: '#/types/ViewAreaInfo'}
+
+operations:
+  list:
+    summary: Retrieve a complete listing of available view areas and how they have been configured.
+    effect: read
+    binding: {method: list, path: /axis-cgi/viewarea/info.cgi}
+    result: {$ref: '#/types/ViewAreaListData'}
+    examples:
+    - title: List view areas
+      request:
+        params: {}
+      response:
+        data:
+          viewAreas:
+          - {id: 1000001, source: 0, camera: 1, configurable: false}
+          - id: 1001002
+            source: 1
+            camera: 2
+            configurable: true
+            rectangularGeometry: {horizontalOffset: 128, horizontalSize: 480, verticalOffset: 64, verticalSize: 270}
+            canvasSize: {horizontal: 1920, vertical: 1080}
+            minSize: {horizontal: 256, vertical: 144}
+            maxSize: {horizontal: 1920, vertical: 1080}
+            grid: {horizontalOffset: 1, horizontalSize: 2, verticalOffset: 0, verticalSize: 2}
+      source: https://developer.axis.com/vapix/network-video/view-area-api/#list-view-areas
+  set_geometry:
+    summary: Set the geometry of a view area.
+    description: The geometry is not always aligned with the canvas grid and the video aspect ratio might make it
+      impossible to align on all sides; the geometry will align to the best possible fit. It is recommended to update
+      the local view area geometry to what is provided by the response, as it may differ from the request.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: setGeometry}
+    params:
+      type: object
+      required: [viewArea]
+      properties:
+        viewArea: {$ref: '#/types/ViewAreaGeometry'}
+    result: {$ref: '#/types/ViewAreaListData'}
+    errors:
+      200: {description: Invalid view area ID, kind: invalid_argument}
+      201: {description: View area is not configurable, kind: unsupported}
+      202: {description: Invalid geometry, kind: invalid_argument}
+    examples:
+    - title: Set geometry of a view area that is not configurable
+      request:
+        params:
+          viewArea:
+            id: 1000002
+            rectangularGeometry: {horizontalOffset: 0, horizontalSize: 960, verticalOffset: 0, verticalSize: 540}
+      response:
+        error: {code: 201, message: View area is not configurable}
+      source: https://developer.axis.com/vapix/network-video/view-area-api/#set-the-geometry-of-a-view-area
+  reset_geometry:
+    summary: Restore the geometry of a view area back to its default values.
+    access: admin
+    effect: action
+    binding: {method: resetGeometry}
+    params:
+      type: object
+      required: [viewArea]
+      properties:
+        viewArea: {$ref: '#/types/ViewAreaRef'}
+    result: {$ref: '#/types/ViewAreaListData'}
+    errors:
+      200: {description: Invalid view area ID, kind: invalid_argument}
+      201: {description: View area is not configurable, kind: unsupported}
+    examples:
+    - title: Reset geometry of a view area that is not configurable
+      request:
+        params:
+          viewArea: {id: 1000001}
+      response:
+        error: {code: 201, message: View area is not configurable}
+      source: https://developer.axis.com/vapix/network-video/view-area-api/#reset-the-geometry-of-a-view-area
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/view-area-api/
+  sha256_md: 703193f52227f50fa8e8293f7e68938f37e1ee31664abb73753b56b3e15028b6
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - resetGeometry common example uses params.viewAreas while the spec section uses params.viewArea; the example here uses viewArea.
+  - getSupportedVersions example returns apiVersions ["1.3", "2.1"] and error code 8000, while all other examples
+    use 1.0 and the general error table lists only 101-103.
+  - setGeometry description says the response shows the requested (not aligned) geometry, while the common example
+    says to update local geometry from the response since it may differ - contradictory.
+  - 'Response body syntax blocks are missing a comma after rectangularGeometry; configure.cgi getSupportedVersions
+    example has a missing quote ("method": getSupportedVersions").'
+  - AXIS OS minimum version not stated.
+  - getSupportedVersions exists on both info.cgi (Viewer) and configure.cgi (Administrator); one negotiation (on the configure.cgi path) is used for the whole API.
+  migrated_from: v1
+  curated: true

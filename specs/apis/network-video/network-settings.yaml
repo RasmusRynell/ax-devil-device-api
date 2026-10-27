@@ -1,0 +1,124 @@
+format: 2
+id: network-settings
+name: Network settings
+summary: '``param.cgi`` network parameters (``Network``, ``SNMP``): IPv4/IPv6, DNS, DNS update, Bonjour, UPnP, IP filter, 802.1X, QoS, RTP/RTSP, ZeroConf and SNMP.'
+section: network-video
+family: cgi
+status: released
+python:
+  module: network_settings_params
+  class: NetworkSettingsParams
+docs:
+  - https://developer.axis.com/vapix/network-video/network-settings/
+access: admin
+discovery:
+  - param: {name: Properties.API.HTTP.Version, value: "3"}
+requires:
+  firmware: "5.00"
+binding:
+  path: /axis-cgi/param.cgi
+
+operations:
+  list_parameters:
+    summary: 'Network parameters as ``{"Network.Bonjour.Enabled": "yes"}`` (``root.`` removed).'
+    description: >-
+      Groups: ``Network`` (static interface settings, ``BootProto``, ...), ``Network.ARPPingIPAddress``,
+      ``Network.Bonjour``, ``Network.DNSUpdate``, ``Network.eth0`` (and ``.IPv6``), ``Network.Filter`` (and
+      ``.Input``, ``.Log``), ``Network.HTTP.AuthenticationPolicy``, ``Network.Interface.I0.dot1x`` (and
+      ``.EAPTLS``), ``Network.IPv6``, ``Network.QoS.Class1`` to ``Class4``, ``Network.Resolver``,
+      ``Network.Routing`` (and ``.IPv6``), ``Network.RTP`` (and ``.R#``), ``Network.RTSP``, ``Network.UPnP`` (and
+      ``.NATTraversal``), ``Network.VolatileHostName``, ``Network.ZeroConf`` and ``SNMP`` (with ``.Trap``,
+      ``.Trap.T#`` and its events, and ``.NTCIP``). With ``BootProto=dhcp`` the static settings may not be in
+      use; read the read-only subgroups for the settings in effect.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: array
+          items: {type: string}
+          minItems: 1
+          x-style: csv
+          description: Parameter groups to list, e.g. ``Network`` or ``SNMP``.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+
+  update_parameters:
+    summary: 'Set network or SNMP parameters, e.g. ``{"Network.Bonjour.Enabled": "no"}``.'
+    description: >-
+      Only the given parameters change. To change the DNS name use ``set_dns_name`` and ``request_dns_update``;
+      setting only ``Network.DNSUpdate.DNSName`` does not trigger a DNS update.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+
+  set_dns_name:
+    summary: 'Step 1 of a DNS name update: set ``Network.DNSUpdate.DNSName``.'
+    description: Follow with ``request_dns_update`` to make the device send the update to the DNS server.
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [Network.DNSUpdate.DNSName]
+      properties:
+        Network.DNSUpdate.DNSName:
+          type: string
+          x-python-name: dns_name
+          description: Fully qualified domain name or host name that the DNS server associates with the product's IP address.
+    positional: [dns_name]
+    examples:
+      - title: Set the DNS name
+        request: {query: {Network.DNSUpdate.DNSName: axistest.r2d2.lab}}
+        response: {status: 200, text: OK}
+        source: https://developer.axis.com/vapix/network-video/network-settings/#networkdnsupdate
+
+  request_dns_update:
+    summary: 'Step 2 of a DNS name update: send a new DNS update request to the DNS server.'
+    effect: action
+    binding: {path: /axis-cgi/dnsupdate.cgi, method: GET, reply: text}
+    params:
+      type: object
+      required: [add]
+      properties:
+        add: {type: string, description: The DNS name to add; the name set with ``set_dns_name``.}
+        hdgen:
+          type: string
+          enum: ["yes"]
+          description: Shown as ``hdgen=yes`` in the docs example; its meaning is not documented.
+    positional: [add]
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/network-settings/
+    sha256_md: 6409c0ed807d116032ecc587fd1ee610811ea6a5693eb1e7acc47f1d995867b8
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  open_questions:
+    - The UPnP FriendlyName default "<product name - <serial number>" has unbalanced brackets (doc typo).
+    - The meaning of hdgen=yes for dnsupdate.cgi is not explained and its reply is not documented; the reply is read as text.
+    - Network.HTTP.AuthenticationPolicy refers to Network.RTSP.AuthenticateRTSPOverHTTP while the RTSP table lists AuthenticateOverHTTP.
+    - Network.Interface.I0.dot1x Status is listed as admin read and write although it is a status value.
+    - Valid values such as "An IP address" and "Auto generated" are free text.
+    - The reply of the update action is read as OK (as for parameter management); the page does not show it.
+    - The parameter names are many and product dependent, so values are passed and returned as maps instead of typed models.
+  migrated_from: v1
+  curated: true

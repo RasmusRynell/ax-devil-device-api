@@ -1,0 +1,525 @@
+format: 2
+id: video-motion-detection-3
+name: Video motion detection 3 API
+summary: Read the configuration of the AXIS Video Motion Detection 3 application (include and exclude areas, ignore filters,
+  one rule engine per channel) via vaconfig.cgi.
+section: applications
+family: cgi
+status: deprecated
+python:
+  module: video_motion_detection_3
+  class: VideoMotionDetection3
+docs:
+- https://developer.axis.com/vapix/applications/video-motion-detection-3-api/
+access: admin
+discovery:
+- acap:
+    name: VMD3
+requires:
+  firmware: '5.80'
+  application: AXIS Video Motion Detection 3 (ACAP; vaconfig name VideoMotionDetection3, application name VMD3, package VideoMotionDetection3)
+binding:
+  path: /axis-cgi/vaconfig.cgi
+errors:
+  bad_request:
+    description: Bad request. The request URL was not formatted correctly.
+    kind: invalid_argument
+  no_such_application:
+    description: There is no application with the given name.
+    kind: not_found
+  internal:
+    description: The action could not be performed, for example because the application failed to restart after a configuration
+      modification.
+    kind: internal
+types:
+  Point:
+    type: object
+    required:
+    - x
+    - y
+    properties:
+      x:
+        type: number
+        description: X coordinate, -1.0 to 1.0. The top right corner of the camera view is x=1.0, y=1.0.
+      y:
+        type: number
+        description: Y coordinate, -1.0 to 1.0.
+  IntValue:
+    type: object
+    required:
+    - value
+    properties:
+      value:
+        type: integer
+  NamedObjectData:
+    type: object
+    properties:
+      knownNameType:
+        type: string
+        description: Type of the data, for example geometry.polygon or core.int. The docs' attribute table spells it knownTypeName.
+      polygon:
+        type: array
+        items:
+          $ref: '#/types/Point'
+        x-xml:
+          path: polygon/point
+        description: Corner points of a polygon object; empty for other object types.
+      int:
+        $ref: '#/types/IntValue'
+        x-python-name: integer
+        description: Integer data of a core.int object, such as a filter value or a view area number.
+  NamedObject:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of the object. Rule parameters refer to it by this name.
+      data:
+        $ref: '#/types/NamedObjectData'
+  RuleParameter:
+    type: object
+    required:
+    - name
+    - value
+    properties:
+      name:
+        type: string
+        description: Name of a parameter used by the rule function.
+      value:
+        type: string
+        description: Value of the parameter; the name of the named object to use.
+  Rule:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of the rule.
+      function:
+        type: string
+        description: Name of the rule function, defined in a script file.
+      parameter:
+        type: array
+        items:
+          $ref: '#/types/RuleParameter'
+        x-xml:
+          path: parameter
+        x-python-name: parameters
+  Script:
+    type: object
+    properties:
+      name:
+        type: string
+        x-xml: text
+        description: Name of the script file.
+      encryption:
+        type: string
+        enum:
+        - '0'
+        - '1'
+        description: 1 = the script is encrypted, 0 = not encrypted.
+  EventAttribute:
+    type: object
+    properties:
+      key:
+        type: string
+      nicename:
+        type: string
+      tag:
+        type: string
+        enum:
+        - source
+        - data
+        - property-state
+        description: source = source info of the event metadata, data = data info, property-state = stateful event (0 or 1).
+      value:
+        type: string
+  Event:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of an event emitted by the application.
+      nicename:
+        type: string
+      attr:
+        type: array
+        items:
+          $ref: '#/types/EventAttribute'
+        x-xml:
+          path: attr
+        x-python-name: attributes
+  MoteOption:
+    type: object
+    required:
+    - name
+    - value
+    properties:
+      name:
+        type: string
+        description: 'Option name: boundingBox, polygon or velocity.'
+      value:
+        type: string
+        enum:
+        - 'true'
+        - 'false'
+  NameValue:
+    type: object
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+  Library:
+    type: object
+    properties:
+      name:
+        type: string
+  RuleEngine:
+    type: object
+    properties:
+      status:
+        type: string
+        enum:
+        - enabled
+        - disabled
+        description: Whether the AXIS OS parses this configuration (AXIS OS 5.61 and later).
+      namedObjects:
+        type: array
+        items:
+          $ref: '#/types/NamedObject'
+        x-xml:
+          path: namedObjects/namedObject
+        description: All named objects used by the application.
+      rules:
+        type: array
+        items:
+          $ref: '#/types/Rule'
+        x-xml:
+          path: rules/rule
+        description: All rules used by the application.
+      scripts:
+        type: array
+        items:
+          $ref: '#/types/Script'
+        x-xml:
+          path: scripts/script
+      events:
+        type: array
+        items:
+          $ref: '#/types/Event'
+        x-xml:
+          path: events/event
+      analyticSources:
+        type: array
+        items:
+          $ref: '#/types/NameValue'
+        x-xml:
+          path: analyticSources/analyticSource
+      moteConfig:
+        type: array
+        items:
+          $ref: '#/types/MoteOption'
+        x-xml:
+          path: moteConfig/option
+        description: MOTE configuration options.
+      libraries:
+        type: array
+        items:
+          $ref: '#/types/Library'
+        x-xml:
+          path: libraries/library
+  Application:
+    type: object
+    required:
+    - name
+    properties:
+      name:
+        type: string
+        description: Name of the application.
+      nicename:
+        type: string
+      ruleEngines:
+        type: array
+        items:
+          $ref: '#/types/RuleEngine'
+        x-xml:
+          path: ruleEngines/ruleEngine
+        description: One rule engine configuration per video channel.
+  ApplicationConfig:
+    type: object
+    x-xml:
+      root: config
+    properties:
+      version:
+        type: string
+        description: Version of the configuration format.
+      application:
+        $ref: '#/types/Application'
+operations:
+  get_configuration:
+    summary: Retrieve the application configuration.
+    description: Deprecated. Multichannel products have one ruleEngine element per video channel.
+    effect: read
+    binding:
+      method: GET
+      query:
+        action: get
+        name: VideoMotionDetection3
+      reply:
+        xml:
+          status_error:
+            attribute: result
+            value: error
+    result:
+      $ref: '#/types/ApplicationConfig'
+    examples:
+    - title: Retrieve the application configuration
+      request:
+        query:
+          action: get
+          name: VideoMotionDetection3
+      response:
+        status: 200
+        text: |
+          <reply result="ok">
+              <config version="2.0">
+                  <application name="VMD3" nicename="Video Motion Detection 3">
+                      <ruleEngines>
+                          <ruleEngine status="enabled">
+                              <namedObjects>
+                                  <namedObject name="Detection Area">
+                                      <data knownNameType="geometry.polygon">
+                                          <polygon>
+                                              <point x="0.97" y="0.97" />
+                                              <point x="0.97" y="-0.97" />
+                                              <point x="-0.97" y="-0.97" />
+                                              <point x="-0.97" y="0.97" />
+                                          </polygon>
+                                      </data>
+                                  </namedObject>
+                                  <namedObject name="Object Duration">
+                                      <data knownNameType="core.int">
+                                          <int value="0" />
+                                      </data>
+                                  </namedObject>
+                                  <namedObject name="Object Height">
+                                      <data knownNameType="core.int">
+                                          <int value="20" />
+                                      </data>
+                                  </namedObject>
+                                  <namedObject name="Object Width">
+                                      <data knownNameType="core.int">
+                                          <int value="10" />
+                                      </data>
+                                  </namedObject>
+                                  <namedObject name="Traveled Distance">
+                                      <data knownNameType="core.int">
+                                          <int value="0" />
+                                      </data>
+                                  </namedObject>
+                                  <namedObject name="Visual Duration">
+                                      <data knownNameType="core.int">
+                                          <int value="0" />
+                                      </data>
+                                  </namedObject>
+                              </namedObjects>
+                              <rules>
+                                  <rule name="detection_0" function="guardIncludeArea">
+                                      <parameter name="IncludeArea" value="Detection Area" />
+                                      <parameter name="Time" value="Object Duration" />
+                                      <parameter name="Width" value="Object Width" />
+                                      <parameter name="Height" value="Object Height" />
+                                      <parameter name="Distance" value="Traveled Distance" />
+                                      <parameter name="Duration" value="Visual Duration" />
+                                  </rule>
+                              </rules>
+                              <scripts>
+                                  <script encryption="1">combined.lua</script>
+                              </scripts>
+                              <events>
+                                  <event name="vmd3_video_1" nicename="VMD 3">
+                                      <attr key="areaid" nicename="Area ID" tag="source" value="0" />
+                                      <attr key="areapolygon" nicename="Polygon info" tag="data" />
+                                      <attr key="active" nicename="Active" tag="property-state" />
+                                  </event>
+                              </events>
+                              <analyticSources>
+                                  <analyticSource name="imageSource" value="1" />
+                              </analyticSources>
+                              <moteConfig>
+                                  <option name="boundingBox" value="false" />
+                                  <option name="polygon" value="true" />
+                                  <option name="velocity" value="true" />
+                              </moteConfig>
+                              <libraries>
+                                  <library name="system" />
+                              </libraries>
+                          </ruleEngine>
+                      </ruleEngines>
+                  </application>
+              </config>
+          </reply>
+      source: https://developer.axis.com/vapix/applications/video-motion-detection-3-api/#getting-started
+  modify_configuration:
+    summary: Modify the application configuration.
+    description: Changes the size of the include area, adds and configures exclude areas and changes filter values; all other settings must be kept as is, and if a named object is renamed the matching parameter value must change too. Posts the XML as the raw request body with action and name in the URL, as the API syntax shows.
+    effect: write
+    write: replace
+    binding:
+      method: POST
+      encoding: body
+      content_type: text/xml
+      query:
+        action: modify
+        name: VideoMotionDetection3
+      reply:
+        xml:
+          status_error:
+            attribute: result
+            value: error
+    params:
+      type: object
+      required:
+      - configuration
+      properties:
+        configuration:
+          type: string
+          x-in: body
+          description: The complete configuration document to apply (the application element, or the config element around it,
+            as returned by get_configuration), edited as described above. All settings that are not to change must be kept as is.
+    examples:
+    - title: Modify the application configuration
+      request:
+        query:
+          action: modify
+          name: VideoMotionDetection3
+        content_type: text/xml
+        body: |
+          <config version="2.0">
+            <application name="VMD3" nicename="Video Motion Detection 3">
+              <ruleEngines>
+                <ruleEngine status="enabled">
+                  <namedObjects>
+                    <namedObject name="Detection Area">
+                      <data knownNameType="geometry.polygon">
+                        <polygon>
+                          <point x="0.97" y="0.97"/>
+                          <point x="0.97" y="-0.97"/>
+                          <point x="-0.97" y="-0.97"/>
+                          <point x="-0.97" y="0.97"/>
+                        </polygon>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Exclude Area 0">
+                      <data knownNameType="geometry.polygon">
+                        <polygon>
+                          <point x="0.20" y="0.20"/>
+                          <point x="0.20" y="-0.20"/>
+                          <point x="-0.20" y="-0.20"/>
+                          <point x="-0.20" y="0.20"/>
+                        </polygon>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Object Duration">
+                      <data knownNameType="core.int">
+                        <int value="0"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Object Height">
+                      <data knownNameType="core.int">
+                        <int value="20"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Object Width">
+                      <data knownNameType="core.int">
+                        <int value="10"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Traveled Distance">
+                      <data knownNameType="core.int">
+                        <int value="0"/>
+                      </data>
+                    </namedObject>
+                    <namedObject name="Visual Duration">
+                      <data knownNameType="core.int">
+                        <int value="0"/>
+                      </data>
+                    </namedObject>
+                  </namedObjects>
+                  <rules>
+                    <rule name="detection_0" function="guardIncludeArea">
+                      <parameter name="IncludeArea" value="Detection Area"/>
+                      <parameter name="ExcludeArea0" value="Exclude Area 0"/>
+                      <parameter name="Time" value="Object Duration"/>
+                      <parameter name="Width" value="Object Width"/>
+                      <parameter name="Height" value="Object Height"/>
+                      <parameter name="Distance" value="Traveled Distance"/>
+                      <parameter name="Duration" value="Visual Duration"/>
+                    </rule>
+                  </rules>
+                  <scripts>
+                    <script encryption="1">combined.lua</script>
+                  </scripts>
+                  <events>
+                    <event name="vmd3_video_1" nicename="VMD 3">
+                      <attr key="areaid" nicename="Area ID" tag="source" value="0"/>
+                      <attr key="areapolygon" nicename="Polygon info" tag="data"/>
+                      <attr key="active" nicename="Active" tag="property-state"/>
+                    </event>
+                  </events>
+                  <analyticSources>
+                    <analyticSource name="imageSource" value="1"/>
+                  </analyticSources>
+                  <moteConfig>
+                    <option name="boundingBox" value="false"/>
+                    <option name="polygon" value="true"/>
+                    <option name="velocity" value="true"/>
+                  </moteConfig>
+                  <libraries>
+                    <library name="system"/>
+                  </libraries>
+                </ruleEngine>
+              </ruleEngines>
+            </application>
+          </config>
+      source: https://developer.axis.com/vapix/applications/video-motion-detection-3-api/#getting-started
+  event_stream_url:
+    summary: Build the RTSP URL of a stream with event metadata.
+    description: RTSP stream that carries the motion events of video channel 1 as metadata. The library only builds the URL; use an RTSP client to read the stream.
+    effect: read
+    binding:
+      rtsp:
+        query:
+          event: 'on'
+          eventtopic: 'onvif:RuleEngine/axis:VMD3/vmd3_video_1//'
+    params:
+      type: object
+      properties:
+        video:
+          type: integer
+          description: Video source number (the documented example uses 0).
+sources:
+- url: https://developer.axis.com/vapix/applications/video-motion-detection-3-api/
+  sha256_md: 434d49de8431dad15a83f526302a5bb2c4401eb72e5d4b820eeda789ff7d7089
+  retrieved_at: '2026-10-11'
+provenance:
+  completeness: partial
+  open_questions:
+  - "modify_configuration: the page's example posts 'action=modify&name=<name>' and a newline in front of the XML as one form-encoded body, while the Application configuration API syntax puts action and name in the URL query. The spec follows the syntax (query arguments, raw XML body); if a device rejects it the body form may be needed. The documented success reply is not shown."
+  - 'Name inconsistency: vaconfig.cgi name=VideoMotionDetection3 but application name in XML and list.cgi is VMD3. https://developer.axis.com/vapix/applications/video-motion-detection-3-api/#common-examples'
+  - Table uses attribute 'knownTypeName' / 'knownType' while XML uses 'knownNameType'.
+  - 'Swaying filter: ''10 and 100'' range but 0/negative disables; values 1-9 behaviour unspecified.'
+  - Small object filter text ('smaller than the set width and by the set height') ambiguous on AND/OR; example blocks use
+    Width=20/Height=10 vs default config Width=10/Height=20.
+  - 'Event topic in RTSP uses onvif:RuleEngine/axis:VMD3/vmd3_video_1//. while declaration is tns1:RuleEngine/tnsaxis:VMD3/vmd3_video_1;
+    event nicename varies (''VMD 3'' vs ''VMD 3: Video 1'').'
+  - Start application example uses GET while Application API documents POST.
+  - The acap discovery name VMD3 is the application name from list.cgi given in the docs; the vaconfig name is VideoMotionDetection3.
+  migrated_from: v1
+  curated: true

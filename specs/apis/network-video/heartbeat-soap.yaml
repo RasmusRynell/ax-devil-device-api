@@ -1,0 +1,68 @@
+format: 2
+id: heartbeat-soap
+name: Heartbeat service API (SOAP)
+summary: Send heartbeats to a device through the SOAP twin of the Heartbeat service (see heartbeat for the JSON
+  form).
+section: network-video
+family: soap
+status: released
+python:
+  module: heartbeat_soap
+  class: HeartbeatSoap
+docs:
+- https://developer.axis.com/vapix/network-video/heartbeat-service-api/
+access: admin
+discovery:
+- param: {name: Properties.API.Heartbeat.Version, value: '1.0', compare: '>='}
+- service: {namespace: 'http://www.axis.com/vapix/ws/Heartbeat'}
+
+binding:
+  namespace: http://www.axis.com/vapix/ws/Heartbeat
+  namespaces: {axhbt: 'http://www.axis.com/vapix/ws/Heartbeat'}
+
+operations:
+  heartbeat_soap:
+    summary: Send a heartbeat via SOAP.
+    description: Heartbeats should be sent at regular intervals, typically within a few seconds. To keep the heartbeat
+      alive, send a new heartbeat before Duration expires. If a heartbeat expires, the session identifier in the
+      response changes and the heartbeat lost event becomes true.
+    effect: action
+    binding: {action: 'http://www.axis.com/vapix/ws/Heartbeat/Heartbeat', element: Heartbeat}
+    params:
+      type: object
+      required: ['axhbt:Duration']
+      properties:
+        'axhbt:Duration':
+          type: integer
+          description: 'Heartbeat duration, that is, the time before a heartbeat lost event is emitted. Unit: milliseconds.'
+    result:
+      type: object
+      required: ['axhbt:SessionId']
+      properties:
+        'axhbt:SessionId':
+          type: string
+          description: Session identifier. It remains the same as long as the heartbeat is kept alive; a change between
+            two successive calls means the heartbeat lost event has been emitted.
+    examples:
+    - title: Send a heartbeat with duration 10 seconds
+      request:
+        params: {'axhbt:Duration': 10000}
+      response:
+        text: '<axhbt:HeartbeatResponse xmlns:axhbt="http://www.axis.com/vapix/ws/Heartbeat"><axhbt:SessionId>14b795e4-507a-44b8-b68c-f98be55bc1dd</axhbt:SessionId></axhbt:HeartbeatResponse>'
+      source: https://developer.axis.com/vapix/network-video/heartbeat-service-api/#using-heartbeats
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/heartbeat-service-api/
+  sha256_md: 4329dae5f93aa48e5353d7961df55cdd79d52875a031596c71f554005482982f
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - 'The SOAP examples declare xmlns:axgpio and a default namespace for http://www.axis.com/vapix/ws/Heartbeat but use the prefix axhbt without declaring it (doc bug); axhbt is taken to be http://www.axis.com/vapix/ws/Heartbeat.'
+  - 'No WSDL for the heartbeat service is linked and the SOAPAction is not documented; <namespace>/Heartbeat is assumed.'
+  - Duplicates the service_json spec "heartbeat" (POST /vapix/axhbt), which is preferred; this SOAP form is kept for completeness.
+  - The command is documented with access class ACTUATE; its mapping to a user group is not stated, so the API default (admin) is kept.
+  - AXIS OS minimum version and the valid range of Duration are not documented.
+  migrated_from: v1
+  curated: true

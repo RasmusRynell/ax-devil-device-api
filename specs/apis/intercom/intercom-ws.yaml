@@ -1,0 +1,59 @@
+format: 2
+id: intercom-ws
+name: Intercom service WebSocket
+summary: WebSocket endpoint of the Intercom service for RPC calls and event notifications.
+section: intercom
+family: ws
+status: released
+python:
+  module: intercom_ws
+  class: IntercomWs
+docs:
+- https://developer.axis.com/vapix/intercom/intercom-service/
+access: admin
+discovery:
+- param: {name: Properties.API.Intercom.Intercom, value: 'yes'}
+- param: {name: Properties.API.Intercom.Version, value: '1.1'}
+- {api_discovery: intercom-api}
+- {api_discovery: intercom-reader}
+
+binding: {}
+
+operations:
+  connect:
+    summary: Open the Intercom service WebSocket (ws/wss) at /vapix/intercomws.
+    description: 'The same endpoint issues the Intercom API commands (the methods of /vapix/intercom, for example
+      `UpdateConfiguration`, `InjectTag`, `SetUiFeedback`) and initiates event notifications, as Google JSON or JSON-RPC 2.0
+      messages. Subscribe with `axev:subscribe` (style `ttMessage`, `topics` such as `Device/Intercom/RFID` and
+      `Device/Intercom/KeyPin`, and `functions` that must include `axev:notify`, optionally `axdsapi:SetUiFeedback`);
+      list the events with `axev:getSupported`; notifications arrive as `axev:notify` (`params.notifications[]` with `topic`,
+      `timestamp`, `data`). Methods and types that are functions use the namespace prefix `axdsapi` (for example
+      `axdsapi:UpdateConfiguration`). The session carries the frames unchanged (raw codec): there is no Google JSON
+      codec, so messages are not built or decoded for you.'
+    effect: read
+    binding:
+      session: {path: /vapix/intercomws}
+    examples:
+    - title: Connect to the Intercom WebSocket endpoint
+      request: {}
+      source: https://developer.axis.com/vapix/intercom/intercom-service/#third-party-integration
+
+sources:
+- url: https://developer.axis.com/vapix/intercom/intercom-service/
+  sha256_md: 425e94dc29bf11eaf9699dae16a01894657cddccb624e9c1604ddba1cea5cc6b
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - 'BLOCKED(google-json-codec): axev:subscribe, axev:getSupported, axev:notify and the Intercom API methods sent over the
+    WebSocket (apiVersion/method/params/id/context messages, Google JSON style) need a codec that builds the requests and
+    classifies replies and notifications. The runtime has only the events, datahub and raw codecs, so the docs examples
+    (the axev:subscribe request, the UpdateConfiguration message, the axev:notify RFID notification) cannot be checked as
+    session examples; only the handshake is.'
+  - The docs do not say which of Google JSON and JSON-RPC 2.0 a given product accepts, the exact error format over the
+    WebSocket, or the access level of the endpoint (assumed admin).
+  - 'The Intercom API methods themselves (GetConfiguration, InjectTag, ...) are specified for POST /vapix/intercom in
+    the intercom service API, not in this spec.'
+  migrated_from: v1
+  curated: true

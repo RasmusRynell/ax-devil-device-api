@@ -1,0 +1,229 @@
+format: 2
+id: current-loop
+name: Current loop input API
+summary: Read 4–20 mA current loop sensors, configure scaling/thresholds, monitor live status and receive alarm/fault/metadata
+  events.
+section: network-video
+family: dca
+status: released
+python:
+  module: current_loop
+  class: CurrentLoop
+docs:
+- https://developer.axis.com/vapix/network-video/current-loop-input-api/
+access: admin
+discovery:
+- dca: {api: current-loop, version: v1}
+
+binding: {root: /config/rest/current-loop/v1}
+
+types:
+  SensorId: {type: string, description: Key of the sensor entry in the configurations and status collections.}
+  LoopState:
+    type: string
+    enum: [OPEN_CIRCUIT, UNDER_RANGE, OK, OVER_RANGE, SHORT_CIRCUIT]
+    description: '4-20 mA loop diagnostic status per NAMUR NE43: OPEN_CIRCUIT below 3.6 mA (open wiring), UNDER_RANGE 3.6-4.0 (normal under range), OK 4.0-20.0, OVER_RANGE 20.0-22.0 (normal over range), SHORT_CIRCUIT above 22.0 (short wiring).'
+  ThresholdState:
+    type: string
+    enum: [BELOW_LOWER_CRITICAL, BELOW_LOWER_WARNING, OK, ABOVE_UPPER_WARNING, ABOVE_UPPER_CRITICAL]
+    description: Threshold status of the physical value against the configured thresholds.
+  Configuration:
+    type: object
+    description: 'Parameters used to convert loop current into physical values in engineering units, and to define alarm thresholds. The thresholds must satisfy minThresholdCritical <= minThresholdWarning <= maxThresholdWarning <= maxThresholdCritical.'
+    required: [sensorId]
+    properties:
+      sensorId: {$ref: '#/types/SensorId'}
+      sensorName: {type: string}
+      enabled: {type: boolean}
+      engineeringUnit: {type: string, description: 'Engineering unit of the physical value, for example a degree sign and C.'}
+      minPhysicalValue: {type: number, description: Expected physical value at 4 mA.}
+      maxPhysicalValue: {type: number, description: Expected physical value at 20 mA.}
+      minThresholdCritical: {type: number}
+      minThresholdWarning: {type: number}
+      maxThresholdWarning: {type: number}
+      maxThresholdCritical: {type: number}
+  Status:
+    type: object
+    description: Live sensor data and diagnostic results, updated every 100 ms. loopState and thresholdState can lag behind the values by a validation delay.
+    required: [sensorId]
+    properties:
+      sensorId: {$ref: '#/types/SensorId'}
+      currentValue: {type: number, description: Loop current in mA.}
+      physicalValue: {type: number, description: 'Current converted to the engineering unit: minPhysicalValue + ((currentValue - 4) * (maxPhysicalValue - minPhysicalValue)) / 16.'}
+      rawValue: {type: integer}
+      loopState: {$ref: '#/types/LoopState'}
+      thresholdState: {$ref: '#/types/ThresholdState'}
+  CurrentLoop:
+    type: object
+    description: The whole API tree.
+    properties:
+      configurations:
+        type: array
+        items: {$ref: '#/types/Configuration'}
+      status:
+        type: array
+        items: {$ref: '#/types/Status'}
+  UpdateConfigurationRequest:
+    type: object
+    description: Arguments of ``update_configuration``. Only the given fields change.
+    required: [sensorId]
+    properties:
+      sensorId: {$ref: '#/types/SensorId'}
+      sensorName: {type: string}
+      enabled: {type: boolean}
+      engineeringUnit: {type: string}
+      minPhysicalValue: {type: number}
+      maxPhysicalValue: {type: number}
+      minThresholdCritical: {type: number}
+      minThresholdWarning: {type: number}
+      maxThresholdWarning: {type: number}
+      maxThresholdCritical: {type: number}
+
+operations:
+  get_all:
+    summary: The whole tree, with all configurations and the live status.
+    effect: read
+    binding: {method: GET, path: ''}
+    result: {$ref: '#/types/CurrentLoop'}
+
+  list_configurations:
+    summary: List the sensor configurations.
+    effect: read
+    binding: {method: GET, path: /configurations}
+    result: {type: array, items: {$ref: '#/types/Configuration'}}
+    examples:
+    - title: Get all configurations
+      request: {}
+      response:
+        status: 200
+        body:
+          status: success
+          data:
+          - {enabled: false, engineeringUnit: Unit, maxPhysicalValue: 100.0, maxThresholdCritical: 100.0, maxThresholdWarning: 100.0, minPhysicalValue: -100.0, minThresholdCritical: -100.0, minThresholdWarning: -100.0, sensorId: My-SensorId, sensorName: Name}
+      source: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+
+  get_configuration:
+    summary: One sensor configuration.
+    effect: read
+    binding: {method: GET, path: '/configurations/{sensorId}'}
+    params:
+      type: object
+      x-name: SensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {$ref: '#/types/Configuration'}
+
+  update_configuration:
+    summary: Change a sensor configuration.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/configurations/{sensorId}', body: object}
+    params: {$ref: '#/types/UpdateConfigurationRequest'}
+    round_trip:
+      from: Configuration
+    examples:
+    - title: Set a configuration
+      request:
+        path: /configurations/My-SensorId
+        body:
+          data: {enabled: true, engineeringUnit: "\u00b0C", maxPhysicalValue: 100.0, maxThresholdCritical: 55.0, maxThresholdWarning: 45.0, minPhysicalValue: 0.0, minThresholdCritical: -15.0, minThresholdWarning: -5.0, sensorName: Oven temperature}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+
+  get_configuration_engineering_unit:
+    summary: The engineering unit of a sensor.
+    effect: read
+    binding: {method: GET, path: '/configurations/{sensorId}/engineeringUnit'}
+    params:
+      type: object
+      x-name: SensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {type: string}
+    examples:
+    - title: Get a single configuration value
+      request: {path: /configurations/My-SensorId/engineeringUnit}
+      response: {status: 200, body: {status: success, data: Unit}}
+      source: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+
+  set_configuration_engineering_unit:
+    summary: Set the engineering unit of a sensor.
+    effect: write
+    write: patch
+    binding: {method: PATCH, path: '/configurations/{sensorId}/engineeringUnit', body_field: engineeringUnit, body: value}
+    params:
+      type: object
+      required: [sensorId, engineeringUnit]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+        engineeringUnit: {type: string}
+    examples:
+    - title: Set a single configuration value
+      request:
+        path: /configurations/My-SensorId/engineeringUnit
+        body: {data: "\u00b0C"}
+      response: {status: 200, body: {status: success}}
+      source: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+
+  list_status:
+    summary: Live status of all sensors.
+    effect: read
+    binding: {method: GET, path: /status}
+    result: {type: array, items: {$ref: '#/types/Status'}}
+    examples:
+    - title: Get sensor status
+      x-contract: {skip: 'The docs show a single object for the status collection, while their other examples index it by sensorId; the collection is modelled as an array.'}
+      request: {}
+      response:
+        status: 200
+        body:
+          status: success
+          data: {currentValue: 11.579166412353516, loopState: OK, physicalValue: 24.47525978088379, rawValue: 13895, sensorId: Sensor-ID, thresholdState: OK}
+      source: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+
+  get_status:
+    summary: Live status of one sensor.
+    effect: read
+    binding: {method: GET, path: '/status/{sensorId}'}
+    params:
+      type: object
+      x-name: SensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {$ref: '#/types/Status'}
+
+  get_status_physical_value:
+    summary: The live physical value of one sensor.
+    effect: read
+    binding: {method: GET, path: '/status/{sensorId}/physicalValue'}
+    params:
+      type: object
+      x-name: SensorIdRequest
+      required: [sensorId]
+      properties:
+        sensorId: {$ref: '#/types/SensorId'}
+    result: {type: number}
+    examples:
+    - title: Get a single status property
+      request: {path: /status/My-SensorId/physicalValue}
+      response: {status: 200, body: {status: success, data: 24.47525978088379}}
+      source: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/current-loop-input-api/
+  sha256_md: 0fc67037af690a3af8ad0ea3a5029e3130f1536383a4c2697e0cdcf0a6c84d9a
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - HTTP URLs are derived from the generic Device Configuration mapping; the page only shows abstract paths. API id, version status, permissions, AXIS OS requirement and error responses are not stated.
+  - GET current-loop.v1.status example returns a single object, while the single-property example indexes status['My-SensorId']; the status is modelled as a collection keyed by sensorId.
+  - Whether configuration items can be added or removed is not documented, so no add/remove operations exist. Which fields the device always returns is not documented; only sensorId is required.
+  - Event topics tns1:CameraApplicationPlatform/tnsaxis:Alarm|Fault|Metadata are generic ACAP-platform topics; the full topic path and source fields are not documented.
+  - Only engineeringUnit and physicalValue have single-property examples; the other properties are reachable through the entity operations.
+  migrated_from: v1
+  curated: true

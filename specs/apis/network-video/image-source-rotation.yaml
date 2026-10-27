@@ -1,0 +1,102 @@
+format: 2
+id: image-source-rotation
+name: Image source rotation
+summary: '``param.cgi`` parameters that detect and control image source rotation and auto rotation (``ImageSource.I#``).'
+section: network-video
+family: cgi
+status: released
+python:
+  module: image_source_rotation
+  class: ImageSourceRotation
+docs:
+  - https://developer.axis.com/vapix/network-video/image-source-rotation/
+access: viewer
+discovery:
+  - param: {name: ImageSource.I0.SourceRotation, value: "yes"}
+requires:
+  firmware: "8.40"
+binding:
+  path: /axis-cgi/param.cgi
+
+operations:
+  list_image_source_parameters:
+    summary: 'Read ``ImageSource.I#`` parameters as ``{"ImageSource.I0.Rotation": "180"}`` (``root.`` removed).'
+    description: >-
+      Use ``ImageSource.I0`` (``#`` runs from 0 to the number of image sources - 1). ``SourceRotation`` (yes/no,
+      read-only) tells whether the device has image source rotation; ``Rotation`` (0, 90, 180 or 270 as listed in
+      ``Properties.Image.Rotation``) is the rotation; ``AutoRotationEnabled`` (yes/no) tells whether the rotation
+      follows the device orientation. Rotation is present when ``SourceRotation`` is yes and a rotation value is set.
+    effect: read
+    binding:
+      method: GET
+      query: {action: list}
+      accept: text/plain
+      reply: {text_kv: {strip_prefix: "root."}}
+    params:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: array
+          items: {type: string}
+          minItems: 1
+          x-style: csv
+          description: Groups to list, e.g. ``ImageSource.I0``.
+    positional: [group]
+    result: {type: object, additionalProperties: {type: string}}
+    examples:
+      - title: Check if image source rotation is present
+        request: {query: {group: ImageSource.I0}}
+        response:
+          status: 200
+          text: |-
+            root.ImageSource.I0.SourceRotation=yes
+            root.ImageSource.I0.Rotation=180
+        source: https://developer.axis.com/vapix/network-video/image-source-rotation/#image-source-rotation
+      - title: Check auto rotation
+        request: {query: {group: ImageSource.I0}}
+        response:
+          status: 200
+          text: root.ImageSource.I0.AutoRotationEnabled=yes
+        source: https://developer.axis.com/vapix/network-video/image-source-rotation/#auto-rotation
+
+  update_image_source_parameters:
+    summary: 'Set ``Rotation`` or ``AutoRotationEnabled``, e.g. ``{"ImageSource.I0.Rotation": "90"}``.'
+    description: >-
+      ``ImageSource.I#.Rotation`` takes a value from ``Properties.Image.Rotation`` (typically 0, 90, 180, 270;
+      default 0). Changing it closes all open streams, which must be requested again, and turns
+      ``AutoRotationEnabled`` off. ``ImageSource.I#.AutoRotationEnabled`` takes ``yes`` or ``no``;
+      ``SourceRotation`` is read-only.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [parameters]
+      properties:
+        parameters: {type: object, additionalProperties: {type: string}, x-style: spread}
+    positional: [parameters]
+    examples:
+      - title: Set the rotation
+        request: {query: {ImageSource.I0.Rotation: "0"}}
+        response: {status: 200, text: OK}
+        source: https://developer.axis.com/vapix/network-video/image-source-rotation/#image-source-rotation
+
+sources:
+  - url: https://developer.axis.com/vapix/network-video/image-source-rotation/
+    sha256_md: b6d9511a9b97ae01814bd05425486894b0948f5c71e85673bb36e50f974b306d
+    retrieved_at: "2026-10-11"
+provenance:
+  completeness: complete
+  open_questions:
+    - The update security level is stated as "Operator or N/A" without saying which parameters are N/A (SourceRotation is read-only).
+    - The allowed Rotation set is product dependent (Properties.Image.Rotation); 0, 90, 180, 270 is the typical set.
+    - The wire format of Properties.Image.Rotation (written as "[0, 90, 180, 270]") is not shown.
+    - The "not present" replies ("Neither ImageSource.I0SourceRotation nor Rotation in body.", "No AutoRotationEnabled in body.") are descriptions, not literal bodies; a missing parameter is simply absent from the result map.
+    - The parameter names carry the image source index, so values are passed and returned as maps instead of typed models.
+  migrated_from: v1
+  curated: true

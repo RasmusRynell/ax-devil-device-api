@@ -1,0 +1,170 @@
+format: 2
+id: service-discovery-service
+name: Service discovery service
+summary: 'Axis Discovery Service (axissd): polled API that searches for remote service providers (remote devices,
+  e.g.'
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: service_discovery_service
+  class: ServiceDiscoveryService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+- https://developer.axis.com/vapix/physical-access-control/
+access: admin
+
+discovery:
+- service: {namespace: 'http://www.axis.com/vapix/ws/AxisServiceDiscovery'}
+
+binding: {path: /vapix/axissd}
+
+types:
+  Attribute:
+    type: object
+    description: A name and value pair, used both to filter the search and to describe a provider or service.
+    properties:
+      Name: {type: string, description: "Attribute name, for example `IO`, `Address`, `IP` or `MAC`."}
+      type: {type: string, description: "Value type; `string` in every example."}
+      Value: {type: string, description: Attribute value.}
+
+  Service:
+    type: object
+    description: A service of an added provider, for example one remote I/O.
+    properties:
+      Id: {type: string, description: "Id of the service, in the form `remote/<device token>/<id>`; use it as `Lock.Hardware.Address` in the door control service."}
+      NiceName: {type: string, description: "Name of the service, for example `Output 1`."}
+      Attributes:
+        type: array
+        items: {$ref: "#/types/Attribute"}
+
+  ServiceProvider:
+    type: object
+    description: A remote device found on the network or added to the door controller.
+    properties:
+      Id: {type: string, description: Empty for a device that is not added; the device token once it is added.}
+      NiceName: {type: string, description: "Name of the device, for example `AXIS A9188`; empty if not added."}
+      Status: {type: string, description: "`NotAdded` for a device that is not added, `OK` for an added one. Other values are not documented."}
+      Attributes:
+        type: array
+        items: {$ref: "#/types/Attribute"}
+        description: "Attributes of the device, `IP` and `MAC` in the examples."
+      ServiceList:
+        type: array
+        items: {$ref: "#/types/Service"}
+        description: The services (remote I/Os) of an added device; empty for a device that is not added.
+
+  GetServiceProviderListRequest:
+    type: object
+    properties:
+      Timeout: {type: integer, description: "Discovery timeout; follow-up calls must come before it expires. The unit is not documented; the examples use 10."}
+      Type: {type: string, description: "Type of service provider to search for; `RIO` for a remote I/O module such as AXIS A9188."}
+      Attributes:
+        type: array
+        items: {$ref: "#/types/Attribute"}
+        description: "Search attributes: `IO` = `Eth0` for a remote I/O module, and `Address` = a device token, IP address or MAC address to limit the search to one added device."
+
+  ServiceProviderListResult:
+    type: object
+    properties:
+      ServiceProviderList:
+        type: array
+        items: {$ref: "#/types/ServiceProvider"}
+
+operations:
+  get_service_provider_list:
+    summary: Search for remote devices and list the ones already added with their services.
+    description: >-
+      A polled call: the first call starts the discovery and later calls, issued before `Timeout` expires, return the
+      devices found so far, so call it several times to find every device. Added devices need not be on the local
+      network.
+    effect: read
+    binding: {operation: "axissd:GetServiceProviderList"}
+    params: {$ref: "#/types/GetServiceProviderListRequest"}
+    result: {$ref: "#/types/ServiceProviderListResult"}
+    examples:
+    - title: Find remote I/O modules
+      request:
+        params:
+          Timeout: 10
+          Type: RIO
+          Attributes:
+          - {Name: IO, type: string, Value: Eth0}
+      response:
+        data:
+          ServiceProviderList:
+          - Id: ''
+            NiceName: ''
+            Status: NotAdded
+            Attributes:
+            - {type: string, Name: IP, Value: 172.25.11.13}
+            - {type: string, Name: MAC, Value: '00:40:8c:18:64:07'}
+            ServiceList: []
+          - Id: ''
+            NiceName: ''
+            Status: NotAdded
+            Attributes:
+            - {type: string, Name: IP, Value: 172.25.11.74}
+            - {type: string, Name: MAC, Value: '00:40:8c:18:64:0c'}
+            ServiceList: []
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#find-remote-devices
+    - title: Find the remote I/Os of an added device
+      request:
+        params:
+          Timeout: 10
+          Type: RIO
+          Attributes:
+          - {Name: IO, type: string, Value: Eth0}
+          - {Name: Address, type: string, Value: 'Axis-accc8e0c0ca1:1454410450.819540000'}
+      response:
+        data:
+          ServiceProviderList:
+          - Id: Axis-accc8e0c0ca1:1454410450.819540000
+            NiceName: AXIS A9188
+            Status: OK
+            Attributes:
+            - {type: string, Name: IP, Value: 172.25.11.13}
+            - {type: string, Name: MAC, Value: '00:40:8c:18:64:07'}
+            ServiceList:
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/8
+              NiceName: Output 1
+              Attributes: []
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/9
+              NiceName: Output 2
+              Attributes: []
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/10
+              NiceName: Output 3
+              Attributes: []
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/11
+              NiceName: Output 4
+              Attributes: []
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/12
+              NiceName: Output 5
+              Attributes: []
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/13
+              NiceName: Output 6
+              Attributes: []
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/14
+              NiceName: Output 7
+              Attributes: []
+            - Id: remote/Axis-accc8e0c0ca1:1454410450.819540000/15
+              NiceName: Output 8
+              Attributes: []
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#find-remote-ios
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: stub
+  open_questions:
+    - The Service discovery service (axissd) is listed in the overview Identification table but has no API page; the fields come from the Peripherals examples. The unit of Timeout, the full parameter list, other Status values, the faults and the access class are not documented.
+    - 'The overview table calls the API "Service discovery service" while the Peripherals page calls it "Axis Discovery Service (axissd)".'
+    - The first call starts a discovery process on the device; the operation is modelled as a read because it changes no configuration.
+  migrated_from: v1
+  curated: true

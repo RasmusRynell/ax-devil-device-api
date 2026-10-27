@@ -1,0 +1,194 @@
+format: 2
+id: thermal-color-palettes
+name: Thermal imaging color palettes
+summary: List the pseudocolor palettes of a thermal camera and select the global palette (``Image.I0.Appearance.Palette``).
+section: network-video
+family: cgi
+status: released
+python:
+  module: thermal_color_palettes
+  class: ThermalColorPalettes
+docs:
+- https://developer.axis.com/vapix/network-video/thermal-imaging/
+access: viewer
+discovery:
+- param: {name: Properties.Image.Palette.Palette, value: 'yes'}
+
+binding: {path: /axis-cgi/param.cgi}
+
+types:
+  PaletteName:
+    type: object
+    required: [value]
+    properties:
+      value: {type: string, description: 'The palette name, for example ``White-hot`` or ``Iso-Axis-WH``. Names starting with ``Iso`` are isotherm palettes.'}
+  PaletteDefinition:
+    type: object
+    description: The definition of the ``Image.I0.Appearance.Palette`` parameter.
+    x-xml: {root: group/group/group/group/parameter}
+    required: [palettes]
+    properties:
+      name: {type: string, description: 'The parameter name, ``Palette``.'}
+      niceName: {type: string}
+      value: {type: string, description: The palette that is currently set.}
+      securityLevel: {type: string}
+      palettes:
+        type: array
+        items: {$ref: '#/types/PaletteName'}
+        x-xml: {path: type/enum/entry}
+        description: The palettes the product supports.
+
+operations:
+  list_palettes:
+    summary: List the palettes the product supports and the one that is set.
+    description: >-
+      Reads the definition of ``Image.*.Appearance.Palette`` with ``param.cgi?action=listdefinitions``. Which palettes are
+      available depends on the product; isotherm palettes (names starting with ``Iso``) are listed once isothermal imaging
+      is enabled. Only the first matching parameter is returned.
+    effect: read
+    binding:
+      method: GET
+      query: {action: listdefinitions, listformat: xmlschema, group: 'Image.*.Appearance.Palette'}
+      reply: xml
+    result: {$ref: '#/types/PaletteDefinition'}
+    examples:
+    - title: List the palettes of a camera with stream palettes
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <parameterDefinitions xmlns="http://www.axis.com/ParameterDefinitionsSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.axis.com/ParameterDefinitionsSchema http://camera.test/pub/parameterdefinitions.xsd" version="1.0">
+            <model>AXIS Q1931-E PT Mount</model>
+            <firmwareVersion>5.75.1</firmwareVersion>
+            <group name="root">
+              <group name="Image">
+                <group name="I0">
+                  <group name="Appearance">
+                    <parameter name="Palette" value="White-hot" securityLevel="7714" niceName="Palette">
+                      <type>
+                        <enum>
+                          <entry value="White-hot"/>
+                          <entry value="Black-hot"/>
+                          <entry value="Axis"/>
+                          <entry value="Rainbow"/>
+                          <entry value="Planck"/>
+                          <entry value="Atlantis"/>
+                          <entry value="Nightvision"/>
+                          <entry value="Ice-and-fire"/>
+                        </enum>
+                      </type>
+                    </parameter>
+                  </group>
+                </group>
+              </group>
+            </group>
+          </parameterDefinitions>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#using-stream-palettes
+    - title: List the global and isotherm palettes (AXIS Q2901-E)
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          <parameterDefinitions xmlns="http://www.axis.com/ParameterDefinitionsSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.axis.com/ParameterDefinitionsSchema http://camera.test/pub/parameterdefinitions.xsd" version="1.0">
+            <model>AXIS Q2901-E</model>
+            <firmwareVersion>5.55.4</firmwareVersion>
+            <group name="root">
+              <group name="Image">
+                <group name="I0">
+                  <group name="Appearance">
+                    <parameter name="Palette" value="Red-hot" securityLevel="7714" niceName="Palette">
+                      <type>
+                        <enum>
+                          <entry value="White-hot"/>
+                          <entry value="Black-hot"/>
+                          <entry value="Planck"/>
+                          <entry value="Axis"/>
+                          <entry value="Rainbow"/>
+                          <entry value="Red-hot"/>
+                          <entry value="Nightvision"/>
+                          <entry value="Iso-Fire-WH"/>
+                          <entry value="Iso-Fire-BH"/>
+                          <entry value="Iso-Planck-WH"/>
+                          <entry value="Iso-Axis-WH"/>
+                          <entry value="Iso-Midrange-WH"/>
+                          <entry value="Iso-Midrange-BH"/>
+                          <entry value="Iso-Rainbow-WH"/>
+                        </enum>
+                      </type>
+                    </parameter>
+                  </group>
+                </group>
+              </group>
+            </group>
+          </parameterDefinitions>
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#using-global-palettes
+  set_global_palette:
+    summary: Change the global palette, which is also the default for streams requested without a ``palette`` argument.
+    description: >-
+      Choose a name returned by ``list_palettes``, for example ``Axis`` or the isotherm palette ``Iso-Axis-WH``. Isotherm
+      palettes need isothermal imaging enabled with the Isotherm API first.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: GET
+      query: {action: update}
+      reply: text_ok
+    params:
+      type: object
+      required: [Image.I0.Appearance.Palette]
+      properties:
+        Image.I0.Appearance.Palette:
+          type: string
+          x-python-name: palette
+          description: The palette name, as listed by ``list_palettes``.
+    positional: [palette]
+    examples:
+    - title: Change the global palette to Axis
+      request: {query: {Image.I0.Appearance.Palette: Axis}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#using-global-palettes
+    - title: Change the global palette to an isotherm palette
+      request: {query: {Image.I0.Appearance.Palette: Iso-Axis-WH}}
+      response: {status: 200, text: OK}
+      source: https://developer.axis.com/vapix/network-video/thermal-imaging/#using-isotherm-palettes
+
+  get_mjpeg_stream_with_palette:
+    summary: Open a Motion JPEG stream that uses a given color palette.
+    description: >-
+      ``palette`` is a name returned by ``list_palettes``. Applicable if ``Properties.Image.Palette.StreamPalette`` is
+      ``yes`` or does not exist. Without ``palette`` the global palette is used. Use the result as a context manager.
+    effect: read
+    binding:
+      path: /axis-cgi/mjpg/video.cgi
+      method: GET
+      reply: {stream: {decoder: mjpeg}}
+    params:
+      type: object
+      properties:
+        palette: {type: string, description: "The palette name, for example Axis."}
+
+  get_rtsp_stream_with_palette:
+    summary: Build the RTSP URL of a stream that uses a given color palette.
+    effect: read
+    binding: {rtsp: {}}
+    params:
+      type: object
+      properties:
+        videocodec: {type: string, description: "Video codec of the stream, for example h264."}
+        palette: {type: string, description: "The palette name, for example Axis."}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/thermal-imaging/
+  sha256_md: 73f1394bae1b30679e93cf7bcd42a09115d0d19b6ba75396499fdff51312fa51
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: partial
+  open_questions:
+  - The palette names are only reachable as ``PaletteName.value`` because the xml mapping reads scalar array items from element text, not from an attribute; a plain list of names needs a runtime change.
+  - The Image.I0.Appearance.Palette parameter and Properties.Image.Palette.* (stream palettes supported if StreamPalette is yes or absent, global palettes if no) can be read with param.cgi action=list (see Parameter management); there is no dedicated operation.
+  - Access levels for the palette parameter are not stated (securityLevel 7714 in the example); the update is assumed to need operator.
+  - The isotherm setup (/axis-cgi/isotherm/setmode.cgi) belongs to the Isotherm API.
+  migrated_from: v1
+  curated: true

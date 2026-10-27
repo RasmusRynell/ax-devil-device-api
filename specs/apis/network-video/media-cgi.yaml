@@ -1,0 +1,178 @@
+# Migrated from the v1 corpus by codegen/migrate_v1.py; not yet curated.
+format: 2
+id: media-cgi
+name: Media stream over HTTP
+summary: Fetch a live media stream (video and/or audio) packaged in a Matroska or MP4 container over HTTP via /axis-cgi/media.cgi.
+section: network-video
+family: cgi
+status: released
+python:
+  module: media_stream
+  class: MediaStream
+docs:
+- https://developer.axis.com/vapix/network-video/media-stream-over-http/
+access: viewer
+discovery:
+- {api_discovery: media-cgi}
+
+binding: {path: /axis-cgi/media.cgi}
+
+operations:
+  get_media_stream:
+    summary: Fetch a media stream packaged in a specific container format.
+    effect: read
+    description: 'Returns the media as a stream of byte chunks (Matroska by default, or MP4 with container=mp4);
+      iterate the result inside a with block and write the chunks to a file or hand them to a player. The content
+      type is video/x-matroska, video/mp4, audio/x-matroska or audio/mp4 followed by codecs=<codecs> (RFC 6381);
+      the response also carries the Video-Metadata-Transform and Video-Sensor-Transform headers.'
+    binding: {method: GET, reply: stream}
+    params:
+      type: object
+      properties:
+        audio:
+          type: integer
+          enum: [0, 1]
+          description: 'Specifies whether the audio should be included in the stream. Please note that you also
+            need to enable audio support for the audio source with `AudioSource.A#.AudioSupport=yes`. Default: Audio.A#.Enabled.'
+        audiobitrate: {type: integer, description: 'The audio bit rate. Default: AudioSource.A#.BitRate.'}
+        audiochannel:
+          type: integer
+          enum: [1]
+          description: 'The audio source. Please note that it can not be used together with `audiodeviceid` and
+            `audioinputid`. Default: Audio.A#.Source.'
+        audiocodec:
+          type: string
+          enum: [aac, opus]
+          default: aac
+          description: 'The audio codec. Default: aac.'
+        audiodeviceid:
+          type: integer
+          minimum: 0
+          description: 'The audio device ID. Please note that it can not be used together with `audiochannel`. Default:
+            Audio.A#.Source.'
+        audioinputid:
+          type: integer
+          minimum: 0
+          description: 'The audio input ID. Please note that it can not be used together with `audiochannel`. Default:
+            Audio.A#.Source.'
+        audionbrofchannels:
+          type: integer
+          enum: [1, 2]
+          description: 'Can be either mono or stereo sound. Default: Audio.A#.NbrOfChannels.'
+        audiosamplerate: {type: integer, description: 'The audio sample rate. Default: AudioSource.A#.SampleRate.'}
+        camera:
+          type: string
+          default: '1'
+          description: 'Selects the video source. Please note that this argument is only valid on Axis products
+            with more than one video source, i.e. cameras with multiple view areas or video encoders with multiple
+            video channels. Default: 1.'
+        container:
+          type: string
+          enum: [matroska, mp4]
+          default: matroska
+          description: 'The container format. Default: matroska.'
+        compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 'Adjusts the compression level of the image. Using a higher value corresponds to a higher
+            compression, i.e. a lower quality and smaller image size. Default: Image.I#.Appearance.Compression.'
+        fps:
+          type: integer
+          description: 'Selects the frame rate. `0` means unlimited. Default: Image.I#.Stream.FPS.'
+        h264profile:
+          type: string
+          enum: [high, main, baseline]
+          description: 'The H.264 profile that should be used. Default: Image.I#.MPEG.H264.Profile. baseline is
+            not available on all products; see Properties.Image.H264.Profiles for available values.'
+        mirror:
+          type: integer
+          enum: [0, 1]
+          description: 'Specifies whether the image should be mirrored. Default: Image.I#.Appearance.MirrorEnabled.'
+        color:
+          type: integer
+          enum: [0, 1]
+          description: 'Specifies whether the image should be in color or monochrome. Default: Image.I#.Appearance.ColorEnabled.'
+        resolution:
+          type: string
+          description: 'The resolution of the retrieved image. Use the parameter `Properties.Image.Resolutions`
+            for a list of supported resolutions. Default: Image.I#.Appearance.Resolution.'
+        rotation: {type: integer, enum: [0, 90, 180, 270], description: Rotates the image clockwise.}
+        streamprofile: {type: string, description: The name of a saved stream profile.}
+        squarepixel:
+          type: integer
+          enum: [0, 1]
+          description: 'Enable/disable square pixel (aspect ratio) correction. The device will adjust the aspect
+            ratio to make it appear as intended if the parameter is set to 1. Default: Image.I#.Appearance SquarePixelEnabled.'
+        video:
+          type: integer
+          enum: [0, 1]
+          default: 1
+          description: 'Specify if video should be included in the stream. Default: 1.'
+        videoabrmaxbitrate:
+          type: integer
+          description: 'The maximum bitrate when bitrate mode is ABR. Default: Image.I#.RateControl ABR.MaxBitrate.'
+        videoabrretentiontime:
+          type: integer
+          description: 'Retention time when bitrate mode is ABR. Default: Image.I#.RateControl ABR.RetentionTime.'
+        videoabrtargetbitrate:
+          type: integer
+          description: 'Target bitrate when bitrate mode is ABR. Default: Image.I#.RateControl ABR.TargetBitrate.'
+        videobitratemode:
+          type: string
+          enum: [abr, mbr, vbr]
+          description: 'The bitrate mode. Default: Image.I#.RateControl Mode.'
+        videobitratepriority:
+          type: string
+          enum: [none, framerate, quality, fullframerate]
+          description: 'The bitrate priority. Default: Image.I#.RateControl Priority.'
+        videocodec:
+          type: string
+          enum: [h264, h265]
+          default: h264
+          description: 'The video codec. Default: h264.'
+        videoframeskipmode:
+          type: string
+          enum: [drop, empty]
+          description: Determines what should happen when either the rate controller or Zipstream skips a frame.
+        videomaxbitrate:
+          type: integer
+          description: 'The maximum bitrate when bitrate mode is MBR. Default: Image.I#.RateControl MaxBitrate.'
+        videozfpsmode: {type: string, enum: [fixed, dynamic], description: The Zipstream fps mode.}
+        videozgopmode: {type: string, enum: [fixed, dynamic], description: The Zipstream GOP mode.}
+        videozmaxgoplength:
+          type: integer
+          description: 'The Zipstream maximum GOP length. Default: Image.I#.MPEG.ZMaxGopLength.'
+        videozstrength: {type: string, description: 'The Zipstream strength. Default: Image.I#.MPEG.ZStrength.'}
+    examples:
+    - title: Download a live media clip with the default settings
+      request: {query: {}}
+      response:
+        status: 200
+        content_type: video/x-matroska; codecs=avc1.4d0029
+        text: matroska-bytes
+        items: [matroska-bytes]
+      source: https://developer.axis.com/vapix/network-video/media-stream-over-http/#download-a-playable-file
+    errors:
+      400: {description: Bad Request}
+      401: {description: Unauthorized, kind: access_denied}
+      403: {description: Forbidden}
+      404: {description: Not Found, kind: not_found}
+      500: {description: Server Error}
+      503: {description: Service Unavailable, kind: unavailable}
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/media-stream-over-http/
+  sha256_md: 3dc8cb38dcdc5bee24a6ce6504b7bab9dd6b5ffda77f99e15cf36f20dc9266c3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - videozstrength valid values shown as "`off` Inter" — appears truncated (probably off or an integer); not resolved.
+  - audiochannel valid values only list "1".
+  - camera valid values "1..." and "quad" — upper bound product dependent.
+  - AXIS OS minimum not stated.
+  - Syntax line "?<argument>=<data>[&=<data>...]" is missing the argument name in the repeated part (doc typo).
+  migrated_from: v1
+  curated: true

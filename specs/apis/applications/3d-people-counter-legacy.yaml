@@ -1,0 +1,167 @@
+format: 2
+id: 3d-people-counter-legacy
+name: 3D people counter API (Old version)
+summary: Deprecated legacy AXIS 3D People Counter HTTP API under /stereo/ (real-time counts, statistics export,
+  frame rate, I/O state, parameters).
+section: applications
+family: cgi
+status: deprecated
+python:
+  module: people_counter_3d_legacy
+  class: PeopleCounter3DLegacy
+docs:
+- https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/
+access: admin
+requires:
+  application: AXIS 3D People Counter (legacy)
+
+binding: {path: /stereo/people-counter/counts.json}
+
+types:
+  Counts:
+    type: object
+    required: [in, out]
+    properties:
+      in: {type: integer, description: Number of people passing in until now today.}
+      out: {type: integer, description: Number of people passing out until now.}
+      name: {type: string, description: 'The name of the application, chosen by the client.'}
+      serial: {type: string, description: The MAC address of the camera.}
+      timestamp: {type: string, description: Time in the camera in the format YYYYMMDDhhmmss.}
+  Fps:
+    type: object
+    properties:
+      fps: {type: number, description: Real-time frame rate.}
+      fps_5: {type: number, description: Average frame rate for the last 5 frames.}
+      fps_50: {type: number, description: Average frame rate for the last 50 frames.}
+      fps_100: {type: number, description: Average frame rate for the last 100 frames.}
+      fps_1000: {type: number, description: Average frame rate for the last 1000 frames.}
+      frames: {type: integer, description: Frame counter.}
+  ExportResolution:
+    type: string
+    enum: [minute, hour, day, '60', '3600', '86400']
+    description: 'Bin size: ``minute``/``60`` 1 minute bins, ``hour``/``3600`` 1 hour bins, ``day``/``86400`` 1 day bins.'
+  ExportDate:
+    type: string
+    pattern: ^(all|[0-9]{8}(-[0-9]{8})?|[0-9]{8}(,[0-9]{8})*)$
+    default: all
+    description: 'A date YYYYMMDD, a date interval YYYYMMDD-YYYYMMDD, comma separated dates YYYYMMDD,[..],YYYYMMDD, or ``all`` (default) for all available data.'
+  ExportMethod:
+    type: string
+    enum: [open, download]
+    description: '``open`` lists the statistics in a web browser, ``download`` downloads the file.'
+
+operations:
+  get_counts:
+    summary: Request real-time counting data.
+    description: Deprecated.
+    effect: read
+    binding: {method: GET, reply: json}
+    result: {$ref: '#/types/Counts'}
+    examples:
+    - title: Request real-time data
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          {
+              "in": 0,
+              "name": "Untitled AXIS 3D People Counter",
+              "out": 0,
+              "serial": "ACCC8E235294",
+              "timestamp": "20180115121710"
+          }
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#request-real-time-data-1
+  export_csv:
+    summary: List or download the stored statistics as CSV.
+    description: >-
+      Deprecated. The first CSV line describes the columns; the following lines hold
+      ``Interval Start, Interval Start (Unixtime), In, Out`` per bin.
+    effect: read
+    binding: {path: /stereo/people-counter/export.csv, method: GET, reply: text}
+    params:
+      type: object
+      x-name: ExportRequest
+      properties:
+        resolution: {$ref: '#/types/ExportResolution'}
+        date: {$ref: '#/types/ExportDate'}
+        method: {$ref: '#/types/ExportMethod'}
+        export-method:
+          type: string
+          description: 'Appears only in a common example (``export-method=on``); undocumented.'
+    result: {type: string}
+    examples:
+    - title: Open all statistics with a one minute resolution in a browser
+      request: {query: {export-method: 'on', date: YYYYMMDD, resolution: '60', method: open}}
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#common-examples
+      x-contract: {template: true}
+  export_json:
+    summary: List or download the stored statistics as JSON.
+    description: Deprecated. The JSON structure is not documented, so the result is the parsed JSON document.
+    effect: read
+    binding: {path: /stereo/people-counter/export.json, method: GET, reply: json}
+    params:
+      type: object
+      x-name: ExportJsonRequest
+      properties:
+        resolution: {$ref: '#/types/ExportResolution'}
+        date: {$ref: '#/types/ExportDate'}
+        method: {$ref: '#/types/ExportMethod'}
+    result: {}
+    examples:
+    - title: Download the statistics of 10 January 2017
+      request: {query: {resolution: day, date: '20170110', method: download}}
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#common-examples
+  get_fps:
+    summary: Return the current internal frame rate.
+    description: Deprecated.
+    effect: read
+    binding: {path: /stereo/fps.json, method: GET, reply: json}
+    result: {$ref: '#/types/Fps'}
+    examples:
+    - title: List frame rate
+      request: {query: {}}
+      response:
+        status: 200
+        text: |-
+          {
+            "fps": real time fps,
+            "fps_100": average FPS for the last 100 frames,
+            "fps_1000": average FPS for the last 1000 frames,
+            "fps_5": average FPS for the last 5 frames,
+            "fps_50": average FPS for the last 50 frames,
+            "frames": frame counter.
+          }
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#list-frame-rate
+      x-contract: {template: true}
+  get_io:
+    summary: Get the latest I/O signal.
+    description: 'Deprecated. The docs show the reply as "True" or "False".'
+    effect: read
+    binding: {path: /stereo/io.json, method: GET, reply: json}
+    result: {type: string}
+    examples:
+    - title: I/O interface
+      request: {query: {}}
+      response: {status: 200, text: '"True"'}
+      source: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/#io-interface
+  get_params:
+    summary: Get all parameters currently set.
+    description: Deprecated.
+    effect: read
+    binding: {path: /stereo/params.json, method: GET, reply: json}
+    result: {type: object, additionalProperties: true}
+
+sources:
+- url: https://developer.axis.com/vapix/applications/p8815-2-3d-people-counter-api/
+  sha256_md: cc148f51fc50043db293f5d4e01fb4b14ff8b325b5c440b85815453fa361443a
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - "The 'export-method=on' argument in the CSV common example is not documented."
+  - io.json returns "True" or "False" while the text says false or true; casing and JSON type are unclear, so the result is the JSON string as documented.
+  - Defaults for resolution and method are not stated; the JSON export structure is not documented, so export_json returns the parsed document.
+  - The access level of the legacy endpoints is not documented.
+  migrated_from: v1
+  curated: true

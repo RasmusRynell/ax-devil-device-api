@@ -1,0 +1,211 @@
+format: 2
+id: clear-view
+name: Clear view
+summary: Activate lens/dome cleaning functions (wiper, speed dry) and query their capabilities and status.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: clear_view
+  class: ClearView
+docs:
+- https://developer.axis.com/vapix/network-video/clear-view/
+access: operator
+discovery:
+- param: {name: Properties.ClearView.ClearView, value: 'yes'}
+requires:
+  firmware: '7.10'
+
+binding:
+  path: /axis-cgi/clearviewcontrol.cgi
+  major: 2
+  versions: ['2.1']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Invalid parameter value., kind: invalid_argument}
+  1001: {description: The requested Clear View device ID is not supported., kind: invalid_argument}
+  1002: {description: Device in incompatible state., kind: unavailable}
+  1003: {description: Requested duration outside supported limits., kind: invalid_argument}
+  1005: {description: Temperature out of range., kind: unavailable}
+  2000: {description: Out of memory., kind: internal}
+  2001: {description: Access forbidden (similar to HTTP 403)., kind: access_denied}
+  2002: {description: HTTP request type not supported. Only POST supported., kind: unsupported}
+  2003: {description: The requested API version is not supported., kind: unsupported}
+  2004: {description: Method not supported., kind: unsupported}
+  4000: {description: The provided JSON input was invalid., kind: invalid_argument}
+  4001: {description: A mandatory input parameter was not found in the input., kind: invalid_argument}
+  4002: {description: The type of a provided JSON parameter was incorrect., kind: invalid_argument}
+  8000: {description: Internal error., kind: internal}
+
+types:
+  ServiceType:
+    enum: [wiper, speeddry]
+
+  ServiceState:
+    enum: [idle, running, waiting]
+
+  ServiceInfo:
+    type: object
+    description: Static description of one Clear view service.
+    required: [id, type, durationVariable, durationDefault, stoppable]
+    properties:
+      id: {type: integer, description: The ID of the clear view device.}
+      type: {$ref: "#/types/ServiceType", description: "``wiper`` or ``speeddry``."}
+      durationVariable: {type: boolean, description: Whether the duration can be set.}
+      durationMin: {type: integer, description: Present if ``durationVariable`` is true.}
+      durationMax: {type: integer, description: Present if ``durationVariable`` is true.}
+      durationDefault: {type: integer, description: "The default duration, measured in seconds."}
+      stoppable: {type: boolean, description: Whether the stop command is supported for the device.}
+      idleTimeMin: {type: integer, description: "Included if the device needs to rest between runs, measured in seconds."}
+
+  ServiceInfoResult:
+    type: object
+    required: [serviceInfo]
+    properties:
+      serviceInfo:
+        type: array
+        description: The supported Clear view services.
+        items: {$ref: "#/types/ServiceInfo"}
+
+  ServiceStatus:
+    type: object
+    description: Dynamic status of one Clear view service.
+    required: [state]
+    properties:
+      id: {type: integer, description: The ID of the clear view device.}
+      state: {$ref: "#/types/ServiceState"}
+      stopsIn: {type: integer, description: Present if ``state`` is ``running``.}
+      availableIn: {type: integer, description: Present if ``idleTimeMin`` > 0 and ``state`` is ``running`` or ``waiting``.}
+
+  StatusResult:
+    type: object
+    properties:
+      status: {$ref: "#/types/ServiceStatus", description: The status of the Clear view service.}
+
+operations:
+  get_service_info:
+    summary: Retrieves the Clear view service information (static values only).
+    effect: read
+    binding: {method: getServiceInfo}
+    result: {$ref: "#/types/ServiceInfoResult"}
+    examples:
+    - title: Get service info
+      request:
+        params: {}
+      response:
+        data:
+          serviceInfo:
+          - id: 0
+            type: wiper
+            durationVariable: true
+            durationMin: 5
+            durationMax: 120
+            durationDefault: 5
+            idleTimeMin: 0
+            stoppable: true
+          - id: 1
+            type: speeddry
+            durationVariable: false
+            durationDefault: 10
+            idleTimeMin: 15
+            stoppable: false
+      source: https://developer.axis.com/vapix/network-video/clear-view/#get-service-info
+  get_status:
+    summary: Retrieves the Clear view service status for one service (dynamic values).
+    effect: read
+    binding: {method: getStatus}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The device ID (from getServiceInfo).}
+    result: {$ref: "#/types/StatusResult"}
+    examples:
+    - title: Get the status of a running service
+      request:
+        params: {id: 0}
+      response:
+        data:
+          status: {state: running, stopsIn: 3, availableIn: 13}
+      source: https://developer.axis.com/vapix/network-video/clear-view/#getstatus
+    - title: Unsupported device ID
+      request:
+        params: {id: 7}
+      response:
+        error: {code: 1001, message: The requested Clear View device id is not supported.}
+      source: https://developer.axis.com/vapix/network-video/clear-view/#getstatus
+  start:
+    summary: Initiates the Clear view function for one service (default or specified duration).
+    effect: action
+    binding: {method: start}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, description: The device ID.}
+        duration:
+          type: integer
+          description: "The duration, measured in seconds. Defaults to ``durationDefault`` of the service."
+    examples:
+    - title: Start with default duration
+      request:
+        params: {id: 0}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/clear-view/#start-cleaning-view
+    - title: Start with duration 30
+      request:
+        params: {id: 0, duration: 30}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/clear-view/#start-cleaning-view
+    - title: Device in incompatible state
+      request:
+        params: {id: 0}
+      response:
+        error: {code: 1002, message: Device in incompatible state.}
+      source: https://developer.axis.com/vapix/network-video/clear-view/#start-cleaning-view
+    - title: Duration outside supported limits
+      request:
+        params: {id: 0, duration: 30}
+      response:
+        error: {code: 1003, message: Requested duration outside supported limits.}
+      source: https://developer.axis.com/vapix/network-video/clear-view/#start-cleaning-view
+  stop:
+    summary: Halts a currently running Clear view function on a service.
+    effect: action
+    binding: {method: stop}
+    params:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          description: The device ID. Only services with ``stoppable`` true can be stopped.
+    examples:
+    - title: Stop cleaning view
+      request:
+        params: {id: 1}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/clear-view/#stop-cleaning-view
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/clear-view/
+  sha256_md: 6cab38167cf764c12fad944398c0fb5fb45a5c109e4a2ad0e3cd0f903f82c380
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The common get-status examples show a flat data.state/data.stopsIn, while the API specification shows data.status.{state,stopsIn,availableIn};
+    the specification is followed and status is left optional.
+  - The supported-versions example returns ["1.0", "2.1"] with apiVersion 2.1, but every other example sends apiVersion 1.0
+    and no differences between the majors are documented. This spec covers major 2.
+  - Units of durationMin, durationMax, stopsIn and availableIn are not stated (durationDefault and idleTimeMin are seconds).
+  - Error code 1004 is absent from the table (gap between 1003 and 1005).
+  migrated_from: v1
+  curated: true

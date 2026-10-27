@@ -1,0 +1,527 @@
+format: 2
+id: radar-analytics2
+name: Radar configuration - Analytics API
+summary: 'Configure radar analytics: detection sensitivity, coexistence, frequency channel, global filters, mounting
+  height and tilt, lanes and radar profile.'
+section: radar
+family: jsonrpc
+status: released
+python:
+  module: radar_analytics
+  class: RadarAnalytics
+docs:
+- https://developer.axis.com/vapix/radar/radar-configuration/
+access: operator
+discovery:
+- {api_discovery: radar-analytics2}
+
+binding:
+  path: /axis-cgi/radar/radaranalytics.cgi
+  major: 2
+  versions: ['2.2', '2.4']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: "Invalid parameter value.", kind: invalid_argument}
+  4000: {description: "The provided input was not well-formed JSON.", kind: invalid_argument}
+  4001: {description: "A mandatory input parameter was not found in the input.", kind: invalid_argument}
+  4002:
+    description: The type of value of a provided JSON parameter was incorrect.
+    kind: invalid_argument
+  4004:
+    description: The format of a provided JSON parameter was incorrect.
+    kind: invalid_argument
+  7000:
+    description: The requested API version is not supported by this implementation.
+    kind: unsupported
+  8000: {description: "Internal error.", kind: internal}
+
+types:
+  Point:
+    type: array
+    items: {type: number, minimum: -1, maximum: 1}
+    description: "[x, y] normalized so that the visible view spans -1..1 in both directions. Always two items."
+
+  FrequencyChannel:
+    description: A frequency channel; the allowed values come from ``get_configuration_capabilities``.
+    oneOf:
+      - {type: integer}
+      - {type: string}
+
+  IntegerChoices:
+    type: object
+    description: Allowed integer values and the default.
+    properties:
+      values: {type: array, items: {type: integer}, description: The allowed values.}
+      default: {type: integer, description: The default value.}
+
+  CoexistenceCapabilities:
+    type: object
+    description: Present only if the device supports coexistence.
+    properties:
+      maxNeighboringRadars: {$ref: "#/types/IntegerChoices", description: Allowed values and default of the coexistence mode.}
+      group: {$ref: "#/types/IntegerChoices", description: Allowed values and default of the coexistence group.}
+
+  FrequencyChannelCapabilities:
+    type: object
+    description: Present only if the device supports multiple frequency channels.
+    properties:
+      automatic: {type: boolean, description: Whether automatic frequency channel selection is supported.}
+      values: {type: array, items: {$ref: "#/types/FrequencyChannel"}, description: The allowed frequency channels.}
+      default: {$ref: "#/types/FrequencyChannel", description: The default frequency channel.}
+
+  MountingHeightCapabilities:
+    type: object
+    properties:
+      minValue: {type: number, description: The smallest allowed mounting height.}
+      maxValue: {type: number, description: The largest allowed mounting height.}
+      default: {type: number, description: The default mounting height.}
+
+  MountingTiltCapabilities:
+    type: object
+    properties:
+      minValue: {type: number, description: The smallest allowed mounting tilt angle.}
+      maxValue: {type: number, description: The largest allowed mounting tilt angle.}
+      automatic: {type: boolean, description: Whether automatic mounting tilt measurement is supported.}
+      default: {type: number, description: The default mounting tilt angle.}
+
+  DetectionSensitivityCapabilities:
+    type: object
+    properties:
+      values: {type: array, items: {type: string}, description: "The allowed sensitivities, for example low, medium and high."}
+      default: {type: string}
+
+  LaneCapabilities:
+    type: object
+    description: Present only if the device supports lanes.
+    properties:
+      maxNameLength: {type: number, description: The maximum length of a lane name.}
+      maxNodes: {type: number, description: The maximum number of nodes of a lane polygon.}
+
+  ConfigurationCapabilities:
+    type: object
+    properties:
+      coexistence: {$ref: "#/types/CoexistenceCapabilities"}
+      frequencyChannel: {$ref: "#/types/FrequencyChannelCapabilities"}
+      mountingHeight: {$ref: "#/types/MountingHeightCapabilities"}
+      mountingTilt: {$ref: "#/types/MountingTiltCapabilities"}
+      detectionSensitivity: {$ref: "#/types/DetectionSensitivityCapabilities"}
+      lanes: {$ref: "#/types/LaneCapabilities"}
+
+  ChannelRequest:
+    type: object
+    description: Selects a radar channel; channel 1 is used when omitted.
+    properties:
+      channel: {type: integer, description: "Radar channel. Channel 1 if omitted."}
+
+  DetectionSensitivity:
+    type: object
+    required: [value]
+    properties:
+      value: {type: string, description: The current detection sensitivity.}
+
+  SetDetectionSensitivityRequest:
+    type: object
+    required: [value]
+    properties:
+      value: {type: string, description: "The detection sensitivity; allowed values come from ``get_configuration_capabilities``."}
+      channel: {type: integer, description: "Radar channel to set. If omitted, all radar channels use their default detection sensitivity."}
+
+  SetCoexistenceRequest:
+    type: object
+    required: [maxNeighboringRadars]
+    properties:
+      maxNeighboringRadars: {type: integer, description: The maximum number of neighboring radars.}
+      channel: {type: integer, description: Radar channel. All radar channels are set if omitted.}
+      group: {type: integer, description: "Coexistence group the radar belongs to. Optional if ``maxNeighboringRadars`` is 2 or fewer. Group 1 if omitted."}
+
+  NeighboringRadars:
+    type: object
+    properties:
+      value: {type: integer, description: The maximum number of neighboring radars.}
+
+  Coexistence:
+    type: object
+    description: The current coexistence mode. Only available if the device supports coexistence.
+    properties:
+      maxNeighboringRadars: {$ref: "#/types/NeighboringRadars"}
+      group: {$ref: "#/types/NeighboringRadars", description: The coexistence group; not shown in the documented response.}
+
+  SetFrequencyChannelRequest:
+    type: object
+    properties:
+      automatic: {type: boolean, description: "Use automatic frequency channel selection. Only allowed if ``frequencyChannel.automatic`` is true in the capabilities; otherwise the device returns an error."}
+      value: {$ref: "#/types/FrequencyChannel", description: The frequency channel to use; allowed values come from ``get_configuration_capabilities``.}
+      channel: {type: integer, description: Radar channel. All radar channels are set if omitted.}
+
+  CurrentFrequencyChannel:
+    type: object
+    required: [value]
+    properties:
+      automatic: {type: boolean, description: Whether the device selects the frequency channel automatically.}
+      value: {$ref: "#/types/FrequencyChannel", description: The current frequency channel of the requested radar channel.}
+
+  GlobalFilter:
+    type: object
+    required: [type, active]
+    properties:
+      type: {type: string, description: "Name of the filter; supported names come from ``get_global_filters``."}
+      active: {type: boolean, description: Whether the filter is enabled.}
+
+  SetGlobalFiltersRequest:
+    type: object
+    required: [filters]
+    properties:
+      filters: {type: array, items: {$ref: "#/types/GlobalFilter"}, description: The filters to configure and their state.}
+
+  GlobalFilters:
+    type: object
+    required: [filters]
+    properties:
+      filters: {type: array, items: {$ref: "#/types/GlobalFilter"}, description: The global filters of the device and their state.}
+
+  SetMountingHeightRequest:
+    type: object
+    required: [value]
+    properties:
+      value: {type: number, description: "Vertical mounting height in meters; the range comes from ``get_configuration_capabilities``."}
+      channel: {type: integer, description: Radar channel. All radar channels are set if omitted.}
+
+  MountingHeight:
+    type: object
+    required: [value]
+    properties:
+      value: {type: number, description: The current mounting height in meters.}
+
+  SetMountingTiltRequest:
+    type: object
+    properties:
+      automatic: {type: boolean, description: "Use automatic tilt measurement. Only allowed if ``mountingTilt.automatic`` is true in the capabilities; otherwise the device returns an error."}
+      value: {type: number, description: "Mounting tilt in degrees; positive values are tilted downwards, 0 is level with the surface. Ignored if ``automatic`` is true."}
+      channel: {type: integer, description: Radar channel. All radar channels are set if omitted.}
+
+  MountingTilt:
+    type: object
+    required: [value]
+    properties:
+      automatic: {type: boolean, description: Whether automatic mounting tilt measurement is used.}
+      value: {type: number, description: "The mounting tilt in degrees. Updated on each request if ``automatic`` is true and the physical tilt changes."}
+
+  RadarDataStatus:
+    type: object
+    required: [value]
+    properties:
+      value: {type: boolean, description: "True if data is received from the radar sensor; false if not (the sensor may be malfunctioning)."}
+
+  Lane:
+    type: object
+    required: [name, enabled, nodes]
+    properties:
+      name: {type: string, description: The lane name.}
+      enabled: {type: boolean, description: Whether the lane is enabled.}
+      nodes: {type: array, items: {$ref: "#/types/Point"}, description: Polygon that describes the lane outline.}
+
+  Lanes:
+    type: object
+    required: [lanes]
+    properties:
+      lanes: {type: array, items: {$ref: "#/types/Lane"}, description: "The lanes. Limits come from ``get_configuration_capabilities`` (lanes)."}
+
+  SetLanesRequest:
+    type: object
+    description: Arguments of ``set_lanes``. Replaces the stored lanes.
+    required: [lanes]
+    properties:
+      lanes: {type: array, items: {$ref: "#/types/Lane"}, description: "The lanes. Limits come from ``get_configuration_capabilities`` (lanes)."}
+
+  SetRadarProfileRequest:
+    type: object
+    required: [value]
+    properties:
+      value: {type: string, description: "The radar profile; allowed values come from ``get_radar_profile``."}
+      channel: {type: integer, description: Radar channel whose profile is set.}
+
+  RadarProfile:
+    type: object
+    required: [value]
+    properties:
+      value: {type: string, description: The profile in use.}
+      allowedValues: {type: array, items: {type: string}, description: The available profiles.}
+
+operations:
+  get_configuration_capabilities:
+    summary: Request capabilities information from the Analytics API.
+    access: admin
+    effect: read
+    binding: {method: getConfigurationCapabilities}
+    result: {$ref: "#/types/ConfigurationCapabilities"}
+    examples:
+      - title: Get the configuration capabilities
+        request: {params: {}}
+        response:
+          data:
+            coexistence:
+              maxNeighboringRadars: {values: [1, 2, 3], default: 1}
+              group: {values: [1, 2], default: 1}
+            frequencyChannel: {automatic: true, values: [1, 2, 3], default: 1}
+            mountingHeight: {minValue: 1.0, maxValue: 10.0, default: 3.5}
+            mountingTilt: {minValue: -90.0, maxValue: 90.0, automatic: true, default: 0.0}
+            detectionSensitivity: {values: [low, medium, high], default: medium}
+            lanes: {maxNameLength: 32, maxNodes: 10}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getconfigurationcapabilities-1
+        x-contract: {template: true}
+      - title: Invalid parameter value
+        request: {params: {}}
+        response: {error: {code: 1000, message: Invalid parameter value.}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#general-error-codes-analytics-api
+
+  set_detection_sensitivity:
+    summary: Set the detection sensitivity. A higher sensitivity raises the detection probability, and possibly the false alarms.
+    effect: write
+    write: patch
+    binding: {method: setDetectionSensitivity}
+    params: {$ref: "#/types/SetDetectionSensitivityRequest"}
+    examples:
+      - title: Set the detection sensitivity of channel 1
+        request: {params: {value: high, channel: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#setdetectionsensitivity
+
+  get_detection_sensitivity:
+    summary: Get the current detection sensitivity.
+    effect: read
+    binding: {method: getDetectionSensitivity}
+    params: {$ref: "#/types/ChannelRequest"}
+    result: {$ref: "#/types/DetectionSensitivity"}
+    examples:
+      - title: Get the detection sensitivity
+        request: {params: {}}
+        response: {data: {value: high}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getdetectionsensitivity
+
+  set_coexistence:
+    summary: Set the coexistence mode to reduce interference between radars within each others' active area.
+    description: Only available if the capabilities contain a ``coexistence`` key.
+    effect: write
+    write: patch
+    binding: {method: setCoexistence}
+    params: {$ref: "#/types/SetCoexistenceRequest"}
+    examples:
+      - title: Set the coexistence mode
+        request: {params: {maxNeighboringRadars: 3, channel: 1, group: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#setcoexistence
+
+  get_coexistence:
+    summary: Get the current coexistence mode.
+    description: Only available if the capabilities contain a ``coexistence`` key.
+    effect: read
+    binding: {method: getCoexistence}
+    params: {$ref: "#/types/ChannelRequest"}
+    result: {$ref: "#/types/Coexistence"}
+    examples:
+      - title: Get the coexistence mode
+        request: {params: {}}
+        response: {data: {maxNeighboringRadars: {value: 1}}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getcoexistence
+
+  set_frequency_channel:
+    summary: Set the frequency channel to avoid interference between nearby radars.
+    description: Only available if the capabilities contain a ``frequencyChannel`` key.
+    effect: write
+    write: patch
+    binding: {method: setFrequencyChannel}
+    params: {$ref: "#/types/SetFrequencyChannelRequest"}
+    examples:
+      - title: Set the frequency channel
+        request: {params: {value: 2, channel: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#setfrequencychannel
+
+  get_frequency_channel:
+    summary: Get the current frequency channel.
+    description: Only available if the capabilities contain a ``frequencyChannel`` key.
+    effect: read
+    binding: {method: getFrequencyChannel}
+    params: {$ref: "#/types/ChannelRequest"}
+    result: {$ref: "#/types/CurrentFrequencyChannel"}
+    examples:
+      - title: Get the frequency channel
+        request: {params: {}}
+        response: {data: {automatic: false, value: 1}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getfrequencychannel
+
+  set_global_filters:
+    summary: Enable or disable global filters, for example the swaying object filter.
+    access: admin
+    effect: write
+    write: patch
+    binding: {method: setGlobalFilters}
+    params: {$ref: "#/types/SetGlobalFiltersRequest"}
+    examples:
+      - title: Enable the swaying object filter
+        request: {params: {filters: [{type: swayingObjectFilter, active: true}]}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#setglobalfilters
+
+  get_global_filters:
+    summary: Get the current global filter configuration.
+    access: admin
+    effect: read
+    binding: {method: getGlobalFilters}
+    result: {$ref: "#/types/GlobalFilters"}
+    examples:
+      - title: Get the global filters
+        request: {params: {}}
+        response: {data: {filters: [{type: FilterOne, active: true}, {type: FilterTwo, active: false}]}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getglobalfilters
+
+  set_mounting_height:
+    summary: Set the mounting height (affects the analytics algorithm; default 3.5 m).
+    effect: write
+    write: patch
+    binding: {method: setMountingHeight}
+    params: {$ref: "#/types/SetMountingHeightRequest"}
+    examples:
+      - title: Set the mounting height
+        request: {params: {value: 4.0, channel: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#setmountingheight
+
+  get_mounting_height:
+    summary: Get the current mounting height.
+    effect: read
+    binding: {method: getMountingHeight}
+    params: {$ref: "#/types/ChannelRequest"}
+    result: {$ref: "#/types/MountingHeight"}
+    examples:
+      - title: Get the mounting height
+        request: {params: {}}
+        response: {data: {value: 3.5}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getmountingheight
+
+  set_mounting_tilt:
+    summary: Set the mounting tilt (degrees, positive = tilted downwards; 0 = level with the surface; default 0).
+    description: Overrides the automatic tilt measurement that some products have.
+    effect: write
+    write: patch
+    binding: {method: setMountingTilt}
+    params: {$ref: "#/types/SetMountingTiltRequest"}
+    examples:
+      - title: Set the mounting tilt
+        request: {params: {automatic: false, value: 10, channel: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#setmountingtilt
+
+  get_mounting_tilt:
+    summary: Get the current mounting tilt and whether automatic tilt measurement is used.
+    effect: read
+    binding: {method: getMountingTilt}
+    params: {$ref: "#/types/ChannelRequest"}
+    result: {$ref: "#/types/MountingTilt"}
+    examples:
+      - title: Get the mounting tilt
+        request: {params: {}}
+        response: {data: {automatic: false, value: 10}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getmountingtilt
+
+  get_radar_data_status:
+    summary: Check data reception status from the radar sensor.
+    effect: read
+    binding: {method: getRadarDataStatus}
+    result: {$ref: "#/types/RadarDataStatus"}
+    examples:
+      - title: Get the radar data status
+        request: {params: {}}
+        response: {data: {value: true}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getradardatastatus
+
+  set_lanes:
+    summary: Set the lane configuration (name, enabled, nodes) for road monitoring.
+    description: Sends the whole lane array, which replaces the stored lanes.
+    since: "2.4"
+    effect: write
+    write: replace
+    binding: {method: setLanes}
+    params: {$ref: "#/types/SetLanesRequest"}
+    round_trip:
+      from: Lanes
+    examples:
+      - title: Set two lanes
+        request:
+          params:
+            lanes:
+              - name: Left lane
+                enabled: true
+                nodes: [[-0.8, 0.8], [-0.8, 0.2], [-0.3, 0.2], [-0.3, 0.8], [-0.8, 0.8]]
+              - name: Middle lane
+                enabled: false
+                nodes: [[0, 0.8], [0, 0.2], [-0.3, 0.2], [-0.3, 0.8], [0, 0.8]]
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#set-lanes
+
+  get_lanes:
+    summary: Get the current lane setup while the radar is in road mode.
+    since: "2.4"
+    effect: read
+    binding: {method: getLanes}
+    result: {$ref: "#/types/Lanes"}
+    examples:
+      - title: Get the lanes
+        request: {params: {}}
+        response:
+          data:
+            lanes:
+              - name: Lane-name 1
+                enabled: true
+                nodes: [[-0.8, 0.8], [-0.8, 0.2], [-0.3, 0.2], [-0.3, 0.8], [-0.8, 0.8]]
+              - name: Lane-name 2
+                enabled: false
+                nodes: [[0, 0.8], [0, 0.2], [-0.3, 0.2], [-0.3, 0.8], [0, 0.8]]
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#get-lanes
+
+  set_radar_profile:
+    summary: Set the radar profile (for example area or road) of a radar channel.
+    effect: write
+    write: patch
+    binding: {method: setRadarProfile}
+    params: {$ref: "#/types/SetRadarProfileRequest"}
+    examples:
+      - title: Set the radar profile
+        request: {params: {value: area, channel: 1}}
+        response: {data: {}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#adjust-radar-profile
+
+  get_radar_profile:
+    summary: Get the radar profile in use and the allowed values.
+    effect: read
+    binding: {method: getRadarProfile}
+    result: {$ref: "#/types/RadarProfile"}
+    examples:
+      - title: Get the radar profile
+        request: {params: {}}
+        response: {data: {value: area, allowedValues: [area, road]}}
+        source: https://developer.axis.com/vapix/radar/radar-configuration/#getradarprofile
+
+sources:
+- url: https://developer.axis.com/vapix/radar/radar-configuration/
+  sha256_md: 972321519f60d398dbea52af43f10373ecdb87f0aec9308f1fbc4c49434e24bf
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The Analytics API getLanes/setLanes sections show the endpoint /axis-cgi/radar/control.cgi, while the examples and the API overview use radaranalytics.cgi. radaranalytics.cgi is used here. https://developer.axis.com/vapix/radar/radar-configuration/#setlanes
+  - Lane examples use apiVersion 2.4 and radar profile examples use 1.4, while the API is documented as 2.2; 2.4 is listed as a version and the lanes operations are gated on it (inferred).
+  - The getLanes success table describes data.value as the detection sensitivity (copy error), and the getLanes example response is keyed params instead of data; lane examples send enabled as the string "true"/"false" although the table says boolean. Booleans and data are used.
+  - The setRadarProfile table describes value as the radar channel (copy error), and the radar profile error example uses errorCode/errorMsg instead of error.code/error.message.
+  - getCoexistence documents maxNeighboringRadars as a number but shows it as {value}; the group in the response is not documented. Both are modelled as objects with value.
+  - The frequency channel capabilities example uses minValue/maxValue/default while the table uses automatic/values/default; the table is used.
+  - The getMountingTilt request example has a malformed apiVersion ("2.2,"); ignored.
+  - The setCoexistence and setFrequencyChannel channel descriptions mention "frequency channel set to params.value" (copy error).
+  - setGlobalFilters semantics are not stated; assumed to change only the listed filters (patch). setLanes is assumed to replace the stored lanes.
+  - The documented getSupportedVersions method (listed under control.cgi in this section) is not modelled; version negotiation uses it.
+  migrated_from: v1
+  curated: true

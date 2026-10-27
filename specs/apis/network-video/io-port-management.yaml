@@ -1,0 +1,299 @@
+format: 2
+id: io-port-management
+name: I/O port management
+summary: Retrieve I/O port information and capabilities, configure ports (name, usage, direction, normal state,
+  output state) and run output state sequences.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: io_port_management
+  class: IoPortManagement
+docs:
+- https://developer.axis.com/vapix/network-video/io-port-management/
+access: viewer
+discovery:
+- {api_discovery: io-port-management}
+requires:
+  firmware: '9.70'
+
+binding:
+  path: /axis-cgi/io/portmanagement.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1100: {description: Internal error., kind: internal}
+  2100: {description: API version not supported., kind: unsupported}
+  2101: {description: Invalid JSON., kind: invalid_argument}
+  2102: {description: Method not supported., kind: unsupported}
+  2103: {description: Required parameter missing., kind: invalid_argument}
+  2104: {description: Invalid parameter value specified., kind: invalid_argument}
+  2105: {description: Authorization failed., kind: access_denied}
+
+types:
+  PortState:
+    enum: [open, closed]
+  PortDirection:
+    enum: [input, output]
+  Port:
+    type: object
+    description: An I/O port with its capabilities and current configuration.
+    required: [port]
+    properties:
+      port: {type: string, description: The port ID.}
+      state: {$ref: "#/types/PortState", description: The current state of the port.}
+      configurable: {type: boolean, description: Indicates if the port direction can be configured.}
+      readonly:
+        type: boolean
+        description: Tells if the port is read-only and is only present if the value is true.
+      usage:
+        type: string
+        description: Tells the intended usage of a port. In this case `usage` is treated as a nice name. Any underlying
+          behavior will not be affected by its value.
+      direction: {$ref: "#/types/PortDirection", description: The direction of the port.}
+      name: {type: string, description: Specifies the nice name of the port.}
+      normalState: {$ref: "#/types/PortState", description: Specifies the normal state of the port.}
+  PortList:
+    type: object
+    required: [numberOfPorts]
+    properties:
+      numberOfPorts: {type: integer, minimum: 0, maximum: 255, description: The number of ports available on the device.}
+      items:
+        type: array
+        items: {$ref: '#/types/Port'}
+        description: The ports. Omitted if numberOfPorts is zero.
+  PortConfig:
+    type: object
+    description: Changes to apply to one port. If all optional fields are omitted nothing changes.
+    required: [port]
+    properties:
+      port: {type: string, description: "The port ID affected, as returned by ``get_ports``."}
+      usage: {type: string, description: "The intended usage of the port, for example Button, Door, REX or Tampering. Treated as a nice name."}
+      direction: {$ref: "#/types/PortDirection", description: The direction to apply. Read-only for non-configurable ports.}
+      name: {type: string, description: The nice name to use for the port.}
+      normalState: {$ref: "#/types/PortState", description: "The normal state: ``open`` or ``closed`` circuit."}
+      state: {$ref: "#/types/PortState", description: The current state of the port; output ports only.}
+  SequenceStep:
+    type: object
+    required: [state, time]
+    properties:
+      state: {$ref: "#/types/PortState", description: The state that should be set.}
+      time:
+        type: integer
+        minimum: 0
+        maximum: 65535
+        description: The delay in milliseconds between state changes. The maximum is 65535 milliseconds.
+  SetPortsResult:
+    type: object
+    required: [ports]
+    properties:
+      ports:
+        type: array
+        items: {type: string}
+        description: IDs of the affected ports.
+  SetStateSequenceResult:
+    type: object
+    required: [port]
+    properties:
+      port: {type: string, description: The affected port ID.}
+
+operations:
+  get_ports:
+    summary: Retrieve all ports and their capabilities.
+    effect: read
+    binding: {method: getPorts}
+    result: {$ref: '#/types/PortList'}
+    examples:
+    - title: Retrieve port information for all ports
+      request:
+        params: {}
+      response:
+        data:
+          numberOfPorts: 3
+          items:
+          - port: '0'
+            state: closed
+            configurable: true
+            readonly: true
+            usage: Button
+            direction: input
+            name: Call button
+            normalState: open
+          - port: '1'
+            state: closed
+            configurable: true
+            usage: Door
+            direction: output
+            name: Output 1
+            normalState: closed
+          - port: '2'
+            state: closed
+            configurable: true
+            usage: ''
+            direction: input
+            name: Input 2
+            normalState: closed
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#retrieve-port-information-for-all-ports
+    - title: Retrieve port information (error)
+      request:
+        params: {}
+      response:
+        error: {code: 4004, message: Invalid parameter(s)}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#retrieve-port-information-for-all-ports
+  set_ports:
+    summary: Configure one to several ports (nice name, usage, direction, normal state, output state).
+    access: operator
+    effect: write
+    write: patch
+    binding: {method: setPorts}
+    params:
+      type: object
+      required: [ports]
+      properties:
+        ports:
+          type: array
+          items: {$ref: '#/types/PortConfig'}
+          maxItems: 256
+          description: List of port configurations. At most 256 ports per request.
+    result: {$ref: '#/types/SetPortsResult'}
+    examples:
+    - title: Configure I/O ports with all values
+      request:
+        params:
+          ports:
+          - {port: '0', usage: Button, direction: input, name: Call button, normalState: open}
+          - port: '1'
+            usage: Door
+            direction: output
+            name: Output 1
+            normalState: open
+            state: open
+          - {port: '2', usage: '', direction: input, name: Input 2, normalState: closed}
+      response:
+        data: {ports: ['0', '1', '2']}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#configure-io-ports-with-all-values
+    - title: Required parameter missing
+      request:
+        params:
+          ports:
+          - {port: '0', usage: Button, direction: input, name: Call button, normalState: open}
+          - port: '1'
+            usage: Door
+            direction: output
+            name: Output 1
+            normalState: open
+            state: open
+          - {port: '2', usage: '', direction: input, name: Input 2, normalState: closed}
+      response:
+        error: {code: 2103, message: Required parameter missing}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#configure-io-ports-with-all-values
+    - title: Single invalid optional parameter
+      request:
+        params:
+          ports:
+          - {port: '0', usage: Button, direction: input, name: Call button, normalState: open}
+          - port: '1'
+            usage: Door
+            direction: output
+            name: Output 1
+            normalState: open
+            state: open
+          - {port: '2', usage: '', direction: input, name: Input 2, normalState: closed}
+      response:
+        error: {code: 2104, message: Invalid parameter value specified, details: {port: '0', propertyName: direction}}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#configure-io-ports-with-all-values
+    - title: Multiple errors
+      request:
+        params:
+          ports:
+          - {port: '0', usage: Button, direction: input, name: Call button, normalState: open}
+          - port: '1'
+            usage: Door
+            direction: output
+            name: Output 1
+            normalState: open
+            state: open
+          - {port: '2', usage: '', direction: input, name: Input 2, normalState: closed}
+      response:
+        error:
+          code: 2104
+          message: Invalid parameter value specified
+          details: {port: '0', propertyName: direction}
+          errors:
+          - {code: 1100, message: Internal error, details: {port: '1'}}
+          - {code: 2104, message: Invalid parameter value specified, details: {port: '2', propertyName: direction}}
+          - {code: 2104, message: Invalid parameter value specified, details: {port: '2', propertyName: normalState}}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#configure-io-ports-with-all-values
+    - title: Set the direction of the I/O port
+      request:
+        params:
+          ports:
+          - {port: '1', direction: input}
+      response:
+        data: {ports: ['1']}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#set-the-direction-of-the-io-port
+  set_state_sequence:
+    summary: Apply a sequence of state changes with a delay in milliseconds between states (output ports only).
+    description: The sequence runs once and returns immediately; the last state stays until a new sequence is launched.
+      Starting a sequence while another runs fails with 2200. Changing direction or normalState cancels a running sequence.
+    effect: action
+    binding: {method: setStateSequence}
+    params:
+      type: object
+      required: [port, sequence]
+      properties:
+        port: {type: string, description: "The affected output port ID, as returned by ``get_ports``."}
+        sequence:
+          type: array
+          items: {$ref: "#/types/SequenceStep"}
+          description: The state changes to apply in order.
+    result: {$ref: '#/types/SetStateSequenceResult'}
+    errors:
+      2200: {description: State sequence already ongoing., kind: unavailable}
+    examples:
+    - title: Set a sequence of state changes on the output port
+      request:
+        params:
+          port: '1'
+          sequence:
+          - {state: open, time: 1000}
+          - {state: closed, time: 2000}
+          - {state: open, time: 1000}
+          - {state: closed, time: 4000}
+          - {state: open, time: 0}
+      response:
+        data: {port: '1'}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#set-a-sequence-of-state-changes-on-the-output-port
+    - title: Set a sequence (error)
+      request:
+        params:
+          port: '1'
+          sequence:
+          - {state: open, time: 1000}
+          - {state: closed, time: 2000}
+          - {state: open, time: 1000}
+          - {state: closed, time: 4000}
+          - {state: open, time: 0}
+      response:
+        error: {code: 2104, message: Invalid parameter value specified}
+      source: https://developer.axis.com/vapix/network-video/io-port-management/#set-a-sequence-of-state-changes-on-the-output-port
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/io-port-management/
+  sha256_md: 254584f4287bf92039de78a40f18adddb15808ecd1487a844b446bf9c37702f3
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - setStateSequence table types params.port as <integer>; syntax/examples use string (modelled as string).
+  - getPorts error example uses code 4004, which is not in the error table.
+  - setStateSequence is documented with Security level Viewer although it changes output state (verify).
+  - 'Example text says port 0 "has readonly=0" while the response shows readonly: true.'
+  - Event topics are listed without data/source fields; namespace URIs not stated on page.
+  migrated_from: v1
+  curated: true

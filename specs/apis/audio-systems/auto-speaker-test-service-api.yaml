@@ -1,0 +1,154 @@
+format: 2
+id: auto-speaker-test-service-api
+name: Auto speaker test service API
+summary: Calibrate and execute automatic speaker tests (test tones compared with reference values via the built-in
+  microphone).
+section: audio-systems
+family: service_json
+status: released
+python:
+  module: auto_speaker_test_service
+  class: AutoSpeakerTestService
+docs:
+- https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/
+access: admin
+discovery:
+- param: {name: Properties.API.SpeakerTest.AutomaticTest, value: 'yes'}
+- param: {name: Properties.API.SpeakerTest.Version, value: '1.0'}
+
+binding: {path: /vapix/axast}
+
+types:
+  SpeakerTestStatus:
+    type: string
+    enum:
+    - OK
+    - Failed
+    - Calibrated
+    - Pending
+    - Uncalibrated
+    - DisabledInHardware
+    - InternalError
+    description: Non-normative enum that contains the result of the speaker test.
+  SpeakerTestReport:
+    type: object
+    description: Test report of the latest speaker test. All fields mandatory.
+    required: [SpeakerTestStatus, TestTimestamp, CalibrationTimestamp]
+    properties:
+      SpeakerTestStatus: {$ref: '#/types/SpeakerTestStatus', description: The test result.}
+      TestTimestamp:
+        type: string
+        description: The date and time that the test was performed. Empty if no test has been performed.
+      CalibrationTimestamp:
+        type: string
+        description: The date and time when the test was calibrated. Empty if the test is not calibrated.
+
+operations:
+  calibrate_speaker_test:
+    summary: Initiate speaker test calibration.
+    description: Calibration starts as soon as possible when the command has been sent. The calibration result is
+      available in SpeakerTestStatus in the SpeakerTestReport and the calibration time in CalibrationTimestamp.
+    effect: action
+    binding: {operation: 'axast:CalibrateSpeakerTest'}
+    errors:
+      axast:DisabledInHardware:
+        description: Calibration could not be performed because the microphone is disabled in the hardware.
+        kind: unavailable
+      ter:Failure:
+        description: Internal error in the Axis product. Check the logs for more information.
+        kind: internal
+    examples:
+    - title: Calibrate speaker test JSON request
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/#common-examples
+  perform_speaker_test:
+    summary: Initiate a speaker test.
+    description: The speaker test will be executed as soon as possible when the command has been sent. The result
+      is available in SpeakerTestReport.
+    effect: action
+    binding: {operation: 'axast:PerformSpeakerTest'}
+    errors:
+      axast:DisabledInHardware:
+        description: The speaker test could not be executed because the microphone is disabled in the hardware.
+        kind: unavailable
+      axast:DeviceNotCalibrated:
+        description: The speaker test could not be performed because the test is not calibrated. Calibration must
+          be run before the speaker test.
+        kind: unavailable
+      ter:Failure:
+        description: Internal error in the Axis product. Check the logs for more information.
+        kind: internal
+    examples:
+    - title: Perform speaker test JSON request
+      request:
+        params: {}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/#common-examples
+  get_speaker_test_report:
+    summary: Retrieve the speaker test report from the latest speaker test.
+    effect: read
+    binding: {operation: 'axast:GetSpeakerTestReport'}
+    result:
+      type: object
+      required: [SpeakerTestReport]
+      properties:
+        SpeakerTestReport: {$ref: '#/types/SpeakerTestReport', description: The current speaker test report.}
+    examples:
+    - title: During calibration (Pending)
+      request:
+        params: {}
+      response:
+        data:
+          SpeakerTestReport: {SpeakerTestStatus: Pending, TestTimestamp: '', CalibrationTimestamp: ''}
+      source: https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/#common-examples
+    - title: Calibration completed (Calibrated)
+      request:
+        params: {}
+      response:
+        data:
+          SpeakerTestReport:
+            SpeakerTestStatus: Calibrated
+            TestTimestamp: ''
+            CalibrationTimestamp: '2015-05-28T16:30:02Z'
+      source: https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/#common-examples
+    - title: During speaker test (Pending)
+      request:
+        params: {}
+      response:
+        data:
+          SpeakerTestReport:
+            SpeakerTestStatus: Pending
+            TestTimestamp: ''
+            CalibrationTimestamp: '2015-05-28T16:30:02Z'
+      source: https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/#common-examples
+    - title: Test completed (OK)
+      request:
+        params: {}
+      response:
+        data:
+          SpeakerTestReport:
+            SpeakerTestStatus: OK
+            TestTimestamp: '2015-06-10T16:38:45Z'
+            CalibrationTimestamp: '2015-05-28T16:30:02Z'
+      source: https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/#common-examples
+
+sources:
+- url: https://developer.axis.com/vapix/audio-systems/auto-speaker-test-service-api/
+  sha256_md: 67942bb1ae6843a59d4f40932c16d823ffc6814bf71d38724c1a4949f1743b28
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The page does not state the endpoint; /vapix/axast is taken from the curl examples in the Call service API and
+    network-video pages.
+  - Faults are documented as env:Receiver/ter:Action/<subcode> triples; they are keyed here by the subcode.
+  - The event declaration lists only OK and Failed values for SpeakerTestStatus, while the enum has seven values.
+  - Timestamps are typed dateTime but are empty strings when not set, so they are modelled as strings.
+  - AXIS OS minimum version not stated.
+  migrated_from: v1
+  curated: true

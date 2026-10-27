@@ -1,0 +1,1299 @@
+format: 2
+id: door-control-service
+name: Door control service
+summary: Control and monitor doors, and configure doors, door hardware, priority levels and door schedules.
+section: physical-access-control
+family: service_json
+status: released
+python:
+  module: door_control_service
+  class: DoorControlService
+docs:
+- https://developer.axis.com/vapix/physical-access-control/door-control-service/
+- https://developer.axis.com/vapix/physical-access-control/
+- https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+- https://developer.axis.com/vapix/physical-access-control/peripherals/
+- https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+access: admin
+
+discovery:
+- service: {namespace: 'http://www.onvif.org/ver10/doorcontrol/wsdl'}
+- service: {namespace: 'http://www.axis.com/vapix/ws/DoorControl'}
+
+binding: {path: /vapix/doorcontrol}
+
+types:
+  ReferenceToken: {type: string, description: Reference token of an entity.}
+  ServiceCapabilities:
+    type: object
+    description: Optional functionality of the service. Static; does not change during device operation.
+    properties:
+      MaxLimit:
+        type: integer
+        description: The maximum number of entries returned by a single GetList or Get request. The device never
+          returns more entities in a single response.
+      GetDoorSupported: {type: boolean, description: True if GetDoor and GetDoorList are supported.}
+      SetDoorSupported: {type: boolean, description: True if SetDoor is supported.}
+      PriorityConfigurationSupported: {type: boolean, description: True if PriorityConfigurations can be modified.}
+  DoorCapabilities:
+    type: object
+    description: Optional functionality of one door. Different doors may differ, and the capabilities may change
+      if hardware settings change.
+    properties:
+      Access: {type: boolean, description: The door supports the AccessDoor command (momentary access).}
+      AccessTimingOverride:
+        type: boolean
+        description: The door supports overriding the configured timing in AccessDoor.
+      Lock: {type: boolean, description: The door supports LockDoor.}
+      Unlock: {type: boolean, description: The door supports UnlockDoor.}
+      Block: {type: boolean, description: The door supports BlockDoor.}
+      DoubleLock: {type: boolean, description: The door supports DoubleLockDoor (multiple locks).}
+      LockDown: {type: boolean, description: The door supports LockDownDoor and LockDownReleaseDoor.}
+      LockOpen: {type: boolean, description: The door supports LockOpenDoor and LockOpenReleaseDoor.}
+      DoorMonitor:
+        type: boolean
+        description: The door has a door monitor and supports the DoorPhysicalState event.
+      LockMonitor:
+        type: boolean
+        description: The door has a lock monitor and supports the LockPhysicalState event.
+      DoubleLockMonitor:
+        type: boolean
+        description: The door has a double lock monitor and supports the DoubleLockPhysicalState event.
+      Alarm: {type: boolean, description: The door supports door alarm and the DoorAlarm event.}
+      Tamper:
+        type: boolean
+        description: The door has a tamper detector and supports the DoorTamper event.
+      Fault: {type: boolean, description: The door supports door fault and the DoorFault event.}
+      Warning: {type: boolean, description: The door supports door warning and the DoorWarning event.}
+      Configurable: {type: boolean, description: The door settings can be modified.}
+      PriorityLevels:
+        type: integer
+        description: Number of priority levels supported for the door; 0 or 1 means priorities are not supported.
+  DoorInfo:
+    type: object
+    description: The Door as a physical object, with its capabilities.
+    required: [token, Name, Capabilities]
+    properties:
+      token: {$ref: '#/types/ReferenceToken', description: A service-unique identifier of the Door.}
+      Name:
+        type: string
+        maxLength: 64
+        description: A user readable name. It shall be up to 64 characters.
+      Description:
+        type: string
+        maxLength: 1024
+        description: A user readable description. It shall be up to 1024 characters.
+      Capabilities: {$ref: '#/types/DoorCapabilities', description: The capabilities of the Door.}
+  DoorPhysicalState:
+    type: string
+    description: 'The physical state of a Door. Unknown: not currently known; Open; Closed; Fault: a door monitor
+      fault is detected.'
+    enum: [Unknown, Open, Closed, Fault]
+  LockPhysicalState:
+    type: string
+    description: 'The physical state of a Lock (including double lock). Locked: the lock is activated; Unlocked:
+      not activated.'
+    enum: [Unknown, Locked, Unlocked, Fault]
+  DoorAlarmState:
+    type: string
+    description: The state of a Door with regard to alarms.
+    enum: [Normal, DoorForcedOpen, DoorOpenTooLong]
+  DoorTamperState:
+    type: string
+    description: The state of a tamper detector.
+    enum: [Unknown, NotInTamper, TamperDetected]
+  DoorFaultState:
+    type: string
+    description: The state of a door fault.
+    enum: [Unknown, NotInFault, FaultDetected]
+  DoorMode:
+    type: string
+    description: 'The logical mode of a Door. Locked: momentary access via AccessDoor is possible; Unlocked: permanent
+      access, timing alarms are masked; Accessed: momentary access, timing alarms are masked; Blocked: locked and
+      AccessDoor is ignored; LockedDown: locked until LockDownReleaseDoor, other commands are ignored; LockedOpen:
+      unlocked until LockOpenReleaseDoor, other commands are ignored; DoubleLocked: locked with multiple locks (a
+      normal Locked mode for doors without a double lock).'
+    enum:
+    - Unknown
+    - Locked
+    - Unlocked
+    - Accessed
+    - Blocked
+    - LockedDown
+    - LockedOpen
+    - DoubleLocked
+  DoorTamper:
+    type: object
+    description: Tampering information for a Door.
+    required: [State]
+    properties:
+      State: {$ref: '#/types/DoorTamperState', description: State of the tamper detector.}
+      Reason:
+        type: string
+        description: Details describing the tampering state change (reason, place, time). May be localized.
+  DoorFault:
+    type: object
+    description: Fault information for a Door.
+    required: [State]
+    properties:
+      State:
+        $ref: '#/types/DoorFaultState'
+        description: Overall fault state. FaultDetected if there are any faults; details are in Reason, the DoorState
+          fields or extensions.
+      Reason: {type: string, description: Optional reason for the fault.}
+      DoorMonitorFault: {type: boolean, description: True if there is a fault in the DoorMonitor.}
+      LockFault: {type: boolean, description: True if there is a fault in the lock.}
+      DoubleLockFault: {type: boolean, description: True if there is a fault in the DoubleLockMonitor.}
+      LockMonitorFault: {type: boolean, description: True if there is a fault in the LockMonitor.}
+  DoorState:
+    type: object
+    description: The current aggregate runtime status of a Door. Optional fields are provided when the matching
+      capability is signalled for the door.
+    required: [DoorMode]
+    properties:
+      DoorMode: {$ref: '#/types/DoorMode', description: The logical operating mode of the door.}
+      DoorPhysicalState:
+        $ref: '#/types/DoorPhysicalState'
+        description: Physical state of the door (DoorMonitor capability).
+      LockPhysicalState:
+        $ref: '#/types/LockPhysicalState'
+        description: Physical state of the lock (LockMonitor capability).
+      DoubleLockPhysicalState:
+        $ref: '#/types/LockPhysicalState'
+        description: Physical state of the double lock (DoubleLockMonitor capability).
+      Alarm: {$ref: '#/types/DoorAlarmState', description: Alarm state of the door (Alarm capability).}
+      Tamper: {$ref: '#/types/DoorTamper', description: Tampering state of the door (Tamper capability).}
+      Fault: {$ref: '#/types/DoorFault', description: Fault information for the door (Fault capability).}
+  Door:
+    type: object
+    description: The device and configuration entity for a Door. Durations are ISO 8601 durations such as PT10S.
+    required: [token, Name]
+    properties:
+      token: {$ref: '#/types/ReferenceToken', description: A service-unique identifier of the Door.}
+      Name:
+        type: string
+        maxLength: 64
+        description: A user readable name. It shall be up to 64 characters.
+      Description:
+        type: string
+        maxLength: 1024
+        description: A user readable description. It shall be up to 1024 characters.
+      AccessTime:
+        type: string
+        description: The normal open time for a door. Starts when the door goes to the Accessed state.
+      OpenTooLongTime:
+        type: string
+        description: Normal open too long time for a door. Starts when the door is opened.
+      PreAlarmTime:
+        type: string
+        description: Time before the OpenTooLong time expires at which a warning event is sent.
+      ExtendedAccessTime: {type: string, description: The extended open time for a door.}
+      ExtendedOpenTooLongTime: {type: string, description: Extended open too long time for a door.}
+      HeartbeatInterval:
+        type: string
+        description: The time between heartbeat event updates. A time of 0 means no heartbeat events.
+      PriorityConfiguration: {$ref: '#/types/ReferenceToken', description: Token of the PriorityConfiguration to
+          use.}
+      DefaultPriority:
+        type: string
+        description: Default priority to use if no priority is given in a door control command. If empty, the DefaultPriority
+          of the PriorityConfiguration is used.
+  DoorActionType:
+    type: string
+    description: 'A possible action on a door at a priority level. Release: release the action on the current priority;
+      LockDownRelease and LockOpenRelease release those states; Access: unlock for the specified time, then return
+      to the previous state; Block: access not allowed; LockDown and LockOpen hold until their release actions.'
+    enum:
+    - NoAction
+    - Release
+    - LockDownRelease
+    - LockOpenRelease
+    - Lock
+    - Unlock
+    - Access
+    - Block
+    - LockDown
+    - LockOpen
+    - DoubleLock
+  DoorPriorityAction:
+    type: object
+    description: The action of a door at one priority level.
+    required: [PriorityLevel, DoorAction]
+    properties:
+      PriorityLevel:
+        type: string
+        description: The priority level. Only a name; it does not affect the priority order.
+      DoorAction: {$ref: '#/types/DoorActionType', description: The action at this level.}
+      Reason:
+        type: string
+        description: What caused the action, for example API or Schedule. May be empty.
+  PriorityConfiguration:
+    type: object
+    description: The ordered list of door priority levels and the initial action at each level. The first in the
+      list has the highest priority.
+    required: [token]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier of the PriorityConfiguration.
+      Name: {type: string, description: Name of the PriorityConfiguration.}
+      DefaultPriority: {type: string, description: Suggested default priority.}
+      DoorPriorityAction:
+        type: array
+        items: {$ref: '#/types/DoorPriorityAction'}
+        description: Priority levels and their initial action, highest priority first.
+  Configuration:
+    type: object
+    description: A configuration setting.
+    required: [Name, Value]
+    properties:
+      Name: {type: string, description: 'Name of the configuration setting, for example Lock.Type.'}
+      Value: {type: string, description: Value of the configuration setting.}
+  ConfigurationInfo:
+    type: object
+    description: A configuration setting and its description.
+    required: [Name, Value]
+    properties:
+      Name: {type: string, description: Name of the configuration setting.}
+      Value: {type: string, description: Value of the configuration setting.}
+      Enums:
+        type: array
+        items: {type: string}
+        description: Suggested or allowed values.
+      Type:
+        type: string
+        description: Type of the configuration setting, for example xs:string, xs:boolean, xs:int.
+      DependOnName: {type: string, description: Name of the configuration setting this one depends on.}
+      DependOnValue: {type: string, description: Value of the setting this one depends on.}
+      Description: {type: string, description: Description of the configuration setting.}
+  DoorConfiguration:
+    type: object
+    description: The device and hardware configuration for a Door. Settings not given are set to their defaults.
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: Id of the door controller; the same token links the Door, the DoorConfiguration and the DoorScheduleConfiguration.
+          May be omitted or empty when setting.
+      DeviceUUID:
+        type: string
+        description: The device the door controller is on. May be omitted or empty when setting on the intended
+          device.
+      Configuration:
+        type: array
+        items: {$ref: '#/types/Configuration'}
+        description: The hardware configuration settings of the door.
+      DoorScheduleConfiguration:
+        $ref: '#/types/ReferenceToken'
+        description: Token of a DoorScheduleConfiguration. May be empty.
+  ScheduledState:
+    type: object
+    description: Schedules and the action for a state.
+    properties:
+      ScheduleToken:
+        type: array
+        items: {$ref: '#/types/ReferenceToken'}
+        description: Schedules defining when the state is active.
+      EnterAction: {$ref: '#/types/DoorActionType', description: The action to run when entering the state.}
+  DoorSchedule:
+    type: object
+    description: Scheduled states for one priority level.
+    properties:
+      ScheduledState:
+        type: array
+        items: {$ref: '#/types/ScheduledState'}
+        description: Scheduled states for the door on the priority level.
+      PriorityLevel: {type: string, description: The priority level.}
+  DoorScheduleConfiguration:
+    type: object
+    description: Schedule configuration for a Door.
+    required: [token]
+    properties:
+      token:
+        $ref: '#/types/ReferenceToken'
+        description: A service-unique identifier of the DoorScheduleConfiguration; the same token as the Door.
+      DoorSchedule:
+        type: array
+        items: {$ref: '#/types/DoorSchedule'}
+        description: List of DoorSchedule items.
+      Name: {type: string, description: Name of the door.}
+      Description: {type: string, description: Description of the door.}
+
+operations:
+  get_service_capabilities:
+    summary: This operation returns the capabilities of the service.
+    description: An ONVIF compliant device which provides the door control service shall implement this method.
+    effect: read
+    access: anonymous
+    binding: {operation: 'tdc:GetServiceCapabilities', auth: if_challenged}
+    result:
+      type: object
+      required: [Capabilities]
+      properties:
+        Capabilities:
+          $ref: '#/types/ServiceCapabilities'
+          description: The capability response message contains the requested Door Control service capabilities
+            using a hierarchical XML capability structure.
+  get_door_info_list:
+    summary: This operation requests a list of all `DoorInfo` items provided by the device.
+    description: An ONVIF compliant device that provides Door Control service shall implement this method. A call
+      to this method shall return a `StartReference` when not all data is returned and more data is available. The
+      reference shall be valid for retrieving the next set of data. The number of items returned shall not be greater
+      than `Limit` parameter.
+    effect: read
+    binding: {operation: 'tdc:GetDoorInfoList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, or higher than what the device supports,
+            the number of items shall be determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        DoorInfo:
+          type: array
+          items: {$ref: '#/types/DoorInfo'}
+          description: List of DoorInfo items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. The client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_door_info:
+    summary: This operation requests a list of `DoorInfo` items matching the given tokens.
+    description: An ONVIF-compliant device that provides a door control service shall implement this method. The
+      device shall ignore tokens it cannot resolve and may return an empty list if there are no items matching specified
+      tokens. If the number of requested items is greater than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'tdc:GetDoorInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of DoorInfo items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        DoorInfo:
+          type: array
+          items: {$ref: '#/types/DoorInfo'}
+          description: List of DoorInfo items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see the MaxLimit capability.
+        kind: invalid_argument
+  get_door_state:
+    summary: This operation requests the state of a `Door` specified by the token.
+    description: A device implementing the Door Control service shall be capable of reporting the status of a door
+      using a `DoorState` structure available from the `GetDoorState` command.
+    effect: read
+    binding: {operation: 'tdc:GetDoorState'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          $ref: '#/types/ReferenceToken'
+          description: Token of the Door instance to get the state for.
+    result:
+      type: object
+      required: [DoorState]
+      properties:
+        DoorState: {$ref: '#/types/DoorState', description: The state of the door.}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+  access_door:
+    summary: This operation allows momentarily accessing a `Door`.
+    effect: action
+    binding: {operation: 'tdc:AccessDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        UseExtendedTime:
+          type: boolean
+          description: Optional. Indicates that the configured extended time should be used.
+        AccessTime: {type: string, description: Optional. Overrides AccessTime if specified. ISO 8601 duration.}
+        OpenTooLongTime:
+          type: string
+          description: Optional. Overrides OpenTooLongTime if specified (DOTL). ISO 8601 duration.
+        PreAlarmTime:
+          type: string
+          description: Optional. Overrides PreAlarmTime if specified. ISO 8601 duration.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the Accessed state and unlock the door., kind: internal}
+  lock_door:
+    summary: This operation allows locking a `Door`.
+    description: The `DoorMode` shall change to `Locked`. For more information about the `Locked` state and door
+      mode restrictions, see section DoorMode data structure. A device that signals support for `Lock` capability
+      for a particular `Door` instance shall implement this method. If the request cannot be fulfilled, a `Failure`
+      fault shall be returned.
+    effect: action
+    binding: {operation: 'tdc:LockDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel:
+          type: string
+          description: Priority level for the lock command, if empty use default priority.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the Locked state., kind: internal}
+  unlock_door:
+    summary: This operation allows unlocking a `Door`.
+    description: The `DoorMode` shall change to `Unlocked`. For more information about the `Unlocked` state and
+      door mode restrictions, see section DoorMode data structure. A device that signals support for `Unlock` capability
+      for a particular `Door` instance shall implement this method. If the request cannot be fulfilled, a `Failure`
+      fault shall be returned.
+    effect: action
+    binding: {operation: 'tdc:UnlockDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel:
+          type: string
+          description: Priority level for the unlock command, if empty use default priority.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the Unlocked state., kind: internal}
+    examples:
+    - title: tdc:UnlockDoor request
+      request:
+        params: {Token: 'Axis-00408c184bdb:1352121495.979065000', PriorityLevel: Medium}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/door-control-service/#using-door-priorities
+    - title: tdc:UnlockDoor request
+      request:
+        params: {Token: myDoor, PriorityLevel: High}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/door-control-service/#door-priorities-and-door-schedules
+  block_door:
+    summary: This operation allows blocking a `Door` and preventing momentary access (`AccessDoor` command).
+    description: The `DoorMode` shall change to `Blocked`. For more information about the `Blocked` state and door
+      mode restrictions, see section DoorMode data structure. A device that signals support for `Block` capability
+      for a particular `Door` instance shall implement this method. If the request cannot be fulfilled, a `Failure`
+      fault shall be returned.
+    effect: action
+    binding: {operation: 'tdc:BlockDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel:
+          type: string
+          description: Priority level for the block door command, if empty use default priority.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the Blocked state., kind: internal}
+  lock_down_door:
+    summary: This operation allows locking and preventing other actions until a `LockDownReleaseDoor` command is
+      invoked.
+    effect: action
+    binding: {operation: 'tdc:LockDownDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel: {type: string, description: 'Priority level for the command, if empty use default priority.'}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the LockedDown state., kind: internal}
+  lock_down_release_door:
+    summary: This operation allows releasing the `LockedDown` state of a `Door`.
+    description: The `DoorMode` shall change back to its previous/next state. It is not defined what the previous/next
+      state shall be, but typically - `Locked`. This method shall only succeed if the current `DoorMode` is `LockedDown`.
+    effect: action
+    binding: {operation: 'tdc:LockDownReleaseDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel: {type: string, description: 'Priority level for the command, if empty use default priority.'}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the Locked state., kind: internal}
+  lock_open_door:
+    summary: This operation allows unlocking a `Door` and preventing other actions until `LockOpenReleaseDoor` method
+      is invoked.
+    description: The `DoorMode` shall change to `LockedOpen`. For more information about the `LockedOpen` state
+      and door mode restrictions, see section DoorMode data structure. The device shall ignore other door control
+      commands until a `LockOpenReleaseDoor` command is performed. A device that signals support for `LockOpen`
+      capability for a particular `Door` instance shall implement this method. If the request cannot be fulfilled,
+      a `Failure` fault shall be returned.
+    effect: action
+    binding: {operation: 'tdc:LockOpenDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel: {type: string, description: 'Priority level for the command, if empty use default priority.'}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the LockedOpen state., kind: internal}
+  lock_open_release_door:
+    summary: This operation allows releasing the `LockedOpen` state of a `Door`.
+    description: The `DoorMode` shall change state from the `LockedOpen` state back to its previous/next state.
+      It is not defined what the previous/next state shall be, but typically - `Unlocked`. This method shall only
+      succeed if the current `DoorMode` is `LockedOpen`.
+    effect: action
+    binding: {operation: 'tdc:LockOpenReleaseDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel: {type: string, description: 'Priority level for the command, if empty use default priority.'}
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the LockedOpen state., kind: internal}
+  double_lock_door:
+    summary: This operation is used for securely locking a `Door`.
+    description: The `DoorMode` shall change to `DoubleLocked`. For more information about the `DoubleLocked` state
+      and door mode restrictions, see section DoorMode data structure. A device that signals support for `DoubleLock`
+      capability for a particular `Door` instance shall implement this method. Otherwise this method can be performed
+      as a standard `Lock` operation (see section LockDoor command). If the door has an extra lock that shall be
+      locked as well. If the request cannot be fulfilled, a `Failure` fault shall be returned.
+    effect: action
+    binding: {operation: 'tdc:DoubleLockDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        PriorityLevel:
+          type: string
+          description: Priority level for the double lock command, if empty use default priority.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the DoubleLocked state., kind: internal}
+  release_door:
+    summary: This operation allows releasing a door from the operation at the specified `PriorityLevel`.
+    description: A call to this method shall release door so that `DoorMode` contains no action for the specified
+      `PriorityLevel`, the next state shall be determined by the next `PriorityLevel` specified by the `PriorityConfiguration`
+      for the `Door`. This method is optional and must be supported if the `PriorityConfigurationSupported` capability
+      is true.
+    effect: action
+    binding: {operation: 'axtdc:ReleaseDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door to control.}
+        PriorityLevel:
+          type: string
+          description: Priority level for the Release command, if empty use default priority.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+    examples:
+    - title: axtdc:ReleaseDoor request
+      request:
+        params: {Token: 'Axis-00408c184bdb:1352121495.979065000', PriorityLevel: Medium}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/door-control-service/#using-door-priorities
+    - title: axtdc:ReleaseDoor request
+      request:
+        params: {Token: myDoor, PriorityLevel: High}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/physical-access-control/door-control-service/#door-priorities-and-door-schedules
+  set_door:
+    summary: This operation to adds or updates a list of `Door`:s.
+    description: This method must be implemented if the `SetDoorSupported` service capability is true.
+    effect: write
+    write: replace
+    binding: {operation: 'axtdc:SetDoor'}
+    params:
+      type: object
+      required: [Door]
+      properties:
+        Door:
+          type: array
+          items: {$ref: '#/types/Door'}
+          description: The new version of the Door(s)
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the added or updated Doors.
+    errors:
+      ter:InvalidArgs: {description: The request is invalid., kind: invalid_argument}
+      ter:NotSupported: {description: The operation is not supported., kind: unsupported}
+    examples:
+    - title: axtdc:SetDoor request
+      request:
+        params:
+          Door:
+          - token: floor-token
+            Name: Output 1
+            AccessTime: PT7S
+            OpenTooLongTime: PT10S
+            PreAlarmTime: PT7S
+            ExtendedAccessTime: PT30S
+            ExtendedOpenTooLongTime: PT40S
+            HeartbeatInterval: PT600S
+            DefaultPriority: ''
+      response:
+        data: {Token: floor-token}
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-a-floor
+    - title: axtdc:SetDoor request
+      request:
+        params:
+          Door:
+          - token: aperio_door_token
+            Name: Aperio Door
+            AccessTime: PT7S
+            OpenTooLongTime: PT30S
+            ExtendedAccessTime: PT7S
+            ExtendedOpenTooLongTime: PT30S
+            PreAlarmTime: PT10S
+      response:
+        data: {Token: aperio_door_token}
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-door-aperio-doors
+    - title: axtdc:SetDoor request
+      request:
+        params:
+          Door:
+          - token: SmartIntego_door_token
+            Name: SmartIntego door
+            Description: SIDoorDescription
+            AccessTime: PT7S
+            DefaultPriority: ''
+            OpenTooLongTime: PT30S
+            PreAlarmTime: PT10S
+            ExtendedAccessTime: PT7S
+            ExtendedOpenTooLongTime: PT30S
+            PriorityConfiguration: Standard
+            HeartbeatInterval: PT600S
+      response:
+        data: {Token: SmartIntego_door_token}
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-door-smartintego-doors
+    - title: axtdc:SetDoor request
+      request:
+        params:
+          Door:
+          - Name: Front door
+            AccessTime: PT7S
+            OpenTooLongTime: PT30S
+            PreAlarmTime: PT10S
+            ExtendedAccessTime: PT30S
+            ExtendedOpenTooLongTime: PT60S
+            HeartbeatInterval: PT600S
+            DefaultPriority: ''
+            token: Axis-00408c184bd9:1350969415.227159000
+      response:
+        data: {Token: 'Axis-00408c184bd9:1350969415.227159000'}
+      source: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/#examples-doors
+  get_door_list:
+    summary: This operation requests a list of all Door items provided by the device.
+    description: This method must be implemented if the `GetDoorSupported` service capability is true. A call to
+      this method shall return a `StartReference` when not all data is returned and more data is available. The
+      reference shall be valid for retrieving the next set of data. The number of items returned shall not be greater
+      than `Limit` parameter.
+    effect: read
+    binding: {operation: 'axtdc:GetDoorList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, or higher than what the device supports,
+            the number of items shall be determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        Door:
+          type: array
+          items: {$ref: '#/types/Door'}
+          description: List of Door items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. The client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_door:
+    summary: This operation request a list of `Door` items matching the given tokens.
+    description: This method must be implemented if the `GetDoorSupported` service capability is true. The device
+      shall ignore tokens it cannot resolve and may return an empty list if there are no items matching specified
+      tokens. If the number of requested items is greater than `MaxLimit`, a `TooManyItems` fault shall be returned.
+    effect: read
+    binding: {operation: 'axtdc:GetDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of Door items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Door:
+          type: array
+          items: {$ref: '#/types/Door'}
+          description: List of Door items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see the MaxLimit capability.
+        kind: invalid_argument
+  remove_door:
+    summary: This operation removes `Door` items with specified tokens.
+    effect: write
+    write: delete
+    binding: {operation: 'axtdc:RemoveDoor'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Token of the Door items to remove.
+          minItems: 1
+    errors:
+      ter:NotSupported: {description: Not allowed to remove the Door., kind: unsupported}
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+  get_door_priority_state:
+    summary: If supported, a call to this method shall return the `Priority` state for a door specified by the token.
+    description: This method must be implemented if the `PriorityConfigurationSupported` service capability is true.
+    effect: read
+    binding: {operation: 'axtdc:GetDoorPriorityState'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door to get the state for.}
+    result:
+      type: object
+      properties:
+        DoorPriorityAction:
+          type: array
+          items: {$ref: '#/types/DoorPriorityAction'}
+          description: The Priority state of the door, with highest priorities first.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+    examples:
+    - title: axtdc:GetDoorPriorityState request
+      request:
+        params: {Token: 'Axis-00408c184bdb:1352121495.979065000'}
+      response:
+        data:
+          DoorPriorityAction:
+          - {DoorAction: Release, PriorityLevel: Highest}
+          - {DoorAction: Release, PriorityLevel: High}
+          - {DoorAction: Release, PriorityLevel: Medium}
+          - {DoorAction: Release, PriorityLevel: Low}
+          - {DoorAction: Lock, PriorityLevel: Lowest}
+      source: https://developer.axis.com/vapix/physical-access-control/door-control-service/#using-door-priorities
+    - title: axtdc:GetDoorPriorityState request
+      request:
+        params: {Token: myDoor}
+      response:
+        data:
+          DoorPriorityAction:
+          - {PriorityLevel: High, Reason: '', DoorAction: Release}
+          - {PriorityLevel: Normal, Reason: Schedule, DoorAction: Unlock}
+      source: https://developer.axis.com/vapix/physical-access-control/door-control-service/#door-priorities-and-door-schedules
+  set_priority_configuration:
+    summary: Set a list of `PriorityConfiguration` items.
+    description: If supported, a call to this operation shall set the specified `PriorityConfiguration` items. This
+      method must be implemented if the `PriorityConfigurationSupported` service capability is true.
+    effect: write
+    write: replace
+    binding: {operation: 'axtdc:SetPriorityConfiguration'}
+    params:
+      type: object
+      required: [PriorityConfiguration]
+      properties:
+        PriorityConfiguration:
+          type: array
+          items: {$ref: '#/types/PriorityConfiguration'}
+          description: List of PriorityConfiguration:s to set.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the added or updated PriorityConfiguration items.
+    errors:
+      ter:NotSupported: {description: Not allowed to modify the PriorityConfiguration., kind: unsupported}
+      ter:InvalidArgs:
+        description: 'The request is invalid (documented as: the specified token is not found).'
+        kind: invalid_argument
+  get_priority_configuration_list:
+    summary: This operation requests a list of all `PriorityConfiguration` items provided by the device.
+    description: This method must be implemented if the `PriorityConfigurationSupported` service capability is true.
+      A call to this method shall return a `StartReference` when not all data is returned and more data is available.
+      The reference shall be valid for retrieving the next set of data. The number of items returned shall not be
+      greater than `Limit` parameter.
+    effect: read
+    binding: {operation: 'axtdc:GetPriorityConfigurationList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, or higher than what the device supports,
+            the number of items shall be determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        PriorityConfiguration:
+          type: array
+          items: {$ref: '#/types/PriorityConfiguration'}
+          description: List of PriorityConfiguration items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. The client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_priority_configuration:
+    summary: This operation request a list of `PriorityConfiguration` items matching the given tokens.
+    description: The device shall ignore tokens it cannot resolve and may return an empty list if there are no items
+      matching specified tokens. If the number of requested items is greater than `MaxLimit`, a `TooManyItems` fault
+      shall be returned. This method must be implemented if the `PriorityConfigurationSupported` service capability
+      is true.
+    effect: read
+    binding: {operation: 'axtdc:GetPriorityConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of PriorityConfiguration items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        PriorityConfiguration:
+          type: array
+          items: {$ref: '#/types/PriorityConfiguration'}
+          description: List of PriorityConfiguration items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see the MaxLimit capability.
+        kind: invalid_argument
+  remove_priority_configuration:
+    summary: If supported, a call to this method shall remove the `PriorityConfiguration` items specified by the
+      given tokens.
+    description: This method must be implemented if the `PriorityConfigurationSupported` service capability is true.
+    effect: write
+    write: delete
+    binding: {operation: 'axtdc:RemovePriorityConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Token of the PriorityConfiguration items to remove.
+          minItems: 1
+    errors:
+      ter:NotSupported: {description: Not allowed to remove the PriorityConfiguration., kind: unsupported}
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+  get_door_configuration_list:
+    summary: This operation requests a list of all of `DoorConfiguration` items provided by the device.
+    effect: read
+    binding: {operation: 'axtdc:GetDoorConfigurationList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, or higher than what the device supports,
+            the number of items shall be determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        DoorConfiguration:
+          type: array
+          items: {$ref: '#/types/DoorConfiguration'}
+          description: List of DoorConfiguration items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. The client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_door_configuration:
+    summary: This operation request a list of `DoorConfiguration` items matching the given tokens.
+    description: The device shall ignore tokens it cannot resolve and may return an empty list if there are no items
+      matching specified tokens. If the number of requested items is greater than the max limit supported, a `TooManyItems`
+      fault shall be returned
+    effect: read
+    binding: {operation: 'axtdc:GetDoorConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of DoorConfiguration items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        DoorConfiguration:
+          type: array
+          items: {$ref: '#/types/DoorConfiguration'}
+          description: List of DoorConfiguration items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see the MaxLimit capability.
+        kind: invalid_argument
+  set_door_configuration:
+    summary: '`SetDoorConfiguration`, the token in the `DoorConfiguration` should refer to an existing `DoorController`.'
+    effect: write
+    write: replace
+    binding: {operation: 'axtdc:SetDoorConfiguration'}
+    params:
+      type: object
+      required: [DoorConfiguration]
+      properties:
+        DoorConfiguration:
+          type: array
+          items: {$ref: '#/types/DoorConfiguration'}
+          description: The new version of the DoorConfiguration.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the updated DoorConfiguration items.
+    errors:
+      ter:InvalidDoorConfigurationFault: {description: The DoorConfiguration is invalid., kind: invalid_argument}
+    examples:
+    - title: axtdc:SetDoorConfiguration request
+      request:
+        params:
+          DoorConfiguration:
+          - Configuration:
+            - {Name: Lock.Type, Value: RemoteIO}
+            - {Name: Lock.Hardware.Address, Value: 'remote/Axis-accc8e0c0ca1:1454410450.819540000/8'}
+            - {Name: Door.Type, Value: ElevatorFloor}
+            token: floor-token
+      response:
+        data: {Token: floor-token}
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-a-floor
+    - title: axtdc:SetDoorConfiguration request
+      request:
+        params:
+          DoorConfiguration:
+          - Configuration:
+            - {Name: Lock.Type, Value: RS485HD}
+            - {Name: Lock.Protocol, Value: AADP}
+            - {Name: Lock.Hardware.Address, Value: A0B1C2}
+            - {Name: DoorMonitor.Type, Value: RS485HD}
+            - {Name: DoorMonitor.Protocol, Value: AADP}
+            - {Name: DoorMonitor.Hardware.Address, Value: F9E8C7}
+            token: aperio_door_token
+      response:
+        data: {Token: aperio_door_token}
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-door-configuration-aperio-doors
+    - title: axtdc:SetDoorConfiguration request
+      request:
+        params:
+          DoorConfiguration:
+          - Configuration:
+            - {Name: Lock.Type, Value: TCPIP}
+            - {Name: Lock.Protocol, Value: SmartIntego}
+            - {Name: Lock.Hardware.Address, Value: '0x200'}
+            - {Name: Lock.Hardware.Id, Value: 00E4DR7}
+            - {Name: Lock.TCPIP.Address, Value: 172.25.15.123}
+            - {Name: Lock.TCPIP.Port, Value: '2101'}
+            - {Name: Lock.Hub.Hardware.Address, Value: '0x100'}
+            - {Name: DoorMonitor.Type, Value: TCPIP}
+            - {Name: DoorMonitor.Protocol, Value: SmartIntego}
+            DoorScheduleConfiguration: ''
+            token: SmartIntego_door_token
+      response:
+        data: {Token: SmartIntego_door_token}
+      source: https://developer.axis.com/vapix/physical-access-control/peripherals/#create-door-configuration-smartintego-doors
+    - title: axtdc:SetDoorConfiguration request
+      request:
+        params:
+          DoorConfiguration:
+          - DeviceUUID: ''
+            Configuration:
+            - {Name: Lock.LockWhenDoorOpens, Value: 'false'}
+            - {Name: DoorMonitor.ValueWhenOpen, Value: Input Open}
+            - {Name: DoorMonitor.ValueWhenClosed, Value: Input Ground}
+            - {Name: DoubleLock.Type, Value: None}
+            - {Name: Lock.Type, Value: Standard}
+            - {Name: Lock.ValueWhenLocked, Value: Gnd}
+            - {Name: Lock.ValueWhenUnlocked, Value: 12V}
+            - {Name: Lock.BoltOutTime, Value: '0'}
+            - {Name: Lock.BoltInTime, Value: '0'}
+      response:
+        data: {Token: 'Axis-00408c184bd9:1350969415.227159000'}
+      source: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/#examples-doors
+  remove_door_configuration:
+    summary: Remove the `DoorConfiguration` items specified by the given token.
+    description: This is normally not needed, since when removing a `DoorController`, the configuration is removed
+      as well - although it's possible to create configurations without a corresponding controller.
+    effect: write
+    write: delete
+    binding: {operation: 'axtdc:RemoveDoorConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Token of the DoorConfiguration items to remove.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+  get_door_configuration_info:
+    summary: Get the `ConfigurationInfo` for a single `Door` specified by a token.
+    effect: read
+    binding: {operation: 'axtdc:GetDoorConfigurationInfo'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          $ref: '#/types/ReferenceToken'
+          description: Token of the Door to get the ConfigurationInfo for.
+    result:
+      type: object
+      properties:
+        ConfigurationInfo:
+          type: array
+          items: {$ref: '#/types/ConfigurationInfo'}
+          description: Configuration information for the specified token.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+  set_door_schedule_configuration:
+    summary: Set `DoorScheduleConfiguration`, the token in the `DoorScheduleConfiguration` should refer to an existing
+      `DoorController`.
+    effect: write
+    write: replace
+    binding: {operation: 'axtdc:SetDoorScheduleConfiguration'}
+    params:
+      type: object
+      required: [DoorScheduleConfiguration]
+      properties:
+        DoorScheduleConfiguration:
+          type: array
+          items: {$ref: '#/types/DoorScheduleConfiguration'}
+          description: The new version of the DoorScheduleConfiguration.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the added or updated DoorScheduleConfiguration items.
+    errors:
+      ter:InvalidDoorScheduleFault: {description: The DoorScheduleConfiguration is invalid., kind: invalid_argument}
+    examples:
+    - title: axtdc:SetDoorScheduleConfiguration request
+      request:
+        params:
+          DoorScheduleConfiguration:
+          - DoorSchedule:
+            - ScheduledState:
+              - {ScheduleToken: ['Axis-00408c184bd9:1350975752.527366000'], EnterAction: Unlock}
+              - {ScheduleToken: [standard_always], EnterAction: Lock}
+            token: Axis-00408c184bd9:1350976375.337548000
+      response:
+        data: {Token: 'Axis-00408c184bd9:1350969415.227159000'}
+      source: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/#examples-doors
+  get_door_schedule_configuration_list:
+    summary: This operation requests a list of all of `DoorScheduleConfiguration` items provided by the device.
+    effect: read
+    binding: {operation: 'axtdc:GetDoorScheduleConfigurationList'}
+    params:
+      type: object
+      properties:
+        Limit:
+          type: integer
+          description: Maximum number of entries to return. If not specified, or higher than what the device supports,
+            the number of items shall be determined by the device.
+        StartReference:
+          type: string
+          description: Start returning entries from this start reference. If not specified, entries shall start
+            from the beginning of the dataset.
+    result:
+      type: object
+      properties:
+        NextStartReference:
+          type: string
+          description: StartReference to use in next call to get the following items. If absent, no more items to
+            get.
+        DoorScheduleConfiguration:
+          type: array
+          items: {$ref: '#/types/DoorScheduleConfiguration'}
+          description: List of DoorScheduleConfiguration items.
+    errors:
+      ter:InvalidStartReference:
+        description: StartReference is invalid or has timed out. The client needs to start fetching from the beginning.
+        kind: invalid_argument
+  get_door_schedule_configuration:
+    summary: This operation request a list of `DoorScheduleConfiguration` items matching the given tokens.
+    description: The device shall ignore tokens it cannot resolve and may return an empty list if there are no items
+      matching specified tokens. If the number of requested items is greater than the max limit supported, a `TooManyItems`
+      fault shall be returned
+    effect: read
+    binding: {operation: 'axtdc:GetDoorScheduleConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of DoorConfiguration items to get.
+          minItems: 1
+    result:
+      type: object
+      properties:
+        DoorScheduleConfiguration:
+          type: array
+          items: {$ref: '#/types/DoorScheduleConfiguration'}
+          description: List of DoorScheduleConfiguration items.
+    errors:
+      ter:TooManyItems:
+        description: Too many items were requested, see the MaxLimit capability.
+        kind: invalid_argument
+  remove_door_schedule_configuration:
+    summary: Remove the specified `DoorScheduleConfiguration` items.
+    effect: write
+    write: delete
+    binding: {operation: 'axtdc:RemoveDoorScheduleConfiguration'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token:
+          type: array
+          items: {$ref: '#/types/ReferenceToken'}
+          description: Tokens of the added/updated DoorScheduleConfiguration items.
+          minItems: 1
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+  access_door_without_unlock:
+    summary: This operation allows momentarily accessing a `Door`, without unlocking the door.
+    effect: action
+    binding: {operation: 'axtdc:AccessDoorWithoutUnlock'}
+    params:
+      type: object
+      required: [Token]
+      properties:
+        Token: {$ref: '#/types/ReferenceToken', description: Token of the Door instance to control.}
+        UseExtendedTime:
+          type: boolean
+          description: Optional. Indicates that the configured extended time should be used.
+        AccessTime: {type: string, description: Optional. Overrides AccessTime if specified. ISO 8601 duration.}
+        OpenTooLongTime:
+          type: string
+          description: Optional. Overrides OpenTooLongTime if specified (DOTL). ISO 8601 duration.
+        PreAlarmTime:
+          type: string
+          description: Optional. Overrides PreAlarmTime if specified. ISO 8601 duration.
+    errors:
+      ter:NotFound: {description: The specified token is not found., kind: not_found}
+      ter:Failure: {description: Failed to go to the Accessed state., kind: internal}
+
+sources:
+- url: https://developer.axis.com/vapix/physical-access-control/door-control-service/
+  sha256_md: 0688c58d04c2fcae47fae066fd898cf059d851fd0b14ee642bf22bb6989dc4ad
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/
+  sha256_md: 73fec006fdc227f8183f4216a05aca173477b48cf1322e44a7ae38faa234f806
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/event-logger-service/
+  sha256_md: df3688f4c13448b099bd1126f31cc26e1eaaae943bf21565bea22dc0dad6d998
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/peripherals/
+  sha256_md: b987b514b60e4b6de139027521eb77920b61d64debf3041eecba746d3b5488ee
+  retrieved_at: '2026-10-11'
+- url: https://developer.axis.com/vapix/physical-access-control/system-integration-examples/
+  sha256_md: e2e79ca5367f918095d6ca5dcd68e85139497cd21469b2eaf7e2569999617080
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - The access classes (PRE_AUTH, READ_SYSTEM, READ_SYSTEM_SENSITIVE, ACTUATE, WRITE_SYSTEM) are not mapped to VAPIX
+    roles. GetServiceCapabilities is access anonymous and sent with
+    auth if_challenged, so credentials go out only when the device asks for them; the API default admin is kept
+    for the rest, which are sent with credentials from the first request.
+  - The Extension request members (future extensions, types not defined on any page) are not modelled.
+  - The fields of DoorCapabilities, ServiceCapabilities and DoorState are not shown in any JSON example; their JSON
+    types follow the ONVIF definitions. Capability fields are therefore optional.
+  - The Door table lists AccessTime, OpenTooLongTime, PreAlarmTime, ExtendedAccessTime, ExtendedOpenTooLongTime,
+    HeartbeatInterval, PriorityConfiguration and DefaultPriority as available fields, but examples omit several
+    of them, so only token and Name are required. Their durations are untyped in the table; examples use ISO 8601
+    durations.
+  - The commands document the tdc/axtdc namespaces differently from the section the data structure is in (GetDoorList
+    returns tdc:Door, documented as axtdc:Door); mapped by local name.
+  - UnlockDoor and ReleaseDoor examples show the follow-up GetDoorPriorityState response next to the request; the
+    command responses are empty, so the examples use an empty response.
+  - The ter:InvalidArgs fault of SetPriorityConfiguration is documented as 'The specified token is not found'.
+  - SetDoor, SetDoorConfiguration, SetDoorScheduleConfiguration and SetPriorityConfiguration are documented as setting
+    'the new version' (and unspecified configuration options become defaults), so they are marked replace.
+  - The SetDoorConfiguration system-integration JSON examples omit token (the XML has token=""), so token is optional
+    on DoorConfiguration; one example had the typo Lock.{LockWhenDoorOpens, corrected.
+  migrated_from: v1
+  curated: true

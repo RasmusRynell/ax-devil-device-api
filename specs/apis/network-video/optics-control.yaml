@@ -1,0 +1,928 @@
+format: 2
+id: optics-control
+name: Optics Control API
+summary: 'Control zoom and focus optics: absolute and relative focus, magnification, autofocus and focus window,
+  calibration, reset, temperature and IR compensation and the IR cut filter.'
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: optics_control
+  class: OpticsControl
+docs:
+- https://developer.axis.com/vapix/network-video/optics-control/
+access: admin
+discovery:
+- api_discovery: optics-control
+binding:
+  path: /axis-cgi/opticscontrol.cgi
+  major: 1
+  versions:
+  - '1.1'
+  - '1.2'
+  negotiation:
+    get_supported_versions:
+      key: apiVersions
+  params_placement: params
+errors:
+  1100:
+    description: Internal error
+    kind: internal
+  1200:
+    description: Temperature out of range
+    kind: unavailable
+  1300:
+    description: Focus not found
+    kind: not_found
+  2100:
+    description: API version not supported
+    kind: unsupported
+  2101:
+    description: Invalid JSON
+    kind: invalid_argument
+  2102:
+    description: Method not supported
+    kind: unsupported
+  2103:
+    description: Required parameter missing
+    kind: invalid_argument
+  2104:
+    description: Invalid parameter value specified
+    kind: invalid_argument
+  2105:
+    description: Authorization failed
+    kind: access_denied
+  2106:
+    description: Authentication failed
+    kind: access_denied
+types:
+  IrCutFilterState:
+    enum:
+    - 'on'
+    - 'off'
+    - auto
+  RelativeStepType:
+    enum:
+    - +bigStep
+    - -bigStep
+    - +smallStep
+    - -smallStep
+    - numerical
+  Capability:
+    enum:
+    - focus
+    - zoom
+    - irCutFilter
+    - calibrateFocus
+    - calibrateZoom
+    - compensateTemperature
+    - compensateIr
+  Optics:
+    type: object
+    properties:
+      opticsId:
+        type: string
+        description: The optics ID.
+      focusPosition:
+        type: number
+        description: The current position of the focus shown as a value between 0 and 1.
+      focusMoving:
+        type: boolean
+        description: Shows if the focus is moving.
+      focusWindowUpperLeftX:
+        type: number
+        description: The distance from the upper left corner of the image to the upper left corner of the focus
+          window on the X-plane. Has a value between 0 and 1, with 0 being the top edge of the image and 1 being
+          the bottom.
+      focusWindowUpperLeftY:
+        type: number
+        description: The distance from the upper left corner of the image to the upper left corner of the focus
+          window on the Y-plane. Has a value between 0 and 1, with 0 being the top edge of the image and 1 being
+          the bottom.
+      focusWindowWidth:
+        type: number
+        description: The width of the focus window in a value between 0 and 1. represents the window having 100%
+          width of the image. Please note that `focusWindowUpperLeftX+focusWindowWidth` can not exceed 1.
+      focusWindowHeight:
+        type: number
+        description: The height of the focus window in a value between 0 and 1. 1 represents the window having 100%
+          height of the image. Please not that `focusWindowUpperLeftY+focusWindowHeight` can not exceed 1.
+      magnification:
+        type: number
+        description: The current magnification of the zoom lens. This is omitted if the optics doesn’t support zoom.
+      zoomMoving:
+        type: boolean
+        description: Shows if the zoom lens is moving. This is omitted if the optics doesn’t support zoom.
+      temperatureCompensation:
+        type: boolean
+        description: Shows if the temperature compensation is enabled.
+      irCutFilterState:
+        $ref: '#/types/IrCutFilterState'
+        description: 'Shows the current IRCut Filter setting. Possible vaues are: `on`: Filter is forced on. `off`:
+          Filter is forced off. `auto`: Filter state is set by software algorithms.'
+      irCompensation:
+        type: boolean
+        description: Shows if the IR compensation is enabled.
+    required:
+    - opticsId
+    description: Status of one optics unit.
+  OpticsList:
+    type: object
+    required:
+    - numberOfOptics
+    properties:
+      numberOfOptics:
+        type: integer
+        minimum: 0
+        maximum: 255
+        description: The number of optics available on the device.
+      optics:
+        type: array
+        items:
+          $ref: '#/types/Optics'
+        description: Omitted if `numberOfOptics` is zero.
+  OpticsCapabilities:
+    type: object
+    properties:
+      opticsId:
+        type: string
+        description: The optics ID.
+      capabilities:
+        type: array
+        items:
+          $ref: '#/types/Capability'
+        description: The supported capabilities.
+      maxMagnification:
+        type: number
+        description: The maximum possible magnification that can be set. Only available for devices where zoom is
+          available.
+    required:
+    - opticsId
+    description: Capabilities of one optics unit.
+  CapabilitiesList:
+    type: object
+    required:
+    - numberOfOptics
+    properties:
+      numberOfOptics:
+        type: integer
+        minimum: 0
+        maximum: 255
+        description: The number of optics available on the device.
+      optics:
+        type: array
+        items:
+          $ref: '#/types/OpticsCapabilities'
+        description: Omitted if `numberOfOptics` is zero.
+operations:
+  get_optics:
+    summary: Retrieves information about all available optics.
+    description: This method retrieves all optics along with their status and abilities.
+    access: operator
+    effect: read
+    binding:
+      method: getOptics
+    result:
+      $ref: '#/types/OpticsList'
+    examples:
+    - title: Retrieve optics information
+      request:
+        params: {}
+      response:
+        data:
+          numberOfOptics: 2
+          optics:
+          - opticsId: '0'
+            focusPosition: 0.5
+            focusMoving: false
+            focusWindowUpperLeftX: 0.3
+            focusWindowUpperLeftY: 0.2
+            focusWindowWidth: 0.4
+            focusWindowHeight: 0.5
+            magnification: 1.4
+            zoomMoving: false
+            temperatureCompensation: true
+            irCutFilterState: auto
+            irCompensation: true
+          - opticsId: '1'
+            focusPosition: 0.3
+            focusMoving: false
+            focusWindowUpperLeftX: 0.3
+            focusWindowUpperLeftY: 0.2
+            focusWindowWidth: 0.4
+            focusWindowHeight: 0.5
+            magnification: 1.6
+            zoomMoving: false
+            temperatureCompensation: true
+            irCutFilterState: auto
+            irCompensation: true
+      source: https://developer.axis.com/vapix/network-video/optics-control/#retrieve-optics-information
+    - title: Retrieve optics information (error response)
+      request:
+        params: {}
+      response:
+        error:
+          code: 1100
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#retrieve-optics-information
+  get_capabilities:
+    summary: Retrieves information about the optics capabilities.
+    description: This method retrieves the capabilities of all available optics.
+    access: operator
+    effect: read
+    binding:
+      method: getCapabilities
+    result:
+      $ref: '#/types/CapabilitiesList'
+    examples:
+    - title: Retrieve optics capabilities
+      request:
+        params: {}
+      response:
+        data:
+          numberOfOptics: 1
+          optics:
+          - opticsId: '0'
+            capabilities:
+            - focus
+            - zoom
+            - irCutFilter
+            - calibrateFocus
+            - calibrateZoom
+            - compensateTemperature
+            - compensateIr
+            maxMagnification: 2.4
+      source: https://developer.axis.com/vapix/network-video/optics-control/#retrieve-optics-capabilities
+    - title: Retrieve optics capabilities (error response)
+      request:
+        params: {}
+      response:
+        error:
+          code: 1100
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#retrieve-optics-capabilities
+  set_focus:
+    summary: Sets a focus position on one or more of the optics.
+    description: This method sets a focus position for one or more optics.
+    effect: write
+    write: patch
+    binding:
+      method: setFocus
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetFocusRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - position
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to set the focus on.
+              position:
+                type: number
+                minimum: 0
+                maximum: 1
+                description: The new focus position, a value between 0 and 1.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Set focus
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            position: 0.2
+          - opticsId: '1'
+            position: 0.3
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-focus
+    - title: Set focus (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            position: 0.2
+          - opticsId: '1'
+            position: 0.3
+      response:
+        error:
+          code: 1200
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-focus
+  set_relative_focus:
+    summary: Changes the focus relative to the current position on one or more optics.
+    description: This method changes the current focus with relative focus movement.
+    effect: write
+    write: patch
+    binding:
+      method: setRelativeFocus
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetRelativeFocusRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - type
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to change the relative focus on.
+              type:
+                $ref: '#/types/RelativeStepType'
+                description: 'The step size: +bigStep, -bigStep, +smallStep, -smallStep, or numerical to use value.'
+              value:
+                type: number
+                description: The desired offset. Used when type is numerical.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Change the focus relative to the current position
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            type: +bigStep
+          - opticsId: '1'
+            type: numerical
+            value: -0.1
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#change-the-focus-relative-to-the-current-position
+    - title: Change the focus relative to the current position (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            type: +bigStep
+          - opticsId: '1'
+            type: numerical
+            value: -0.1
+      response:
+        error:
+          code: 1100
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#change-the-focus-relative-to-the-current-position
+  set_magnification:
+    summary: Sets a magnification on one or more of the optics.
+    description: This method sets the magnification for one or more optics. Please note that this is only available
+      on products with the capability zoom. See [getCapabilities](#getcapabilities) to find out if your product
+      supports specific capabilities.
+    effect: write
+    write: patch
+    binding:
+      method: setMagnification
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetMagnificationRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - magnification
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to set magnification on.
+              magnification:
+                type: number
+                minimum: 1
+                description: The new magnification, between 1 and maxMagnification from get_capabilities.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Set magnification
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            magnification: 1.4
+          - opticsId: '1'
+            magnification: 1.5
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-magnification
+    - title: Set magnification (generic error)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            magnification: 1.4
+          - opticsId: '1'
+            magnification: 1.5
+      response:
+        error:
+          code: 1100
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-magnification
+    - title: Set magnification (error in one optics)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            magnification: 1.4
+          - opticsId: '1'
+            magnification: 1.5
+      response:
+        error:
+          code: 1100
+          message: Internal error
+          details:
+            opticsId: '0'
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-magnification
+    - title: Set magnification (errors in multiple optics)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            magnification: 1.4
+          - opticsId: '1'
+            magnification: 1.5
+      response:
+        error:
+          code: 1200
+          message: Temperature out of range
+          details:
+            opticsId: optics01
+          errors:
+          - code: 1100
+            message: Internal error
+            details:
+              opticsId: '0'
+          - code: 2104
+            message: Invalid parameter value specified
+            details:
+              opticsId: '1'
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-magnification
+  set_relative_magnification:
+    summary: Changes the magnification relative to the current position on one or more optics.
+    description: This method changes the current magnification with relative magnification movement.
+    effect: write
+    write: patch
+    binding:
+      method: setRelativeMagnification
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetRelativeMagnificationRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - type
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to change the relative magnification on.
+              type:
+                $ref: '#/types/RelativeStepType'
+                description: 'The step size: +bigStep, -bigStep, +smallStep, -smallStep, or numerical to use value.'
+              value:
+                type: number
+                description: The desired magnification offset. Used when type is numerical.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Change the magnification relative to the current position
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            type: +bigStep
+          - opticsId: '1'
+            type: numerical
+            value: -0.1
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#change-the-magnification-relative-to-the-current-position
+    - title: Change the magnification relative to the current position (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            type: +bigStep
+          - opticsId: '1'
+            type: numerical
+            value: -0.1
+      response:
+        error:
+          code: 1100
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#change-the-magnification-relative-to-the-current-position
+  calibrate:
+    summary: Calibrates the optics.
+    description: This method calibrates the optics for both zoom and focus, which is useful for optics that ended
+      up in an undefined state and needs a re-calibration. This is only available on devices where either `calibrateFocus`
+      or `calibrateZoom` is present.
+    effect: action
+    binding:
+      method: calibrate
+    params:
+      type: object
+      required:
+      - optics
+      x-name: CalibrateRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to calibrate.
+              focus:
+                type: boolean
+                description: Whether to calibrate focus. Defaults to false.
+              zoom:
+                type: boolean
+                description: Whether to calibrate zoom. Defaults to false; ignored if the device has no zoom.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Calibrate optics
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            zoom: true
+            focus: true
+          - opticsId: '1'
+            zoom: true
+            focus: true
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#calibrate-optics
+    - title: Calibrate optics (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            zoom: true
+            focus: true
+          - opticsId: '1'
+            zoom: true
+            focus: true
+      response:
+        error:
+          code: 1200
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#calibrate-optics
+  perform_autofocus:
+    summary: Starts an automatic focus search.
+    effect: action
+    binding:
+      method: performAutofocus
+    params:
+      type: object
+      required:
+      - optics
+      x-name: PerformAutofocusRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to perform autofocus on.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Perform autofocus
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+          - opticsId: '1'
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#perform-autofocus
+    - title: Perform autofocus (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+          - opticsId: '1'
+      response:
+        error:
+          code: 1300
+          message: Focus not found
+      source: https://developer.axis.com/vapix/network-video/optics-control/#perform-autofocus
+    - title: Perform autofocus (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+          - opticsId: '1'
+      response:
+        error:
+          code: 1100
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#perform-autofocus
+  reset:
+    summary: Resets the optics back to their default position.
+    description: This method resets the optics back to their default position.
+    effect: action
+    binding:
+      method: reset
+    params:
+      type: object
+      required:
+      - optics
+      x-name: ResetRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to reset.
+              focus:
+                type: boolean
+                description: Whether to reset focus. Defaults to false.
+              zoom:
+                type: boolean
+                description: Whether to reset zoom. Defaults to false; ignored if the device has no zoom.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Reset optics to the default position
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            focus: true
+            zoom: false
+          - opticsId: '1'
+            focus: true
+            zoom: false
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#reset-optics-to-the-default-position
+    - title: Reset optics to the default position (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            focus: true
+            zoom: false
+          - opticsId: '1'
+            focus: true
+            zoom: false
+      response:
+        error:
+          code: 1200
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#reset-optics-to-the-default-position
+  set_focus_window:
+    summary: Sets the window in which autofocus will optimize the focus.
+    description: This method sets the window where the automatic focus search should optimize the focus.
+    effect: write
+    write: patch
+    binding:
+      method: setFocusWindow
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetFocusWindowRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - upperLeftX
+            - upperLeftY
+            - width
+            - height
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to set the focus window on.
+              upperLeftX:
+                type: number
+                minimum: 0
+                maximum: 1
+                description: Distance from the full image upper left corner to the window upper left corner along
+                  X, a fraction of the image width between 0 and 1.
+              upperLeftY:
+                type: number
+                minimum: 0
+                maximum: 1
+                description: Distance from the full image upper left corner to the window upper left corner along
+                  Y, a fraction of the image height between 0 and 1.
+              width:
+                type: number
+                minimum: 0
+                maximum: 1
+                description: Window width, a fraction of the image width between 0 and 1. upperLeftX+width over
+                  1 is truncated.
+              height:
+                type: number
+                minimum: 0
+                maximum: 1
+                description: Window height, a fraction of the image height between 0 and 1. upperLeftY+height over
+                  1 is truncated.
+          description: The optics units to apply the change to.
+    examples:
+    - title: Set focus window
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            upperLeftX: 0.25
+            upperLeftY: 0.3
+            width: 0.5
+            height: 0.4
+          - opticsId: '1'
+            upperLeftX: 0.3
+            upperLeftY: 0.25
+            width: 0.4
+            height: 0.5
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-focus-window
+    - title: Set focus window (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            upperLeftX: 0.25
+            upperLeftY: 0.3
+            width: 0.5
+            height: 0.4
+          - opticsId: '1'
+            upperLeftX: 0.3
+            upperLeftY: 0.25
+            width: 0.4
+            height: 0.5
+      response:
+        error:
+          code: 1200
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#set-focus-window
+  set_temperature_compensation:
+    summary: Sets the state for the active temperature compensation.
+    description: This method sets the active temperature compensation that should be used. This method is only available
+      if `compensateTemperature` is true. Please note that the active focus compensation might not work as well
+      if your device has a non-standard lens.
+    effect: write
+    write: patch
+    binding:
+      method: setTemperatureCompensation
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetTemperatureCompensationRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - enable
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to set temperature compensation on.
+              enable:
+                type: boolean
+                description: Whether active temperature compensation is enabled.
+          description: The optics units to apply the change to.
+    examples: []
+  set_ir_cut_filter_state:
+    summary: Sets the state for the IRCut filter.
+    description: This method sets the desired state of the IRCut filter to either `on/off/auto`. The settings `on`
+      and `off` reflect the manual state while `auto` leaves the decision of the IRCut filter state to the software
+      algorithms.
+    access: operator
+    effect: write
+    write: patch
+    binding:
+      method: setIrCutFilterState
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetIrCutFilterStateRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - irCutFilterState
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to set the IRCut filter on.
+              irCutFilterState:
+                $ref: '#/types/IrCutFilterState'
+                description: 'on: filter forced on. off: filter forced off. auto: decided by the software algorithm.'
+          description: The optics units to apply the change to.
+    examples:
+    - title: Turn off the IRCut filter
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            irCutFilterState: 'off'
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/optics-control/#turn-off-the-ircut-filter
+    - title: Turn off the IRCut filter (error response)
+      request:
+        params:
+          optics:
+          - opticsId: '0'
+            irCutFilterState: 'off'
+      response:
+        error:
+          code: 1200
+          message: Internal error
+      source: https://developer.axis.com/vapix/network-video/optics-control/#turn-off-the-ircut-filter
+  set_ir_compensation:
+    summary: Sets the state for the active IR compensation.
+    description: This method decides if IR compensation should be used.
+    effect: write
+    write: patch
+    binding:
+      method: setIrCompensation
+    params:
+      type: object
+      required:
+      - optics
+      x-name: SetIrCompensationRequest
+      properties:
+        optics:
+          type: array
+          items:
+            type: object
+            required:
+            - opticsId
+            - enable
+            properties:
+              opticsId:
+                type: string
+                description: The optics ID to set the IR compensation on.
+              enable:
+                type: boolean
+                description: Whether active IR compensation is enabled.
+          description: The optics units to apply the change to.
+    examples: []
+sources:
+- url: https://developer.axis.com/vapix/network-video/optics-control/
+  sha256_md: c1515730a05638e4dfe1735d1d9da54c6cef91b84881ab1940a1ce534a883bca
+  retrieved_at: '2026-10-11'
+provenance:
+  completeness: complete
+  open_questions:
+  - 'https://developer.axis.com/vapix/network-video/optics-control/#model: method table lists performAutoFocus and
+    getSupportedVersion; API specification uses performAutofocus and getSupportedVersions.'
+  - Tables use opticsID while syntax and examples use opticsId (wire name likely opticsId).
+  - Request syntax templates omit a comma after "method" (doc typo).
+  - Examples use apiVersion 1.1 while Identification says API version 1.2; syntax shows apiVersion "<Major>".
+  - 'https://developer.axis.com/vapix/network-video/optics-control/#setircompensation: enable description says "active
+    temperature compensation" (copy-paste from setTemperatureCompensation).'
+  - The setFocusWindow example misspells upperLeftX as upperLeftx for the second optics; the spec example uses upperLeftX.
+  - The parameter and response tables name the field opticsID, while the request syntax and all examples use opticsId;
+    opticsId is used.
+  - 'Versions: Identification states API version 1.2 while the examples use 1.1; both are listed and no operation
+    is gated.'
+  - The method table lists performAutoFocus and getSupportedVersion; the specification sections and examples use
+    performAutofocus and getSupportedVersions.
+  - The docs do not say whether the calls are idempotent or whether focus and magnification calls block until the
+    movement ends; get_optics shows focusMoving and zoomMoving.
+  - Fields of get_optics items other than opticsId are not stated to be always present, and are optional.
+  migrated_from: v1
+  curated: true

@@ -1,0 +1,89 @@
+format: 2
+id: ssh
+name: SSH
+summary: Retrieve and configure (enable/disable) the SSH function on an Axis device.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: ssh
+  class: Ssh
+docs:
+- https://developer.axis.com/vapix/network-video/ssh/
+access: admin
+discovery:
+- {api_discovery: ssh}
+
+binding:
+  path: /axis-cgi/ssh.cgi
+  major: 1
+  versions: ['1.0']
+  negotiation:
+    get_supported_versions: {key: apiVersions}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error, kind: internal}
+  2000: {description: Invalid request, kind: invalid_argument}
+  2001: {description: Request body too large, kind: invalid_argument}
+  3000: {description: Invalid JSON data, kind: invalid_argument}
+  4000: {description: Method does not exist, kind: not_found}
+  4001: {description: The specified version is not supported, kind: unsupported}
+  4002: {description: Authorization failed, kind: access_denied}
+  4003: {description: Missing parameter(s), kind: invalid_argument}
+  4004: {description: Invalid parameter(s), kind: invalid_argument}
+
+types:
+  SshInfo:
+    type: object
+    description: State of the SSH functionality.
+    required: [enabled]
+    properties:
+      enabled: {type: boolean, description: "``true``: SSH is enabled and running. ``false``: disabled and not running."}
+
+operations:
+  get_ssh_info:
+    summary: Retrieve the SSH configuration (enabled/disabled).
+    effect: read
+    binding: {method: getSshInfo}
+    result: {$ref: "#/types/SshInfo"}
+    examples:
+    - title: Retrieve the SSH configuration
+      request:
+        params: {}
+      response:
+        data: {enabled: true}
+      source: https://developer.axis.com/vapix/network-video/ssh/#configure-the-ssh-functionality-on-the-axis-device
+  set_ssh_configuration:
+    summary: Enable or disable the SSH functionality.
+    effect: write
+    write: patch
+    binding: {method: setSshConfiguration}
+    params:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: {type: boolean, description: "Desired state. ``true``: enabled and running. ``false``: disabled and not running."}
+    positional: [enabled]
+    examples:
+    - title: Enable SSH
+      request:
+        params: {enabled: true}
+      response:
+        data: {}
+      source: https://developer.axis.com/vapix/network-video/ssh/#configure-the-ssh-functionality-on-the-axis-device
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/ssh/
+  sha256_md: 750387e64a2b2a78f674a769bd7377072bd2cb0acfd3e757c5ac1a60930abe9d
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - getSupportedVersions failure example shows error code 8000 'Internal error', which is not in the general error
+    table (1000 = Internal error).
+  - Model table says setSshConfiguration sets the state 'to enabled', but params.enabled also accepts false.
+  - AXIS OS minimum version and the param.cgi parameter name being obsoleted are not stated.
+  migrated_from: v1
+  curated: true

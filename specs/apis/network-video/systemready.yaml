@@ -1,0 +1,97 @@
+format: 2
+id: systemready
+name: Systemready API
+summary: Find out, without authentication, whether the device is ready to handle external communication, configuration
+  and video streaming.
+section: network-video
+family: jsonrpc
+status: released
+python:
+  module: systemready
+  class: Systemready
+docs:
+- https://developer.axis.com/vapix/network-video/systemready-api/
+access: anonymous
+discovery:
+- {api_discovery: systemready}
+requires:
+  firmware: '9.50'
+
+binding:
+  path: /axis-cgi/systemready.cgi
+  major: 1
+  versions: ['1.0', '1.1', '1.4']
+  auth: if_challenged
+  negotiation:
+    get_supported_versions: {key: apiVersions, auth: if_challenged}
+  params_placement: params
+
+errors:
+  1000: {description: Internal error. Refer to message field or logs., kind: internal}
+  9000: {description: Internal error., kind: internal}
+
+operations:
+  systemready:
+    summary: Check if the system is ready for operation.
+    effect: read
+    binding: {method: systemready}
+    params:
+      type: object
+      properties:
+        timeout:
+          type: integer
+          minimum: 0
+          description: Maximum time in seconds the call waits for the system to become ready before answering.
+    result:
+      type: object
+      required: [systemready, needsetup]
+      properties:
+        systemready: {type: string, enum: ['yes', 'no']}
+        needsetup: {type: string, enum: ['yes', 'no']}
+        uptime: {type: string, description: 'Seconds since boot, as a string.'}
+        bootid: {type: string}
+        previewmode:
+          type: string
+          description: Preview mode duration in seconds; only present when preview mode is enabled.
+        passphrasepolicy: {type: string, enum: [none, length, complex]}
+    examples:
+    - title: Check if the system is ready (timeout 20 s)
+      request:
+        params: {timeout: 20}
+      response:
+        data:
+          systemready: 'yes'
+          needsetup: 'no'
+          uptime: '7800'
+          bootid: ebe1fa05-2ff7-4062-874c-68a466a9eaed
+          passphrasepolicy: length
+      source: https://developer.axis.com/vapix/network-video/systemready-api/#how-to-use-systemready
+    - title: Ready, with preview mode active
+      request:
+        params: {timeout: 20}
+      response:
+        data:
+          systemready: 'yes'
+          needsetup: 'no'
+          uptime: '120'
+          bootid: ebe1fa05-2ff7-4062-874c-68a466a9eaed
+          previewmode: '7200'
+          passphrasepolicy: length
+      source: https://developer.axis.com/vapix/network-video/systemready-api/#how-to-use-systemready
+
+sources:
+- url: https://developer.axis.com/vapix/network-video/systemready-api/
+  sha256_md: b4898ad8914064e90dd21535b782a3a35792766ef80c941e6ad4759b326eebce
+  retrieved_at: '2026-10-11'
+
+provenance:
+  completeness: complete
+  open_questions:
+  - timeout parameter table says 'Valid responses are either yes or no' which is a copy of the systemready field
+    description; the range and default of timeout, and whether it is required, are not documented (treated as optional integer seconds).
+  - Version history not documented; the example request uses apiVersion 1.1 but the response reports 1.4. Which
+    version introduced previewmode/passphrasepolicy is unstated.
+  - uptime/previewmode are documented as seconds but returned as JSON strings.
+  - Page says 'without authentication' but curl examples pass --anyauth --user.
+  migrated_from: v1
+  curated: true
