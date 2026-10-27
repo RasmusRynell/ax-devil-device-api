@@ -1,6 +1,6 @@
 ---
 name: ax-devil-device-api
-description: 'Use the ax-devil-device-api Python package and its `ax-devil` command (1.0 rewrite, httpx and pydantic) to talk to Axis devices over VAPIX. Use when asked to write or review Python code with Device or AsyncDevice, call any generated VAPIX API (MQTT, parameters, PTZ, media, events, audio, ...), read or update param.cgi parameters, stream media or events, upload files, build RTSP URLs, check what a device supports (identity, capabilities, API versions), handle device errors, retry or time out calls, unit-test camera code with MockCamera, run the ax-devil CLI, or maintain the specs and generated code (specs/apis, codegen).'
+description: 'Use the ax-devil-device-api Python package and its `ax-devil-device-api` command (1.0 rewrite, httpx and pydantic) to talk to Axis devices over VAPIX. Use when asked to write or review Python code with Device or AsyncDevice, call any generated VAPIX API (MQTT, parameters, PTZ, media, events, audio, ...), read or update param.cgi parameters, stream media or events, upload files, build RTSP URLs, check what a device supports (identity, capabilities, API versions), handle device errors, retry or time out calls, unit-test camera code with MockCamera, run the ax-devil-device-api CLI, or maintain the specs and generated code (specs/apis, codegen).'
 ---
 
 # ax-devil-device-api
@@ -8,8 +8,8 @@ description: 'Use the ax-devil-device-api Python package and its `ax-devil` comm
 Python client for Axis devices (VAPIX). Sync (`Device`) and async (`AsyncDevice`) share one code base. Almost all of it is generated from YAML specs.
 
 **Package**: `ax-devil-device-api`. Python 3.11+. Runtime dependencies: `httpx`, `httpx-ws`, `pydantic`.
-**CLI**: `ax-devil` (argparse, JSON output). `ax-devil apis`, `ax-devil ops <api>`, `ax-devil call <api> <op> key=value`, `snapshot`, `summary`, `supported`. The old 0.x `ax-devil-device-api <command>` CLI no longer exists.
-**Status**: pre-release rewrite. 208 generated APIs (`dev.apis.<name>`) over the families jsonrpc, dca, cgi, service_json, soap, rest, WebSocket sessions, streams and RTSP URLs. Every operation is `docs-only`: written from the documentation, not yet verified on hardware. Say so when a user depends on one, and never invent a method: list what exists with `ax-devil apis` / `ax-devil ops <api>` or `docs/api_surface.txt`.
+**CLI**: `ax-devil-device-api` (argparse, JSON output). `ax-devil-device-api apis`, `ax-devil-device-api ops <api>`, `ax-devil-device-api call <api> <op> key=value`, `snapshot`, `summary`, `supported`. The old 0.x subcommands no longer exist.
+**Status**: pre-release rewrite. 208 generated APIs (`dev.apis.<name>`) over the families jsonrpc, dca, cgi, service_json, soap, rest, WebSocket sessions, streams and RTSP URLs. Every operation is `docs-only`: written from the documentation, not yet verified on hardware. Say so when a user depends on one, and never invent a method: list what exists with `ax-devil-device-api apis` / `ax-devil-device-api ops <api>` or `docs/api_surface.txt`.
 
 ## Before writing code that talks to a device
 
@@ -51,17 +51,17 @@ Async is the same with `AsyncDevice`, `async with`, and `await` on every call (`
 
 | Task | Use |
 |---|---|
-| Which APIs / operations exist? | `ax-devil apis`, `ax-devil ops <api>`, `docs/api_surface.txt` |
+| Which APIs / operations exist? | `ax-devil-device-api apis`, `ax-devil-device-api ops <api>`, `docs/api_surface.txt` |
 | Model, serial number, firmware; health check | `dev.identity()` / `dev.identity(refresh=True)` |
-| Does this camera offer an API? | `dev.supports(MqttClientApi)` returns a `SupportResult` (truthy only for YES); `ax-devil supported` for all (JSON `{"apis", "errors"}`; exit 1 when discovery cannot reach the device) |
+| Does this camera offer an API? | `dev.supports(MqttClientApi)` returns a `SupportResult` (truthy only for YES); `ax-devil-device-api supported` for all (JSON `{"apis", "errors"}`; exit 1 when discovery cannot reach the device) |
 | What does the camera advertise? | `dev.capabilities()`, `features.device_summary(dev)` |
-| One JPEG | `features.snapshot(dev, resolution="640x480")` or `ax-devil snapshot -o img.jpg` |
+| One JPEG | `features.snapshot(dev, resolution="640x480")` or `ax-devil-device-api snapshot -o img.jpg` |
 | Download or watch a long body | a stream operation, e.g. `with dev.apis.media_stream.get_media_stream(container="mp4") as s:` |
 | Live events over WebSocket | `with dev.apis.event_streaming_ws.connect([EventFilter(...)]) as session:` |
 | Upload a file | pass `bytes`, a `Path` or `Upload(stream, size)` to the upload argument |
 | RTSP URL | `dev.rtsp_url(MediaStream(...))` or a generated `*_url` method; hand it to a media library |
 | Read or change `param.cgi` parameters | `dev.apis.parameter_management` |
-| Run any operation from a shell | `ax-devil call <api> <op> key=value` |
+| Run any operation from a shell | `ax-devil-device-api call <api> <op> key=value` |
 | Per-call timeout or retry policy | `request_options=RequestOptions(timeout=..., retry=...)` |
 | Forget cached facts after a reboot or firmware upgrade | `dev.refresh()` |
 | Test your own code without a camera | `ax_devil_device_api.testing.MockCamera` |

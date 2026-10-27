@@ -48,8 +48,10 @@ def test_call_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     cam = MockCamera()
     code, _, err = run(monkeypatch, cam, "call", "nope", "x")
     assert code == 2 and "unknown API" in err
+    assert "see `ax-devil-device-api apis`" in err
     code, _, err = run(monkeypatch, cam, "call", "mqtt_client", "nope")
     assert code == 2 and "unknown operation" in err
+    assert "see `ax-devil-device-api ops mqtt_client`" in err
     code, _, err = run(monkeypatch, cam, "call", "mqtt_client", "configure_client", "bogus=1")
     assert code == 2 and "InvalidParameters" in err
 
@@ -124,6 +126,11 @@ def test_argument_errors_are_json_on_injected_stderr(monkeypatch: pytest.MonkeyP
         code, out, err = run(monkeypatch, None, *argv)
         assert code == 2 and out == ""
         assert json.loads(err)["error"]["type"] == "UsageError"
+        assert "see `ax-devil-device-api" in json.loads(err)["error"]["message"]
+
+
+def test_help_uses_sdk_command() -> None:
+    assert cli.build_parser().format_help().startswith("usage: ax-devil-device-api ")
 
 
 def test_snapshot_refuses_terminal_before_writing(monkeypatch: pytest.MonkeyPatch) -> None:

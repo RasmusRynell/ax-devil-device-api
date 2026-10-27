@@ -1,6 +1,6 @@
 # ax-devil-device-api 1.0 design
 
-Status: implemented. The runtime, the spec format and generator (`codegen/`), 208 generated API modules (`src/ax_devil_device_api/apis/`), the protocol families below, WebSocket sessions, streams, uploads, RTSP URLs, the hand-written `features/` layer and the `ax-devil` command line all exist and are covered by tests. Not done: live conformance against real devices (no operation is `verified` yet), import-linter enforcement of the layer rules, and the external doc monitor. Replaces the 0.x code entirely; no backwards compatibility. Items marked *(planned)* do not exist in the repository; everything else describes code in this repository.
+Status: implemented. The runtime, the spec format and generator (`codegen/`), 208 generated API modules (`src/ax_devil_device_api/apis/`), the protocol families below, WebSocket sessions, streams, uploads, RTSP URLs, the hand-written `features/` layer and the `ax-devil-device-api` command line all exist and are covered by tests. Not done: live conformance against real devices (no operation is `verified` yet), import-linter enforcement of the layer rules, and the external doc monitor. Replaces the 0.x code entirely; no backwards compatibility. Items marked *(planned)* do not exist in the repository; everything else describes code in this repository.
 
 ## 1. Goals
 
@@ -47,7 +47,7 @@ VAPIX docs ──monitor (external, not in this repo)──▶ specs/apis/<secti
    _runtime/    driver (sync/async flow drivers, stream results, retries), capabilities (identity, probes, support),
                 ws (sessions), ws_codecs (message codecs)
    features/    hand-written convenience built only on generated APIs: snapshot, device summary, API registry
-   cli/         argparse command line `ax-devil`: generic `call`, `apis` and `ops` driven by the generated modules,
+    cli/         argparse command line `ax-devil-device-api`: generic `call`, `apis` and `ops` driven by the generated modules,
                 plus `snapshot`, `summary` and `supported`
 ```
 
@@ -374,7 +374,7 @@ For DCA APIs, importing the device-served `openapi.json` / model to report diffe
 - `api_support(dev)` / `supported_apis(dev)` (and async variants): `SupportResult` for every generated API, or the names the device positively offers. All results come from one capability snapshot (`Device.supports_many`), so a failing probe runs once, not once per API.
 - `load_all()`, `load_api(name)`, `api_names()` (`features/registry.py`): the generated API modules as `ApiEntry` values (name, `ApiInfo`, operations, sync and async classes).
 
-`cli/` is the `ax-devil` command (argparse, no extra dependencies; entry point `ax_devil_device_api.cli:main`). Output is JSON on stdout, errors are JSON on stderr with exit code 1 (device or OS error) or 2 (usage or invalid parameters). Connection options (`--host`, `--user`, `--password`, `--port`, `--http`, `--insecure`, `--ca-bundle`, `--base-path`, `--timeout`) default to `$AX_DEVIL_HOST`, `$AX_DEVIL_USER` / `$CAM_USER` and `$AX_DEVIL_PASSWORD` / `$CAM_PASS`. Commands:
+`cli/` is the `ax-devil-device-api` command (argparse, no extra dependencies; entry point `ax_devil_device_api.cli:main`). Output is JSON on stdout, errors are JSON on stderr with exit code 1 (device or OS error) or 2 (usage or invalid parameters). Connection options (`--host`, `--user`, `--password`, `--port`, `--http`, `--insecure`, `--ca-bundle`, `--base-path`, `--timeout`) default to `$AX_DEVIL_HOST`, `$AX_DEVIL_USER` / `$CAM_USER` and `$AX_DEVIL_PASSWORD` / `$CAM_PASS`. Commands:
 
 | Command | Needs a device | What it does |
 |---|---|---|

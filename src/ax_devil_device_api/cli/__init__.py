@@ -1,4 +1,4 @@
-"""Command line: ``ax-devil [connection options] <command>``.
+"""Command line: ``ax-devil-device-api [connection options] <command>``.
 
 ``call <api> <op> [key=value ...]`` runs any operation of any generated API;
 ``apis`` and ``ops`` list what exists (read from the generated modules);
@@ -157,7 +157,7 @@ def _arg(check: Callable[[Any], Any], kind: type) -> Callable[[str], Any]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = _Parser(prog="ax-devil", description="Call VAPIX APIs of an Axis device. Output is JSON.")
+    parser = _Parser(prog="ax-devil-device-api", description="Call VAPIX APIs of an Axis device. Output is JSON.")
     conn = parser.add_argument_group(
         "connection", f"host, user and password default to ${ENV_HOST}, ${ENV_USER[0]} (or $CAM_USER) and ${ENV_PASSWORD[0]} (or $CAM_PASS)"
     )
@@ -234,7 +234,7 @@ def _entry(name: str) -> ApiEntry:
     try:
         return load_api(name)
     except KeyError:
-        raise CliError(f"unknown API {name!r}; see `ax-devil apis`") from None
+        raise CliError(f"unknown API {name!r}; see `ax-devil-device-api apis`") from None
 
 
 def parse_value(text: str) -> Any:
@@ -456,7 +456,7 @@ def _cmd_call(args: argparse.Namespace, out: TextIO) -> None:
     entry = _entry(args.api)
     op = entry.operations.get(args.op)
     if op is None:
-        raise CliError(f"unknown operation {args.op!r} of {args.api}; see `ax-devil ops {args.api}`")
+        raise CliError(f"unknown operation {args.op!r} of {args.api}; see `ax-devil-device-api ops {args.api}`")
     params = parse_params(args.args, args.json_args, op)
     with make_device(args) as dev:
         if isinstance(op.binding, RtspBinding):

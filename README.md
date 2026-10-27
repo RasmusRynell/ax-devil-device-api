@@ -39,7 +39,7 @@ uv add ax-devil-device-api --prerelease=allow
 pip install --pre ax-devil-device-api
 ```
 
-This also installs the `ax-devil` command. SOCKS proxies (`socks5://...`) need the optional extra: `pip install 'ax-devil-device-api[socks]'`.
+This also installs the `ax-devil-device-api` command. SOCKS proxies (`socks5://...`) need the optional extra: `pip install 'ax-devil-device-api[socks]'`.
 
 ## Quick start
 
@@ -80,8 +80,8 @@ HTTPS is the default. Plain HTTP must be enabled explicitly (see [Configuration]
 Every API is an attribute of `dev.apis`; sync and async have the same names. The module, class and method names come from the spec (`mqtt-client` becomes `dev.apis.mqtt_client` with `MqttClientApi` / `AsyncMqttClientApi`). Find what exists with the command line or in code:
 
 ```bash
-ax-devil apis              # all generated APIs with family and operation count
-ax-devil ops mqtt_client   # operations, access level, effect and parameters of one API
+ax-devil-device-api apis              # all generated APIs with family and operation count
+ax-devil-device-api ops mqtt_client   # operations, access level, effect and parameters of one API
 ```
 
 [docs/api_surface.txt](docs/api_surface.txt) lists every public name and signature. Method docstrings state the access level, whether a write replaces the whole configuration and which API version added a field.
@@ -281,21 +281,21 @@ support = api_support(dev)                      # SupportResult for every genera
 ## Command line
 
 ```bash
-ax-devil --help
-ax-devil apis                                  # list generated APIs (no device needed)
-ax-devil ops mqtt_client                       # operations and parameters of one API (no device needed)
+ax-devil-device-api --help
+ax-devil-device-api apis                                  # list generated APIs (no device needed)
+ax-devil-device-api ops mqtt_client                       # operations and parameters of one API (no device needed)
 
 export AX_DEVIL_HOST=192.168.0.90 AX_DEVIL_USER=root AX_DEVIL_PASSWORD=pass
-ax-devil summary                               # identity and discovery summary
-ax-devil supported                             # {"apis": status of every generated API, "errors": failed probes}; exit 1 if the device cannot be reached
-ax-devil call mqtt_client get_client_status
-ax-devil call parameter_management list group='["Brand.ProdNbr"]'
-ax-devil call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4
-ax-devil call application_api upload_application package=@app.eap   # a file for an upload parameter
-ax-devil snapshot --resolution 640x480 -o snapshot.jpg
+ax-devil-device-api summary                               # identity and discovery summary
+ax-devil-device-api supported                             # {"apis": status of every generated API, "errors": failed probes}; exit 1 if the device cannot be reached
+ax-devil-device-api call mqtt_client get_client_status
+ax-devil-device-api call parameter_management list group='["Brand.ProdNbr"]'
+ax-devil-device-api call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4
+ax-devil-device-api call application_api upload_application package=@app.eap   # a file for an upload parameter
+ax-devil-device-api snapshot --resolution 640x480 -o snapshot.jpg
 ```
 
-Connection options: `--host`, `--user`, `--password`, `--port`, `--http`, `--insecure`, `--ca-bundle`, `--base-path`, `--timeout`. Host, user and password default to `$AX_DEVIL_HOST`, `$AX_DEVIL_USER` (or `$CAM_USER`) and `$AX_DEVIL_PASSWORD` (or `$CAM_PASS`); prefer the environment to `--password`, which shows up in process lists. Output is JSON on stdout (`call --output FILE` writes JSON results, line streams, RTSP URLs and binary results to a file; `-` is stdout). Errors are JSON on stderr with exit code 1 (device or OS error) or 2 (usage or invalid parameters). `call` parses `key=value` values as JSON and falls back to strings; use `--json '{...}'` or `--json @file` for larger parameter sets. For a parameter typed as an upload source (`ax-devil ops <api>` marks it `"upload": true`), `key=@path` sends that file, with its size and name; any other parameter never interprets a leading `@` (a string keeps it as text, a number or list with one is a usage error). `call` runs any operation of any generated API, so new specs are available on the command line as soon as they are generated.
+Connection options: `--host`, `--user`, `--password`, `--port`, `--http`, `--insecure`, `--ca-bundle`, `--base-path`, `--timeout`. Host, user and password default to `$AX_DEVIL_HOST`, `$AX_DEVIL_USER` (or `$CAM_USER`) and `$AX_DEVIL_PASSWORD` (or `$CAM_PASS`); prefer the environment to `--password`, which shows up in process lists. Output is JSON on stdout (`call --output FILE` writes JSON results, line streams, RTSP URLs and binary results to a file; `-` is stdout). Errors are JSON on stderr with exit code 1 (device or OS error) or 2 (usage or invalid parameters). `call` parses `key=value` values as JSON and falls back to strings; use `--json '{...}'` or `--json @file` for larger parameter sets. For a parameter typed as an upload source (`ax-devil-device-api ops <api>` marks it `"upload": true`), `key=@path` sends that file, with its size and name; any other parameter never interprets a leading `@` (a string keeps it as text, a number or list with one is a usage error). `call` runs any operation of any generated API, so new specs are available on the command line as soon as they are generated.
 
 ## Protocol families
 

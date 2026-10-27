@@ -54,7 +54,7 @@ elif result.status is Support.UNKNOWN:
 
 ## Available APIs
 
-`dev.apis.<name>` exists for each of the 208 generated APIs. Find them with `ax-devil apis` (name, API id, title, family, operation count) and their operations with `ax-devil ops <name>`, or read `docs/api_surface.txt`. Examples: `mqtt_client` (JSON-RPC), `analytics_mqtt` (Device Configuration), `parameter_management` (classic `param.cgi`: `list`, `list_definitions`, `update`, `add`, `remove`), `video_streaming` (JPEG and MJPEG), `media_stream`, `event_streaming_ws`, `application_api`.
+`dev.apis.<name>` exists for each of the 208 generated APIs. Find them with `ax-devil-device-api apis` (name, API id, title, family, operation count) and their operations with `ax-devil-device-api ops <name>`, or read `docs/api_surface.txt`. Examples: `mqtt_client` (JSON-RPC), `analytics_mqtt` (Device Configuration), `parameter_management` (classic `param.cgi`: `list`, `list_definitions`, `update`, `add`, `remove`), `video_streaming` (JPEG and MJPEG), `media_stream`, `event_streaming_ws`, `application_api`.
 
 Each module also holds the models, `INFO` (static API description: id, family, major version, discovery entries, error table) and `OPS` (operation descriptors with `effect`, `access`, `write`, `support`). Class names are `<Name>Api` / `Async<Name>Api`. Method docstrings state the access level, whether a write replaces the whole configuration, and version requirements. Operation `support` is `docs-only` for every operation: none has been verified on hardware.
 
@@ -208,15 +208,15 @@ Generated RTSP methods (for example `stream_casing_events_url`) take `port=None,
 ## Command line
 
 ```bash
-ax-devil apis                          # no device needed
-ax-devil ops mqtt_client               # no device needed
+ax-devil-device-api apis                          # no device needed
+ax-devil-device-api ops mqtt_client               # no device needed
 export AX_DEVIL_HOST=192.0.2.10 AX_DEVIL_USER=root AX_DEVIL_PASSWORD=pass   # or CAM_USER / CAM_PASS
-ax-devil summary
-ax-devil supported                  # {"apis": ..., "errors": [...]}; exit 1 if the device is unreachable
-ax-devil call mqtt_client get_client_status
-ax-devil call parameter_management list group='["Brand.ProdNbr"]'
-ax-devil call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4
-ax-devil snapshot --resolution 640x480 -o snapshot.jpg
+ax-devil-device-api summary
+ax-devil-device-api supported                  # {"apis": ..., "errors": [...]}; exit 1 if the device is unreachable
+ax-devil-device-api call mqtt_client get_client_status
+ax-devil-device-api call parameter_management list group='["Brand.ProdNbr"]'
+ax-devil-device-api call media_stream get_media_stream container=mp4 --limit 100 -o clip.mp4
+ax-devil-device-api snapshot --resolution 640x480 -o snapshot.jpg
 ```
 
 Connection options: `--host/-H`, `--user/-u`, `--password/-p` (prefer the environment), `--port`, `--http`, `--insecure/-k`, `--ca-bundle`, `--base-path`, `--timeout`. `call` takes `key=value` (JSON, else string), `--json '{...}'` or `--json @file`, `--output/-o FILE` for binary results and streams, `--limit N` for streams. Output is JSON on stdout; errors are JSON on stderr, exit code 1 for device or OS errors and 2 for usage or invalid parameters.
